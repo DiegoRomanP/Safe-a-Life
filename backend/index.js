@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import 'dotenv/config'
+import { supabase } from './config/supabase.js'
 
 const app = express()
 app.use(cors())
