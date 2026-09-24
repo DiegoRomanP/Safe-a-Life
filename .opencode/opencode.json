@@ -1,0 +1,24 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "share": "disabled",
+  "snapshot": true,
+  "compaction": {
+    "auto": true,
+    "tail_turns": 15
+  },
+  "mcp": {
+    "firecrawl": {
+      "type": "remote",
+      "url": "https://mcp.firecrawl.dev/v2/mcp",
+      "headers": {
+        "Authorization": "Bearer {env:FIRECRAWL_API_KEY}"
+      },
+      "enabled": true
+    },
+    "penpot": {
+      "type": "remote",
+      "enabled": true,
+      "url": "https://design.penpot.app/mcp/stream?userToken=eyJhbGciOiJBMjU2S1ciLCJlbmMiOiJBMjU2R0NNIn0.hUHC6JQasKd9uATHwtCegF2HDioFphilQRigB268L_aPVH27IsCy6g.oqCMb-2MXcrArvAs.Dqj6sLd8X8EDWr1pAEGIWuXzPWeTgMUJ5BEdqbhgJQI35OVdyNUOkN-wWh_Us3X6Dg5mbNI_gH-FoweDBT808AV4KZUtu3ZvfevT8JKFhc7mgFCX2T_i1jNJ4Eq-KPJ-KKJ1FJFiaKx-Rmq50zmgMBsOSNDlRNnA0-GmCORSMxZmeO5ItY6_EnPSjYPGJkAWRG17WjDe8FQLpEtlwe-ruY4.lmFR3WYw8OhUOhkovl6mqg"
+    }
+  }
+}

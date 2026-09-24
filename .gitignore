@@ -3,6 +3,7 @@ node_modules/
 
 # Variables de entorno (claves secretas)
 .env
+<<<<<<< HEAD
 .env.local
 .env.*.local
 
@@ -18,3 +19,7 @@ pnpm-debug.log*
 # Editor / OS
 .DS_Store
 *.bak
+=======
+
+.serena
+>>>>>>> 84b2040 (docs: Essential docs that the project need to update)
