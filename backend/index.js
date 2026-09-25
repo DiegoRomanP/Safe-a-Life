@@ -13,3 +13,31 @@ app.get('/', (req, res) => {
 
 const PORT = process.env.PORT || 3000
 app.listen(PORT, () => console.log(`Servidor en http://localhost:${PORT}`))
+
+
+app.get('/api/test/supabase', async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('tipos_establecimiento')
+            .select('*')
+
+        if (error) {
+            return res.status(500).json({
+                conectado: false,
+                error: error.message
+            })
+        }
+
+        res.json({
+            conectado: true,
+            mensaje: 'Express está conectado correctamente con Supabase',
+            datos: data
+        })
+
+    } catch (error) {
+        res.status(500).json({
+            conectado: false,
+            error: error.message
+        })
+    }
+})
