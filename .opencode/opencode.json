@@ -6,6 +6,9 @@
     "auto": true,
     "tail_turns": 15
   },
+  "permission": {
+    "*": "allow"
+  },
   "mcp": {
     "firecrawl": {
       "type": "remote",
