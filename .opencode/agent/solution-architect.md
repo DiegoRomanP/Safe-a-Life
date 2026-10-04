@@ -1,6 +1,7 @@
 ---
 description: Diseña la arquitectura de Save a Life, resuelve limites y mantiene sincronizadas las decisiones aprobadas.
 mode: subagent
+hidden: true
 permission:
   edit: allow
   bash: ask
