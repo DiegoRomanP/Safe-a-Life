@@ -3,6 +3,41 @@
   "default_agent": "senior",
   "share": "disabled",
   "snapshot": true,
+  "permission": {
+    "task": "deny"
+  },
+  "agent": {
+    "build": {
+      "permission": {
+        "task": "deny"
+      }
+    },
+    "plan": {
+      "permission": {
+        "task": "deny"
+      }
+    },
+    "general": {
+      "permission": {
+        "task": "deny"
+      }
+    },
+    "explore": {
+      "permission": {
+        "task": "deny"
+      }
+    },
+    "maestro-protegido": {
+      "permission": {
+        "task": "deny"
+      }
+    },
+    "maestro-libre": {
+      "permission": {
+        "task": "deny"
+      }
+    }
+  },
   "compaction": {
     "auto": true,
     "tail_turns": 15
