@@ -1,0 +1,211 @@
+meta {
+  name: Lista historial de lotes y conteos de entrega
+  type: http
+  seq: 5
+  tags: [
+    Hospital
+  ]
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/:needId/invitation-batches
+  body: none
+  auth: inherit
+}
+
+params:query {
+  @description('Límite por página propuesto; el máximo debe aplicarse también en servidor.')
+  limit: 20
+  @description('Cursor opaco devuelto por la página anterior; no contiene PII.')
+  ~cursor:
+}
+
+params:path {
+  @description('UUID de necesidad; la autorización también verifica hospital propietario.')
+  needId: 4c117ef2-3ebd-43f2-8629-c06d5c8df68f
+}
+
+example {
+  name: 200 Response
+  description: Lotes de la necesidad propia; sin email ni identidad de candidatos.
+
+  request: {
+    url: {{baseUrl}}/api/v1/hospitals/me/needs/:needId/invitation-batches
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+    }
+
+    params:path: {
+      needId:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "items": [
+              {
+                "batchId": "e2eaec30-1f23-40c7-b986-21395b46a531",
+                "createdAt": "2026-10-01T18:00:00Z",
+                "createdInvitationCount": 8,
+                "deliveryCounts": {
+                  "pendiente": 0,
+                  "enviada": 8,
+                  "entregada": 6,
+                  "fallida": 0
+                }
+              }
+            ],
+            "pagination": {
+              "nextCursor": null
+            }
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 401 Response
+  description: Autenticación ausente, inválida o vencida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/hospitals/me/needs/:needId/invitation-batches
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+    }
+
+    params:path: {
+      needId:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 401
+      text: Unauthorized
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "AUTHENTICATION_REQUIRED",
+            "message": "La sesión no está vigente.",
+            "correlationId": "00000000-0000-4000-8000-000000000401"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 403 Response
+  description: Actor autenticado sin permiso; no revelar datos del recurso ajeno.
+
+  request: {
+    url: {{baseUrl}}/api/v1/hospitals/me/needs/:needId/invitation-batches
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+    }
+
+    params:path: {
+      needId:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 403
+      text: Forbidden
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "ACCESS_DENIED",
+            "message": "La acción no está permitida.",
+            "correlationId": "00000000-0000-4000-8000-000000000403"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 404 Response
+  description: Recurso inexistente o no visible para este actor.
+
+  request: {
+    url: {{baseUrl}}/api/v1/hospitals/me/needs/:needId/invitation-batches
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+    }
+
+    params:path: {
+      needId:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 404
+      text: Not Found
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "RESOURCE_NOT_FOUND",
+            "message": "El recurso no está disponible.",
+            "correlationId": "00000000-0000-4000-8000-000000000404"
+          }
+        }
+      '''
+    }
+  }
+}

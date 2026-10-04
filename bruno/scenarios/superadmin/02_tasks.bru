@@ -1,0 +1,20 @@
+meta {
+  name: Superadmin task queue
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/task-queue
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("task queue uses opaque administrative resource codes", function () {
+    const body = res.getBody().data;
+    expect(res.getStatus()).to.equal(200);
+    expect(body.items[0].resourceCode).to.equal("request-51a8f2");
+    expect(JSON.stringify(body)).to.not.match(/email|donorName|declaredBloodType/i);
+  });
+}

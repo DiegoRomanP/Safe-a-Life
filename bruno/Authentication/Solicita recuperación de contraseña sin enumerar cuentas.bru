@@ -1,0 +1,199 @@
+meta {
+  name: Solicita recuperación de contraseña sin enumerar cuentas
+  type: http
+  seq: 5
+  tags: [
+    Authentication
+  ]
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/password-recovery-requests
+  body: json
+  auth: inherit
+}
+
+headers {
+  @description('Clave estable para reintentos de la misma intención. El servidor la liga a actor, operación y hash canónico del payload; no registrar su valor.')
+  Idempotency-Key: {{idempotencyKey}}
+}
+
+body:json {
+  {
+    "email": "donante.demo@example.test"
+  }
+}
+
+example {
+  name: 202 Response
+  description: Respuesta neutra exista o no la cuenta.
+
+  request: {
+    url: {{baseUrl}}/api/v1/auth/password-recovery-requests
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+    }
+
+    body:json: {
+      {
+        "email": "donante.demo@example.test"
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 202
+      text: Accepted
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "message": "Si la solicitud puede procesarse, recibirás instrucciones."
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 400 Response
+  description: Solicitud malformada.
+
+  request: {
+    url: {{baseUrl}}/api/v1/auth/password-recovery-requests
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+    }
+
+    body:json: {
+      {
+        "email": "donante.demo@example.test"
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 400
+      text: Bad Request
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "BAD_REQUEST",
+            "message": "Solicitud malformada.",
+            "correlationId": "00000000-0000-4000-8000-000000000400"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 429 Response
+  description: Límite de intentos o abuso alcanzado.
+
+  request: {
+    url: {{baseUrl}}/api/v1/auth/password-recovery-requests
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+    }
+
+    body:json: {
+      {
+        "email": "donante.demo@example.test"
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 429
+      text: Too Many Requests
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "RATE_LIMITED",
+            "message": "Intenta nuevamente más tarde.",
+            "correlationId": "00000000-0000-4000-8000-000000000429"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 500 Response
+  description: Error interno sin detalles de implementación.
+
+  request: {
+    url: {{baseUrl}}/api/v1/auth/password-recovery-requests
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+    }
+
+    body:json: {
+      {
+        "email": "donante.demo@example.test"
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 500
+      text: Internal Server Error
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "No se pudo completar la solicitud.",
+            "correlationId": "00000000-0000-4000-8000-000000000500"
+          }
+        }
+      '''
+    }
+  }
+}

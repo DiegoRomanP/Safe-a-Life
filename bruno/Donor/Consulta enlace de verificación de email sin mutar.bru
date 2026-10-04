@@ -1,0 +1,132 @@
+meta {
+  name: Consulta enlace de verificación de email sin mutar
+  type: http
+  seq: 16
+  tags: [
+    Donor
+  ]
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donor-email-change-actions/:token
+  body: none
+  auth: inherit
+}
+
+params:path {
+  @description('Secreto de acción de un solo uso, ligado a invitación y acción. Nunca incluir valores reales en documentación, logs o ejemplos.')
+  token:
+}
+
+example {
+  name: 200 Response
+  description: Vista previa mínima con headers no-store/no-referrer.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donor-email-change-actions/:token
+    method: GET
+    mode: none
+    params:path: {
+      token:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "action": "cambiar_email",
+            "expiresAt": "2026-10-02T18:00:00Z"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 404 Response
+  description: Recurso inexistente o no visible para este actor.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donor-email-change-actions/:token
+    method: GET
+    mode: none
+    params:path: {
+      token:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 404
+      text: Not Found
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "RESOURCE_NOT_FOUND",
+            "message": "El recurso no está disponible.",
+            "correlationId": "00000000-0000-4000-8000-000000000404"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 410 Response
+  description: Token de acción vencido o consumido.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donor-email-change-actions/:token
+    method: GET
+    mode: none
+    params:path: {
+      token:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 410
+      text: Gone
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "ACTION_UNAVAILABLE",
+            "message": "El enlace no está disponible.",
+            "correlationId": "00000000-0000-4000-8000-000000000410"
+          }
+        }
+      '''
+    }
+  }
+}

@@ -1,0 +1,159 @@
+meta {
+  name: Lista tareas administrativas sin exponer el padrón
+  type: http
+  seq: 1
+  tags: [
+    Superadmin
+  ]
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/task-queue
+  body: none
+  auth: inherit
+}
+
+example {
+  name: 200 Response
+  description: Tareas con IDs opacos y proyección mínima.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/task-queue
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "items": [
+              {
+                "taskId": "14fc3c52-96b8-4aad-88b7-4e213c17bc97",
+                "kind": "correction_request",
+                "createdAt": "2026-10-01T18:00:00Z",
+                "resourceCode": "request-51a8f2"
+              }
+            ]
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 401 Response
+  description: Autenticación ausente, inválida o vencida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/task-queue
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 401
+      text: Unauthorized
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "AUTHENTICATION_REQUIRED",
+            "message": "La sesión no está vigente.",
+            "correlationId": "00000000-0000-4000-8000-000000000401"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 403 Response
+  description: Actor autenticado sin permiso; no revelar datos del recurso ajeno.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/task-queue
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 403
+      text: Forbidden
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "ACCESS_DENIED",
+            "message": "La acción no está permitida.",
+            "correlationId": "00000000-0000-4000-8000-000000000403"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 500 Response
+  description: Error interno sin detalles de implementación.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/task-queue
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 500
+      text: Internal Server Error
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "No se pudo completar la solicitud.",
+            "correlationId": "00000000-0000-4000-8000-000000000500"
+          }
+        }
+      '''
+    }
+  }
+}

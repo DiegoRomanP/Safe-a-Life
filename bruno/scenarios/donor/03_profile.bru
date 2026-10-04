@@ -1,0 +1,22 @@
+meta {
+  name: Donor own profile
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors/me/profile
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("profile contains only the donor-facing allowlist", function () {
+    const body = res.getBody().data;
+    expect(res.getStatus()).to.equal(200);
+    expect(body.email).to.equal(bru.getEnvVar("donorEmail"));
+    expect(body).to.not.have.property("hospitalId");
+    expect(body).to.not.have.property("lastDonationDate");
+    expect(body).to.not.have.property("donationHistory");
+  });
+}

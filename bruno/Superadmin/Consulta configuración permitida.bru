@@ -1,0 +1,118 @@
+meta {
+  name: Consulta configuración permitida
+  type: http
+  seq: 18
+  tags: [
+    Superadmin
+  ]
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/configuration
+  body: none
+  auth: inherit
+}
+
+example {
+  name: 200 Response
+  description: Configuración versionada.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/configuration
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "finalDemoAt": null,
+            "isImmutable": false
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 401 Response
+  description: Autenticación ausente, inválida o vencida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/configuration
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 401
+      text: Unauthorized
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "AUTHENTICATION_REQUIRED",
+            "message": "La sesión no está vigente.",
+            "correlationId": "00000000-0000-4000-8000-000000000401"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 403 Response
+  description: Actor autenticado sin permiso; no revelar datos del recurso ajeno.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/configuration
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 403
+      text: Forbidden
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "ACCESS_DENIED",
+            "message": "La acción no está permitida.",
+            "correlationId": "00000000-0000-4000-8000-000000000403"
+          }
+        }
+      '''
+    }
+  }
+}

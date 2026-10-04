@@ -1,0 +1,27 @@
+meta {
+  name: Hospital minimized responses
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{demoNeedId}}/responses
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("hospital response projection limits donor details to confirmed intent", function () {
+    const items = res.getBody().data.items;
+    expect(res.getStatus()).to.equal(200);
+    expect(items).to.have.length(3);
+    expect(items.filter((item) => item.response === "confirmada")).to.have.length(1);
+    expect(JSON.stringify(items)).to.not.include("Donante Demo");
+    expect(JSON.stringify(items)).to.not.include("O_POS");
+    for (const item of items) {
+      expect(item).to.not.have.property("email");
+      expect(item).to.not.have.property("latitude");
+      expect(item).to.not.have.property("longitude");
+    }
+  });
+}

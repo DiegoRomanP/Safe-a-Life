@@ -1,0 +1,253 @@
+meta {
+  name: Inicia autorregistro y verificación de email
+  type: http
+  seq: 1
+  tags: [
+    Donor
+  ]
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donor-registrations
+  body: json
+  auth: inherit
+}
+
+headers {
+  @description('Clave estable para reintentos de la misma intención. El servidor la liga a actor, operación y hash canónico del payload; no registrar su valor.')
+  Idempotency-Key: {{idempotencyKey}}
+}
+
+body:json {
+  {
+    "email": "nuevo.donante@example.test",
+    "password": "synthetic-password-placeholder"
+  }
+}
+
+docs {
+  La cuenta no participa en matching hasta verificar email y completar el perfil. No se solicita fecha/historial de donación.
+}
+
+example {
+  name: 202 Response
+  description: Registro pendiente con respuesta no enumerable.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donor-registrations
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+    }
+
+    body:json: {
+      {
+        "email": "",
+        "password": ""
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 202
+      text: Accepted
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "message": "Si el registro puede continuar, recibirás instrucciones para verificar tu email."
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 400 Response
+  description: Solicitud malformada.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donor-registrations
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+    }
+
+    body:json: {
+      {
+        "email": "",
+        "password": ""
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 400
+      text: Bad Request
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "BAD_REQUEST",
+            "message": "Solicitud malformada.",
+            "correlationId": "00000000-0000-4000-8000-000000000400"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 422 Response
+  description: Solicitud bien formada pero semánticamente inválida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donor-registrations
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+    }
+
+    body:json: {
+      {
+        "email": "",
+        "password": ""
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 422
+      text: Unprocessable Entity
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "VALIDATION_FAILED",
+            "message": "Uno o más valores no cumplen las reglas del campo.",
+            "correlationId": "00000000-0000-4000-8000-000000000422"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 429 Response
+  description: Límite de intentos o abuso alcanzado.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donor-registrations
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+    }
+
+    body:json: {
+      {
+        "email": "",
+        "password": ""
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 429
+      text: Too Many Requests
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "RATE_LIMITED",
+            "message": "Intenta nuevamente más tarde.",
+            "correlationId": "00000000-0000-4000-8000-000000000429"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 500 Response
+  description: Error interno sin detalles de implementación.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donor-registrations
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+    }
+
+    body:json: {
+      {
+        "email": "",
+        "password": ""
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 500
+      text: Internal Server Error
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "No se pudo completar la solicitud.",
+            "correlationId": "00000000-0000-4000-8000-000000000500"
+          }
+        }
+      '''
+    }
+  }
+}

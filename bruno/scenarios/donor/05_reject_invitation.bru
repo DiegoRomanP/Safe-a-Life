@@ -1,0 +1,30 @@
+meta {
+  name: Donor declines the active invitation
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/donors/me/invitations/{{demoInvitationId}}/response
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: bruno-donor-reject-0001
+}
+
+body:json {
+  {
+    "response": "rechazada"
+  }
+}
+
+tests {
+  test("donor response change is explicit and scoped to the own invitation", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.response).to.equal("rechazada");
+  });
+}

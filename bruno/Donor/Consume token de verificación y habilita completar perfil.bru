@@ -1,0 +1,195 @@
+meta {
+  name: Consume token de verificación y habilita completar perfil
+  type: http
+  seq: 3
+  tags: [
+    Donor
+  ]
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donor-email-verification-actions/:token
+  body: none
+  auth: inherit
+}
+
+params:path {
+  @description('Secreto de acción de un solo uso, ligado a invitación y acción. Nunca incluir valores reales en documentación, logs o ejemplos.')
+  token:
+}
+
+headers {
+  @description('Clave estable para reintentos de la misma intención. El servidor la liga a actor, operación y hash canónico del payload; no registrar su valor.')
+  Idempotency-Key: {{idempotencyKey}}
+}
+
+docs {
+  El token es de un uso. La cuenta sigue inactiva hasta completar los campos obligatorios.
+}
+
+example {
+  name: 200 Response
+  description: Email verificado; inicia sesión de onboarding.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donor-email-verification-actions/:token
+    method: POST
+    mode: none
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "status": "reclamada_incompleta",
+            "emailVerified": true
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 404 Response
+  description: Recurso inexistente o no visible para este actor.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donor-email-verification-actions/:token
+    method: POST
+    mode: none
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 404
+      text: Not Found
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "RESOURCE_NOT_FOUND",
+            "message": "El recurso no está disponible.",
+            "correlationId": "00000000-0000-4000-8000-000000000404"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 409 Response
+  description: Conflicto de estado, concurrencia o idempotencia.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donor-email-verification-actions/:token
+    method: POST
+    mode: none
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 409
+      text: Conflict
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "STATE_CONFLICT",
+            "message": "La operación entra en conflicto con el estado actual.",
+            "correlationId": "00000000-0000-4000-8000-000000000409"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 410 Response
+  description: Token de acción vencido o consumido.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donor-email-verification-actions/:token
+    method: POST
+    mode: none
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 410
+      text: Gone
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "ACTION_UNAVAILABLE",
+            "message": "El enlace no está disponible.",
+            "correlationId": "00000000-0000-4000-8000-000000000410"
+          }
+        }
+      '''
+    }
+  }
+}

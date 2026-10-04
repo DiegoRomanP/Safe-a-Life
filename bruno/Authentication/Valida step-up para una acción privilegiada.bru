@@ -1,0 +1,250 @@
+meta {
+  name: Valida step-up para una acción privilegiada
+  type: http
+  seq: 8
+  tags: [
+    Authentication
+  ]
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/step-up-verifications
+  body: json
+  auth: inherit
+}
+
+headers {
+  @description('Clave estable para reintentos de la misma intención. El servidor la liga a actor, operación y hash canónico del payload; no registrar su valor.')
+  Idempotency-Key: {{idempotencyKey}}
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {
+    "code": "000000"
+  }
+}
+
+example {
+  name: 200 Response
+  description: Step-up vigente por el tiempo definido en RNF-SEC-05.
+
+  request: {
+    url: {{baseUrl}}/api/v1/auth/step-up-verifications
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+      session: {{apiKey}}
+    }
+
+    body:json: {
+      {
+        "code": ""
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "verifiedUntil": "2026-10-01T18:05:00Z"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 401 Response
+  description: Autenticación ausente, inválida o vencida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/auth/step-up-verifications
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+      session: {{apiKey}}
+    }
+
+    body:json: {
+      {
+        "code": ""
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 401
+      text: Unauthorized
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "AUTHENTICATION_REQUIRED",
+            "message": "La sesión no está vigente.",
+            "correlationId": "00000000-0000-4000-8000-000000000401"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 403 Response
+  description: Actor autenticado sin permiso; no revelar datos del recurso ajeno.
+
+  request: {
+    url: {{baseUrl}}/api/v1/auth/step-up-verifications
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+      session: {{apiKey}}
+    }
+
+    body:json: {
+      {
+        "code": ""
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 403
+      text: Forbidden
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "ACCESS_DENIED",
+            "message": "La acción no está permitida.",
+            "correlationId": "00000000-0000-4000-8000-000000000403"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 429 Response
+  description: Límite de intentos o abuso alcanzado.
+
+  request: {
+    url: {{baseUrl}}/api/v1/auth/step-up-verifications
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+      session: {{apiKey}}
+    }
+
+    body:json: {
+      {
+        "code": ""
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 429
+      text: Too Many Requests
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "RATE_LIMITED",
+            "message": "Intenta nuevamente más tarde.",
+            "correlationId": "00000000-0000-4000-8000-000000000429"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 500 Response
+  description: Error interno sin detalles de implementación.
+
+  request: {
+    url: {{baseUrl}}/api/v1/auth/step-up-verifications
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+      session: {{apiKey}}
+    }
+
+    body:json: {
+      {
+        "code": ""
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 500
+      text: Internal Server Error
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "No se pudo completar la solicitud.",
+            "correlationId": "00000000-0000-4000-8000-000000000500"
+          }
+        }
+      '''
+    }
+  }
+}

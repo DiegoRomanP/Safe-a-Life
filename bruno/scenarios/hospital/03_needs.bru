@@ -1,0 +1,23 @@
+meta {
+  name: Hospital own needs
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("hospital needs are scoped and contain no donor profile fields", function () {
+    const body = res.getBody().data;
+    expect(res.getStatus()).to.equal(200);
+    expect(body.items).to.have.length(1);
+    expect(body.items[0].confirmedIntentCount).to.equal(1);
+    expect(body.items[0]).to.not.have.property("hospitalId");
+    expect(body.items[0]).to.not.have.property("donorName");
+    expect(body.items[0]).to.not.have.property("email");
+  });
+}
