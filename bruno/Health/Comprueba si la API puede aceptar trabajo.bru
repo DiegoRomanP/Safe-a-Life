@@ -1,0 +1,121 @@
+meta {
+  name: Comprueba si la API puede aceptar trabajo
+  type: http
+  seq: 2
+  tags: [
+    Health
+  ]
+}
+
+get {
+  url: {{baseUrl}}/health/ready
+  body: none
+  auth: inherit
+}
+
+docs {
+  Readiness valida configuración obligatoria, conexión DB y migraciones vigentes. Devuelve 503 sin detalles sensibles cuando no está lista (RNF-OPS-02).
+}
+
+example {
+  name: 200 Response
+  description: API lista.
+
+  request: {
+    url: {{baseUrl}}/health/ready
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "status": "ready"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 404 Response
+  description: Recurso inexistente o no visible para este actor.
+
+  request: {
+    url: {{baseUrl}}/health/ready
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 404
+      text: Not Found
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "RESOURCE_NOT_FOUND",
+            "message": "El recurso no está disponible.",
+            "correlationId": "00000000-0000-4000-8000-000000000404"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 503 Response
+  description: API no lista o dependencia obligatoria indisponible; respuesta sin detalles sensibles.
+
+  request: {
+    url: {{baseUrl}}/health/ready
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 503
+      text: Service Unavailable
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "SERVICE_UNAVAILABLE",
+            "message": "El servicio no está listo para aceptar solicitudes.",
+            "correlationId": "00000000-0000-4000-8000-000000000503"
+          }
+        }
+      '''
+    }
+  }
+}

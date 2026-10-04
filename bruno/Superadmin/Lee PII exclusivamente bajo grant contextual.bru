@@ -1,0 +1,241 @@
+meta {
+  name: Lee PII exclusivamente bajo grant contextual
+  type: http
+  seq: 15
+  tags: [
+    Superadmin
+  ]
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/correction-requests/:requestId/donor-data
+  body: none
+  auth: inherit
+}
+
+params:path {
+  requestId: b30c64a0-488c-4a10-8df5-7411ecb44cc8
+}
+
+headers {
+  @description('Grant temporal y de alcance específico; nunca se registra en logs.')
+  X-Contextual-Grant:
+}
+
+docs {
+  No permite búsqueda general. Grant debe estar vigente y ligado a superadmin, solicitud, campos y acción.
+}
+
+example {
+  name: 200 Response
+  description: Solo los campos autorizados por el grant.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/correction-requests/:requestId/donor-data
+    method: GET
+    mode: none
+    params:path: {
+      requestId:
+    }
+
+    headers: {
+      X-Contextual-Grant:
+      session: {{apiKey}}
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "name": "Donante Demo",
+            "declaredBloodType": "O_POS"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 401 Response
+  description: Autenticación ausente, inválida o vencida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/correction-requests/:requestId/donor-data
+    method: GET
+    mode: none
+    params:path: {
+      requestId:
+    }
+
+    headers: {
+      X-Contextual-Grant:
+      session: {{apiKey}}
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 401
+      text: Unauthorized
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "AUTHENTICATION_REQUIRED",
+            "message": "La sesión no está vigente.",
+            "correlationId": "00000000-0000-4000-8000-000000000401"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 403 Response
+  description: Actor autenticado sin permiso; no revelar datos del recurso ajeno.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/correction-requests/:requestId/donor-data
+    method: GET
+    mode: none
+    params:path: {
+      requestId:
+    }
+
+    headers: {
+      X-Contextual-Grant:
+      session: {{apiKey}}
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 403
+      text: Forbidden
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "ACCESS_DENIED",
+            "message": "La acción no está permitida.",
+            "correlationId": "00000000-0000-4000-8000-000000000403"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 404 Response
+  description: Recurso inexistente o no visible para este actor.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/correction-requests/:requestId/donor-data
+    method: GET
+    mode: none
+    params:path: {
+      requestId:
+    }
+
+    headers: {
+      X-Contextual-Grant:
+      session: {{apiKey}}
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 404
+      text: Not Found
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "RESOURCE_NOT_FOUND",
+            "message": "El recurso no está disponible.",
+            "correlationId": "00000000-0000-4000-8000-000000000404"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 410 Response
+  description: Token de acción vencido o consumido.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/correction-requests/:requestId/donor-data
+    method: GET
+    mode: none
+    params:path: {
+      requestId:
+    }
+
+    headers: {
+      X-Contextual-Grant:
+      session: {{apiKey}}
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 410
+      text: Gone
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "ACTION_UNAVAILABLE",
+            "message": "El enlace no está disponible.",
+            "correlationId": "00000000-0000-4000-8000-000000000410"
+          }
+        }
+      '''
+    }
+  }
+}

@@ -1,0 +1,22 @@
+meta {
+  name: Donor gets one own correction request
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors/me/correction-requests/{{demoCorrectionRequestId}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("detail exposes request state but never proposed values", function () {
+    const body = res.getBody().data;
+    expect(res.getStatus()).to.equal(200);
+    expect(body.requestId).to.equal(bru.getVar("demoCorrectionRequestId"));
+    expect(body.requestedFields).to.have.members(["name", "email"]);
+    expect(JSON.stringify(body)).to.not.include("Nombre sintético actualizado");
+    expect(JSON.stringify(body)).to.not.include("cambio.demo@example.test");
+  });
+}

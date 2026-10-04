@@ -1,0 +1,321 @@
+meta {
+  name: Reclama alta asistida y crea perfil incompleto propio
+  type: http
+  seq: 5
+  tags: [
+    Donor
+  ]
+}
+
+post {
+  url: {{baseUrl}}/api/v1/assisted-activation-actions/:token/claim
+  body: json
+  auth: inherit
+}
+
+params:path {
+  @description('Secreto de acción de un solo uso, ligado a invitación y acción. Nunca incluir valores reales en documentación, logs o ejemplos.')
+  token:
+}
+
+headers {
+  @description('Clave estable para reintentos de la misma intención. El servidor la liga a actor, operación y hash canónico del payload; no registrar su valor.')
+  Idempotency-Key: {{idempotencyKey}}
+}
+
+body:json {
+  {
+    "password": "synthetic-password-placeholder"
+  }
+}
+
+docs {
+  El token dura 24 h y es de un uso. El hospital no completa perfil ni contraseña por el donante.
+}
+
+example {
+  name: 201 Response
+  description: Alta reclamada; el donante completa perfil autenticado.
+
+  request: {
+    url: {{baseUrl}}/api/v1/assisted-activation-actions/:token/claim
+    method: POST
+    mode: json
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+
+    body:json: {
+      {
+        "password": ""
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 201
+      text: Created
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "status": "reclamada_incompleta",
+            "emailVerified": true
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 400 Response
+  description: Solicitud malformada.
+
+  request: {
+    url: {{baseUrl}}/api/v1/assisted-activation-actions/:token/claim
+    method: POST
+    mode: json
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+
+    body:json: {
+      {
+        "password": ""
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 400
+      text: Bad Request
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "BAD_REQUEST",
+            "message": "Solicitud malformada.",
+            "correlationId": "00000000-0000-4000-8000-000000000400"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 404 Response
+  description: Recurso inexistente o no visible para este actor.
+
+  request: {
+    url: {{baseUrl}}/api/v1/assisted-activation-actions/:token/claim
+    method: POST
+    mode: json
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+
+    body:json: {
+      {
+        "password": ""
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 404
+      text: Not Found
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "RESOURCE_NOT_FOUND",
+            "message": "El recurso no está disponible.",
+            "correlationId": "00000000-0000-4000-8000-000000000404"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 409 Response
+  description: Conflicto de estado, concurrencia o idempotencia.
+
+  request: {
+    url: {{baseUrl}}/api/v1/assisted-activation-actions/:token/claim
+    method: POST
+    mode: json
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+
+    body:json: {
+      {
+        "password": ""
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 409
+      text: Conflict
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "STATE_CONFLICT",
+            "message": "La operación entra en conflicto con el estado actual.",
+            "correlationId": "00000000-0000-4000-8000-000000000409"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 410 Response
+  description: Token de acción vencido o consumido.
+
+  request: {
+    url: {{baseUrl}}/api/v1/assisted-activation-actions/:token/claim
+    method: POST
+    mode: json
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+
+    body:json: {
+      {
+        "password": ""
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 410
+      text: Gone
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "ACTION_UNAVAILABLE",
+            "message": "El enlace no está disponible.",
+            "correlationId": "00000000-0000-4000-8000-000000000410"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 422 Response
+  description: Solicitud bien formada pero semánticamente inválida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/assisted-activation-actions/:token/claim
+    method: POST
+    mode: json
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+
+    body:json: {
+      {
+        "password": ""
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 422
+      text: Unprocessable Entity
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "VALIDATION_FAILED",
+            "message": "Uno o más valores no cumplen las reglas del campo.",
+            "correlationId": "00000000-0000-4000-8000-000000000422"
+          }
+        }
+      '''
+    }
+  }
+}

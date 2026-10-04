@@ -1,0 +1,19 @@
+meta {
+  name: Superadmin authorized hospitals
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/hospitals
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("hospital catalogue contains only synthetic institutional data", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.items[0].publicName).to.equal("Hospital Demo");
+    expect(JSON.stringify(res.getBody())).to.not.match(/donorName|declaredBloodType|email/i);
+  });
+}

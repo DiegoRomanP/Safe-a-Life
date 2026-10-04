@@ -1,0 +1,180 @@
+meta {
+  name: Consulta detalle de una invitación propia
+  type: http
+  seq: 10
+  tags: [
+    Donor
+  ]
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors/me/invitations/:invitationId
+  body: none
+  auth: inherit
+}
+
+params:path {
+  invitationId: 76eb9a7c-484f-4478-9a6f-01a21710ce8f
+}
+
+example {
+  name: 200 Response
+  description: Detalle operativo mínimo.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donors/me/invitations/:invitationId
+    method: GET
+    mode: none
+    params:path: {
+      invitationId:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "invitation": {
+              "invitationId": "76eb9a7c-484f-4478-9a6f-01a21710ce8f",
+              "hospitalName": "Hospital Demo",
+              "publicSiteName": "Sede Centro",
+              "requiredBloodType": "O_POS",
+              "urgency": "Urgente",
+              "instructions": "Presenta este código al personal del hospital; el equipo médico verificará elegibilidad.",
+              "expiresAt": "2026-10-02T18:00:00Z",
+              "validity": "activa",
+              "delivery": "entregada",
+              "response": "sin_respuesta"
+            },
+            "instructions": "Presenta este código al personal del hospital; el equipo médico verificará elegibilidad."
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 401 Response
+  description: Autenticación ausente, inválida o vencida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donors/me/invitations/:invitationId
+    method: GET
+    mode: none
+    params:path: {
+      invitationId:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 401
+      text: Unauthorized
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "AUTHENTICATION_REQUIRED",
+            "message": "La sesión no está vigente.",
+            "correlationId": "00000000-0000-4000-8000-000000000401"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 404 Response
+  description: Recurso inexistente o no visible para este actor.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donors/me/invitations/:invitationId
+    method: GET
+    mode: none
+    params:path: {
+      invitationId:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 404
+      text: Not Found
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "RESOURCE_NOT_FOUND",
+            "message": "El recurso no está disponible.",
+            "correlationId": "00000000-0000-4000-8000-000000000404"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 500 Response
+  description: Error interno sin detalles de implementación.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donors/me/invitations/:invitationId
+    method: GET
+    mode: none
+    params:path: {
+      invitationId:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 500
+      text: Internal Server Error
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "No se pudo completar la solicitud.",
+            "correlationId": "00000000-0000-4000-8000-000000000500"
+          }
+        }
+      '''
+    }
+  }
+}
