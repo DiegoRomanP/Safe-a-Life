@@ -48,6 +48,9 @@ no expongas entidades de persistencia como respuestas API.
 - Implementacion de varios archivos: `incremental-implementation`.
 - Logica o correccion de errores: `test-driven-development`.
 - API, DTO o contrato: `api-and-interface-design`.
+- API REST, esquema PostgreSQL, consultas, migraciones o RLS:
+  `save-a-life-api-database`, `api-and-interface-design` y, para autorización o
+  PII, `save-a-life-security-privacy`.
 - Autenticacion, RLS, PII o integraciones: `save-a-life-security-privacy` y
   `security-and-hardening`.
 - Compatibilidad, distancia, ranking o email: `save-a-life-matching-notifications`.
@@ -61,6 +64,14 @@ no expongas entidades de persistencia como respuestas API.
 
 ## Enrutamiento de agentes
 
+- `senior` es el agente principal/predeterminado y el único interlocutor normal.
+  Analiza y divide solicitudes, crea un plan individual en `docs/plans/` antes
+  de implementar, delega y mantiene la bitácora hasta el reporte final. Sigue
+  `docs/Agent-Workflow.md` y no implementa código de producto.
+- `dev-frontier`: implementación frontend acotada.
+- `dev-back`: implementación backend/API/datos acotada.
+- `tester`: crea y ejecuta pruebas; no modifica código productivo.
+- `reviewer-front` y `reviewer-back`: revisiones independientes de solo lectura.
 - `solution-architect`: limites, ADRs, contratos y decisiones de stack.
 - `backend-data-engineer`: API, servicios, PostgreSQL/Supabase, RLS y correo.
 - `frontend-accessibility-engineer`: React, Tailwind, UX y accesibilidad.
@@ -72,6 +83,41 @@ Los agentes especialistas no aprueban sus propios cambios de alto riesgo. Los
 cambios en auth/RLS/PII requieren revision de `security-privacy-auditor`; los de
 compatibilidad o elegibilidad requieren `clinical-safety-reviewer`; los flujos
 criticos requieren `qa-reliability-engineer`.
+
+Después de cada slice de código de `dev-frontier` o
+`frontend-accessibility-engineer`, Senior lanza inmediatamente `reviewer-front`;
+después de `dev-back` o `backend-data-engineer`, lanza `reviewer-back`. Cualquier
+cambio de archivos de prueba hecho por `tester` o `qa-reliability-engineer`
+también recibe revisión independiente de área. Los hallazgos vuelven al agente
+responsable y se revisan de nuevo después de corregirlos. No se declara terminada
+una tarea sin PASS de revisión y pruebas pertinentes. Senior registra plan,
+delegaciones, resultados, revisiones y pruebas en
+`docs/plans/YYYY-MM-DD-<slug>.md`, sin reemplazar planes de otras tareas.
+
+### Selección y coordinación
+
+`docs/Agent-Workflow.md` es la matriz operativa canónica. Senior clasifica por
+artefacto, dominio, riesgo y rutas; no convoca a todo el roster por rutina.
+
+- UI general → `dev-frontier`; foco en accesibilidad/responsive →
+  `frontend-accessibility-engineer` en lugar de DevFrontier.
+- Backend general → `dev-back`; foco en esquema, RLS, transacciones,
+  concurrencia, idempotencia o asincronía → `backend-data-engineer` en lugar de
+  DevBack.
+- Pruebas ordinarias → `tester`; flujo crítico/auth/RLS/concurrencia/reintentos/
+  email/idempotencia → `qa-reliability-engineer` como dueño único de esos tests.
+- Cada slice tiene un solo agente escritor. Paraleliza solo tareas sin
+  dependencias, paths compartidos ni contratos pendientes.
+- Todo cambio de código pasa inmediatamente por reviewer independiente del área,
+  incluso si lo escribió un especialista. Los cambios de pruebas también se
+  revisan por área; ningún agente aprueba su propio artefacto.
+- Añade `security-privacy-auditor` para auth/autorización/RLS/PII/ubicación/
+  secretos/integraciones; añade `clinical-safety-reviewer` para compatibilidad,
+  elegibilidad y comunicación clínica. Son gates adicionales, no sustitutos.
+- Consulta `solution-architect` antes de cambiar límites, contratos, arquitectura
+  o decisiones aprobadas. No se modifica un ADR aprobado sin decisión del usuario.
+- Senior delega directamente con `task`; los subagentes no delegan ni conversan
+  directamente con la persona usuaria.
 
 ## Definicion de terminado
 

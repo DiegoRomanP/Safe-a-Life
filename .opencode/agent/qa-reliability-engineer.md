@@ -1,6 +1,7 @@
 ---
 description: Diseña y ejecuta pruebas unitarias, integracion, RLS, concurrencia, email y E2E para Save a Life.
 mode: subagent
+hidden: true
 permission:
   edit: allow
   bash: ask
