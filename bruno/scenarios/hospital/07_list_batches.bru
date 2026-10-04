@@ -1,0 +1,22 @@
+meta {
+  name: Hospital lists batches for its own need
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{demoNeedId}}/invitation-batches
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("batch history contains only minimized delivery counts", function () {
+    const items = res.getBody().data.items;
+    expect(res.getStatus()).to.equal(200);
+    expect(items).to.have.length(1);
+    expect(items[0].createdInvitationCount).to.equal(0);
+    expect(items[0].deliveryCounts.pendiente).to.equal(0);
+    expect(JSON.stringify(items)).to.not.match(/email|donorId|latitude|longitude/i);
+  });
+}

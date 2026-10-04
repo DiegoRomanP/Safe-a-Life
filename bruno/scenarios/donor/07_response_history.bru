@@ -1,0 +1,22 @@
+meta {
+  name: Donor own response history
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors/me/responses
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("history returns only the donor's response events", function () {
+    const items = res.getBody().data.items;
+    expect(res.getStatus()).to.equal(200);
+    expect(items).to.have.length(2);
+    expect(items[0].response).to.equal("rechazada");
+    expect(items[0]).to.not.have.property("donorId");
+    expect(items[0]).to.not.have.property("email");
+  });
+}

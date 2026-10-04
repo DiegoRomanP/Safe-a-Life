@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Save a Life API",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

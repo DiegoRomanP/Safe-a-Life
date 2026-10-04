@@ -1,0 +1,39 @@
+meta {
+  name: Hospital creates a need draft
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: 55555555-5555-4555-8555-555555555555
+}
+
+body:json {
+  {
+    "component": "RBC",
+    "requiredBloodType": "A_POS",
+    "targetConfirmations": 3,
+    "siteId": "{{demoSiteId}}",
+    "radiusKm": 8,
+    "urgency": "Normal",
+    "expiresInHours": 12
+  }
+}
+
+tests {
+  test("hospital creates an unannounced draft need", function () {
+    const need = res.getBody().data;
+    expect(res.getStatus()).to.equal(201);
+    expect(need.status).to.equal("borrador");
+    expect(need.confirmedIntentCount).to.equal(0);
+    expect(need.targetConfirmations).to.equal(3);
+  });
+}

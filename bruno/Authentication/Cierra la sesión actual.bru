@@ -1,0 +1,128 @@
+meta {
+  name: Cierra la sesión actual
+  type: http
+  seq: 4
+  tags: [
+    Authentication
+  ]
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/auth/sessions/current
+  body: none
+  auth: inherit
+}
+
+headers {
+  @description('Clave estable para reintentos de la misma intención. El servidor la liga a actor, operación y hash canónico del payload; no registrar su valor.')
+  Idempotency-Key: {{idempotencyKey}}
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+example {
+  name: 204 Response
+  description: Sesión revocada y cookie expirada.
+
+  request: {
+    url: {{baseUrl}}/api/v1/auth/sessions/current
+    method: DELETE
+    mode: none
+    headers: {
+      Idempotency-Key:
+      session: {{apiKey}}
+    }
+  }
+
+  response: {
+    status: {
+      code: 204
+      text: No Content
+    }
+
+    body: {
+      type: text
+      content: '''
+
+      '''
+    }
+  }
+}
+
+example {
+  name: 401 Response
+  description: Autenticación ausente, inválida o vencida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/auth/sessions/current
+    method: DELETE
+    mode: none
+    headers: {
+      Idempotency-Key:
+      session: {{apiKey}}
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 401
+      text: Unauthorized
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "AUTHENTICATION_REQUIRED",
+            "message": "La sesión no está vigente.",
+            "correlationId": "00000000-0000-4000-8000-000000000401"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 500 Response
+  description: Error interno sin detalles de implementación.
+
+  request: {
+    url: {{baseUrl}}/api/v1/auth/sessions/current
+    method: DELETE
+    mode: none
+    headers: {
+      Idempotency-Key:
+      session: {{apiKey}}
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 500
+      text: Internal Server Error
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "No se pudo completar la solicitud.",
+            "correlationId": "00000000-0000-4000-8000-000000000500"
+          }
+        }
+      '''
+    }
+  }
+}

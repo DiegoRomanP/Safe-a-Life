@@ -1,0 +1,364 @@
+meta {
+  name: Registra la primera respuesta mediante token de acción
+  type: http
+  seq: 2
+  tags: [
+    Invitation_action
+  ]
+}
+
+post {
+  url: {{baseUrl}}/api/v1/invitation-actions/:token/response
+  body: none
+  auth: inherit
+}
+
+params:path {
+  @description('Secreto de acción de un solo uso, ligado a invitación y acción. Nunca incluir valores reales en documentación, logs o ejemplos.')
+  token:
+}
+
+headers {
+  @description('Clave estable para reintentos de la misma intención. El servidor la liga a actor, operación y hash canónico del payload; no registrar su valor.')
+  Idempotency-Key: {{idempotencyKey}}
+}
+
+docs {
+  El token aleatorio está ligado a invitación y acción (confirmar o rechazar); no se acepta una acción distinta en el body. Es válido solo con invitación/necesidad activas y `now < need.expires_at`; no tiene TTL independiente. Consumo y respuesta son atómicos. El GET anterior no muta estado. No devuelve contacto ni ubicación del donante.
+}
+
+example {
+  name: 200 Response
+  description: Respuesta inicial registrada o repetición idempotente del resultado.
+
+  request: {
+    url: {{baseUrl}}/api/v1/invitation-actions/:token/response
+    method: POST
+    mode: none
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "response": "confirmada",
+            "recordedAt": "2026-10-01T18:20:00Z",
+            "needStatus": "activa"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 400 Response
+  description: Solicitud malformada.
+
+  request: {
+    url: {{baseUrl}}/api/v1/invitation-actions/:token/response
+    method: POST
+    mode: none
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 400
+      text: Bad Request
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "BAD_REQUEST",
+            "message": "Solicitud malformada.",
+            "correlationId": "00000000-0000-4000-8000-000000000400"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 404 Response
+  description: Recurso inexistente o no visible para este actor.
+
+  request: {
+    url: {{baseUrl}}/api/v1/invitation-actions/:token/response
+    method: POST
+    mode: none
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 404
+      text: Not Found
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "RESOURCE_NOT_FOUND",
+            "message": "El recurso no está disponible.",
+            "correlationId": "00000000-0000-4000-8000-000000000404"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 409 Response
+  description: Conflicto de estado, concurrencia o idempotencia.
+
+  request: {
+    url: {{baseUrl}}/api/v1/invitation-actions/:token/response
+    method: POST
+    mode: none
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 409
+      text: Conflict
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "STATE_CONFLICT",
+            "message": "La operación entra en conflicto con el estado actual.",
+            "correlationId": "00000000-0000-4000-8000-000000000409"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 410 Response
+  description: Token de acción vencido o consumido.
+
+  request: {
+    url: {{baseUrl}}/api/v1/invitation-actions/:token/response
+    method: POST
+    mode: none
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 410
+      text: Gone
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "ACTION_UNAVAILABLE",
+            "message": "El enlace no está disponible.",
+            "correlationId": "00000000-0000-4000-8000-000000000410"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 422 Response
+  description: Solicitud bien formada pero semánticamente inválida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/invitation-actions/:token/response
+    method: POST
+    mode: none
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 422
+      text: Unprocessable Entity
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "VALIDATION_FAILED",
+            "message": "Uno o más valores no cumplen las reglas del campo.",
+            "correlationId": "00000000-0000-4000-8000-000000000422"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 429 Response
+  description: Límite de intentos o abuso alcanzado.
+
+  request: {
+    url: {{baseUrl}}/api/v1/invitation-actions/:token/response
+    method: POST
+    mode: none
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 429
+      text: Too Many Requests
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "RATE_LIMITED",
+            "message": "Intenta nuevamente más tarde.",
+            "correlationId": "00000000-0000-4000-8000-000000000429"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 500 Response
+  description: Error interno sin detalles de implementación.
+
+  request: {
+    url: {{baseUrl}}/api/v1/invitation-actions/:token/response
+    method: POST
+    mode: none
+    params:path: {
+      token:
+    }
+
+    headers: {
+      Idempotency-Key:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 500
+      text: Internal Server Error
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "No se pudo completar la solicitud.",
+            "correlationId": "00000000-0000-4000-8000-000000000500"
+          }
+        }
+      '''
+    }
+  }
+}

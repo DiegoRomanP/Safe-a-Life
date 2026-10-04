@@ -1,6 +1,7 @@
 ---
 description: Revisa compatibilidad sanguinea, limites de elegibilidad y comunicacion para evitar afirmaciones clinicas inseguras.
 mode: subagent
+hidden: true
 permission:
   edit: deny
   bash: deny

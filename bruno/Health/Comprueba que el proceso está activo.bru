@@ -1,0 +1,121 @@
+meta {
+  name: Comprueba que el proceso está activo
+  type: http
+  seq: 1
+  tags: [
+    Health
+  ]
+}
+
+get {
+  url: {{baseUrl}}/health/live
+  body: none
+  auth: inherit
+}
+
+docs {
+  No consulta Supabase, Resend ni Mapbox (RNF-OPS-01).
+}
+
+example {
+  name: 200 Response
+  description: Proceso activo.
+
+  request: {
+    url: {{baseUrl}}/health/live
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "status": "ok"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 404 Response
+  description: Recurso inexistente o no visible para este actor.
+
+  request: {
+    url: {{baseUrl}}/health/live
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 404
+      text: Not Found
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "RESOURCE_NOT_FOUND",
+            "message": "El recurso no está disponible.",
+            "correlationId": "00000000-0000-4000-8000-000000000404"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 500 Response
+  description: Error interno sin detalles de implementación.
+
+  request: {
+    url: {{baseUrl}}/health/live
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 500
+      text: Internal Server Error
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "No se pudo completar la solicitud.",
+            "correlationId": "00000000-0000-4000-8000-000000000500"
+          }
+        }
+      '''
+    }
+  }
+}

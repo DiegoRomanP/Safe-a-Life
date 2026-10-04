@@ -1,0 +1,21 @@
+meta {
+  name: Superadmin minimized audit
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/audit-events
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("audit records use opaque actor and resource references", function () {
+    const item = res.getBody().data.items[0];
+    expect(res.getStatus()).to.equal(200);
+    expect(item.actorCode).to.match(/^actor-/);
+    expect(item.resourceCode).to.match(/^hospital-/);
+    expect(item).to.not.have.property("email");
+  });
+}

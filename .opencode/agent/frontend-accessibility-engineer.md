@@ -1,6 +1,7 @@
 ---
 description: Construye la interfaz React/Tailwind accesible y responsive para donantes, hospitales y superadmin.
 mode: subagent
+hidden: true
 permission:
   edit: allow
   bash: ask

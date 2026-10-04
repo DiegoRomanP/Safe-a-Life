@@ -20,9 +20,12 @@ decidir cual debe actualizarse.
 
 ## Flujo principal
 
-1. Un admin de hospital publica tipo requerido, cantidad y urgencia.
+1. Un admin de hospital publica grupo requerido, meta de confirmaciones de
+   intencion de asistir, sede, radio, urgencia informativa y vencimiento.
 2. El sistema filtra donantes disponibles por compatibilidad ABO/Rh y radio.
-3. El sistema excluye bloqueos vigentes y ordena por cercania.
+3. El sistema aplica el poligono de Lima, disponibilidad, estado de cuenta,
+   perfil completo, radio y cuotas, y ordena por cercania. No existe filtro
+   postdonacion.
 4. El sistema envia email sin revelar datos de otros donantes ni del paciente.
 5. El donante confirma o rechaza.
 6. El hospital consulta las respuestas de su propia necesidad y la cierra o
@@ -36,20 +39,23 @@ decidir cual debe actualizarse.
 - Cada admin opera solo necesidades y respuestas de su propia institucion; el
   hospital se deriva de la identidad validada, no de un valor confiado al
   cliente.
-- El donante gestiona tipo de sangre, ubicacion, disponibilidad y fecha de
-  ultima donacion.
-- El hospital crea, consulta, cierra o cancela necesidades de su institucion.
+- El donante gestiona grupo sanguineo declarado, ubicacion sintetica y
+  disponibilidad. El sistema no solicita, acepta, almacena ni infiere fecha o
+  historial de ultima donacion (RF-PRO-05).
+- El hospital crea, consulta, activa, cierra o cancela necesidades de su
+  institucion. La meta representa confirmaciones de intencion, no unidades.
 - El sistema preselecciona mediante compatibilidad donante a receptor para
   globulos rojos y calcula distancia Haversine con coordenadas validadas.
 - El sistema crea una invitacion unica por necesidad y donante y solicita su
   envio idempotente mediante Resend.
 - Las respuestas quedan registradas una sola vez y visibles solo para el
   hospital propietario mediante una lista permitida de campos.
-- Confirmar o rechazar usa un token aleatorio almacenado como hash, ligado a una
-  invitacion y accion, de un solo uso y con expiracion. Su consumo es atomico y
-  no revive necesidades cerradas o canceladas.
-- El bloqueo post-donacion solo se activa con una regla configurable,
-  versionada y aprobada por una fuente clinica competente.
+- Confirmar o rechazar usa tokens aleatorios distintos por accion, almacenados
+  como hash, de un solo uso y ligados a invitacion/accion. No tienen TTL
+  independiente: solo sirven mientras invitacion y necesidad esten activas y
+  `now < need.expires_at`; su consumo es atomico.
+- No se implementa bloqueo postdonacion en este prototipo; no se recoge ni se
+  infiere la fecha/historial de donacion. No afirmar elegibilidad clinica.
 
 ## Matriz del prototipo
 
@@ -108,19 +114,44 @@ Java/Spring Boot fue evaluado y descartado para esta fase. La decision, sus
 trade-offs y criterios de reconsideracion constan en
 `docs/decisions/ADR-001-stack-del-prototipo.md`.
 
+## Decisiones cerradas en la linea base 1.2
+
+- La cantidad solicitada es meta de confirmaciones de intencion; nunca unidades,
+  volumen o donaciones realizadas.
+- Urgencia es informativa; no amplia radio ni lotes. El radio lo elige el hospital
+  entre 1 y 50 km, con valor inicial 10 km.
+- La preseleccion usa cuentas activas, perfil completo, disponibilidad y ubicacion
+  valida dentro del poligono de Lima. No solicita ni infiere fecha/historial de
+  ultima donacion y no ejecuta filtro postdonacion (RF-PRO-05/RF-MAT-01).
+- En token de alta asistida: expira a 24 h; la solicitud pasa a `vencida`, y
+  reemitir antes de la purga a 30 dias vuelve a `pendiente` sin reiniciar la
+  fecha original de purga (AP-01).
+- El token para verificar un email nuevo dura 24 h (AP-05).
+- Tras `confirmada -> rechazada`, el hospital vuelve a una proyeccion opaca sin
+  nombre ni grupo (AP-03).
+- Invitacion y token de accion vencen con `need.expires_at`; el token no tiene TTL
+  independiente. Al vencer la necesidad, invitaciones pendientes pasan a
+  `vencida`; cierre/cancelacion manual las marca `invalidada` (AP-09).
+- Invitaciones/outbox/auditoria son atomicos; unicidad por necesidad/donante y
+  cuotas globales se aplican en base de datos.
+
 ## Decisiones pendientes
 
-- Versiones exactas de Node, Express, Tailwind, TypeScript, gestor de paquetes y
-  acceso a datos; se fijaran con lockfile en Sprint 0.
+- Versiones del entorno local de Design-First fijadas por ADR-002 y
+  `package-lock.json` (Node 24.19.0, npm 12.0.2, Express 5.2.1, React 18.3.1,
+  TypeScript 5.9.3, Vite 8.3.2). La configuración de despliegue/producción y el
+  acceso real a datos siguen pendientes.
+- Detalles de login/recuperacion/MFA, nombre de cookie, CSRF, CORS y Origin.
+- Ratificar en Sprint 0 el inventario propuesto completo de `docs/openapi.json`
+  (54 rutas/69 operaciones); continúa siendo una propuesta y no un contrato API
+  productivo implementado.
 - Limites, timeouts, reintentos, webhooks, rebotes, supresiones y reconciliacion
-  de Resend.
-- Region, planes, cold starts, health checks, rollback, CORS y ejecucion del
-  outbox en Vercel, Render y Supabase.
-- Radio por defecto y reglas de ampliacion en urgencias.
-- Intervalo de bloqueo post-donacion y autoridad clinica que lo valida.
-- Precision de ubicacion almacenada, retencion, eliminacion y consentimiento.
+  de Resend (AP-02, AP-06 y AP-08 incluyen reintentos/payload/jitter pendientes).
+- Region, planes, cold starts, health checks, rollback y ejecucion del outbox en
+  Vercel, Render y Supabase.
+- Precision, retencion, eliminacion y consentimiento de ubicacion.
 - Requisitos legales aplicables en Peru y responsabilidades de hospitales.
-- Si la cantidad solicitada representa unidades, donantes o una meta informativa.
-- Estados exactos y transiciones de necesidad, invitacion y confirmacion.
-- Politica ante falta de candidatos, duplicados y necesidades concurrentes.
-- Fuente oficial y proceso de actualizacion de reglas de compatibilidad.
+- Precedencia observable de carreras entre confirmaciones, meta, cierre y envio
+  en vuelo (AP-04); cota de retencion de backups (AP-07).
+- Fuente oficial y proceso de revision/actualizacion de la matriz clinica antes de
+  cualquier uso con datos reales.

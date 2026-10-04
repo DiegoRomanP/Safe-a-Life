@@ -1,0 +1,122 @@
+meta {
+  name: Obtiene el actor asociado a la sesión actual
+  type: http
+  seq: 2
+  tags: [
+    Authentication
+  ]
+}
+
+get {
+  url: {{baseUrl}}/api/v1/auth/session
+  body: none
+  auth: inherit
+}
+
+example {
+  name: 200 Response
+  description: Sesión vigente; el rol y la membresía vienen de la fuente protegida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/auth/session
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "actor": {
+              "role": "donante",
+              "displayName": "Donante Demo"
+            },
+            "aal": 1,
+            "mfaRequired": false
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 401 Response
+  description: Autenticación ausente, inválida o vencida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/auth/session
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 401
+      text: Unauthorized
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "AUTHENTICATION_REQUIRED",
+            "message": "La sesión no está vigente.",
+            "correlationId": "00000000-0000-4000-8000-000000000401"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 500 Response
+  description: Error interno sin detalles de implementación.
+
+  request: {
+    url: {{baseUrl}}/api/v1/auth/session
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 500
+      text: Internal Server Error
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "No se pudo completar la solicitud.",
+            "correlationId": "00000000-0000-4000-8000-000000000500"
+          }
+        }
+      '''
+    }
+  }
+}

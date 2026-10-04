@@ -1,0 +1,147 @@
+meta {
+  name: Lista membresías administrativas minimizadas
+  type: http
+  seq: 9
+  tags: [
+    Superadmin
+  ]
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/memberships
+  body: none
+  auth: inherit
+}
+
+params:query {
+  @description('Límite por página propuesto; el máximo debe aplicarse también en servidor.')
+  limit: 20
+  @description('Cursor opaco devuelto por la página anterior; no contiene PII.')
+  ~cursor:
+}
+
+example {
+  name: 200 Response
+  description: Página de membresías.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/memberships
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "items": [
+              {
+                "membershipId": "95ccf96b-c1f0-4612-8fa2-4480804303d9",
+                "hospitalId": "a8b51767-5c30-41fb-bf7a-f90250f9649c",
+                "role": "admin_hospitalario",
+                "status": "activa",
+                "emailHint": "h***@example.test"
+              }
+            ],
+            "pagination": {
+              "nextCursor": null
+            }
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 401 Response
+  description: Autenticación ausente, inválida o vencida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/memberships
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 401
+      text: Unauthorized
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "AUTHENTICATION_REQUIRED",
+            "message": "La sesión no está vigente.",
+            "correlationId": "00000000-0000-4000-8000-000000000401"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 403 Response
+  description: Actor autenticado sin permiso; no revelar datos del recurso ajeno.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/memberships
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 403
+      text: Forbidden
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "ACCESS_DENIED",
+            "message": "La acción no está permitida.",
+            "correlationId": "00000000-0000-4000-8000-000000000403"
+          }
+        }
+      '''
+    }
+  }
+}

@@ -1,0 +1,125 @@
+meta {
+  name: Consulta contenido informativo común aprobado
+  type: http
+  seq: 19
+  tags: [
+    Donor
+  ]
+}
+
+get {
+  url: {{baseUrl}}/api/v1/legal-information/donation-work
+  body: none
+  auth: inherit
+}
+
+docs {
+  Solo muestra conclusiones cuando el artefacto está aprobado por revisión profesional; no es asesoría, constancia ni garantía de permiso laboral.
+}
+
+example {
+  name: 200 Response
+  description: Contenido aprobado o aviso neutral de revisión pendiente.
+
+  request: {
+    url: {{baseUrl}}/api/v1/legal-information/donation-work
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "status": "borrador",
+            "version": "demo-1",
+            "notice": "Contenido pendiente de revisión profesional; no constituye asesoría legal ni garantiza un permiso.",
+            "content": null,
+            "sources": []
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 404 Response
+  description: Recurso inexistente o no visible para este actor.
+
+  request: {
+    url: {{baseUrl}}/api/v1/legal-information/donation-work
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 404
+      text: Not Found
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "RESOURCE_NOT_FOUND",
+            "message": "El recurso no está disponible.",
+            "correlationId": "00000000-0000-4000-8000-000000000404"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 500 Response
+  description: Error interno sin detalles de implementación.
+
+  request: {
+    url: {{baseUrl}}/api/v1/legal-information/donation-work
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 500
+      text: Internal Server Error
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "No se pudo completar la solicitud.",
+            "correlationId": "00000000-0000-4000-8000-000000000500"
+          }
+        }
+      '''
+    }
+  }
+}

@@ -1,22 +1,15 @@
-# Dependencias
-node_modules/
+**.bak
 
-# Variables de entorno (claves secretas)
 .env
-.env.local
-.env.*.local
-
-# Builds
-dist/
-build/
-
-# Logs
-*.log
-npm-debug.log*
-pnpm-debug.log*
-
-# Editor / OS
-.DS_Store
-*.bak
+.env.*
+!.env.example
+!.env.*.example
 
 .serena
+
+node_modules/
+**/dist/
+**/.vite/
+coverage/
+playwright-report/
+test-results/

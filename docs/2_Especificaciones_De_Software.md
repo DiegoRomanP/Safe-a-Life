@@ -3,11 +3,11 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Borrador controlado para revision |
-| Version | 0.1 |
-| Fecha | 2026-09-24 |
+| Version | 0.4 |
+| Fecha | 2026-10-01 |
 | Tipo de documento | Especificacion de Requisitos de Software (ERS) |
 | Ambito | Prototipo academico con datos sinteticos en Lima Metropolitana |
-| Linea base funcional | [`1_Primeros_Alcances.md`](1_Primeros_Alcances.md), version 1.0 |
+| Linea base funcional | [`1_Primeros_Alcances.md`](1_Primeros_Alcances.md), version 1.2 |
 | Decision arquitectonica | [`ADR-001`](decisions/ADR-001-stack-del-prototipo.md), estado Aceptado |
 
 ## Control del documento
@@ -15,6 +15,9 @@
 | Version | Fecha | Estado | Descripcion |
 | --- | --- | --- | --- |
 | 0.1 | 2026-09-24 | Borrador para revision | Primera organizacion formal de la linea base como ERS. |
+| 0.2 | 2026-09-27 | Borrador para revision | Reorganizacion editorial de requisitos por rol y objetivo; conserva los 101 RF/RNF, prioridades, verificaciones y ambiguedades abiertas, sin cambio funcional ni arquitectonico. |
+| 0.3 | 2026-09-27 | Borrador para revision | Incorpora reconocimientos hospitalarios opcionales limitados a refrigerio, diploma y pin, mas informacion comun sobre constancia y permiso laboral; no modifica la arquitectura. |
+| 0.4 | 2026-10-01 | Borrador controlado | Registra decisiones aprobadas AP-01/AP-03/AP-05/AP-09, sincroniza la exclusion de historial de ultima donacion y explicita sus efectos en estados, tokens y proyecciones. |
 
 ### Autoridad y precedencia
 
@@ -31,11 +34,12 @@ RF-EML-01 a RF-EML-03 concretan decisiones que `ADR-001` todavia describe como
 pendientes. Esa redaccion del ADR debe sincronizarse, sin modificar los RF
 aprobados, antes de implementar el modulo de email.
 
-`Save_a_Life.xlsx`, `.opencode/references/project-requirements.md`, `README.md` y
-los ADR afectados requieren sincronizacion antes de implementar los modulos
-correspondientes. En particular, pueden conservar requisitos anteriores sobre
-ultima donacion, transporte de sesion o decisiones que esta linea base ya
-cerro.
+`Save_a_Life.xlsx` y `.opencode/references/project-requirements.md` se sincronizan
+con RF-PRO-05 en esta revision: no recopilar historial de ultima donacion ni
+aplicar filtro postdonacion. AP-01, AP-03, AP-05 y AP-09 quedan resueltos por las
+decisiones de producto registradas en la linea base; los cambios de API/mock deben
+mantenerse alineados con esta ERS y `docs/Api-Rules.md`. No inferir resoluciones
+para AP-02, AP-04, AP-06, AP-07 ni AP-08.
 
 ### Referencia metodologica
 
@@ -77,6 +81,14 @@ La operacion inicial se limita a Lima Metropolitana, tres hospitales
 autorizados y hasta 500 donantes sinteticos. No existe contacto directo entre
 paciente y donante.
 
+Cada hospital puede publicar de forma opcional una politica limitada a
+refrigerio, diploma y/o pin. El donante puede consultarla junto con un segmento
+comun sobre constancia de donacion y permiso laboral en Peru. Ninguno de esos
+elementos acredita asistencia o donacion, altera la preseleccion ni garantiza
+la entrega de un reconocimiento o la concesion de un permiso. La oferta se
+presenta de forma neutral, sin comparadores, filtros, promocion ni mensajes de
+escasez, y separada de urgencia, respuesta e informacion laboral.
+
 ### 1.3 Audiencia prevista
 
 | Audiencia | Uso esperado |
@@ -86,6 +98,7 @@ paciente y donante.
 | Equipo de QA | Derivar pruebas unitarias, integracion, RLS, E2E, rendimiento, accesibilidad y smoke. |
 | Responsables de seguridad y privacidad | Revisar autorizacion, minimizacion, retencion, auditoria y tratamiento de datos. |
 | Revisores clinicos | Verificar que el lenguaje no convierta la preseleccion academica en una conclusion clinica. |
+| Revisores legales | Validar las fuentes y los limites del contenido sobre reconocimientos, constancia de donacion y permiso laboral antes de cualquier uso con personas reales. |
 | Operadores de la demostracion | Preparar entornos, datos sinteticos, cuentas, despliegues y evidencias. |
 
 ### 1.4 Convenciones
@@ -97,6 +110,20 @@ paciente y donante.
 - Todo requisito incluye un metodo de verificacion observable.
 - Los requisitos funcionales conservan el prefijo `RF`; los no funcionales,
   `RNF`.
+- La organizacion principal es `rol -> objetivo -> recorrido -> requisitos ->
+  aceptacion`. Los prefijos historicos de RF/RNF conservan su identidad y no
+  determinan la ubicacion de un requisito.
+- `DON-OBJ`, `HOS-OBJ` y `SA-OBJ` son claves de recorridos documentales, no nuevos
+  requisitos ni IDs de pantallas. Cada RF tiene una sola definicion en esta ERS
+  y puede ser referenciado por otros recorridos. Los RNF se definen una sola vez
+  en la seccion 6, con aplicabilidad por rol.
+- Las fichas de la seccion 4 agrupan obligaciones y aceptacion ya existentes;
+  no crean permisos ni sustituyen las clausulas y verificaciones de sus RF/RNF.
+  Las capacidades provenientes de matrices o pantallas mantienen su fuente
+  explicita, sin convertirlas en nuevos RF.
+- Donante, admin hospitalario y superadmin son los tres roles de negocio. El
+  visitante o portador de token es un contexto de acceso; el worker es un actor
+  tecnico de soporte, no un cuarto rol de negocio.
 - El termino "compatible" significa exclusivamente "coincide con
   `MATRIZ_RBC_ACADEMICA_V1`" en direccion donante declarado a receptor
   requerido para `RBC`.
@@ -112,7 +139,7 @@ paciente y donante.
   PostgreSQL conforme a RF-NEC-08. Cada otro limite temporal usa la fuente de
   tiempo definida por su requisito y por el diseno aprobado en Sprint 0.
 
-El inventario contiene 45 requisitos funcionales y 56 no funcionales: 99 son
+El inventario contiene 50 requisitos funcionales y 57 no funcionales: 105 son
 `Must` y los dos requisitos de mapa son `Could`.
 
 ### 1.5 Definiciones y acronimos
@@ -132,8 +159,10 @@ El inventario contiene 45 requisitos funcionales y 56 no funcionales: 99 son
 | Outbox | Registro transaccional de trabajos de notificacion pendientes. |
 | PII | Datos personales identificables o vinculables. |
 | PKCE | Extension del flujo de autorizacion usada para proteger el intercambio de credenciales. |
+| Politica de reconocimientos | Oferta opcional y versionada de un hospital, limitada a refrigerio, diploma y/o pin; no es pago, prueba de donacion ni promesa de entrega de la plataforma. |
 | RBC | Componente fijo de globulos rojos dentro del prototipo. |
 | RLS | Politicas de seguridad a nivel de fila en PostgreSQL/Supabase. |
+| Segmento informativo laboral | Contenido comun sobre constancia de donacion y permiso laboral que identifica fuentes y limites; no es una constancia, permiso ni asesoria legal. |
 | Superadmin | Rol que gestiona hospitales, sedes, admins, configuracion y solicitudes privilegiadas. |
 
 ### 1.6 Referencias
@@ -144,6 +173,10 @@ El inventario contiene 45 requisitos funcionales y 56 no funcionales: 99 son
 - [`1_Primeros_Alcances.md`](1_Primeros_Alcances.md), linea base funcional y de
   prototipo.
 - [`ADR-001: Stack y despliegue del prototipo`](decisions/ADR-001-stack-del-prototipo.md).
+- [Ley N. 26454](https://www.leyes.congreso.gob.pe/Documentos/Leyes/26454.pdf),
+  marco peruano de donacion voluntaria y gratuita de sangre humana.
+- [Ley N. 27282](https://www.leyes.congreso.gob.pe/Documentos/Leyes/27282.pdf),
+  capitulo II sobre donacion de sangre, constancia y permiso laboral.
 - `AGENTS.md`, invariantes de dominio, privacidad, arquitectura y calidad.
 
 ## 2. Descripcion general
@@ -196,17 +229,21 @@ flowchart LR
 8. Registrar confirmacion o rechazo inicial mediante enlaces seguros y permitir
    cambios posteriores autenticados mientras corresponda.
 9. Mostrar al hospital solo informacion minima y contextual.
-10. Tramitar solicitudes auditables de correccion y eliminacion.
-11. Ofrecer, como alcance opcional, una visualizacion agregada con alternativa
+10. Permitir que cada hospital publique o retire una politica opcional limitada
+    a refrigerio, diploma y/o pin, sin afectar el flujo de invitaciones.
+11. Mostrar al donante esa politica y un segmento comun sobre constancia de
+    donacion y permiso laboral, con supervision administrativa acotada.
+12. Tramitar solicitudes auditables de correccion y eliminacion.
+13. Ofrecer, como alcance opcional, una visualizacion agregada con alternativa
     tabular accesible.
 
 ### 2.3 Clases de usuario
 
 | Actor | Responsabilidad | Restriccion principal |
 | --- | --- | --- |
-| Donante | Completar su perfil, gestionar disponibilidad y ubicacion sintetica, consultar invitaciones y responder. | Solo accede a sus propios datos y nunca a otros donantes. |
-| Admin hospitalario | Gestionar necesidades y lotes de su institucion, iniciar altas asistidas y consultar respuestas permitidas. | Pertenece exactamente a un hospital y no opera recursos ajenos. |
-| Superadmin | Gestionar hospitales, sedes, admins, configuracion y solicitudes privilegiadas. | El acceso a PII es contextual, temporal, auditado y no permite explorar el padron. |
+| Donante | Completar su perfil, gestionar disponibilidad y ubicacion sintetica, consultar invitaciones, reconocimientos e informacion laboral, y responder. | Solo accede a sus propios datos y nunca a otros donantes; la informacion institucional no acredita donacion ni permiso. |
+| Admin hospitalario | Gestionar necesidades y lotes de su institucion, iniciar altas asistidas, consultar respuestas permitidas y publicar reconocimientos opcionales. | Pertenece exactamente a un hospital y no opera recursos ni politicas ajenas. |
+| Superadmin | Gestionar hospitales, sedes, admins, configuracion, solicitudes privilegiadas y supervision de politicas de reconocimiento. | El acceso a PII es contextual, temporal, auditado y no permite explorar el padron; supervisar politicas no concede acceso a donantes. |
 | Worker | Procesar el outbox y reconciliar estados de entrega. | Solo usa RPC de minimo privilegio y no consulta el padron general. |
 | Visitante o portador de token | Registrarse, autenticarse, recuperar acceso, reclamar una cuenta o emitir la primera respuesta. | Recibe respuestas neutras y solo informacion minima del flujo. |
 
@@ -272,7 +309,10 @@ durante Sprint 0.
 - Registro de asistencia efectiva o donacion realizada.
 - Inventario de sangre, unidades, volumen o suficiencia clinica.
 - Fecha o historial de ultima donacion y bloqueo postdonacion activo.
-- Pagos o compensaciones.
+- Pagos, dinero, vales, descuentos, sorteos, puntos, creditos o beneficios
+  canjeables o distintos de refrigerio, diploma y pin.
+- Emision de constancias de donacion, decision sobre permisos laborales o
+  verificacion del cumplimiento de obligaciones del empleador.
 - Integraciones HIS, HL7, FHIR o sistemas hospitalarios legados.
 - Plasma, plaquetas u otros componentes distintos de `RBC`.
 - Ampliacion automatica de radio o lotes por urgencia.
@@ -289,9 +329,9 @@ exito, conflicto concurrente y permiso insuficiente.
 | Familia | Interfaces requeridas |
 | --- | --- |
 | Publica y autenticacion | Introduccion, login, registro, verificacion, reclamo asistido, recuperacion, MFA y step-up. |
-| Donante | Onboarding, perfil propio, disponibilidad, ubicacion sintetica, invitaciones, respuestas, historial y solicitudes. |
-| Hospital | Dashboard, necesidades, detalle, lotes, entregas, respuestas y altas asistidas. |
-| Superadmin | Tareas, hospitales, sedes, admins, membresias, solicitudes, configuracion y auditoria. |
+| Donante | Onboarding, perfil propio, disponibilidad, ubicacion sintetica, invitaciones, respuestas, historial, solicitudes, reconocimientos e informacion laboral. |
+| Hospital | Dashboard, necesidades, detalle, lotes, entregas, respuestas, altas asistidas y politica de reconocimientos. |
+| Superadmin | Tareas, hospitales, sedes, admins, membresias, solicitudes, configuracion, auditoria y supervision de politicas de reconocimiento. |
 | Sistema | Acceso denegado o recurso no revelado, indisponibilidad y recuperacion. |
 | Mapa opcional | Visualizacion agregada de una necesidad propia y tabla accesible equivalente. |
 
@@ -323,8 +363,10 @@ El frontend no usara el SDK de Supabase para consultar o modificar datos de
 dominio. Las capacidades publicas estrictamente necesarias de autenticacion se
 mantendran mediadas por Express conforme a RNF-SEC-01 y RNF-SEC-09.
 
-Las rutas REST, los esquemas OpenAPI o equivalentes y el acceso a datos concreto
-se cerraran en Sprint 0 sin modificar los requisitos de esta ERS.
+La propuesta inicial de rutas REST/OpenAPI esta en [`openapi.json`](openapi.json) y
+sus convenciones en [`Api-Rules.md`](Api-Rules.md). Ambos siguen en borrador hasta
+su ratificacion en Sprint 0; el acceso a datos concreto tambien se decide en
+Sprint 0. El contrato no modifica los requisitos de esta ERS.
 
 ### 3.3 Interfaces de comunicacion
 
@@ -356,32 +398,177 @@ navegadores admitidos y de la infraestructura cloud indicada.
 | API, PostgreSQL y RLS | RNF-ARC-03, RNF-ARC-05, RNF-DAT-01, RNF-SEC-07 a RNF-SEC-10, RNF-API-01 y RNF-API-02. |
 | Email, outbox y webhook | RF-EML-01 a RF-EML-04; RNF-SEC-10, RNF-SEC-14, RNF-REL-01, RNF-REL-02 y RNF-OPS-05. |
 | Mapa opcional | RF-MAP-01, RF-MAP-02, RNF-ARC-05 y RNF-PRV-01. |
+| Reconocimientos e informacion laboral | RF-REC-01 a RF-REC-04, RF-LAB-01, RNF-LGL-01, RNF-A11Y-01 y RNF-A11Y-02. |
 | Errores, telemetria y auditoria | RNF-API-02, RNF-OBS-01, RNF-OBS-02 y RNF-AUD-01. |
 
-## 4. Requisitos funcionales
+## 4. Requisitos funcionales por rol y objetivo
 
-### 4.1 Identidad y organizacion
+Cada ficha identifica el objetivo del actor, las condiciones de entrada, el
+resultado observable, las restricciones y la aceptacion derivada. Las tablas
+RF conservan literalmente las obligaciones, prioridades y verificaciones de la
+linea base. Los RNF particulares se complementan con la matriz de aplicabilidad
+de la seccion 6. Los AP referenciados mantienen suspendidas unicamente las
+clausulas afectadas, conforme a 1.4 y 10.5.
+
+### 4.1 Donante
+
+El donante gestiona su propia participacion y nunca consulta perfiles ni
+respuestas de otros donantes. La primera respuesta mediante token y el reclamo
+se rigen por su contexto de acceso, sin exigirles una sesion por esta agrupacion.
+
+#### DON-OBJ-01: Registrarse y activar su cuenta
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Obtener una cuenta activa mediante autorregistro o reclamo de alta asistida valida; CU-01 describe el contexto. |
+| Accion y resultado | Registrar o reclamar, verificar email y completar el perfil; el sistema solo activa la cuenta con los datos obligatorios completos. |
+| Restricciones y relaciones | Una cuenta incompleta o un alta no reclamada no participa en matching. HOS-OBJ-02 inicia el alta; el hospital no completa el perfil del donante. Aplican tambien RF-PRO-01 y RF-PRO-05. |
+| RNF particulares | RNF-SEC-01 a RNF-SEC-04, RNF-SEC-12 y RNF-SEC-13. |
+| Aceptacion derivada | Cuenta completa incluida cuando cumple los demas filtros; incompleta excluida; replay rechazado; purga a los 30 dias de alta no reclamada. |
+| Pendientes y fuente | Reemision y purga conforme a RF-IAM-03/04. CU-01; AUTH-02, AUTH-03 y DON-01 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
 | RF-IAM-01 | El sistema debera permitir que un donante se autorregistre y active su cuenta unicamente despues de verificar su email y completar nombre, grupo declarado, disponibilidad y ubicacion sintetica aproximada. | M | E2E con cuenta incompleta excluida y cuenta completa incluida en matching. |
-| RF-IAM-02 | El sistema debera permitir que un admin hospitalario inicie un alta asistida con email y nombre opcional, sin contrasena, grupo ni ubicacion, devolviendo la misma respuesta neutra aunque el email ya exista. | M | Integracion con email nuevo, repetido y concurrente, sin enumeracion. |
-| RF-IAM-03 | El alta asistida debera usar los estados `pendiente`, `reclamada_incompleta`, `activa` y `vencida`; su token durara 24 horas, sera de un uso y una reemision invalidara tokens anteriores sin reiniciar el plazo de conservacion. | M | Pruebas con reloj controlado, replay y reemision. |
+| RF-IAM-03 | El alta asistida debera usar los estados `pendiente`, `reclamada_incompleta`, `activa` y `vencida`. Su token sera de un uso y durara 24 horas; al vencer, la solicitud pasara a `vencida`. Una reemision antes de la purga invalidara los tokens anteriores y devolvera la solicitud a `pendiente` sin cambiar `created_at` ni su fecha de purga. | M | Reloj controlado antes/en/despues de 24 h; replay; reemision que invalida el token anterior; reemision sin extender los 30 dias; purga en la fecha original. |
 | RF-IAM-04 | Un alta asistida no reclamada debera purgarse a los 30 dias de su creacion y nunca participar en matching; una cuenta reclamada solo pasara a `activa` al completar el perfil obligatorio. | M | Integracion antes y despues de los limites y prueba de exclusion del matching. |
-| RF-IAM-05 | El superadmin debera invitar a los admins hospitalarios y asignarles exactamente un hospital activo; un hospital podra tener varios admins y ningun usuario podra autoseleccionar su rol. | M | API/RLS: segunda membresia y manipulacion de rol rechazadas. |
-| RF-ORG-01 | Solo el superadmin debera crear o modificar hospitales y aprobar sus sedes; el admin hospitalario solo podra seleccionar una sede activa de su propia institucion. | M | Pruebas positivas propias y negativas entre hospitales. |
 
-### 4.2 Perfil y solicitudes
+#### DON-OBJ-02: Consultar su perfil y gestionar disponibilidad y ubicacion
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Consultar el perfil propio y actualizar campos permitidos desde una sesion de donante. |
+| Accion y resultado | Cambiar disponibilidad o ubicacion; al marcarse no disponible, el sistema impide nuevas invitaciones e invalida las activas sin respuesta, sin modificar confirmaciones existentes. |
+| Restricciones y relaciones | Solo datos propios, ubicacion sintetica dentro de Lima con hasta tres decimales; sin historial de donacion. RF-MAT-01 y RF-BAT-03 relacionan participacion y cuotas con HOS-OBJ-04. |
+| RNF particulares | RNF-SEC-07, RNF-SEC-08 y RNF-API-01. |
+| Aceptacion derivada | Cambio propio permitido; acceso ajeno denegado; ubicacion invalida rechazada; invitacion sin respuesta invalidada y confirmacion previa conservada al desactivar disponibilidad. |
+| Fuente | Matriz 5.3; DON-02 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
 | RF-PRO-01 | El donante debera poder consultar solo su perfil y modificar directamente unicamente su disponibilidad y ubicacion sintetica aproximada dentro del poligono de Lima y con un maximo de tres decimales. | M | E2E propio, acceso ajeno denegado y validacion geografica. |
-| RF-PRO-02 | Los cambios de nombre, email o grupo declarado deberan iniciarse mediante una solicitud; el email nuevo debera verificarse antes de sustituir al anterior. | M | `PATCH` directo rechazado y flujo de solicitud exitoso. |
-| RF-PRO-03 | Las solicitudes de correccion y eliminacion deberan usar `pendiente`, `aprobada`, `rechazada`, `en_ejecucion`, `completada` y `fallida`. | M | Prueba de cada transicion permitida y prohibida. |
-| RF-PRO-04 | `rechazada`, `completada` y `fallida` seran terminales; una ejecucion fallida requerira una nueva solicitud y ninguna ejecucion podra comenzar sin una solicitud aprobada. | M | Integracion y prueba concurrente. |
 | RF-PRO-05 | El prototipo no debera solicitar, aceptar, almacenar ni inferir fecha o historial de ultima donacion. | M | Contrato DTO/esquema, mass assignment y busqueda en persistencia. |
+| RF-INV-07 | Si un donante se marca no disponible, el sistema debera impedir nuevas invitaciones e invalidar las activas sin respuesta, sin modificar una confirmacion existente. | M | Integracion con los tres estados de respuesta. |
 
-### 4.3 Necesidades
+#### DON-OBJ-03: Consultar sus invitaciones
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Consultar lista y detalle propios autenticado; el enlace de primera respuesta tiene el contexto especifico de DON-OBJ-04. |
+| Accion y resultado | Abrir una invitacion y recibir informacion operativa minima, sin afirmaciones de elegibilidad. |
+| Restricciones y relaciones | Matriz 5.3 y RF-INV-01 para estados; RF-VIS-03 limita el contenido. No se muestran datos de otros donantes ni pacientes. |
+| RNF particulares | RNF-SEC-08 y RNF-SAF-01 a RNF-SAF-04. |
+| Aceptacion derivada | Consulta propia permitida y ajena denegada; contenido limitado a los campos permitidos; ausencia de paciente, diagnostico y promesas clinicas. |
+| Pendientes y fuente | Vigencia de invitacion/token conforme a RF-INV-01/02/03/08; matriz 5.3 y DON-03 del Anexo A. |
+
+| ID | Requisito | Prioridad | Verificacion |
+| --- | --- | ---: | --- |
+| RF-VIS-03 | El donante solo vera hospital verificado, sede publica, plazo, urgencia informativa e instrucciones; nunca paciente, diagnostico ni afirmacion de elegibilidad. | M | Snapshot de API/UI y busqueda de campos prohibidos. |
+
+#### DON-OBJ-04: Confirmar o rechazar una invitacion por primera vez
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Emitir la primera respuesta como portador legitimo del token; invitacion activa y no vencida, necesidad activa. |
+| Accion y resultado | Consultar por GET y responder por POST; el sistema consume el token y registra una respuesta atomica, invalidando el token hermano. |
+| Restricciones y relaciones | No mutar por GET ni aceptar replay. RF-INV-05 y RF-INV-08 en HOS-OBJ-06 regulan meta y terminales; RF-INV-01 distingue los ejes de estado. |
+| RNF particulares | RNF-SEC-12, RNF-SEC-13, RNF-REL-01 y RNF-REL-02. |
+| Aceptacion derivada | GET sin efectos; un unico efecto entre POST concurrentes del mismo token; accion cruzada, replay y respuesta tras meta o terminal rechazados. |
+| Pendientes y fuente | AP-04 para carreras entre operaciones distintas; CU-03 y LINK-01 del Anexo A. |
+
+| ID | Requisito | Prioridad | Verificacion |
+| --- | --- | ---: | --- |
+| RF-INV-02 | Confirmar y rechazar deberan usar tokens distintos de un uso, ligados a invitacion y accion; consumir uno invalidara su token hermano. No tendran TTL independiente: venceran con `need.expires_at` y solo seran validos mientras invitacion y necesidad sigan activas. | M | Accion cruzada, replay, invalidacion del token alternativo y vencimiento en el limite UTC de la necesidad. |
+| RF-INV-03 | Un `GET` del enlace debera ser informativo y no mutar estado; el primer `POST` valido solo podra consumir el token y registrar la respuesta atomicamente cuando la invitacion este activa, `now < need.expires_at` y la necesidad permanezca `activa`. | M | Escaner GET, dos POST concurrentes con un solo efecto y rechazo antes/en/despues de `expires_at`, tras meta o estado terminal. |
+
+#### DON-OBJ-05: Cambiar su respuesta y consultar su historial
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Revisar una respuesta inicial valida desde una sesion del donante propietario, mientras la necesidad no sea terminal. |
+| Accion y resultado | Alternar confirmada/rechazada y consultar historial propio; cada cambio agrega historial inmutable. |
+| Restricciones y relaciones | RF-NEC-07 y RF-INV-06 en HOS-OBJ-06 regulan el retorno a activa sin revalidar invitaciones ni crear lotes; HOS-OBJ-05 consulta la proyeccion permitida, que oculta identidad al quedar rechazada. |
+| RNF particulares | RNF-SEC-08 y RNF-AUD-01. |
+| Aceptacion derivada | Cambio propio permitido en el contexto aprobado; cambio ajeno o tras terminal denegado; historial conservado; hospital deja de ver identidad tras `confirmada -> rechazada`; perdida de meta sin lote automatico. |
+| Pendientes y fuente | AP-04 mantiene pendientes carreras entre operaciones; CU-03, DON-03 y DON-04 del Anexo A. |
+
+| ID | Requisito | Prioridad | Verificacion |
+| --- | --- | ---: | --- |
+| RF-INV-04 | Tras una respuesta inicial valida, solo el donante autenticado podra alternar entre `confirmada` y `rechazada` hasta que la necesidad sea terminal; cada cambio agregara historial inmutable. Si cambia a `rechazada`, el hospital deja de ver nombre y grupo y solo conserva codigo por necesidad y estados opacos. | M | E2E antes/despues del estado terminal y del cambio de confirmada a rechazada; proyeccion hospitalaria pierde identidad al cambiar. |
+
+#### DON-OBJ-06: Solicitar y seguir una correccion o eliminacion
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Solicitar correccion o eliminacion de datos propios desde una sesion de donante. |
+| Accion y resultado | Crear y seguir la solicitud; el donante no ejecuta la correccion privilegiada ni sustituye directamente nombre, email o grupo. |
+| Restricciones y relaciones | RF-PRO-03 y RF-PRO-04 se definen en SA-OBJ-03, que resuelve la solicitud con SA-OBJ-04. El email nuevo requiere verificacion con token de un uso y TTL de 24 horas. |
+| RNF particulares | RNF-SEC-12, RNF-SEC-13 y RNF-AUD-01. |
+| Aceptacion derivada | Solicitud propia creada y consultable; PATCH directo rechazado; email no sustituido antes de verificacion; token vencido/replay no muta email; ejecucion sin aprobacion denegada. |
+| Pendientes y fuente | CU-05, matriz 5.3 y DON-05 del Anexo A. |
+
+| ID | Requisito | Prioridad | Verificacion |
+| --- | --- | ---: | --- |
+| RF-PRO-02 | Los cambios de nombre, email o grupo declarado deberan iniciarse mediante una solicitud; el email nuevo debera verificarse antes de sustituir al anterior. El token sera de un uso y durara 24 horas; vencido, no modificara el email actual. | M | `PATCH` directo rechazado; verificacion valida cambia email; replay o token vencido no lo cambian; prueba del limite de 24 horas. |
+
+#### DON-OBJ-07: Consultar reconocimientos e informacion laboral
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Consultar la politica publicada por un hospital y el segmento informativo comun desde el contexto de donante. |
+| Accion y resultado | Distinguir refrigerio, diploma y/o pin publicados, o la ausencia valida de oferta, y acceder por separado a informacion general sobre constancia de donacion y permiso laboral. |
+| Restricciones y relaciones | Una eventual entrega solo se decide despues de una donacion efectiva determinada por el hospital fuera de la plataforma. HOS-OBJ-08 publica la politica y SA-OBJ-07 puede suspender o levantar la suspension. La consulta no acredita asistencia, donacion, entrega ni derecho individual a un permiso. |
+| RNF particulares | RNF-LGL-01, RNF-SAF-02, RNF-A11Y-01 y RNF-A11Y-02. |
+| Aceptacion derivada | Cada opcion y sus combinaciones se muestran con version y fecha; no ofrecer ninguna es valido; no existen comparadores, filtros, promocion o escasez; el segmento comun permanece independiente y muestra solo contenido juridico aprobado o el aviso correspondiente. |
+| Fuente | CU-07; DON-06 del Anexo A. |
+
+| ID | Requisito | Prioridad | Verificacion |
+| --- | --- | ---: | --- |
+| RF-REC-02 | El donante debera poder consultar si la politica publicada de cada hospital ofrece refrigerio, diploma y/o pin, o si no ofrece ninguno. La interfaz identificara version y fecha de actualizacion, explicara que una eventual entrega solo se decide despues de una donacion efectiva determinada fuera de la plataforma y presentara la oferta de forma neutral y separada de urgencia, controles de respuesta e informacion laboral, sin comparar, ordenar, filtrar, promocionar ni anunciar escasez por reconocimiento. | M | E2E con cada opcion, combinaciones, ausencia, version y separacion visual/semantica; busqueda de comparadores, filtros, promocion, escasez, promesa de entrega o registro de donacion. |
+| RF-LAB-01 | La plataforma debera ofrecer al donante un segmento informativo comun sobre constancia de donacion y permiso laboral en Peru, accesible con independencia del hospital, invitacion, reconocimiento o respuesta. Mostrara unicamente contenido juridico aprobado conforme a RNF-LGL-01 o, en su ausencia, un aviso de validacion profesional pendiente; siempre indicara que la plataforma no emite constancias, decide permisos ni garantiza su concesion. | M | Revision de contenido y E2E independiente desde hospitales con y sin reconocimientos, con contenido aprobado, ausente y no aprobado. |
+
+### 4.2 Admin hospitalario
+
+El admin opera exclusivamente dentro de su hospital, derivado de la identidad
+vigente. Solicita las acciones del recorrido; el sistema realiza la preseleccion
+y la entrega automatica, sin concederle exploracion del padron.
+
+#### HOS-OBJ-01: Acceder y operar dentro de su hospital
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Acceder como admin invitado, con membresia vigente en un unico hospital activo y AAL2. |
+| Accion y resultado | Aceptar invitacion administrativa y autenticarse conforme a AUTH-05; operar recursos de su institucion. |
+| Restricciones y relaciones | RF-IAM-05 y RF-ORG-01 se definen en SA-OBJ-02 y SA-OBJ-01; no puede elegir rol, administrar datos maestros ni operar recursos ajenos. |
+| RNF particulares | RNF-SEC-05, RNF-SEC-07 y RNF-SEC-08. |
+| Aceptacion derivada | AAL1 denegado; hospitalId falsificado y recurso ajeno denegados sin revelar existencia; revocacion efectiva usando la misma sesion. |
+| Fuente | Matriz 5.3 y AUTH-05 del Anexo A. Reune requisitos existentes, sin agregar un RF. |
+
+#### HOS-OBJ-02: Iniciar y dar seguimiento a un alta asistida
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Iniciar una invitacion minima desde el contexto autorizado de HOS-OBJ-01. |
+| Accion y resultado | Enviar email y nombre opcional; consultar estado o reemitir conforme a HOS-06; obtener respuesta neutra exista o no la cuenta. |
+| Restricciones y relaciones | Sin contrasena, grupo ni ubicacion. DON-OBJ-01 contiene RF-IAM-03 y RF-IAM-04 para reclamo, estados, reemision y purga. El alta no hace al hospital propietario del perfil. |
+| RNF particulares | RNF-SEC-12, RNF-SEC-13 y RNF-SEC-08. |
+| Aceptacion derivada | Emails nuevos, repetidos y concurrentes no enumerables; reemision invalida tokens anteriores sin reiniciar conservacion. |
+| Pendientes y fuente | Token de 24 horas; reemision antes de la purga original de 30 dias conforme a RF-IAM-03; CU-01 y HOS-06 del Anexo A. |
+
+| ID | Requisito | Prioridad | Verificacion |
+| --- | --- | ---: | --- |
+| RF-IAM-02 | El sistema debera permitir que un admin hospitalario inicie un alta asistida con email y nombre opcional, sin contrasena, grupo ni ubicacion, devolviendo la misma respuesta neutra aunque el email ya exista. | M | Integracion con email nuevo, repetido y concurrente, sin enumeracion. |
+
+#### HOS-OBJ-03: Crear y activar una necesidad propia
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Publicar una necesidad de su hospital con membresia vigente, AAL2 y sede propia activa. |
+| Accion y resultado | Completar parametros y activar desde borrador; el sistema valida componente, grupo, meta, sede, radio, urgencia y vencimiento. |
+| Restricciones y relaciones | RF-ORG-01 en SA-OBJ-01 limita sedes; RF-NEC-06 y RF-NEC-08 en HOS-OBJ-06 regulan transicion y vencimiento. Urgencia informativa; meta de intenciones, no unidades. |
+| RNF particulares | RNF-API-01 y RNF-SAF-02. |
+| Aceptacion derivada | RBC y ocho grupos admitidos; meta 0/1/50/51; radio y plazo en sus limites; sede ajena/inactiva rechazada; urgencia sin alterar seleccion. |
+| Fuente | CU-02; HOS-02 y HOS-03 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
@@ -390,11 +577,17 @@ navegadores admitidos y de la infraestructura cloud indicada.
 | RF-NEC-03 | La meta debera ser un entero de 1 a 50 confirmaciones de intencion y nunca se describira como unidades, volumen, donaciones realizadas o suficiencia clinica. | M | Fronteras `0/1/50/51` y revision de textos. |
 | RF-NEC-04 | La urgencia debera ser `Normal`, `Urgente` o `Critica` y sera solo informativa: no alterara matriz, radio, ranking, lote ni cuota. | M | Comparar resultados identicos cambiando unicamente urgencia. |
 | RF-NEC-05 | El admin debera seleccionar una sede activa de su hospital, un radio manual de 1 a 50 km con valor inicial de 10 km y un vencimiento de 1 a 72 horas. | M | Pruebas de frontera, sede ajena/inactiva y ausencia de ampliacion automatica. |
-| RF-NEC-06 | El sistema debera usar `borrador`, `activa`, `meta_alcanzada`, `cerrada`, `cancelada` y `vencida`; las tres ultimas seran terminales y no reabribles. | M | Tabla completa de transiciones en integracion. |
-| RF-NEC-07 | Una necesidad debera pasar de `meta_alcanzada` a `activa` si sus confirmaciones vigentes bajan de la meta, sin generar automaticamente otro lote. | M | Cambio de una respuesta confirmada y comprobacion de ausencia de fan-out. |
-| RF-NEC-08 | Todo vencimiento debera evaluarse con el reloj UTC de PostgreSQL: sera valido unicamente cuando `now < expires_at` y estara vencido cuando `now >= expires_at`. | M | Reloj controlado antes, en y despues del limite. |
 
-### 4.4 Matching y lotes
+#### HOS-OBJ-04: Solicitar lotes de invitaciones y su procesamiento
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Solicitar un lote para una necesidad propia activa desde HOS-OBJ-01. |
+| Accion y resultado | El hospital solicita manualmente; el sistema filtra, ordena, crea invitaciones/outbox/auditoria y procesa email conforme a las reglas de abajo. |
+| Restricciones y relaciones | No selecciona personas individuales ni ejecuta intentos del worker. DON-OBJ-02 aporta disponibilidad; HOS-OBJ-05 consulta estados; HOS-OBJ-06 limita envios por meta y terminales. |
+| RNF particulares | RNF-REL-01, RNF-REL-02, RNF-PER-02, RNF-PER-06, RNF-SEC-10, RNF-SEC-14 y RNF-OPS-05. |
+| Aceptacion derivada | Orden exactos/otras coincidencias y desempate estable; lote limitado y sin duplicados; tercera invitacion global admitida y cuarta bloqueada; conjunto insuficiente sin completar artificialmente; fallo intermedio revierte el lote. Entrega con reintentos acotados, destinatario externo bloqueado y webhook validado. |
+| Pendientes y fuente | AP-02, AP-04, AP-06 y AP-08 conservan sus decisiones; CU-02 y CU-06, reglas de la seccion 7 y HOS-04 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
@@ -408,20 +601,7 @@ navegadores admitidos y de la infraestructura cloud indicada.
 | RF-BAT-03 | Cada donante podra recibir como maximo tres invitaciones logicas globales en la ventana movil `(t - 24 h, t]`; se permitira la tercera y se bloqueara la cuarta, sin contar reintentos. | M | Concurrencia entre hospitales y bordes exactos de 24 horas. |
 | RF-BAT-04 | Debera existir como maximo una invitacion por necesidad y donante; invitaciones, outbox y auditoria deberan confirmarse o revertirse en una sola transaccion. | M | Restriccion unica, solicitudes concurrentes y fallo intermedio. |
 
-### 4.5 Invitaciones y respuestas
-
-| ID | Requisito | Prioridad | Verificacion |
-| --- | --- | ---: | --- |
-| RF-INV-01 | Cada invitacion debera mantener por separado vigencia (`activa`, `invalidada`, `vencida`), entrega (`pendiente`, `enviada`, `entregada`, `fallida`) y respuesta (`sin_respuesta`, `confirmada`, `rechazada`). | M | Cambiar un eje sin sobrescribir los otros. |
-| RF-INV-02 | Confirmar y rechazar deberan usar tokens distintos de un uso, ligados a invitacion y accion; consumir uno invalidara su token hermano. | M | Accion cruzada, replay e invalidacion del token alternativo. |
-| RF-INV-03 | Un `GET` del enlace debera ser informativo y no mutar estado; el primer `POST` valido solo podra consumir el token y registrar la respuesta atomicamente cuando la invitacion este activa, no haya vencido y la necesidad permanezca `activa`. | M | Escaner GET, dos POST concurrentes con un solo efecto y rechazo tras meta o estado terminal. |
-| RF-INV-04 | Tras una respuesta inicial valida, solo el donante autenticado podra alternar entre `confirmada` y `rechazada` hasta que la necesidad sea terminal; cada cambio agregara historial inmutable. | M | E2E antes y despues del estado terminal. |
-| RF-INV-05 | Al alcanzar la meta, el sistema debera pasar a `meta_alcanzada`, invalidar invitaciones sin respuesta y cancelar trabajos de outbox aun no enviados en la misma transaccion. | M | Confirmacion que completa la meta con invitaciones pendientes. |
-| RF-INV-06 | Si luego se pierde una confirmacion, el sistema debera volver a `activa` sin revalidar invitaciones ni crear un lote automaticamente. | M | `confirmada` a `rechazada` y comprobacion de estados. |
-| RF-INV-07 | Si un donante se marca no disponible, el sistema debera impedir nuevas invitaciones e invalidar las activas sin respuesta, sin modificar una confirmacion existente. | M | Integracion con los tres estados de respuesta. |
-| RF-INV-08 | Al cerrar, cancelar o vencer una necesidad, el sistema debera invalidar sus invitaciones activas sin respuesta, cancelar el outbox aun no enviado y rechazar toda respuesta o reintento posterior, sin eliminar el historial previo. | M | Integracion transaccional para los tres estados terminales y replay posterior. |
-
-### 4.6 Email y visibilidad
+Reglas de entrega que soportan el mismo recorrido:
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
@@ -429,11 +609,190 @@ navegadores admitidos y de la infraestructura cloud indicada.
 | RF-EML-02 | Red, timeout, `408`, `429` y `5xx` seran transitorios; otros `4xx` seran permanentes. Un resultado incierto se reconciliara durante 5 minutos con la misma clave idempotente antes de reintentar. | M | Casos por categoria sin segundo envio logico. |
 | RF-EML-03 | El webhook debera validar firma sobre cuerpo crudo y una antiguedad maxima de 5 minutos, deduplicar por ID y aceptar unicamente transiciones que no hagan retroceder el estado. | M | Firma alterada, evento antiguo, replay y desorden. |
 | RF-EML-04 | El worker debera comprobar la allowlist de inboxes de prueba inmediatamente antes de llamar a Resend. | M | Destinatario permitido y externo bloqueado. |
-| RF-VIS-01 | Antes de una confirmacion afirmativa, el hospital solo vera conteos, codigos aleatorios propios de la necesidad y estados opacos; rechazo, expiracion y falta de respuesta no revelaran identidad. | M | DTO y pruebas entre necesidades/hospitales. |
-| RF-VIS-02 | Tras una confirmacion afirmativa, el hospital solo vera nombre, codigo por necesidad, grupo declarado, respuesta y hora; nunca email, telefono, ID global, ubicacion, coordenadas ni distancia. | M | Allowlist contractual del DTO. |
-| RF-VIS-03 | El donante solo vera hospital verificado, sede publica, plazo, urgencia informativa e instrucciones; nunca paciente, diagnostico ni afirmacion de elegibilidad. | M | Snapshot de API/UI y busqueda de campos prohibidos. |
+
+#### HOS-OBJ-05: Consultar entregas y respuestas permitidas
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Consultar seguimiento de una necesidad perteneciente a su hospital, con membresia vigente y AAL2. |
+| Accion y resultado | Abrir dashboard o detalle y recibir conteos, estados y solo los campos permitidos segun la respuesta. |
+| Restricciones y relaciones | DON-OBJ-04 y DON-OBJ-05 registran respuestas; HOS-OBJ-04 procesa entregas. Ningun estado de entrega equivale a confirmacion o asistencia. |
+| RNF particulares | RNF-SEC-08, RNF-PER-04 y RNF-PER-05. |
+| Aceptacion derivada | Ejes de estado independientes; antes de confirmacion solo opacos; mientras confirmacion vigente, lista cerrada; al cambiar a rechazo vuelve proyeccion opaca; recurso ajeno denegado; respuesta reflejada dentro del umbral aprobado. |
+| Pendientes y fuente | AP-02 mantiene pendiente el estado agregado de entrega. CU-04; HOS-01, HOS-04 y HOS-05 del Anexo A. |
+
+| ID | Requisito | Prioridad | Verificacion |
+| --- | --- | ---: | --- |
+| RF-INV-01 | Cada invitacion debera mantener por separado vigencia (`activa`, `invalidada`, `vencida`), entrega (`pendiente`, `enviada`, `entregada`, `fallida`) y respuesta (`sin_respuesta`, `confirmada`, `rechazada`). La vigencia pasa a `vencida` cuando `now >= need.expires_at`; cierre/cancelacion manual la pasa a `invalidada`. | M | Cambiar un eje sin sobrescribir los otros; probar limites UTC y causa de invalidez. |
+| RF-VIS-01 | Antes de una confirmacion afirmativa, el hospital solo vera conteos, codigos aleatorios propios de la necesidad y estados opacos; rechazo, expiracion, falta de respuesta y cambio de confirmada a rechazada no revelaran identidad. | M | DTO y pruebas entre necesidades/hospitales, incluido el cambio `confirmada -> rechazada`. |
+| RF-VIS-02 | Mientras la respuesta vigente sea `confirmada`, el hospital solo vera nombre, codigo por necesidad, grupo declarado, respuesta y hora; nunca email, telefono, ID global, ubicacion, coordenadas ni distancia. Si cambia a `rechazada`, aplica RF-VIS-01 y se oculta la identidad. | M | Allowlist contractual del DTO antes de confirmar, con confirmacion vigente y tras cambiar a rechazo. |
+
+#### HOS-OBJ-06: Seguir el ciclo de vida, cerrar o cancelar una necesidad
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Gestionar el ciclo de una necesidad propia desde HOS-OBJ-01, segun los estados permitidos. |
+| Accion y resultado | El hospital cierra o cancela; el sistema refleja meta y vencimiento, marca invitaciones `invalidada` por cierre/cancelacion manual o `vencida` por expiracion, y cancela outbox cuando corresponde. |
+| Restricciones y relaciones | Terminales sin reapertura; retorno a activa sin nuevo lote ni revalidacion. DON-OBJ-04 y DON-OBJ-05 aportan respuestas; HOS-OBJ-04 requiere accion manual para otro lote. |
+| RNF particulares | RNF-REL-01, RNF-REL-02 y RNF-AUD-01. |
+| Aceptacion derivada | Meta alcanzada invalida pendientes; perdida de confirmacion retorna a activa sin fan-out; cerrar/cancelar marca invitaciones invalidas; vencer marca invitaciones vencidas; todos conservan historial y rechazan respuestas posteriores; verificar antes, en y despues de expires_at. |
+| Pendientes y fuente | AP-04 mantiene pendientes carreras y envio en vuelo. CU-04, transiciones 5.4 y HOS-03 del Anexo A. |
+
+| ID | Requisito | Prioridad | Verificacion |
+| --- | --- | ---: | --- |
+| RF-NEC-06 | El sistema debera usar `borrador`, `activa`, `meta_alcanzada`, `cerrada`, `cancelada` y `vencida`; las tres ultimas seran terminales y no reabribles. | M | Tabla completa de transiciones en integracion. |
+| RF-NEC-07 | Una necesidad debera pasar de `meta_alcanzada` a `activa` si sus confirmaciones vigentes bajan de la meta, sin generar automaticamente otro lote. | M | Cambio de una respuesta confirmada y comprobacion de ausencia de fan-out. |
+| RF-NEC-08 | Todo vencimiento debera evaluarse con el reloj UTC de PostgreSQL: sera valido unicamente cuando `now < expires_at` y estara vencido cuando `now >= expires_at`. | M | Reloj controlado antes, en y despues del limite. |
+| RF-INV-05 | Al alcanzar la meta, el sistema debera pasar a `meta_alcanzada`, invalidar invitaciones sin respuesta y cancelar trabajos de outbox aun no enviados en la misma transaccion. | M | Confirmacion que completa la meta con invitaciones pendientes. |
+| RF-INV-06 | Si luego se pierde una confirmacion, el sistema debera volver a `activa` sin revalidar invitaciones ni crear un lote automaticamente. | M | `confirmada` a `rechazada` y comprobacion de estados. |
+| RF-INV-08 | Al cerrar o cancelar manualmente una necesidad, el sistema debera marcar `invalidada` sus invitaciones activas sin respuesta; al vencer la necesidad, debera marcarlas `vencida`. En los tres casos cancelara el outbox aun no enviado y rechazara toda respuesta o reintento posterior, sin eliminar historial. El vencimiento usa `now >= need.expires_at`; tokens de accion vencen con la misma fecha limite y no tienen TTL independiente. | M | Integracion transaccional para cierre, cancelacion y vencimiento; estado de invitacion correcto, outbox cancelado y replay/post vencimiento rechazados. |
+
+#### HOS-OBJ-07: Consultar informacion geografica agregada opcional
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Consultar una necesidad propia en mapa o tabla, si se habilita este alcance Could. |
+| Accion y resultado | Mostrar celdas agregadas y alternativa tabular equivalente; el fallback mantiene el mismo contrato. |
+| Restricciones y relaciones | Sin perfiles, coordenadas individuales ni filtros arbitrarios diferenciables. No convierte el mapa en un padron consultable. |
+| RNF particulares | RNF-PRV-01, RNF-A11Y-01 y RNF-A11Y-02. |
+| Aceptacion derivada | Celda de cuatro elementos no expuesta; de cinco admitida conforme al contrato; necesidad ajena denegada; tabla equivalente y fallback minimizado. Ausencia del mapa no bloquea MVP. |
+| Fuente | MAP-01 del Anexo A y criterio 9.5. |
+
+| ID | Requisito | Prioridad | Verificacion |
+| --- | --- | ---: | --- |
 | RF-MAP-01 | Si se habilita el mapa, un admin hospitalario solo podra consultar una necesidad propia y el servidor enviara celdas sinteticas fijas de 1 km con `k >= 5` despues de filtros, centro redondeado a dos decimales y conteo; nunca perfiles ni filtros arbitrarios diferenciables. La misma informacion estara disponible en una tabla accesible. | C | Inspeccion de autorizacion, trafico y alternativa tabular con celdas de 4 y 5 elementos. |
 | RF-MAP-02 | MapLibre/OpenStreetMap podra actuar como fallback sin cambiar el contrato de minimizacion del mapa. | C | Fallo simulado de Mapbox e inspeccion del payload. |
+
+#### HOS-OBJ-08: Gestionar reconocimientos opcionales del hospital
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Publicar o retirar la politica opcional de su propia institucion desde una sesion con membresia vigente y AAL2, siempre que no este suspendida. |
+| Accion y resultado | Seleccionar una o mas opciones de la lista cerrada, o retirar la publicacion; DON-OBJ-07 recibe la proyeccion vigente. |
+| Restricciones y relaciones | No ofrecer ninguno es valido. La politica es independiente de necesidades, candidatos, invitaciones y respuestas; la plataforma no registra donacion efectiva, entrega ni canje. SA-OBJ-07 puede suspender o levantar la suspension. |
+| RNF particulares | RNF-SEC-07, RNF-SEC-08, RNF-API-01 y RNF-AUD-01. |
+| Aceptacion derivada | Politica propia publicada o retirada con nueva version y fecha; recurso ajeno, tipo no permitido, suspension y version obsoleta rechazados; mismos candidatos y estados con o sin politica; ausencia de estados de entrega o canje. |
+| Fuente | CU-07; HOS-07 del Anexo A. |
+
+| ID | Requisito | Prioridad | Verificacion |
+| --- | --- | ---: | --- |
+| RF-REC-01 | El admin hospitalario debera poder publicar o retirar, solo para su propio hospital y mientras no exista una suspension, una politica opcional versionada que seleccione uno o mas valores de la lista cerrada `refrigerio`, `diploma` y `pin`; no publicar reconocimientos sera valido y cada cambio conservara version y fecha de actualizacion. | M | E2E propio, acceso entre hospitales y mutacion suspendida denegados, combinaciones admitidas, ausencia valida, version incrementada y cualquier otro tipo rechazado. |
+| RF-REC-03 | La existencia, ausencia o contenido de una politica de reconocimientos no debera alterar matching, ranking, radio, urgencia, lotes, cuotas, invitaciones ni respuestas; la plataforma no condicionara la confirmacion, registrara la donacion efectiva ni gestionara la entrega o canje del reconocimiento. | M | Comparacion determinista con/sin politica, prueba de DTO/esquema y busqueda de estados de entrega o canje inexistentes. |
+
+### 4.3 Superadmin
+
+El superadmin gestiona instituciones, administradores y solicitudes concretas.
+Sus recorridos no habilitan navegacion rutinaria del padron identificable; los
+accesos excepcionales mantienen finalidad y tiempo acotados.
+
+#### SA-OBJ-01: Gestionar hospitales y sedes autorizadas
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Gestionar datos maestros desde una sesion de superadmin en AAL2. |
+| Accion y resultado | Crear o modificar hospitales y aprobar sedes; quedan disponibles segun su estado para la seleccion hospitalaria. |
+| Restricciones y relaciones | HOS-OBJ-03 solo selecciona sedes propias activas; no administra los datos maestros. |
+| RNF particulares | RNF-SEC-05, RNF-SEC-08 y RNF-AUD-01. |
+| Aceptacion derivada | Accion autorizada del superadmin; gestion denegada a donante y admin hospitalario; sede ajena/inactiva no seleccionable; evento auditable. |
+| Fuente | Matriz 5.3; SA-02 y SA-03 del Anexo A. |
+
+| ID | Requisito | Prioridad | Verificacion |
+| --- | --- | ---: | --- |
+| RF-ORG-01 | Solo el superadmin debera crear o modificar hospitales y aprobar sus sedes; el admin hospitalario solo podra seleccionar una sede activa de su propia institucion. | M | Pruebas positivas propias y negativas entre hospitales. |
+
+#### SA-OBJ-02: Invitar administradores y gestionar membresias
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Gestionar administradores con sesion AAL2 y step-up para crear admins o cambiar membresias. |
+| Accion y resultado | Invitar y asignar exactamente un hospital activo; HOS-OBJ-01 recibe el acceso resultante. |
+| Restricciones y relaciones | Sin autoseleccion de rol ni segunda membresia hospitalaria; varios admins pueden pertenecer al mismo hospital. |
+| RNF particulares | RNF-SEC-05, RNF-SEC-07 y RNF-AUD-01. |
+| Aceptacion derivada | Segunda membresia y rol manipulado rechazados; step-up vencido denegado; revocacion efectiva en operacion posterior con la misma sesion; auditoria minimizada. |
+| Fuente | Matriz 5.3 y SA-04 del Anexo A. |
+
+| ID | Requisito | Prioridad | Verificacion |
+| --- | --- | ---: | --- |
+| RF-IAM-05 | El superadmin debera invitar a los admins hospitalarios y asignarles exactamente un hospital activo; un hospital podra tener varios admins y ningun usuario podra autoseleccionar su rol. | M | API/RLS: segunda membresia y manipulacion de rol rechazadas. |
+
+#### SA-OBJ-03: Resolver solicitudes de correccion o eliminacion
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Resolver una solicitud creada por el donante, con AAL2 y controles de acceso contextual para las acciones privilegiadas. |
+| Accion y resultado | Revisar, aprobar o rechazar y ejecutar una solicitud aprobada; registrar completada o fallida sin reabrir estados terminales. |
+| Restricciones y relaciones | DON-OBJ-06 inicia y sigue la solicitud; RF-PRO-02 exige verificar email nuevo; SA-OBJ-04 delimita acceso. Una ejecucion fallida requiere nueva solicitud. |
+| RNF particulares | RNF-SEC-05, RNF-SEC-06 y RNF-AUD-01. |
+| Aceptacion derivada | Transiciones permitidas y prohibidas cubiertas; ejecucion sin aprobacion denegada; terminal no reabierto; decision y ejecucion auditadas. |
+| Pendientes y fuente | Token del nuevo email de 24 horas conforme a RF-PRO-02; CU-05, matriz 5.3 y SA-05 del Anexo A. |
+
+| ID | Requisito | Prioridad | Verificacion |
+| --- | --- | ---: | --- |
+| RF-PRO-03 | Las solicitudes de correccion y eliminacion deberan usar `pendiente`, `aprobada`, `rechazada`, `en_ejecucion`, `completada` y `fallida`. | M | Prueba de cada transicion permitida y prohibida. |
+| RF-PRO-04 | `rechazada`, `completada` y `fallida` seran terminales; una ejecucion fallida requerira una nueva solicitud y ninguna ejecucion podra comenzar sin una solicitud aprobada. | M | Integracion y prueba concurrente. |
+
+#### SA-OBJ-04: Acceder a datos solo para una solicitud concreta
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Acceder a PII necesaria para una solicitud y accion concretas, en AAL2 y tras step-up de antiguedad maxima de cinco minutos. |
+| Accion y resultado | Usar el grant contextual de maximo diez minutos, ligado al superadmin, solicitud, donante, campos y accion. |
+| Restricciones y relaciones | No concede busqueda general ni navegacion del padron; soporta SA-OBJ-03. |
+| RNF particulares | RNF-SEC-05, RNF-SEC-06 y RNF-AUD-01, definidos en 6. |
+| Aceptacion derivada | Step-up o grant vencidos, replay y acceso fuera de accion o campos denegados; acceso autorizado auditable sin valores PII. |
+| Fuente | Matriz 5.3, CU-05 y SA-05 del Anexo A. Reune obligaciones existentes, sin agregar un RF. |
+
+#### SA-OBJ-05: Gestionar la configuracion permitida
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Gestionar configuracion permitida y versionada desde una sesion de superadmin en AAL2. |
+| Accion y resultado | Fijar final_demo_at una sola vez; el sistema conserva la fecha y aplica las obligaciones de purga y retencion existentes. |
+| Restricciones y relaciones | No habilita nuevos parametros editables ni asigna al superadmin la ejecucion de la purga. La retencion afecta a los tres roles. |
+| RNF particulares | RNF-PRV-02 a RNF-PRV-04, RNF-SEC-05 y RNF-AUD-01. |
+| Aceptacion derivada | Fecha no modificable tras fijarse; inventario purgado dentro del plazo; solo agregados irreversibles posteriores; restauracion en cuarentena reaplica eliminaciones. |
+| Pendientes y fuente | AP-07 mantiene pendiente la cota de retencion de backups; entidades 5.1, matriz 5.3 y SA-06 del Anexo A. No agrega RF ni permisos de operacion de backups al rol. |
+
+#### SA-OBJ-06: Consultar auditoria minimizada
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Consultar la auditoria administrativa prevista para superadmin autenticado en AAL2. |
+| Accion y resultado | Consultar evidencia minimizada con IDs opacos; no se muestran valores PII anteriores o nuevos. |
+| Restricciones y relaciones | Acceso restringido; no permite actualizar ni borrar eventos. Relaciona acciones de SA-OBJ-01 a SA-OBJ-05 sin dar acceso general a perfiles. |
+| RNF particulares | RNF-AUD-01, RNF-SEC-05 y RNF-SEC-08. |
+| Aceptacion derivada | Evento verificable por clase; denegacion de actualizacion/borrado y de acceso no autorizado; ausencia de PII innecesaria. |
+| Fuente | RNF-AUD-01 y SA-07 del Anexo A. Reune obligaciones existentes, sin agregar un RF ni ampliar el alcance de consulta. |
+
+#### SA-OBJ-07: Supervisar politicas de reconocimiento
+
+| Campo | Descripcion |
+| --- | --- |
+| Objetivo y precondiciones | Revisar politicas institucionales desde una sesion de superadmin en AAL2. |
+| Accion y resultado | Consultar, suspender o levantar la suspension de una publicacion con motivo auditable. |
+| Restricciones y relaciones | No puede publicar beneficios adicionales, volver obligatoria una oferta, acreditar su entrega ni consultar donantes por este recorrido. La suspension cambia la visibilidad y bloquea mutaciones hospitalarias, no el flujo de invitaciones. |
+| RNF particulares | RNF-SEC-05, RNF-SEC-08 y RNF-AUD-01. |
+| Aceptacion derivada | Consulta autorizada; suspension o levantamiento sin motivo rechazados; oferta suspendida no visible ni mutable por el hospital; version obsoleta en conflicto; matching, invitaciones, respuestas e historial sin cambios; auditoria minimizada. |
+| Fuente | CU-07; SA-08 del Anexo A. |
+
+| ID | Requisito | Prioridad | Verificacion |
+| --- | --- | ---: | --- |
+| RF-REC-04 | El superadmin debera poder consultar, suspender o levantar la suspension de una politica de reconocimiento, registrando un motivo auditable; la suspension ocultara la oferta e impedira que el hospital la publique o modifique hasta su levantamiento, sin modificar matching, invitaciones, respuestas ni historial. | M | E2E de consulta, suspension y levantamiento, motivo obligatorio, mutacion hospitalaria bloqueada, oferta no publicada y flujo de invitacion sin cambios. |
+
+### 4.4 Recorridos compartidos y condiciones de acceso
+
+| Recorrido | Participacion | Requisitos y aceptacion derivados |
+| --- | --- | --- |
+| Acceso, cierre y recuperacion de sesion | Los tres roles; AAL2 para administradores. | AUTH-01, AUTH-04 y AUTH-05 del Anexo A; RNF-SEC-01 a RNF-SEC-05, RNF-SEC-11 a RNF-SEC-13 y RNF-SEC-15 a RNF-SEC-16. Recuperacion neutra, credencial de un uso, revocacion de sesiones previas y conservacion de rol, hospital y MFA. |
+| Alta asistida | HOS-OBJ-02 inicia; DON-OBJ-01 reclama y completa. | RF-IAM-02 se define en hospital; RF-IAM-03 y RF-IAM-04 en donante. Probar ambos lados sin trasladar propiedad del perfil; reemision no reinicia purga. |
+| Respuesta y seguimiento | DON-OBJ-04 y DON-OBJ-05 responden; HOS-OBJ-05 consulta y HOS-OBJ-06 refleja efectos. | RF-INV-01 a RF-INV-06, RF-INV-08 y RF-VIS-01 a RF-VIS-03. Verificar cambio de estado y proyeccion autorizada; AP-04 abierto para carreras. |
+| Correccion o eliminacion | DON-OBJ-06 solicita; SA-OBJ-03 decide y ejecuta con SA-OBJ-04. | RF-PRO-02 en donante; RF-PRO-03 y RF-PRO-04 en superadmin; RNF-SEC-05, RNF-SEC-06 y RNF-AUD-01. Token del nuevo email de 24 horas. |
+| Reconocimientos e informacion laboral | HOS-OBJ-08 publica una oferta opcional; DON-OBJ-07 la consulta junto con el segmento comun; SA-OBJ-07 puede suspender o levantar la suspension. | RF-REC-01 y RF-REC-03 en hospital; RF-REC-02 y RF-LAB-01 en donante; RF-REC-04 en superadmin; RNF-LGL-01 comun. Verificar tambien la ausencia valida de oferta y que el flujo de invitacion no cambie. |
+
+Los requisitos de soporte automatico se leen dentro del objetivo al que sirven.
+Por ejemplo, RF-EML-01 a RF-EML-04 pertenecen documentalmente a HOS-OBJ-04,
+pero el worker y el proveedor conservan su responsabilidad tecnica original.
+La organizacion por rol no modifica la matriz de acceso ni los estados.
 
 ## 5. Requisitos de datos y reglas de acceso
 
@@ -444,6 +803,7 @@ navegadores admitidos y de la infraestructura cloud indicada.
 | Identidad y membresia | Vincular una identidad autenticada con rol y, cuando corresponda, hospital. | Rol y hospital no se derivan de metadata editable. |
 | Perfil de donante | Nombre, email verificado, grupo declarado, disponibilidad y ubicacion sintetica aproximada. | No incluye ultima donacion; solo el propietario accede al perfil. |
 | Hospital y sede | Mantener instituciones y sedes autorizadas. | Solo el superadmin gestiona datos maestros. |
+| Politica de reconocimientos | Mantener la oferta institucional opcional, estado, version y fecha de actualizacion. | Pertenece a un hospital; se limita a refrigerio, diploma y/o pin y no contiene donantes, donaciones, entregas ni canjes. |
 | Necesidad | Guardar `RBC`, grupo requerido, meta, sede, radio, urgencia, vencimiento y estado. | Pertenece a un hospital y no contiene datos de paciente. |
 | Lote | Registrar una seleccion manual y sus resultados deterministas. | No crea duplicados ni evade cuotas globales. |
 | Invitacion | Relacionar necesidad y donante con vigencia, entrega y respuesta separadas. | Unica por necesidad y donante. |
@@ -453,6 +813,7 @@ navegadores admitidos y de la infraestructura cloud indicada.
 | Idempotencia | Vincular clave, actor, operacion, payload y resultado. | La restriccion unica es el control final de concurrencia. |
 | Auditoria | Registrar actor opaco, evento, recurso, resultado, fecha y motivo. | Append-only y sin valores PII anteriores o nuevos. |
 | Configuracion | Versionar reglas operativas permitidas y fecha final de demo. | `final_demo_at` se fija una sola vez. |
+| Contenido juridico | Versionar fuentes, fecha de consulta, revision profesional, estado y texto del segmento laboral. | Solo contenido aprobado puede mostrar conclusiones; no contiene datos de donantes. |
 
 ### 5.2 Clasificacion y minimizacion
 
@@ -460,7 +821,7 @@ navegadores admitidos y de la infraestructura cloud indicada.
 | --- | --- | --- |
 | Datos personales sensibles del prototipo | Nombre, email, grupo declarado, disponibilidad, respuesta y ubicacion sintetica. | Minimo privilegio, RLS, proyecciones cerradas, cifrado aplicable y ausencia en telemetria. |
 | Datos operativos restringidos | Hospital, sede, necesidad, invitacion, outbox, membresia y auditoria. | Aislamiento por propietario u hospital y acceso por caso de uso. |
-| Datos publicos controlados | Nombre del hospital verificado, sede publica e instrucciones. | Exponer solo en el contexto previsto. |
+| Datos publicos controlados | Nombre del hospital verificado, sede publica, instrucciones y politica de reconocimientos publicada. | Exponer solo en el contexto previsto; la politica no revela donantes ni acredita entregas. |
 | Datos prohibidos | Paciente, diagnostico, historia clinica, ultima donacion y contacto paciente-donante. | No solicitar, aceptar, almacenar ni inferir. |
 
 La precision maxima de tres decimales de una coordenada sintetica no se
@@ -471,9 +832,9 @@ considerara anonimizacion para datos reales.
 | Actor | Acciones permitidas | Campos visibles |
 | --- | --- | --- |
 | No autenticado o portador de token | Registro, login, recuperacion, reclamo asistido y primera respuesta. | Respuestas no enumerables e informacion operativa minima de su invitacion. |
-| Donante | Su perfil, disponibilidad, ubicacion sintetica, invitaciones, respuestas y solicitudes. | Solo sus propios datos; nunca datos de otros donantes. |
-| Admin hospitalario | Alta asistida minima; necesidades, lotes e invitaciones de su hospital. | Antes de confirmacion: opacos. Tras confirmacion afirmativa: lista cerrada de RF-VIS-02. |
-| Superadmin | Hospitales, sedes, admins, configuracion y solicitudes. | PII solo mediante grant de 10 minutos ligado a usuario, solicitud y accion, tras step-up de maximo 5 minutos. |
+| Donante | Su perfil, disponibilidad, ubicacion sintetica, invitaciones, respuestas, solicitudes, reconocimientos publicados e informacion laboral comun. | Solo sus propios datos; nunca datos de otros donantes. Las politicas institucionales publicadas no revelan PII. |
+| Admin hospitalario | Alta asistida minima; necesidades, lotes, invitaciones y politica de reconocimientos de su hospital. | Antes de confirmacion: opacos. Tras confirmacion afirmativa: lista cerrada de RF-VIS-02. Solo gestiona la politica de su institucion. |
+| Superadmin | Hospitales, sedes, admins, configuracion, solicitudes y supervision de politicas de reconocimiento. | PII solo mediante grant de 10 minutos ligado a usuario, solicitud y accion, tras step-up de maximo 5 minutos; las politicas no habilitan acceso a donantes. |
 | Worker | Reclamar outbox, enviar y actualizar entrega mediante RPC permitidas. | Email destinatario y payload minimo cifrado; sin consulta general de perfiles, ubicaciones o necesidades. |
 
 ### 5.4 Transiciones normativas
@@ -481,15 +842,16 @@ considerara anonimizacion para datos reales.
 | Recurso | Transiciones permitidas |
 | --- | --- |
 | Necesidad | `borrador -> activa`; `activa -> meta_alcanzada, cerrada, cancelada o vencida`; `meta_alcanzada -> activa, cerrada, cancelada o vencida`; terminales sin salida. |
-| Alta asistida | `pendiente -> reclamada_incompleta o vencida`; `reclamada_incompleta -> activa`; un token vencido no cambia el estado y puede reemitirse antes de la purga. |
+| Alta asistida | `pendiente -> reclamada_incompleta o vencida`; `vencida -> pendiente` unicamente por reemision antes de la purga original; `reclamada_incompleta -> activa`. El token dura 24 h; reemitir invalida los anteriores sin reiniciar `created_at` ni la purga a 30 dias. |
 | Solicitud | `pendiente -> aprobada o rechazada`; `aprobada -> en_ejecucion`; `en_ejecucion -> completada o fallida`; terminales sin salida. |
-| Vigencia de invitacion | `activa -> invalidada o vencida`; terminales sin salida. |
+| Vigencia de invitacion | `activa -> invalidada` por cierre/cancelacion manual o invalidacion por meta/no disponibilidad; `activa -> vencida` cuando `now >= need.expires_at`; terminales sin salida. Los tokens de accion vencen en la misma fecha limite y se invalidan al cambiar la invitacion a estado terminal. |
 | Entrega | `pendiente -> enviada o fallida`; `enviada -> entregada o fallida`; `fallida -> pendiente` solo por reintento manual auditado antes del vencimiento, invalidando los hashes anteriores y emitiendo un nuevo par de tokens de accion. |
 | Respuesta | `sin_respuesta -> confirmada o rechazada` antes del vencimiento; `confirmada <-> rechazada` autenticado mientras la necesidad no sea terminal. |
+| Politica de reconocimientos | `sin_publicar -> publicada` y `publicada -> sin_publicar` por un admin del hospital; `publicada -> suspendida` y `suspendida -> sin_publicar` solo por superadmin. Cada mutacion compara la version esperada, incrementa la version y rechaza con conflicto una version obsoleta; una suspension bloquea mutaciones hospitalarias. |
 
-La semantica aun no determinada de alta asistida, vigencia de invitacion,
-reintentos, visibilidad posterior y carreras queda suspendida por AP-01 a AP-04
-y AP-09.
+La semantica pendiente de reintentos y carreras queda suspendida por AP-02 y
+AP-04. AP-01, AP-03, AP-05 y AP-09 quedan resueltos por las reglas de estados,
+proyeccion y vigencia de estas secciones.
 
 ### 5.5 Integridad, retencion y eliminacion
 
@@ -510,6 +872,22 @@ y AP-09.
   atribuibles.
 
 ## 6. Requisitos no funcionales
+
+### Aplicabilidad por rol y recorrido
+
+Los RNF se definen una sola vez a continuacion. Esta matriz y las fichas de la
+seccion 4 permiten leerlos desde los objetivos de los roles sin duplicar sus
+clausulas ni convertir restricciones tecnicas en permisos de usuario. Una
+referencia particular no exime del resto de obligaciones aplicables.
+
+| Aplicabilidad | Referencias y resultado verificable |
+| --- | --- |
+| Los tres roles: acceso y aislamiento | RNF-SEC-01 a RNF-SEC-04, RNF-SEC-07 a RNF-SEC-09, RNF-SEC-11 a RNF-SEC-13 y RNF-SEC-15 a RNF-SEC-18: sesiones, recuperacion y acceso limitado al recurso autorizado. |
+| Los tres roles: interaccion y calidad | RNF-API-01 a RNF-API-02, RNF-REL-01 a RNF-REL-02, RNF-PER-01, RNF-PER-03 a RNF-PER-04, RNF-A11Y-01 a RNF-A11Y-02 y RNF-COMP-01 a RNF-COMP-02: validacion, errores seguros, reintentos consistentes e interaccion accesible. |
+| Los tres roles: privacidad y limites | RF-PRO-05, RNF-PRV-01 a RNF-PRV-04, RNF-SAF-01 a RNF-SAF-04, RNF-LGL-01, RNF-OBS-01 a RNF-OBS-02 y RNF-AUD-01: datos sinteticos minimizados, retencion, informacion legal acotada y evidencia sin PII innecesaria. |
+| Admin hospitalario y superadmin | RNF-SEC-05: AAL2 y step-up para las acciones que el requisito enumera. RNF-SEC-06: acceso contextual exclusivo del superadmin. |
+| Hospital y donante: invitaciones | RNF-SEC-10, RNF-SEC-14, RNF-PER-02, RNF-PER-05 a RNF-PER-06 y RNF-OPS-05: soporte automatico del recorrido, entrega y reflejo de respuestas. No asignan permisos humanos del worker. |
+| Soporte de todos los recorridos | RNF-ARC-01 a RNF-ARC-05, RNF-DAT-01, RNF-OPS-01 a RNF-OPS-04, RNF-QLT-01 y RNF-DEP-01: restricciones tecnicas y de verificacion existentes, conservadas sin reasignarlas como acciones de un usuario. |
 
 ### 6.1 Arquitectura, mantenibilidad y datos
 
@@ -560,9 +938,9 @@ y AP-09.
 | RNF-API-02 | Los errores deberan usar un esquema unico con codigo estable, mensaje seguro y `correlationId`; no revelaran stack, SQL, proveedor, existencia de recursos ajenos ni detalles internos. | M | Errores 400/401/403/404/409/422/500 y comparacion IDOR. |
 | RNF-OBS-01 | Logs, metricas, trazas, errores y access logs deberan usar una allowlist cerrada: evento, resultado, codigo HTTP, duracion, entorno, plantilla de ruta y correlation ID opaco. | M | Inspeccion de salidas reales de cada flujo. |
 | RNF-OBS-02 | Telemetria no debera contener cuerpos, query strings, URLs completas, headers, cookies, tokens, claves idempotentes, nombre, email, grupo, disponibilidad, respuesta, coordenadas, IP sin transformar ni contenido completo de emails o webhooks. | M | Valores canario buscados en todos los destinos. |
-| RNF-AUD-01 | La auditoria append-only y restringida debera registrar con IDs opacos actor, evento, recurso, resultado, fecha y motivo aplicable para roles, membresias, sedes, configuracion, necesidades, lotes, invitaciones, outbox, respuestas y accesos privilegiados, sin guardar valores PII anteriores o nuevos. | M | Un evento verificable por clase y actualizacion/borrado denegados. |
+| RNF-AUD-01 | La auditoria append-only y restringida debera registrar con IDs opacos actor, evento, recurso, resultado, fecha y motivo aplicable para roles, membresias, sedes, configuracion, politicas de reconocimiento, contenidos legales, necesidades, lotes, invitaciones, outbox, respuestas y accesos privilegiados, sin guardar valores PII anteriores o nuevos. | M | Un evento verificable por clase y actualizacion/borrado denegados. |
 
-### 6.5 Privacidad y seguridad clinica
+### 6.5 Privacidad, seguridad clinica y contenido legal
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
@@ -574,6 +952,7 @@ y AP-09.
 | RNF-SAF-02 | El sistema debera mostrar en los flujos y mensajes pertinentes que matching significa unicamente preseleccion academica y que confirmar significa intencion de asistir. Ante cualquier eventual proceso real, el hospital debera verificar mediante sus procesos profesionales la identidad, el grupo sanguineo y la elegibilidad antes de una donacion efectiva. El prototipo no realiza ni registra esa evaluacion y no certifica asistencia, donacion ni seguridad transfusional. | M | Revision de textos en flujos de ambos roles y presencia del aviso de verificacion profesional externa. |
 | RNF-SAF-03 | Todo uso con datos reales debera permanecer bloqueado hasta contar con fuente oficial versionada, revision clinica competente y revision legal/privacidad aplicable en Peru; cumplir esos gates no constituira por si solo certificacion. | M | Gate de configuracion y checklist documental. |
 | RNF-SAF-04 | Formularios, API, email, logs y reportes no deberan incluir identidad de pacientes, diagnosticos, historias clinicas ni contacto paciente-donante. | M | Contract tests y busqueda automatizada de campos prohibidos. |
+| RNF-LGL-01 | El segmento de RF-LAB-01 debera provenir de un artefacto juridico versionado que registre articulos y URLs oficiales, fecha de consulta, fecha y rol del revisor, y estado `borrador`, `aprobado` o `retirado`. Solo el estado `aprobado` tras revision legal profesional aplicable en Peru podra mostrar conclusiones; los otros estados mostraran un aviso de validacion pendiente o contenido retirado, sin asesoria legal ni garantia individual. | M | Contrato y revision de fuentes, metadatos, estados y textos; contenido ausente, borrador o retirado sin conclusiones y publicacion aprobada con evidencia profesional. |
 
 ### 6.6 Rendimiento
 
@@ -670,13 +1049,40 @@ no redondeada e incluira el borde `distancia <= radio`.
 - Ninguna pantalla, email, API o reporte afirmara que el prototipo garantiza una
   transfusion segura o satisface una necesidad clinica.
 
+### 7.5 Limites de reconocimientos e informacion laboral
+
+- La ausencia de una politica publicada es valida y no reduce las funciones del
+  hospital ni la participacion del donante.
+- Solo se admiten `refrigerio`, `diploma` y `pin`; no se modelan dinero, vales,
+  descuentos, sorteos, puntos, creditos, canjes ni otros beneficios.
+- La politica no participa en filtros, ranking, radio, urgencia, lotes, cuotas,
+  invitaciones o respuestas y no puede usarse para presionar una confirmacion.
+  Tampoco habilita comparadores, orden, filtros, promocion o escasez entre
+  hospitales.
+- Preseleccion, intencion de asistir, asistencia, evaluacion profesional externa,
+  donacion efectiva y entrega son etapas distintas. La plataforma solo registra
+  las dos primeras y ninguna etapa acredita la siguiente.
+- El hospital determina fuera de la plataforma una eventual donacion efectiva y
+  decide la entrega. El sistema no registra asistencia, evaluacion, donacion,
+  entrega ni canje.
+- El segmento comun es independiente de hospital, invitacion, reconocimiento y
+  respuesta. La plataforma no emite constancias, no decide permisos y solo
+  muestra conclusiones provenientes del contenido juridico aprobado.
+
 ## 8. Casos de uso de alto nivel
 
 Los casos de uso de esta seccion son una vista informativa. Los RF/RNF de las
 secciones 4 y 6 son el inventario normativo primario; las elaboraciones
 vinculantes se identifican en la seccion 1.4.
 
-### CU-01: Registrar y activar un donante
+Se agrupan por el rol que persigue el objetivo y conservan sus IDs. Los
+recorridos de la seccion 4 tambien cubren capacidades provenientes de matrices
+y pantallas que no tienen un CU independiente. No se crean CU para completar
+artificialmente el inventario.
+
+### 8.1 Donante
+
+#### CU-01: Registrar y activar un donante
 
 | Campo | Descripcion |
 | --- | --- |
@@ -687,18 +1093,7 @@ vinculantes se identifican en la seccion 1.4.
 | Excepciones | Email no enumerable, token usado o vencido, perfil incompleto, ubicacion invalida. |
 | Requisitos | RF-IAM-01 a RF-IAM-04; RF-PRO-01 y RF-PRO-05; RNF-SEC-01 a RNF-SEC-04; RNF-SEC-12 y RNF-SEC-13. |
 
-### CU-02: Crear una necesidad y ejecutar un lote
-
-| Campo | Descripcion |
-| --- | --- |
-| Actor | Admin hospitalario. |
-| Precondicion | Sesion AAL2, membresia vigente y sede activa de su hospital. |
-| Flujo principal | Crear necesidad `RBC`, activarla, solicitar lote manual, preseleccionar y persistir invitaciones/outbox/auditoria. |
-| Resultado | Invitaciones unicas creadas de forma atomica y trabajos listos para envio. |
-| Excepciones | Sede ajena, parametros fuera de rango, necesidad no activa, cuota agotada, falta de candidatos o carrera concurrente. |
-| Requisitos | RF-NEC-01 a RF-NEC-08; RF-MAT-01 a RF-MAT-05; RF-BAT-01 a RF-BAT-04; RNF-SEC-05 a RNF-SEC-10. |
-
-### CU-03: Responder una invitacion
+#### CU-03: Responder una invitacion
 
 | Campo | Descripcion |
 | --- | --- |
@@ -709,7 +1104,20 @@ vinculantes se identifican en la seccion 1.4.
 | Excepciones | Token hermano, replay, vencimiento, meta alcanzada, necesidad terminal o dos POST concurrentes. |
 | Requisitos | RF-INV-01 a RF-INV-08, RNF-SEC-12 a RNF-SEC-14. |
 
-### CU-04: Consultar y cerrar una necesidad
+### 8.2 Admin hospitalario
+
+#### CU-02: Crear una necesidad y ejecutar un lote
+
+| Campo | Descripcion |
+| --- | --- |
+| Actor | Admin hospitalario. |
+| Precondicion | Sesion AAL2, membresia vigente y sede activa de su hospital. |
+| Flujo principal | Crear necesidad `RBC`, activarla, solicitar lote manual, preseleccionar y persistir invitaciones/outbox/auditoria. |
+| Resultado | Invitaciones unicas creadas de forma atomica y trabajos listos para envio. |
+| Excepciones | Sede ajena, parametros fuera de rango, necesidad no activa, cuota agotada, falta de candidatos o carrera concurrente. |
+| Requisitos | RF-NEC-01 a RF-NEC-08; RF-MAT-01 a RF-MAT-05; RF-BAT-01 a RF-BAT-04; RNF-SEC-05 a RNF-SEC-10. |
+
+#### CU-04: Consultar y cerrar una necesidad
 
 | Campo | Descripcion |
 | --- | --- |
@@ -720,7 +1128,9 @@ vinculantes se identifican en la seccion 1.4.
 | Excepciones | Hospital ajeno, manipulacion de `hospitalId`, recurso no revelado o conflicto concurrente. |
 | Requisitos | RF-NEC-06; RF-INV-08; RF-VIS-01 y RF-VIS-02; RNF-SEC-07 y RNF-SEC-08. |
 
-### CU-05: Resolver una solicitud privilegiada
+### 8.3 Superadmin en colaboracion con el donante
+
+#### CU-05: Resolver una solicitud privilegiada
 
 | Campo | Descripcion |
 | --- | --- |
@@ -731,7 +1141,25 @@ vinculantes se identifican en la seccion 1.4.
 | Excepciones | Step-up vencido, grant fuera de alcance, replay, solicitud no aprobada o fallo de ejecucion. |
 | Requisitos | RF-PRO-02 a RF-PRO-04, RNF-SEC-05, RNF-SEC-06, RNF-AUD-01. |
 
-### CU-06: Entregar y reconciliar email
+### 8.4 Hospital, donante y superadmin
+
+#### CU-07: Publicar, consultar y supervisar reconocimientos
+
+| Campo | Descripcion |
+| --- | --- |
+| Actor | Admin hospitalario, donante y superadmin, cada uno dentro de su recorrido autorizado. |
+| Precondicion | Hospital activo; admin con membresia propia y AAL2 para publicar; donante en el contexto previsto; superadmin en AAL2 para supervisar. |
+| Flujo principal | El admin publica una seleccion cerrada o la retira; el donante consulta por separado la oferta neutral y el segmento comun; el superadmin puede suspender o levantar la suspension con motivo. |
+| Resultado | Politica institucional versionada visible o ausencia explicita, contenido laboral gobernado y supervision auditable, sin cambios en matching ni estados de invitacion. |
+| Excepciones | Tipo no permitido, hospital ajeno, version obsoleta, suspension o levantamiento sin motivo, mutacion hospitalaria suspendida o contenido juridico no aprobado; no ofrecer ninguno es un resultado valido, no una excepcion. |
+| Requisitos | RF-REC-01 a RF-REC-04, RF-LAB-01, RNF-SEC-05, RNF-SEC-07, RNF-SEC-08, RNF-AUD-01 y RNF-LGL-01. |
+
+### 8.5 Soporte automatico de las invitaciones
+
+CU-06 soporta HOS-OBJ-04 y las invitaciones consultadas por el donante; sus
+actores tecnicos no se convierten en roles de negocio.
+
+#### CU-06: Entregar y reconciliar email
 
 | Campo | Descripcion |
 | --- | --- |
@@ -767,11 +1195,39 @@ cada clausula por separado; aprobar una no implicara aprobar las demas.
 La misma matriz incorporara las elaboraciones de las secciones 3, 5, 7 y 9.2
 bajo sus RF/RNF relacionados.
 
+La lectura vertical de esa evidencia usara:
+
+`rol -> objetivo -> RF/RNF y clausula -> escenario -> prueba -> nivel -> comando -> resultado -> artefacto`.
+
+- Para cada DON-OBJ, HOS-OBJ y SA-OBJ se verificaran las precondiciones, el
+  resultado y los casos negativos o de frontera de su ficha en la seccion 4.
+- Los recorridos compartidos tendran evidencia de ambos participantes; por
+  ejemplo, solicitar una correccion no demuestra que su resolucion sea correcta.
+- Una misma prueba puede respaldar varios recorridos mediante referencias,
+  sin duplicar requisitos ni contabilizar una clausula como verificada por
+  aprobar otra del mismo ID.
+- Los RNF comunes tendran evidencia en los roles y flujos a los que aplican;
+  comprobar accesibilidad o aislamiento en un solo rol no cubre los otros.
+- Las clausulas afectadas por AP se marcaran pendientes de decision, nunca
+  aprobadas ni omitidas silenciosamente. Se conservan los criterios de 9.5.
+- HOS-OBJ-07 conserva su caracter opcional; la agrupacion por rol no eleva sus
+  dos RF `Could` a `Must`.
+- HOS-OBJ-08 es opcional respecto de publicar una oferta, pero sus RF son
+  `Must`: el sistema debe admitir tanto una seleccion valida como la ausencia de
+  reconocimientos sin alterar el resto del flujo.
+
 ### 9.2 Datos de prueba
 
 - El seed contendra exactamente tres hospitales y 500 donantes sinteticos.
 - Estaran representadas las ocho categorias ABO/Rh y ubicaciones dentro de Lima.
 - Existira un superadmin, un admin por hospital y al menos un donante por grupo.
+- El Hospital A ofrecera `refrigerio` y `diploma`, el Hospital B no publicara
+  reconocimientos y el Hospital C ofrecera `pin`; esas variantes no cambiaran
+  el oraculo de matching y conservaran versiones y fechas deterministas.
+- El oraculo juridico incluira artefactos `borrador`, `aprobado` y `retirado`
+  con fuentes y metadatos sinteticos; solo el fixture aprobado habilitara
+  conclusiones en la prueba, sin representar una aprobacion profesional real del
+  proyecto.
 - El oraculo fijara candidatos, clasificacion exacta o coincidente, distancias
   relativas, orden, cuotas y estados esperados.
 - El oraculo garantizara los seis candidatos del primer lote `A_POS`, al menos
@@ -790,28 +1246,38 @@ bajo sus RF/RNF relacionados.
 1. Registrar build, commit, version documental, entorno, migraciones y health.
 2. Ejecutar el reset determinista.
 3. Ingresar como admin del Hospital A con MFA.
-4. Crear una necesidad `A_POS`, meta `3`, radio `10 km`, urgencia `Urgente`,
+4. Publicar `refrigerio` y `diploma` para el Hospital A; comprobar que otro tipo
+   se rechaza y que no publicar reconocimientos para el Hospital B es valido.
+5. Crear una necesidad `A_POS`, meta `3`, radio `10 km`, urgencia `Urgente`,
    vencimiento `24 h` y sede autorizada.
-5. Ejecutar el lote manual y comprobar seis candidatos, exactos antes que otras
+6. Ejecutar el lote manual y comprobar seis candidatos, exactos antes que otras
    coincidencias y con orden estable.
-6. Procesar mediante API, DB, transaccion y worker al menos tres invitaciones
+7. Procesar mediante API, DB, transaccion y worker al menos tres invitaciones
    usando el adaptador falso de Resend, y conservar de forma controlada al menos
    un trabajo de outbox sin enviar.
-7. Registrar tres confirmaciones unicas y comprobar `meta_alcanzada`,
+8. Consultar como donante la oferta vigente del Hospital A, neutral y separada
+   de urgencia, respuesta e informacion laboral; comprobar version, fecha y que
+   no compara hospitales, promete entrega ni acredita donacion. Verificar que el
+   segmento comun solo muestra conclusiones con el fixture juridico aprobado y
+   muestra validacion pendiente ante un borrador.
+9. Registrar tres confirmaciones unicas y comprobar `meta_alcanzada`,
    invalidacion de invitaciones sin respuesta y cancelacion del outbox pendiente.
-8. Comprobar la lista cerrada de campos visible para el hospital.
-9. Cambiar una confirmacion a rechazo desde una sesion de donante y comprobar
+10. Comprobar la lista cerrada de campos visible para el hospital.
+11. Cambiar una confirmacion a rechazo desde una sesion de donante y comprobar
    retorno a `activa`, conteo `2` y ausencia de lote automatico.
-10. Solicitar manualmente otro lote y comprobar candidatos nuevos sin
-    duplicados.
-11. Registrar una nueva confirmacion, recuperar la meta y cerrar la necesidad.
-12. Intentar responder o reintentar despues del cierre y comprobar que la
-    necesidad no revive.
-13. Ingresar como admin del Hospital B e intentar acceder a la necesidad del
-    Hospital A alterando tambien `hospitalId`; UI, API y RLS deberan negar sin
-    revelar existencia.
-14. Ejecutar una solicitud del donante y su resolucion por superadmin con
-    step-up, grant contextual y auditoria.
+12. Solicitar manualmente otro lote y comprobar candidatos nuevos sin
+     duplicados.
+13. Registrar una nueva confirmacion, recuperar la meta y cerrar la necesidad.
+14. Intentar responder o reintentar despues del cierre y comprobar que la
+     necesidad no revive.
+15. Ingresar como admin del Hospital B e intentar acceder a la necesidad del
+     Hospital A alterando tambien `hospitalId`; UI, API y RLS deberan negar sin
+     revelar existencia.
+16. Ejecutar como superadmin un flujo breve de solicitud del donante y otro de
+     suspension motivada de la politica del Hospital A; comprobar step-up,
+     grant contextual solo donde corresponde, retiro de publicacion, bloqueo de
+     una mutacion hospitalaria con version vigente, conflicto con version
+     obsoleta, levantamiento motivado y auditoria.
 
 ### 9.4 Smoke real de Resend
 
@@ -836,7 +1302,9 @@ bajo sus RF/RNF relacionados.
   clinica insegura.
 - Sera `High` un flujo Must bloqueado, matching o estado incorrecto, email
   logico duplicado, perdida de consistencia, borrado incumplido o
-  inaccesibilidad de un flujo critico.
+  inaccesibilidad de un flujo critico; tambien un reconocimiento no permitido,
+  una oferta que altere la preseleccion o informacion laboral presentada como
+  constancia o permiso garantizado.
 - Los riesgos `Medium` y `Low` quedaran documentados con responsable.
 - La ausencia de RF-MAP-01 y RF-MAP-02 no bloqueara el MVP porque su prioridad
   es `Could`.
@@ -849,9 +1317,9 @@ bajo sus RF/RNF relacionados.
 | --- | --- |
 | Proposito, actores, flujo, alcance y exclusiones | `1_Primeros_Alcances.md`, secciones 1 y 2. |
 | Arquitectura, topologia, componentes y despliegue | `1_Primeros_Alcances.md`, seccion 3; `ADR-001`. |
-| Los 45 requisitos funcionales de la seccion 4 | `1_Primeros_Alcances.md`, seccion 4.2. |
+| Los 50 requisitos funcionales por rol de la seccion 4 | `1_Primeros_Alcances.md`, secciones 4.2.1 (donante), 4.2.2 (admin hospitalario) y 4.2.3 (superadmin). |
 | Acceso y transiciones | `1_Primeros_Alcances.md`, secciones 4.3 y 4.4. |
-| Los 56 requisitos no funcionales de la seccion 6 | `1_Primeros_Alcances.md`, seccion 4.5. |
+| Los 57 requisitos no funcionales de la seccion 6 | `1_Primeros_Alcances.md`, seccion 4.5. |
 | Matriz academica | `1_Primeros_Alcances.md`, seccion 4.6. |
 | Pantallas, datos, guion y aceptacion | `1_Primeros_Alcances.md`, seccion 5. |
 | Stack y criterios de reconsideracion | `ADR-001`. |
@@ -859,6 +1327,43 @@ bajo sus RF/RNF relacionados.
 La trazabilidad descendente se completara con la matriz individual exigida en
 la seccion 9.1. La columna `Verificacion` de cada RF/RNF define la evidencia
 minima que esa matriz debe materializar.
+
+#### Ubicacion principal y relaciones por objetivo
+
+Esta matriz registra donde se define cada RF, una sola vez, y sus relaciones.
+Los RNF particulares y criterios de aceptacion se encuentran en la ficha del
+mismo objetivo; la aplicabilidad compartida se encuentra en la seccion 6.
+Un guion en la columna RF significa que el recorrido reune RNF o elaboraciones
+existentes, no que carezca de obligaciones ni que se haya creado un RF nuevo.
+
+| Rol y objetivo | RF definidos en el recorrido | Referencias compartidas principales | CU o pantalla de origen |
+| --- | --- | --- | --- |
+| Donante / DON-OBJ-01 | RF-IAM-01, RF-IAM-03, RF-IAM-04 | RF-IAM-02; RF-PRO-01 y RF-PRO-05 | CU-01; AUTH-02, AUTH-03, DON-01 |
+| Donante / DON-OBJ-02 | RF-PRO-01, RF-PRO-05, RF-INV-07 | RF-MAT-01 y RF-BAT-03 | Matriz 5.3; DON-02 |
+| Donante / DON-OBJ-03 | RF-VIS-03 | RF-INV-01 | Matriz 5.3; DON-03 |
+| Donante / DON-OBJ-04 | RF-INV-02, RF-INV-03 | RF-INV-01, RF-INV-05 y RF-INV-08 | CU-03; LINK-01 |
+| Donante / DON-OBJ-05 | RF-INV-04 | RF-NEC-07, RF-INV-06 y RF-VIS-01 a RF-VIS-02 | CU-03; DON-03, DON-04 |
+| Donante / DON-OBJ-06 | RF-PRO-02 | RF-PRO-03 y RF-PRO-04 | CU-05; DON-05 |
+| Donante / DON-OBJ-07 | RF-REC-02, RF-LAB-01 | RF-REC-01, RF-REC-04; RNF-LGL-01 | CU-07; DON-06 |
+| Hospital / HOS-OBJ-01 | — | RF-IAM-05, RF-ORG-01; RNF-SEC-05, RNF-SEC-07 y RNF-SEC-08 | Matriz 5.3; AUTH-05 |
+| Hospital / HOS-OBJ-02 | RF-IAM-02 | RF-IAM-03 y RF-IAM-04 | CU-01; HOS-06 |
+| Hospital / HOS-OBJ-03 | RF-NEC-01 a RF-NEC-05 | RF-ORG-01, RF-NEC-06 y RF-NEC-08 | CU-02; HOS-02, HOS-03 |
+| Hospital / HOS-OBJ-04 | RF-MAT-01 a RF-MAT-05; RF-BAT-01 a RF-BAT-04; RF-EML-01 a RF-EML-04 | RF-INV-01, RF-INV-05, RF-INV-07 y RF-INV-08 | CU-02, CU-06; HOS-04 |
+| Hospital / HOS-OBJ-05 | RF-INV-01, RF-VIS-01, RF-VIS-02 | RF-INV-02 a RF-INV-04; RF-EML-01 a RF-EML-04 | CU-04; HOS-01, HOS-04, HOS-05 |
+| Hospital / HOS-OBJ-06 | RF-NEC-06 a RF-NEC-08; RF-INV-05, RF-INV-06, RF-INV-08 | RF-INV-03 y RF-INV-04; RF-BAT-02 | CU-04; HOS-03 |
+| Hospital / HOS-OBJ-07 | RF-MAP-01, RF-MAP-02 | RNF-PRV-01; RNF-A11Y-01 y RNF-A11Y-02 | MAP-01 |
+| Hospital / HOS-OBJ-08 | RF-REC-01, RF-REC-03 | RF-REC-02, RF-REC-04; RNF-SEC-07 y RNF-SEC-08 | CU-07; HOS-07 |
+| Superadmin / SA-OBJ-01 | RF-ORG-01 | RF-NEC-05 | Matriz 5.3; SA-02, SA-03 |
+| Superadmin / SA-OBJ-02 | RF-IAM-05 | RNF-SEC-05, RNF-SEC-07 y RNF-AUD-01 | Matriz 5.3; SA-04 |
+| Superadmin / SA-OBJ-03 | RF-PRO-03, RF-PRO-04 | RF-PRO-02; RNF-SEC-05 y RNF-SEC-06 | CU-05; SA-05 |
+| Superadmin / SA-OBJ-04 | — | RNF-SEC-05, RNF-SEC-06 y RNF-AUD-01 | CU-05; SA-05 |
+| Superadmin / SA-OBJ-05 | — | RNF-PRV-02 a RNF-PRV-04 y RNF-AUD-01 | Entidades 5.1; SA-06 |
+| Superadmin / SA-OBJ-06 | — | RNF-AUD-01 y RNF-SEC-08 | SA-07 |
+| Superadmin / SA-OBJ-07 | RF-REC-04 | RF-REC-01 a RF-REC-03; RNF-SEC-05 y RNF-AUD-01 | CU-07; SA-08 |
+
+La distribucion de definiciones es 13 RF en donante, 32 en admin hospitalario y
+5 en superadmin: 50 en total. Esta cuenta indica ubicacion documental, no
+exclusividad de aplicacion. Los 57 RNF conservan su definicion en la seccion 6.
 
 ### 10.2 Reglas de cambio
 
@@ -899,27 +1404,41 @@ comportamiento respecto de esta ERS:
 - proveedor de pruebas en navegadores reales;
 - perfiles reproducibles de carga, tasa de exito, infraestructura, region,
   navegador y red para medir los umbrales de rendimiento ya aprobados;
-- rutas REST y esquemas OpenAPI o equivalentes;
+- ratificar la propuesta de rutas REST y esquemas OpenAPI de `docs/openapi.json`;
 - configuracion de health checks, intervalos del worker, regiones y rollback;
 - limites operativos comprobados de Vercel, Render, Supabase y Resend.
 
-### 10.5 Ambiguedades heredadas que requieren decision
+### 10.5 Ambiguedades heredadas: decisiones aprobadas y pendientes
 
-Las siguientes diferencias ya existen en la linea base de origen. Esta ERS las
-hace visibles y no elige una solucion por inferencia. Los modulos afectados no
-deben implementarse hasta registrar la decision y sincronizar las fuentes.
+Las siguientes diferencias heredadas se hacen visibles para conservar trazabilidad.
+AP-01, AP-03, AP-05 y AP-09 tienen decision aprobada y reflejada en las clausulas
+anteriores; solo los modulos afectados por AP pendientes quedan bloqueados hasta
+registrar una decision y sincronizar las fuentes.
 
-| ID | Ambiguedad | Decision requerida |
+| ID | Ambiguedad heredada | Estado / decision |
 | --- | --- | --- |
-| AP-01 | RF-IAM-03 incluye el estado `vencida`, mientras la tabla de transiciones indica que el vencimiento de un token no cambia el estado y permite reemision antes de la purga. | Definir el evento que lleva el alta a `vencida`, el estado despues de las 24 horas del token y las transiciones de reemision. |
-| AP-02 | RF-EML-01 y RF-EML-02 exigen reintentos automaticos, pero la transicion `fallida -> pendiente` se reserva al reintento manual. | Distinguir estado agregado de entrega y estado de intento; definir cuando un error transitorio se vuelve `fallida`. |
-| AP-03 | RF-INV-04 permite `confirmada -> rechazada`; RF-VIS-01 oculta identidades de rechazos y RF-VIS-02 permite datos tras una confirmacion afirmativa. | Definir la proyeccion que recibe el hospital despues de que una confirmacion cambia a rechazo. |
-| AP-04 | La linea base exige atomicidad, pero no fija precedencia para confirmaciones distintas que compiten por la ultima plaza; cierre, cancelacion o vencimiento frente a envio en vuelo; ni cambio de respuesta frente a meta alcanzada. | Definir el resultado observable esperado para cada carrera; el mecanismo tecnico de bloqueo, aislamiento o serializacion se decide en Sprint 0. |
-| AP-05 | RNF-SEC-12 incluye el token de cambio de email, pero no fija su vigencia. | Aprobar un TTL y el comportamiento observable en el limite. |
-| AP-06 | RNF-SEC-14 exige destruir el payload cifrado tras entrega definitiva, fallo final o vencimiento, pero no fija el plazo maximo de esa destruccion. | Aprobar el plazo observable y su verificacion. |
-| AP-07 | RNF-PRV-04 exige una expiracion documentada para backups sin fijar su limite respecto de `final_demo_at`. | Aprobar la cota maxima de retencion y su aplicacion a restauraciones. |
-| AP-08 | RF-EML-01 fija la secuencia base de backoff, pero no acota el jitter. | Aprobar el rango o algoritmo verificable del jitter. |
-| AP-09 | RF-INV-01 contempla vigencia `vencida`, RF-INV-02 exige tokens de accion de un uso y RF-INV-08 invalida invitaciones cuando vence la necesidad, pero no define que evento produce `activa -> vencida` ni la vigencia temporal propia de esos tokens. | Definir la relacion entre expiracion de token, invitacion y necesidad, con resultados observables en los limites. |
+| AP-01 | El alta asistida debe definir el efecto observable del vencimiento del token de 24 h y la reemision. | Resuelto: al vencer, estado `vencida`; reemision antes de 30 dias invalida tokens previos y retorna a `pendiente` sin reiniciar `created_at` ni la purga. |
+| AP-02 | RF-EML-01 y RF-EML-02 exigen reintentos automaticos, pero la transicion `fallida -> pendiente` se reserva al reintento manual. | Pendiente: distinguir estado agregado de entrega e intento; definir cuando un error transitorio pasa a `fallida`. |
+| AP-03 | RF-INV-04 permite `confirmada -> rechazada`; debe precisarse la proyeccion hospitalaria tras el cambio. | Resuelto: ocultar nombre y grupo al pasar a `rechazada`; conservar codigo opaco por necesidad y estados conforme a RF-VIS-01. |
+| AP-04 | La linea base exige atomicidad, pero no fija precedencia para confirmaciones distintas que compiten por la ultima plaza; cierre, cancelacion o vencimiento frente a envio en vuelo; ni cambio de respuesta frente a meta alcanzada. | Pendiente: definir resultados observables de cada carrera; el mecanismo tecnico se decide en Sprint 0. |
+| AP-05 | RNF-SEC-12 incluye el token de cambio de email, pero no fijaba su vigencia. | Resuelto: token de un uso por 24 h; vencido no cambia el email actual. |
+| AP-06 | RNF-SEC-14 exige destruir el payload cifrado tras entrega definitiva, fallo final o vencimiento, pero no fija el plazo maximo de esa destruccion. | Pendiente: aprobar plazo observable y verificacion. |
+| AP-07 | RNF-PRV-04 exige una expiracion documentada para backups sin fijar su limite respecto de `final_demo_at`. | Pendiente: aprobar limite y reaplicacion de eliminaciones tras restaurar. |
+| AP-08 | RF-EML-01 fija la secuencia base de backoff, pero no acota el jitter. | Pendiente: aprobar rango o algoritmo verificable. |
+| AP-09 | No estaban definidos el estado de invitaciones ni la vigencia de tokens al vencer la necesidad. | Resuelto: sin TTL separado, tokens validos solo con invitacion/necesidad activas y `now < need.expires_at`; al vencer, invitaciones pendientes pasan a `vencida`; cierre/cancelacion manual las pasa a `invalidada`. |
+
+#### Localizacion de pendientes en la lectura por rol
+
+Esta asociacion facilita encontrar las clausulas afectadas; no resuelve ni
+cambia ninguna de las decisiones pendientes anteriores.
+
+| Pendiente | Recorridos afectados |
+| --- | --- |
+| AP-02 | HOS-OBJ-04 y HOS-OBJ-05: reintento y estado agregado de entrega. |
+| AP-04 | DON-OBJ-04, DON-OBJ-05, HOS-OBJ-04 y HOS-OBJ-06: carreras entre respuestas, meta, terminales y envio en vuelo. |
+| AP-06 | HOS-OBJ-04: destruccion del payload sensible de notificacion. |
+| AP-07 | SA-OBJ-05 y retencion comun de los tres roles: limite de backups. |
+| AP-08 | HOS-OBJ-04: rango verificable de jitter. |
 
 ## Anexo A. Inventario de pantallas
 
@@ -937,12 +1456,14 @@ deben implementarse hasta registrar la decision y sincronizar las fuentes.
 | DON-03 | Donante | Lista y detalle de invitaciones; respuesta y cambio posterior autenticado. |
 | DON-04 | Donante | Historial inmutable de respuestas. |
 | DON-05 | Donante | Creacion y seguimiento de solicitudes de correccion o eliminacion. |
+| DON-06 | Donante | Reconocimientos opcionales por hospital y segmento comun sobre constancia de donacion y permiso laboral. |
 | HOS-01 | Hospital | Dashboard operativo con necesidades, metas y tareas pendientes. |
 | HOS-02 | Hospital | Lista y creacion de necesidades. |
 | HOS-03 | Hospital | Detalle, estados, cierre, cancelacion y datos operativos de una necesidad. |
 | HOS-04 | Hospital | Ejecucion manual e historial de lotes y entregas. |
 | HOS-05 | Hospital | Respuestas opacas y campos minimos de confirmaciones afirmativas. |
 | HOS-06 | Hospital | Alta asistida minima, estado y reemision de activacion. |
+| HOS-07 | Hospital | Publicacion o retiro de la politica opcional de refrigerio, diploma y/o pin. |
 | SA-01 | Superadmin | Bandeja de tareas administrativas. |
 | SA-02 | Superadmin | Hospitales autorizados. |
 | SA-03 | Superadmin | Sedes autorizadas. |
@@ -950,6 +1471,7 @@ deben implementarse hasta registrar la decision y sincronizar las fuentes.
 | SA-05 | Superadmin | Solicitudes, step-up, acceso contextual, decision y ejecucion. |
 | SA-06 | Superadmin | Configuracion permitida y versionada. |
 | SA-07 | Superadmin | Auditoria minimizada sin PII innecesaria. |
+| SA-08 | Superadmin | Revision, suspension y levantamiento auditable de politicas de reconocimiento. |
 | SYS-01 | Todos | Acceso denegado o recurso inexistente con respuesta neutra. |
 | SYS-02 | Todos | Red o servicio no disponible y recuperacion. |
 | MAP-01 | Hospital | Stretch: mapa agregado de una necesidad propia y alternativa tabular equivalente. |

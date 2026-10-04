@@ -1,0 +1,30 @@
+meta {
+  name: Donor response retry replays the same result
+  type: http
+  seq: 6
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/donors/me/invitations/{{demoInvitationId}}/response
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: bruno-donor-reject-0001
+}
+
+body:json {
+  {
+    "response": "rechazada"
+  }
+}
+
+tests {
+  test("same idempotency key and payload replays the successful response", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.response).to.equal("rechazada");
+  });
+}

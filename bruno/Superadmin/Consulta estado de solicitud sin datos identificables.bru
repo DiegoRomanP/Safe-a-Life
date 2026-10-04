@@ -1,0 +1,175 @@
+meta {
+  name: Consulta estado de solicitud sin datos identificables
+  type: http
+  seq: 13
+  tags: [
+    Superadmin
+  ]
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/correction-requests/:requestId
+  body: none
+  auth: inherit
+}
+
+params:path {
+  requestId: b30c64a0-488c-4a10-8df5-7411ecb44cc8
+}
+
+example {
+  name: 200 Response
+  description: Solicitud minimizada.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/correction-requests/:requestId
+    method: GET
+    mode: none
+    params:path: {
+      requestId:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "requestId": "b30c64a0-488c-4a10-8df5-7411ecb44cc8",
+            "type": "correccion",
+            "requestedFields": [
+              "name"
+            ],
+            "status": "pendiente",
+            "createdAt": "2026-10-01T18:00:00Z",
+            "updatedAt": "2026-10-01T18:00:00Z"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 401 Response
+  description: Autenticación ausente, inválida o vencida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/correction-requests/:requestId
+    method: GET
+    mode: none
+    params:path: {
+      requestId:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 401
+      text: Unauthorized
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "AUTHENTICATION_REQUIRED",
+            "message": "La sesión no está vigente.",
+            "correlationId": "00000000-0000-4000-8000-000000000401"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 403 Response
+  description: Actor autenticado sin permiso; no revelar datos del recurso ajeno.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/correction-requests/:requestId
+    method: GET
+    mode: none
+    params:path: {
+      requestId:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 403
+      text: Forbidden
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "ACCESS_DENIED",
+            "message": "La acción no está permitida.",
+            "correlationId": "00000000-0000-4000-8000-000000000403"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 404 Response
+  description: Recurso inexistente o no visible para este actor.
+
+  request: {
+    url: {{baseUrl}}/api/v1/superadmin/correction-requests/:requestId
+    method: GET
+    mode: none
+    params:path: {
+      requestId:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 404
+      text: Not Found
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "RESOURCE_NOT_FOUND",
+            "message": "El recurso no está disponible.",
+            "correlationId": "00000000-0000-4000-8000-000000000404"
+          }
+        }
+      '''
+    }
+  }
+}

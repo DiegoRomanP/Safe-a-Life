@@ -2,7 +2,18 @@
 
 Reference catalog of agent orchestration patterns this repo endorses, plus anti-patterns to avoid. Read this before adding a new slash command that coordinates multiple personas, or before introducing a new persona that "wraps" existing ones.
 
-The governing rule: **the user (or a slash command) is the orchestrator. Personas do not invoke other personas.** Skills are mandatory hops inside a persona's workflow.
+The default governing rule: **the user (or a slash command) is the orchestrator. Personas do not invoke other personas.** Skills are mandatory hops inside a persona's workflow.
+
+### Save a Life project-specific adaptation
+
+For this repository, `AGENTS.md` explicitly assigns `Senior` as the primary
+coordinator and single normal interlocutor. This project-specific workflow takes
+precedence over the generic user-driven lifecycle examples below: Senior receives
+the user's request, plans it, calls subagents directly, applies independent
+review/test gates, and merges their reports. Senior is not a router-only persona
+or an extra layer. Orchestration remains one level deep: subagents report to
+Senior and must not delegate or contact the user. The role-selection matrix is
+canonical in `docs/Agent-Workflow.md`.
 
 ---
 

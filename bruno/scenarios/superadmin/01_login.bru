@@ -1,0 +1,29 @@
+meta {
+  name: Superadmin login
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/sessions
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}
+}
+
+body:json {
+  {
+    "email": "{{superadminEmail}}",
+    "password": "{{demoPassword}}"
+  }
+}
+
+tests {
+  test("login returns the superadmin role for synthetic demo only", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.actor.role).to.equal("superadmin");
+  });
+}
