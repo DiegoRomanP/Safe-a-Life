@@ -1,0 +1,156 @@
+meta {
+  name: Lista las invitaciones propias
+  type: http
+  seq: 9
+  tags: [
+    Donor
+  ]
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors/me/invitations
+  body: none
+  auth: inherit
+}
+
+params:query {
+  @description('Límite por página propuesto; el máximo debe aplicarse también en servidor.')
+  limit: 20
+  @description('Cursor opaco devuelto por la página anterior; no contiene PII.')
+  ~cursor:
+}
+
+docs {
+  No incluye datos de otros donantes, pacientes ni información clínica. La colección usa cursor opaco y límite de servidor.
+}
+
+example {
+  name: 200 Response
+  description: Página de invitaciones propias.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donors/me/invitations
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "items": [
+              {
+                "invitationId": "76eb9a7c-484f-4478-9a6f-01a21710ce8f",
+                "hospitalName": "Hospital Demo",
+                "publicSiteName": "Sede Centro",
+                "requiredBloodType": "O_POS",
+                "urgency": "Urgente",
+                "instructions": "Presenta este código al personal del hospital; el equipo médico verificará elegibilidad.",
+                "expiresAt": "2026-10-02T18:00:00Z",
+                "validity": "activa",
+                "delivery": "entregada",
+                "response": "sin_respuesta"
+              }
+            ],
+            "pagination": {
+              "nextCursor": null
+            }
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 401 Response
+  description: Autenticación ausente, inválida o vencida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donors/me/invitations
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 401
+      text: Unauthorized
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "AUTHENTICATION_REQUIRED",
+            "message": "La sesión no está vigente.",
+            "correlationId": "00000000-0000-4000-8000-000000000401"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 500 Response
+  description: Error interno sin detalles de implementación.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donors/me/invitations
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 500
+      text: Internal Server Error
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "No se pudo completar la solicitud.",
+            "correlationId": "00000000-0000-4000-8000-000000000500"
+          }
+        }
+      '''
+    }
+  }
+}

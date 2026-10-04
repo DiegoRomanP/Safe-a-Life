@@ -1,0 +1,26 @@
+meta {
+  name: Hospital requests a manual batch
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{demoNeedId}}/invitation-batches
+  body: none
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: bruno-manual-batch-0001
+}
+
+tests {
+  test("manual request is recorded without simulated matching or email", function () {
+    expect(res.getStatus()).to.equal(201);
+    expect(res.getBody().data.createdInvitationCount).to.equal(0);
+    expect(res.getBody().data.queuedEmailCount).to.equal(0);
+    expect(res.getBody().data.batchId).to.match(/^[0-9a-f-]{36}$/i);
+  });
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Donor own correction requests
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors/me/correction-requests
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("donor can follow only own minimized requests", function () {
+    const items = res.getBody().data.items;
+    expect(res.getStatus()).to.equal(200);
+    expect(items).to.have.length(1);
+    expect(items[0].requestedFields).to.have.members(["name", "email"]);
+    expect(items[0]).to.not.have.property("donorId");
+  });
+}

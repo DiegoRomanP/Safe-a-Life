@@ -1,0 +1,276 @@
+meta {
+  name: Lista necesidades de la institución autenticada
+  type: http
+  seq: 1
+  tags: [
+    Hospital
+  ]
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs
+  body: none
+  auth: inherit
+}
+
+params:query {
+  @description('Límite por página propuesto; el máximo debe aplicarse también en servidor.')
+  limit: 20
+  @description('Cursor opaco devuelto por la página anterior; no contiene PII.')
+  ~cursor:
+  @description('Filtro allowlisted por estado de necesidad.')
+  ~status: borrador
+  @description('Filtro allowlisted por estado de necesidad.')
+  ~status: activa
+  @description('Filtro allowlisted por estado de necesidad.')
+  ~status: meta_alcanzada
+  @description('Filtro allowlisted por estado de necesidad.')
+  ~status: cerrada
+  @description('Filtro allowlisted por estado de necesidad.')
+  ~status: cancelada
+  @description('Filtro allowlisted por estado de necesidad.')
+  ~status: vencida
+}
+
+docs {
+  El hospital se deriva de la membresía vigente; no se recibe hospitalId desde el cliente.
+}
+
+example {
+  name: 200 Response
+  description: Página de necesidades propias.
+
+  request: {
+    url: {{baseUrl}}/api/v1/hospitals/me/needs
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+      ~status: borrador
+      ~status: activa
+      ~status: meta_alcanzada
+      ~status: cerrada
+      ~status: cancelada
+      ~status: vencida
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "items": [
+              {
+                "needId": "4c117ef2-3ebd-43f2-8629-c06d5c8df68f",
+                "component": "RBC",
+                "requiredBloodType": "O_POS",
+                "targetConfirmations": 5,
+                "confirmedIntentCount": 2,
+                "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261",
+                "radiusKm": 10,
+                "urgency": "Urgente",
+                "status": "activa",
+                "expiresAt": "2026-10-02T18:00:00Z"
+              }
+            ],
+            "pagination": {
+              "nextCursor": null
+            }
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 401 Response
+  description: Autenticación ausente, inválida o vencida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/hospitals/me/needs
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+      ~status: borrador
+      ~status: activa
+      ~status: meta_alcanzada
+      ~status: cerrada
+      ~status: cancelada
+      ~status: vencida
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 401
+      text: Unauthorized
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "AUTHENTICATION_REQUIRED",
+            "message": "La sesión no está vigente.",
+            "correlationId": "00000000-0000-4000-8000-000000000401"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 403 Response
+  description: Actor autenticado sin permiso; no revelar datos del recurso ajeno.
+
+  request: {
+    url: {{baseUrl}}/api/v1/hospitals/me/needs
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+      ~status: borrador
+      ~status: activa
+      ~status: meta_alcanzada
+      ~status: cerrada
+      ~status: cancelada
+      ~status: vencida
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 403
+      text: Forbidden
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "ACCESS_DENIED",
+            "message": "La acción no está permitida.",
+            "correlationId": "00000000-0000-4000-8000-000000000403"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 422 Response
+  description: Solicitud bien formada pero semánticamente inválida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/hospitals/me/needs
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+      ~status: borrador
+      ~status: activa
+      ~status: meta_alcanzada
+      ~status: cerrada
+      ~status: cancelada
+      ~status: vencida
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 422
+      text: Unprocessable Entity
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "VALIDATION_FAILED",
+            "message": "Uno o más valores no cumplen las reglas del campo.",
+            "correlationId": "00000000-0000-4000-8000-000000000422"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 500 Response
+  description: Error interno sin detalles de implementación.
+
+  request: {
+    url: {{baseUrl}}/api/v1/hospitals/me/needs
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+      ~status: borrador
+      ~status: activa
+      ~status: meta_alcanzada
+      ~status: cerrada
+      ~status: cancelada
+      ~status: vencida
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 500
+      text: Internal Server Error
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "No se pudo completar la solicitud.",
+            "correlationId": "00000000-0000-4000-8000-000000000500"
+          }
+        }
+      '''
+    }
+  }
+}

@@ -1,0 +1,207 @@
+meta {
+  name: Solicita corrección o eliminación de datos propios
+  type: http
+  seq: 14
+  tags: [
+    Donor
+  ]
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donors/me/correction-requests
+  body: json
+  auth: inherit
+}
+
+headers {
+  @description('Clave estable para reintentos de la misma intención. El servidor la liga a actor, operación y hash canónico del payload; no registrar su valor.')
+  Idempotency-Key: {{idempotencyKey}}
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {
+    "type": "correccion",
+    "changes": {
+      "name": "Nombre sintético actualizado"
+    }
+  }
+}
+
+example {
+  name: 201 Response
+  description: Solicitud creada para revisión.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donors/me/correction-requests
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+      session: {{apiKey}}
+    }
+
+    body:json: {
+      {}
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 201
+      text: Created
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "requestId": "b30c64a0-488c-4a10-8df5-7411ecb44cc8",
+            "type": "correccion",
+            "requestedFields": [
+              "name"
+            ],
+            "status": "pendiente",
+            "createdAt": "2026-10-01T18:00:00Z",
+            "updatedAt": "2026-10-01T18:00:00Z"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 401 Response
+  description: Autenticación ausente, inválida o vencida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donors/me/correction-requests
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+      session: {{apiKey}}
+    }
+
+    body:json: {
+      {}
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 401
+      text: Unauthorized
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "AUTHENTICATION_REQUIRED",
+            "message": "La sesión no está vigente.",
+            "correlationId": "00000000-0000-4000-8000-000000000401"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 409 Response
+  description: Conflicto de estado, concurrencia o idempotencia.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donors/me/correction-requests
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+      session: {{apiKey}}
+    }
+
+    body:json: {
+      {}
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 409
+      text: Conflict
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "STATE_CONFLICT",
+            "message": "La operación entra en conflicto con el estado actual.",
+            "correlationId": "00000000-0000-4000-8000-000000000409"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 422 Response
+  description: Solicitud bien formada pero semánticamente inválida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donors/me/correction-requests
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key:
+      session: {{apiKey}}
+    }
+
+    body:json: {
+      {}
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 422
+      text: Unprocessable Entity
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "VALIDATION_FAILED",
+            "message": "Uno o más valores no cumplen las reglas del campo.",
+            "correlationId": "00000000-0000-4000-8000-000000000422"
+          }
+        }
+      '''
+    }
+  }
+}

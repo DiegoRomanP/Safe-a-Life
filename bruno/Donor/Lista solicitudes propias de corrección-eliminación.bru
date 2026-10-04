@@ -1,0 +1,150 @@
+meta {
+  name: Lista solicitudes propias de corrección/eliminación
+  type: http
+  seq: 13
+  tags: [
+    Donor
+  ]
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors/me/correction-requests
+  body: none
+  auth: inherit
+}
+
+params:query {
+  @description('Límite por página propuesto; el máximo debe aplicarse también en servidor.')
+  limit: 20
+  @description('Cursor opaco devuelto por la página anterior; no contiene PII.')
+  ~cursor:
+}
+
+example {
+  name: 200 Response
+  description: Solicitudes del donante autenticado.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donors/me/correction-requests
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "items": [
+              {
+                "requestId": "b30c64a0-488c-4a10-8df5-7411ecb44cc8",
+                "type": "correccion",
+                "requestedFields": [
+                  "name"
+                ],
+                "status": "pendiente",
+                "createdAt": "2026-10-01T18:00:00Z",
+                "updatedAt": "2026-10-01T18:00:00Z"
+              }
+            ],
+            "pagination": {
+              "nextCursor": null
+            }
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 401 Response
+  description: Autenticación ausente, inválida o vencida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donors/me/correction-requests
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 401
+      text: Unauthorized
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "AUTHENTICATION_REQUIRED",
+            "message": "La sesión no está vigente.",
+            "correlationId": "00000000-0000-4000-8000-000000000401"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 500 Response
+  description: Error interno sin detalles de implementación.
+
+  request: {
+    url: {{baseUrl}}/api/v1/donors/me/correction-requests
+    method: GET
+    mode: none
+    params:query: {
+      limit: 20
+      ~cursor:
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 500
+      text: Internal Server Error
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "No se pudo completar la solicitud.",
+            "correlationId": "00000000-0000-4000-8000-000000000500"
+          }
+        }
+      '''
+    }
+  }
+}

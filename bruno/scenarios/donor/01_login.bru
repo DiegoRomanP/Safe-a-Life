@@ -1,0 +1,31 @@
+meta {
+  name: Donor login
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/sessions
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}
+}
+
+body:json {
+  {
+    "email": "{{donorEmail}}",
+    "password": "{{demoPassword}}"
+  }
+}
+
+tests {
+  test("login returns the donor actor without credentials", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.actor.role).to.equal("donante");
+    expect(res.getBody().data.actor.displayName).to.equal("Donante Demo");
+    expect(JSON.stringify(res.getBody())).to.not.include("synthetic-demo-only");
+  });
+}

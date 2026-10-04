@@ -1,0 +1,40 @@
+meta {
+  name: Donor creates a minimized correction request
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donors/me/correction-requests
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: bruno-own-correction-0001
+}
+
+body:json {
+  {
+    "type": "correccion",
+    "changes": {
+      "name": "Nombre sintético actualizado",
+      "newEmail": "cambio.demo@example.test"
+    }
+  }
+}
+
+tests {
+  test("request stores only fields and opaque status", function () {
+    const data = res.getBody().data;
+    expect(res.getStatus()).to.equal(201);
+    expect(data.type).to.equal("correccion");
+    expect(data.requestedFields).to.have.members(["name", "email"]);
+    expect(data.status).to.equal("pendiente");
+    expect(JSON.stringify(data)).to.not.include("Nombre sintético actualizado");
+    expect(JSON.stringify(data)).to.not.include("cambio.demo@example.test");
+    bru.setVar("demoCorrectionRequestId", data.requestId);
+  });
+}

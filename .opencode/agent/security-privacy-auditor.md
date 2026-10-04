@@ -1,6 +1,7 @@
 ---
 description: Audita amenazas, auth, RLS, aislamiento, PII, geolocalizacion, email y secretos de Save a Life.
 mode: subagent
+hidden: true
 permission:
   edit: deny
   bash: ask

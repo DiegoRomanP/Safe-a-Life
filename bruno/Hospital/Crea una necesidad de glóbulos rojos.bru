@@ -1,0 +1,408 @@
+meta {
+  name: Crea una necesidad de glóbulos rojos
+  type: http
+  seq: 2
+  tags: [
+    Hospital
+  ]
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs
+  body: json
+  auth: inherit
+}
+
+headers {
+  @description('Clave estable para reintentos de la misma intención. El servidor la liga a actor, operación y hash canónico del payload; no registrar su valor.')
+  Idempotency-Key: {{idempotencyKey}}
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {
+    "component": "RBC",
+    "requiredBloodType": "O_POS",
+    "targetConfirmations": 5,
+  "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261",
+    "radiusKm": 10,
+    "urgency": "Urgente",
+    "expiresInHours": 24
+  }
+}
+
+docs {
+  El componente permitido es RBC. targetConfirmations representa una meta de intenciones de asistir, nunca unidades ni donaciones realizadas. La sede debe estar activa y pertenecer al hospital autenticado. La urgencia es informativa y no altera la selección (RF-NEC-01 a RF-NEC-05).
+}
+
+example {
+  name: 201 Response
+  description: Necesidad creada en borrador.
+
+  request: {
+    url: {{baseUrl}}/api/v1/hospitals/me/needs
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key: {{idempotencyKey}}
+      Origin: {{appOrigin}}
+      X-CSRF-Token: {{csrfToken}}
+    }
+
+    body:json: {
+      {
+        "component": "RBC",
+        "requiredBloodType": "O_POS",
+        "targetConfirmations": 5,
+        "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261",
+        "radiusKm": 10,
+        "urgency": "Urgente",
+        "expiresInHours": 24
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 201
+      text: Created
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "needId": "6f01119f-152e-46d6-b997-cb7de7c64211",
+            "component": "RBC",
+            "requiredBloodType": "O_POS",
+            "targetConfirmations": 5,
+            "confirmedIntentCount": 0,
+            "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261",
+            "radiusKm": 10,
+            "urgency": "Urgente",
+            "status": "borrador",
+            "expiresAt": "2026-10-04T18:00:00Z"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 400 Response
+  description: Solicitud malformada.
+
+  request: {
+    url: {{baseUrl}}/api/v1/hospitals/me/needs
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key: {{idempotencyKey}}
+      Origin: {{appOrigin}}
+      X-CSRF-Token: {{csrfToken}}
+    }
+
+    body:json: {
+      {
+        "component": "RBC",
+        "requiredBloodType": "O_POS",
+        "targetConfirmations": 5,
+        "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261",
+        "radiusKm": 10,
+        "urgency": "Urgente",
+        "expiresInHours": 24
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 400
+      text: Bad Request
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "BAD_REQUEST",
+            "message": "Solicitud malformada.",
+            "correlationId": "00000000-0000-4000-8000-000000000400"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 401 Response
+  description: Autenticación ausente, inválida o vencida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/hospitals/me/needs
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key: {{idempotencyKey}}
+      Origin: {{appOrigin}}
+      X-CSRF-Token: {{csrfToken}}
+    }
+
+    body:json: {
+      {
+        "component": "RBC",
+        "requiredBloodType": "O_POS",
+        "targetConfirmations": 5,
+        "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261",
+        "radiusKm": 10,
+        "urgency": "Urgente",
+        "expiresInHours": 24
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 401
+      text: Unauthorized
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "AUTHENTICATION_REQUIRED",
+            "message": "La sesión no está vigente.",
+            "correlationId": "00000000-0000-4000-8000-000000000401"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 403 Response
+  description: Actor autenticado sin permiso; no revelar datos del recurso ajeno.
+
+  request: {
+    url: {{baseUrl}}/api/v1/hospitals/me/needs
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key: {{idempotencyKey}}
+      Origin: {{appOrigin}}
+      X-CSRF-Token: {{csrfToken}}
+    }
+
+    body:json: {
+      {
+        "component": "RBC",
+        "requiredBloodType": "O_POS",
+        "targetConfirmations": 5,
+        "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261",
+        "radiusKm": 10,
+        "urgency": "Urgente",
+        "expiresInHours": 24
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 403
+      text: Forbidden
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "ACCESS_DENIED",
+            "message": "La acción no está permitida.",
+            "correlationId": "00000000-0000-4000-8000-000000000403"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 409 Response
+  description: Conflicto de estado, concurrencia o idempotencia.
+
+  request: {
+    url: {{baseUrl}}/api/v1/hospitals/me/needs
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key: {{idempotencyKey}}
+      Origin: {{appOrigin}}
+      X-CSRF-Token: {{csrfToken}}
+    }
+
+    body:json: {
+      {
+        "component": "RBC",
+        "requiredBloodType": "O_POS",
+        "targetConfirmations": 5,
+        "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261",
+        "radiusKm": 10,
+        "urgency": "Urgente",
+        "expiresInHours": 24
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 409
+      text: Conflict
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "STATE_CONFLICT",
+            "message": "La operación entra en conflicto con el estado actual.",
+            "correlationId": "00000000-0000-4000-8000-000000000409"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 422 Response
+  description: Solicitud bien formada pero semánticamente inválida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/hospitals/me/needs
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key: {{idempotencyKey}}
+      Origin: {{appOrigin}}
+      X-CSRF-Token: {{csrfToken}}
+    }
+
+    body:json: {
+      {
+        "component": "RBC",
+        "requiredBloodType": "O_POS",
+        "targetConfirmations": 5,
+        "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261",
+        "radiusKm": 10,
+        "urgency": "Urgente",
+        "expiresInHours": 24
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 422
+      text: Unprocessable Entity
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "VALIDATION_FAILED",
+            "message": "Uno o más valores no cumplen las reglas del campo.",
+            "correlationId": "00000000-0000-4000-8000-000000000422"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 500 Response
+  description: Error interno sin detalles de implementación.
+
+  request: {
+    url: {{baseUrl}}/api/v1/hospitals/me/needs
+    method: POST
+    mode: json
+    headers: {
+      Idempotency-Key: {{idempotencyKey}}
+      Origin: {{appOrigin}}
+      X-CSRF-Token: {{csrfToken}}
+    }
+
+    body:json: {
+      {
+        "component": "RBC",
+        "requiredBloodType": "O_POS",
+        "targetConfirmations": 5,
+        "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261",
+        "radiusKm": 10,
+        "urgency": "Urgente",
+        "expiresInHours": 24
+      }
+    }
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 500
+      text: Internal Server Error
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "No se pudo completar la solicitud.",
+            "correlationId": "00000000-0000-4000-8000-000000000500"
+          }
+        }
+      '''
+    }
+  }
+}

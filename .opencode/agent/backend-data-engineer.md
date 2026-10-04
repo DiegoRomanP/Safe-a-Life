@@ -1,6 +1,7 @@
 ---
 description: Implementa backend, PostgreSQL/Supabase, RLS, matching e integraciones de Save a Life con limites de dominio claros.
 mode: subagent
+hidden: true
 permission:
   edit: allow
   bash: ask

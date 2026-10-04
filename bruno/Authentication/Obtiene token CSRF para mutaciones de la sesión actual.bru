@@ -1,0 +1,93 @@
+meta {
+  name: Obtiene token CSRF para mutaciones de la sesión actual
+  type: http
+  seq: 1
+  tags: [
+    Authentication
+  ]
+}
+
+get {
+  url: {{baseUrl}}/api/v1/auth/csrf-token
+  body: none
+  auth: inherit
+}
+
+docs {
+  Token ligado a la sesión; el cliente lo conserva en memoria y lo envía en X-CSRF-Token. No registrar su valor. Header/mecanismo final pendiente de ratificación Sprint 0.
+}
+
+tests {
+  test("cache CSRF token only for this Bruno run", function () {
+    expect(res.getStatus()).to.equal(200);
+    bru.setVar("csrfToken", res.getBody().data.token);
+  });
+}
+
+example {
+  name: 200 Response
+  description: Token CSRF para la sesión actual.
+
+  request: {
+    url: {{baseUrl}}/api/v1/auth/csrf-token
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 200
+      text: OK
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "data": {
+            "token": "synthetic-csrf-token-for-local-demo-only"
+          }
+        }
+      '''
+    }
+  }
+}
+
+example {
+  name: 401 Response
+  description: Autenticación ausente, inválida o vencida.
+
+  request: {
+    url: {{baseUrl}}/api/v1/auth/csrf-token
+    method: GET
+    mode: none
+  }
+
+  response: {
+    headers: {
+      Content-Type: application/json
+    }
+
+    status: {
+      code: 401
+      text: Unauthorized
+    }
+
+    body: {
+      type: json
+      content: '''
+        {
+          "error": {
+            "code": "AUTHENTICATION_REQUIRED",
+            "message": "La sesión no está vigente.",
+            "correlationId": "00000000-0000-4000-8000-000000000401"
+          }
+        }
+      '''
+    }
+  }
+}
