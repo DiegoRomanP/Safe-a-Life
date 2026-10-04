@@ -3,11 +3,11 @@
 | Campo | Valor |
 | --- | --- |
 | Estado | Borrador controlado para revision |
-| Version | 0.3 |
-| Fecha | 2026-09-27 |
+| Version | 0.4 |
+| Fecha | 2026-10-01 |
 | Tipo de documento | Especificacion de Requisitos de Software (ERS) |
 | Ambito | Prototipo academico con datos sinteticos en Lima Metropolitana |
-| Linea base funcional | [`1_Primeros_Alcances.md`](1_Primeros_Alcances.md), version 1.1 |
+| Linea base funcional | [`1_Primeros_Alcances.md`](1_Primeros_Alcances.md), version 1.2 |
 | Decision arquitectonica | [`ADR-001`](decisions/ADR-001-stack-del-prototipo.md), estado Aceptado |
 
 ## Control del documento
@@ -17,6 +17,7 @@
 | 0.1 | 2026-09-24 | Borrador para revision | Primera organizacion formal de la linea base como ERS. |
 | 0.2 | 2026-09-27 | Borrador para revision | Reorganizacion editorial de requisitos por rol y objetivo; conserva los 101 RF/RNF, prioridades, verificaciones y ambiguedades abiertas, sin cambio funcional ni arquitectonico. |
 | 0.3 | 2026-09-27 | Borrador para revision | Incorpora reconocimientos hospitalarios opcionales limitados a refrigerio, diploma y pin, mas informacion comun sobre constancia y permiso laboral; no modifica la arquitectura. |
+| 0.4 | 2026-10-01 | Borrador controlado | Registra decisiones aprobadas AP-01/AP-03/AP-05/AP-09, sincroniza la exclusion de historial de ultima donacion y explicita sus efectos en estados, tokens y proyecciones. |
 
 ### Autoridad y precedencia
 
@@ -33,11 +34,12 @@ RF-EML-01 a RF-EML-03 concretan decisiones que `ADR-001` todavia describe como
 pendientes. Esa redaccion del ADR debe sincronizarse, sin modificar los RF
 aprobados, antes de implementar el modulo de email.
 
-`Save_a_Life.xlsx`, `.opencode/references/project-requirements.md`, `README.md` y
-los ADR afectados requieren sincronizacion antes de implementar los modulos
-correspondientes. En particular, pueden conservar requisitos anteriores sobre
-ultima donacion, transporte de sesion o decisiones que esta linea base ya
-cerro.
+`Save_a_Life.xlsx` y `.opencode/references/project-requirements.md` se sincronizan
+con RF-PRO-05 en esta revision: no recopilar historial de ultima donacion ni
+aplicar filtro postdonacion. AP-01, AP-03, AP-05 y AP-09 quedan resueltos por las
+decisiones de producto registradas en la linea base; los cambios de API/mock deben
+mantenerse alineados con esta ERS y `docs/Api-Rules.md`. No inferir resoluciones
+para AP-02, AP-04, AP-06, AP-07 ni AP-08.
 
 ### Referencia metodologica
 
@@ -361,8 +363,10 @@ El frontend no usara el SDK de Supabase para consultar o modificar datos de
 dominio. Las capacidades publicas estrictamente necesarias de autenticacion se
 mantendran mediadas por Express conforme a RNF-SEC-01 y RNF-SEC-09.
 
-Las rutas REST, los esquemas OpenAPI o equivalentes y el acceso a datos concreto
-se cerraran en Sprint 0 sin modificar los requisitos de esta ERS.
+La propuesta inicial de rutas REST/OpenAPI esta en [`openapi.json`](openapi.json) y
+sus convenciones en [`Api-Rules.md`](Api-Rules.md). Ambos siguen en borrador hasta
+su ratificacion en Sprint 0; el acceso a datos concreto tambien se decide en
+Sprint 0. El contrato no modifica los requisitos de esta ERS.
 
 ### 3.3 Interfaces de comunicacion
 
@@ -421,12 +425,12 @@ se rigen por su contexto de acceso, sin exigirles una sesion por esta agrupacion
 | Restricciones y relaciones | Una cuenta incompleta o un alta no reclamada no participa en matching. HOS-OBJ-02 inicia el alta; el hospital no completa el perfil del donante. Aplican tambien RF-PRO-01 y RF-PRO-05. |
 | RNF particulares | RNF-SEC-01 a RNF-SEC-04, RNF-SEC-12 y RNF-SEC-13. |
 | Aceptacion derivada | Cuenta completa incluida cuando cumple los demas filtros; incompleta excluida; replay rechazado; purga a los 30 dias de alta no reclamada. |
-| Pendientes y fuente | AP-01 mantiene pendiente la semantica del estado vencida. CU-01; AUTH-02, AUTH-03 y DON-01 del Anexo A. |
+| Pendientes y fuente | Reemision y purga conforme a RF-IAM-03/04. CU-01; AUTH-02, AUTH-03 y DON-01 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
 | RF-IAM-01 | El sistema debera permitir que un donante se autorregistre y active su cuenta unicamente despues de verificar su email y completar nombre, grupo declarado, disponibilidad y ubicacion sintetica aproximada. | M | E2E con cuenta incompleta excluida y cuenta completa incluida en matching. |
-| RF-IAM-03 | El alta asistida debera usar los estados `pendiente`, `reclamada_incompleta`, `activa` y `vencida`; su token durara 24 horas, sera de un uso y una reemision invalidara tokens anteriores sin reiniciar el plazo de conservacion. | M | Pruebas con reloj controlado, replay y reemision. |
+| RF-IAM-03 | El alta asistida debera usar los estados `pendiente`, `reclamada_incompleta`, `activa` y `vencida`. Su token sera de un uso y durara 24 horas; al vencer, la solicitud pasara a `vencida`. Una reemision antes de la purga invalidara los tokens anteriores y devolvera la solicitud a `pendiente` sin cambiar `created_at` ni su fecha de purga. | M | Reloj controlado antes/en/despues de 24 h; replay; reemision que invalida el token anterior; reemision sin extender los 30 dias; purga en la fecha original. |
 | RF-IAM-04 | Un alta asistida no reclamada debera purgarse a los 30 dias de su creacion y nunca participar en matching; una cuenta reclamada solo pasara a `activa` al completar el perfil obligatorio. | M | Integracion antes y despues de los limites y prueba de exclusion del matching. |
 
 #### DON-OBJ-02: Consultar su perfil y gestionar disponibilidad y ubicacion
@@ -455,7 +459,7 @@ se rigen por su contexto de acceso, sin exigirles una sesion por esta agrupacion
 | Restricciones y relaciones | Matriz 5.3 y RF-INV-01 para estados; RF-VIS-03 limita el contenido. No se muestran datos de otros donantes ni pacientes. |
 | RNF particulares | RNF-SEC-08 y RNF-SAF-01 a RNF-SAF-04. |
 | Aceptacion derivada | Consulta propia permitida y ajena denegada; contenido limitado a los campos permitidos; ausencia de paciente, diagnostico y promesas clinicas. |
-| Pendientes y fuente | AP-09 afecta la vigencia; matriz 5.3 y DON-03 del Anexo A. |
+| Pendientes y fuente | Vigencia de invitacion/token conforme a RF-INV-01/02/03/08; matriz 5.3 y DON-03 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
@@ -470,12 +474,12 @@ se rigen por su contexto de acceso, sin exigirles una sesion por esta agrupacion
 | Restricciones y relaciones | No mutar por GET ni aceptar replay. RF-INV-05 y RF-INV-08 en HOS-OBJ-06 regulan meta y terminales; RF-INV-01 distingue los ejes de estado. |
 | RNF particulares | RNF-SEC-12, RNF-SEC-13, RNF-REL-01 y RNF-REL-02. |
 | Aceptacion derivada | GET sin efectos; un unico efecto entre POST concurrentes del mismo token; accion cruzada, replay y respuesta tras meta o terminal rechazados. |
-| Pendientes y fuente | AP-04 para carreras entre operaciones distintas y AP-09 para vigencias; CU-03 y LINK-01 del Anexo A. |
+| Pendientes y fuente | AP-04 para carreras entre operaciones distintas; CU-03 y LINK-01 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
-| RF-INV-02 | Confirmar y rechazar deberan usar tokens distintos de un uso, ligados a invitacion y accion; consumir uno invalidara su token hermano. | M | Accion cruzada, replay e invalidacion del token alternativo. |
-| RF-INV-03 | Un `GET` del enlace debera ser informativo y no mutar estado; el primer `POST` valido solo podra consumir el token y registrar la respuesta atomicamente cuando la invitacion este activa, no haya vencido y la necesidad permanezca `activa`. | M | Escaner GET, dos POST concurrentes con un solo efecto y rechazo tras meta o estado terminal. |
+| RF-INV-02 | Confirmar y rechazar deberan usar tokens distintos de un uso, ligados a invitacion y accion; consumir uno invalidara su token hermano. No tendran TTL independiente: venceran con `need.expires_at` y solo seran validos mientras invitacion y necesidad sigan activas. | M | Accion cruzada, replay, invalidacion del token alternativo y vencimiento en el limite UTC de la necesidad. |
+| RF-INV-03 | Un `GET` del enlace debera ser informativo y no mutar estado; el primer `POST` valido solo podra consumir el token y registrar la respuesta atomicamente cuando la invitacion este activa, `now < need.expires_at` y la necesidad permanezca `activa`. | M | Escaner GET, dos POST concurrentes con un solo efecto y rechazo antes/en/despues de `expires_at`, tras meta o estado terminal. |
 
 #### DON-OBJ-05: Cambiar su respuesta y consultar su historial
 
@@ -483,14 +487,14 @@ se rigen por su contexto de acceso, sin exigirles una sesion por esta agrupacion
 | --- | --- |
 | Objetivo y precondiciones | Revisar una respuesta inicial valida desde una sesion del donante propietario, mientras la necesidad no sea terminal. |
 | Accion y resultado | Alternar confirmada/rechazada y consultar historial propio; cada cambio agrega historial inmutable. |
-| Restricciones y relaciones | RF-NEC-07 y RF-INV-06 en HOS-OBJ-06 regulan el retorno a activa sin revalidar invitaciones ni crear lotes; HOS-OBJ-05 consulta la proyeccion permitida. |
+| Restricciones y relaciones | RF-NEC-07 y RF-INV-06 en HOS-OBJ-06 regulan el retorno a activa sin revalidar invitaciones ni crear lotes; HOS-OBJ-05 consulta la proyeccion permitida, que oculta identidad al quedar rechazada. |
 | RNF particulares | RNF-SEC-08 y RNF-AUD-01. |
-| Aceptacion derivada | Cambio propio permitido en el contexto aprobado; cambio ajeno o tras terminal denegado; historial conservado; perdida de meta sin lote automatico. |
-| Pendientes y fuente | AP-03 para visibilidad posterior, AP-04 para carreras y AP-09 para vigencias; CU-03, DON-03 y DON-04 del Anexo A. |
+| Aceptacion derivada | Cambio propio permitido en el contexto aprobado; cambio ajeno o tras terminal denegado; historial conservado; hospital deja de ver identidad tras `confirmada -> rechazada`; perdida de meta sin lote automatico. |
+| Pendientes y fuente | AP-04 mantiene pendientes carreras entre operaciones; CU-03, DON-03 y DON-04 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
-| RF-INV-04 | Tras una respuesta inicial valida, solo el donante autenticado podra alternar entre `confirmada` y `rechazada` hasta que la necesidad sea terminal; cada cambio agregara historial inmutable. | M | E2E antes y despues del estado terminal. |
+| RF-INV-04 | Tras una respuesta inicial valida, solo el donante autenticado podra alternar entre `confirmada` y `rechazada` hasta que la necesidad sea terminal; cada cambio agregara historial inmutable. Si cambia a `rechazada`, el hospital deja de ver nombre y grupo y solo conserva codigo por necesidad y estados opacos. | M | E2E antes/despues del estado terminal y del cambio de confirmada a rechazada; proyeccion hospitalaria pierde identidad al cambiar. |
 
 #### DON-OBJ-06: Solicitar y seguir una correccion o eliminacion
 
@@ -498,14 +502,14 @@ se rigen por su contexto de acceso, sin exigirles una sesion por esta agrupacion
 | --- | --- |
 | Objetivo y precondiciones | Solicitar correccion o eliminacion de datos propios desde una sesion de donante. |
 | Accion y resultado | Crear y seguir la solicitud; el donante no ejecuta la correccion privilegiada ni sustituye directamente nombre, email o grupo. |
-| Restricciones y relaciones | RF-PRO-03 y RF-PRO-04 se definen en SA-OBJ-03, que resuelve la solicitud con SA-OBJ-04. El email nuevo requiere verificacion. |
+| Restricciones y relaciones | RF-PRO-03 y RF-PRO-04 se definen en SA-OBJ-03, que resuelve la solicitud con SA-OBJ-04. El email nuevo requiere verificacion con token de un uso y TTL de 24 horas. |
 | RNF particulares | RNF-SEC-12, RNF-SEC-13 y RNF-AUD-01. |
-| Aceptacion derivada | Solicitud propia creada y consultable; PATCH directo rechazado; email no sustituido antes de verificacion; ejecucion sin aprobacion denegada. |
-| Pendientes y fuente | AP-05 para vigencia del token de cambio de email; CU-05, matriz 5.3 y DON-05 del Anexo A. |
+| Aceptacion derivada | Solicitud propia creada y consultable; PATCH directo rechazado; email no sustituido antes de verificacion; token vencido/replay no muta email; ejecucion sin aprobacion denegada. |
+| Pendientes y fuente | CU-05, matriz 5.3 y DON-05 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
-| RF-PRO-02 | Los cambios de nombre, email o grupo declarado deberan iniciarse mediante una solicitud; el email nuevo debera verificarse antes de sustituir al anterior. | M | `PATCH` directo rechazado y flujo de solicitud exitoso. |
+| RF-PRO-02 | Los cambios de nombre, email o grupo declarado deberan iniciarse mediante una solicitud; el email nuevo debera verificarse antes de sustituir al anterior. El token sera de un uso y durara 24 horas; vencido, no modificara el email actual. | M | `PATCH` directo rechazado; verificacion valida cambia email; replay o token vencido no lo cambian; prueba del limite de 24 horas. |
 
 #### DON-OBJ-07: Consultar reconocimientos e informacion laboral
 
@@ -549,7 +553,7 @@ y la entrega automatica, sin concederle exploracion del padron.
 | Restricciones y relaciones | Sin contrasena, grupo ni ubicacion. DON-OBJ-01 contiene RF-IAM-03 y RF-IAM-04 para reclamo, estados, reemision y purga. El alta no hace al hospital propietario del perfil. |
 | RNF particulares | RNF-SEC-12, RNF-SEC-13 y RNF-SEC-08. |
 | Aceptacion derivada | Emails nuevos, repetidos y concurrentes no enumerables; reemision invalida tokens anteriores sin reiniciar conservacion. |
-| Pendientes y fuente | AP-01 conserva la decision sobre vencimiento y reemision; CU-01 y HOS-06 del Anexo A. |
+| Pendientes y fuente | Token de 24 horas; reemision antes de la purga original de 30 dias conforme a RF-IAM-03; CU-01 y HOS-06 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
@@ -583,7 +587,7 @@ y la entrega automatica, sin concederle exploracion del padron.
 | Restricciones y relaciones | No selecciona personas individuales ni ejecuta intentos del worker. DON-OBJ-02 aporta disponibilidad; HOS-OBJ-05 consulta estados; HOS-OBJ-06 limita envios por meta y terminales. |
 | RNF particulares | RNF-REL-01, RNF-REL-02, RNF-PER-02, RNF-PER-06, RNF-SEC-10, RNF-SEC-14 y RNF-OPS-05. |
 | Aceptacion derivada | Orden exactos/otras coincidencias y desempate estable; lote limitado y sin duplicados; tercera invitacion global admitida y cuarta bloqueada; conjunto insuficiente sin completar artificialmente; fallo intermedio revierte el lote. Entrega con reintentos acotados, destinatario externo bloqueado y webhook validado. |
-| Pendientes y fuente | AP-02, AP-04, AP-06, AP-08 y AP-09 conservan sus decisiones; CU-02 y CU-06, reglas de la seccion 7 y HOS-04 del Anexo A. |
+| Pendientes y fuente | AP-02, AP-04, AP-06 y AP-08 conservan sus decisiones; CU-02 y CU-06, reglas de la seccion 7 y HOS-04 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
@@ -614,25 +618,25 @@ Reglas de entrega que soportan el mismo recorrido:
 | Accion y resultado | Abrir dashboard o detalle y recibir conteos, estados y solo los campos permitidos segun la respuesta. |
 | Restricciones y relaciones | DON-OBJ-04 y DON-OBJ-05 registran respuestas; HOS-OBJ-04 procesa entregas. Ningun estado de entrega equivale a confirmacion o asistencia. |
 | RNF particulares | RNF-SEC-08, RNF-PER-04 y RNF-PER-05. |
-| Aceptacion derivada | Ejes de estado independientes; antes de confirmacion solo opacos; confirmacion afirmativa con lista cerrada; recurso ajeno denegado; respuesta reflejada dentro del umbral aprobado. |
-| Pendientes y fuente | AP-03 para visibilidad tras retractacion; AP-02 y AP-09 para estados. CU-04; HOS-01, HOS-04 y HOS-05 del Anexo A. |
+| Aceptacion derivada | Ejes de estado independientes; antes de confirmacion solo opacos; mientras confirmacion vigente, lista cerrada; al cambiar a rechazo vuelve proyeccion opaca; recurso ajeno denegado; respuesta reflejada dentro del umbral aprobado. |
+| Pendientes y fuente | AP-02 mantiene pendiente el estado agregado de entrega. CU-04; HOS-01, HOS-04 y HOS-05 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
-| RF-INV-01 | Cada invitacion debera mantener por separado vigencia (`activa`, `invalidada`, `vencida`), entrega (`pendiente`, `enviada`, `entregada`, `fallida`) y respuesta (`sin_respuesta`, `confirmada`, `rechazada`). | M | Cambiar un eje sin sobrescribir los otros. |
-| RF-VIS-01 | Antes de una confirmacion afirmativa, el hospital solo vera conteos, codigos aleatorios propios de la necesidad y estados opacos; rechazo, expiracion y falta de respuesta no revelaran identidad. | M | DTO y pruebas entre necesidades/hospitales. |
-| RF-VIS-02 | Tras una confirmacion afirmativa, el hospital solo vera nombre, codigo por necesidad, grupo declarado, respuesta y hora; nunca email, telefono, ID global, ubicacion, coordenadas ni distancia. | M | Allowlist contractual del DTO. |
+| RF-INV-01 | Cada invitacion debera mantener por separado vigencia (`activa`, `invalidada`, `vencida`), entrega (`pendiente`, `enviada`, `entregada`, `fallida`) y respuesta (`sin_respuesta`, `confirmada`, `rechazada`). La vigencia pasa a `vencida` cuando `now >= need.expires_at`; cierre/cancelacion manual la pasa a `invalidada`. | M | Cambiar un eje sin sobrescribir los otros; probar limites UTC y causa de invalidez. |
+| RF-VIS-01 | Antes de una confirmacion afirmativa, el hospital solo vera conteos, codigos aleatorios propios de la necesidad y estados opacos; rechazo, expiracion, falta de respuesta y cambio de confirmada a rechazada no revelaran identidad. | M | DTO y pruebas entre necesidades/hospitales, incluido el cambio `confirmada -> rechazada`. |
+| RF-VIS-02 | Mientras la respuesta vigente sea `confirmada`, el hospital solo vera nombre, codigo por necesidad, grupo declarado, respuesta y hora; nunca email, telefono, ID global, ubicacion, coordenadas ni distancia. Si cambia a `rechazada`, aplica RF-VIS-01 y se oculta la identidad. | M | Allowlist contractual del DTO antes de confirmar, con confirmacion vigente y tras cambiar a rechazo. |
 
 #### HOS-OBJ-06: Seguir el ciclo de vida, cerrar o cancelar una necesidad
 
 | Campo | Descripcion |
 | --- | --- |
 | Objetivo y precondiciones | Gestionar el ciclo de una necesidad propia desde HOS-OBJ-01, segun los estados permitidos. |
-| Accion y resultado | El hospital cierra o cancela; el sistema refleja meta, perdida de meta y vencimiento, e invalida invitaciones/cancela outbox cuando corresponde. |
+| Accion y resultado | El hospital cierra o cancela; el sistema refleja meta y vencimiento, marca invitaciones `invalidada` por cierre/cancelacion manual o `vencida` por expiracion, y cancela outbox cuando corresponde. |
 | Restricciones y relaciones | Terminales sin reapertura; retorno a activa sin nuevo lote ni revalidacion. DON-OBJ-04 y DON-OBJ-05 aportan respuestas; HOS-OBJ-04 requiere accion manual para otro lote. |
 | RNF particulares | RNF-REL-01, RNF-REL-02 y RNF-AUD-01. |
-| Aceptacion derivada | Meta alcanzada invalida pendientes; perdida de confirmacion retorna a activa sin fan-out; cerrar/cancelar/vencer conserva historial y rechaza respuestas posteriores; verificar antes, en y despues de expires_at. |
-| Pendientes y fuente | AP-04 para carreras y envio en vuelo; AP-09 para vigencias. CU-04, transiciones 5.4 y HOS-03 del Anexo A. |
+| Aceptacion derivada | Meta alcanzada invalida pendientes; perdida de confirmacion retorna a activa sin fan-out; cerrar/cancelar marca invitaciones invalidas; vencer marca invitaciones vencidas; todos conservan historial y rechazan respuestas posteriores; verificar antes, en y despues de expires_at. |
+| Pendientes y fuente | AP-04 mantiene pendientes carreras y envio en vuelo. CU-04, transiciones 5.4 y HOS-03 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
@@ -641,7 +645,7 @@ Reglas de entrega que soportan el mismo recorrido:
 | RF-NEC-08 | Todo vencimiento debera evaluarse con el reloj UTC de PostgreSQL: sera valido unicamente cuando `now < expires_at` y estara vencido cuando `now >= expires_at`. | M | Reloj controlado antes, en y despues del limite. |
 | RF-INV-05 | Al alcanzar la meta, el sistema debera pasar a `meta_alcanzada`, invalidar invitaciones sin respuesta y cancelar trabajos de outbox aun no enviados en la misma transaccion. | M | Confirmacion que completa la meta con invitaciones pendientes. |
 | RF-INV-06 | Si luego se pierde una confirmacion, el sistema debera volver a `activa` sin revalidar invitaciones ni crear un lote automaticamente. | M | `confirmada` a `rechazada` y comprobacion de estados. |
-| RF-INV-08 | Al cerrar, cancelar o vencer una necesidad, el sistema debera invalidar sus invitaciones activas sin respuesta, cancelar el outbox aun no enviado y rechazar toda respuesta o reintento posterior, sin eliminar el historial previo. | M | Integracion transaccional para los tres estados terminales y replay posterior. |
+| RF-INV-08 | Al cerrar o cancelar manualmente una necesidad, el sistema debera marcar `invalidada` sus invitaciones activas sin respuesta; al vencer la necesidad, debera marcarlas `vencida`. En los tres casos cancelara el outbox aun no enviado y rechazara toda respuesta o reintento posterior, sin eliminar historial. El vencimiento usa `now >= need.expires_at`; tokens de accion vencen con la misma fecha limite y no tienen TTL independiente. | M | Integracion transaccional para cierre, cancelacion y vencimiento; estado de invitacion correcto, outbox cancelado y replay/post vencimiento rechazados. |
 
 #### HOS-OBJ-07: Consultar informacion geografica agregada opcional
 
@@ -720,7 +724,7 @@ accesos excepcionales mantienen finalidad y tiempo acotados.
 | Restricciones y relaciones | DON-OBJ-06 inicia y sigue la solicitud; RF-PRO-02 exige verificar email nuevo; SA-OBJ-04 delimita acceso. Una ejecucion fallida requiere nueva solicitud. |
 | RNF particulares | RNF-SEC-05, RNF-SEC-06 y RNF-AUD-01. |
 | Aceptacion derivada | Transiciones permitidas y prohibidas cubiertas; ejecucion sin aprobacion denegada; terminal no reabierto; decision y ejecucion auditadas. |
-| Pendientes y fuente | AP-05 para token de cambio de email; CU-05, matriz 5.3 y SA-05 del Anexo A. |
+| Pendientes y fuente | Token del nuevo email de 24 horas conforme a RF-PRO-02; CU-05, matriz 5.3 y SA-05 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
@@ -780,9 +784,9 @@ accesos excepcionales mantienen finalidad y tiempo acotados.
 | Recorrido | Participacion | Requisitos y aceptacion derivados |
 | --- | --- | --- |
 | Acceso, cierre y recuperacion de sesion | Los tres roles; AAL2 para administradores. | AUTH-01, AUTH-04 y AUTH-05 del Anexo A; RNF-SEC-01 a RNF-SEC-05, RNF-SEC-11 a RNF-SEC-13 y RNF-SEC-15 a RNF-SEC-16. Recuperacion neutra, credencial de un uso, revocacion de sesiones previas y conservacion de rol, hospital y MFA. |
-| Alta asistida | HOS-OBJ-02 inicia; DON-OBJ-01 reclama y completa. | RF-IAM-02 se define en hospital; RF-IAM-03 y RF-IAM-04 en donante. Probar ambos lados sin trasladar propiedad del perfil al hospital. AP-01 abierto. |
-| Respuesta y seguimiento | DON-OBJ-04 y DON-OBJ-05 responden; HOS-OBJ-05 consulta y HOS-OBJ-06 refleja efectos. | RF-INV-01 a RF-INV-06, RF-INV-08 y RF-VIS-01 a RF-VIS-03. Verificar cambio de estado y proyeccion autorizada sin duplicar definiciones; AP-03, AP-04 y AP-09 abiertos. |
-| Correccion o eliminacion | DON-OBJ-06 solicita; SA-OBJ-03 decide y ejecuta con SA-OBJ-04. | RF-PRO-02 en donante; RF-PRO-03 y RF-PRO-04 en superadmin; RNF-SEC-05, RNF-SEC-06 y RNF-AUD-01. Verificar seguimiento, autorizacion y resultado; AP-05 abierto. |
+| Alta asistida | HOS-OBJ-02 inicia; DON-OBJ-01 reclama y completa. | RF-IAM-02 se define en hospital; RF-IAM-03 y RF-IAM-04 en donante. Probar ambos lados sin trasladar propiedad del perfil; reemision no reinicia purga. |
+| Respuesta y seguimiento | DON-OBJ-04 y DON-OBJ-05 responden; HOS-OBJ-05 consulta y HOS-OBJ-06 refleja efectos. | RF-INV-01 a RF-INV-06, RF-INV-08 y RF-VIS-01 a RF-VIS-03. Verificar cambio de estado y proyeccion autorizada; AP-04 abierto para carreras. |
+| Correccion o eliminacion | DON-OBJ-06 solicita; SA-OBJ-03 decide y ejecuta con SA-OBJ-04. | RF-PRO-02 en donante; RF-PRO-03 y RF-PRO-04 en superadmin; RNF-SEC-05, RNF-SEC-06 y RNF-AUD-01. Token del nuevo email de 24 horas. |
 | Reconocimientos e informacion laboral | HOS-OBJ-08 publica una oferta opcional; DON-OBJ-07 la consulta junto con el segmento comun; SA-OBJ-07 puede suspender o levantar la suspension. | RF-REC-01 y RF-REC-03 en hospital; RF-REC-02 y RF-LAB-01 en donante; RF-REC-04 en superadmin; RNF-LGL-01 comun. Verificar tambien la ausencia valida de oferta y que el flujo de invitacion no cambie. |
 
 Los requisitos de soporte automatico se leen dentro del objetivo al que sirven.
@@ -838,16 +842,16 @@ considerara anonimizacion para datos reales.
 | Recurso | Transiciones permitidas |
 | --- | --- |
 | Necesidad | `borrador -> activa`; `activa -> meta_alcanzada, cerrada, cancelada o vencida`; `meta_alcanzada -> activa, cerrada, cancelada o vencida`; terminales sin salida. |
-| Alta asistida | `pendiente -> reclamada_incompleta o vencida`; `reclamada_incompleta -> activa`; un token vencido no cambia el estado y puede reemitirse antes de la purga. |
+| Alta asistida | `pendiente -> reclamada_incompleta o vencida`; `vencida -> pendiente` unicamente por reemision antes de la purga original; `reclamada_incompleta -> activa`. El token dura 24 h; reemitir invalida los anteriores sin reiniciar `created_at` ni la purga a 30 dias. |
 | Solicitud | `pendiente -> aprobada o rechazada`; `aprobada -> en_ejecucion`; `en_ejecucion -> completada o fallida`; terminales sin salida. |
-| Vigencia de invitacion | `activa -> invalidada o vencida`; terminales sin salida. |
+| Vigencia de invitacion | `activa -> invalidada` por cierre/cancelacion manual o invalidacion por meta/no disponibilidad; `activa -> vencida` cuando `now >= need.expires_at`; terminales sin salida. Los tokens de accion vencen en la misma fecha limite y se invalidan al cambiar la invitacion a estado terminal. |
 | Entrega | `pendiente -> enviada o fallida`; `enviada -> entregada o fallida`; `fallida -> pendiente` solo por reintento manual auditado antes del vencimiento, invalidando los hashes anteriores y emitiendo un nuevo par de tokens de accion. |
 | Respuesta | `sin_respuesta -> confirmada o rechazada` antes del vencimiento; `confirmada <-> rechazada` autenticado mientras la necesidad no sea terminal. |
 | Politica de reconocimientos | `sin_publicar -> publicada` y `publicada -> sin_publicar` por un admin del hospital; `publicada -> suspendida` y `suspendida -> sin_publicar` solo por superadmin. Cada mutacion compara la version esperada, incrementa la version y rechaza con conflicto una version obsoleta; una suspension bloquea mutaciones hospitalarias. |
 
-La semantica aun no determinada de alta asistida, vigencia de invitacion,
-reintentos, visibilidad posterior y carreras queda suspendida por AP-01 a AP-04
-y AP-09.
+La semantica pendiente de reintentos y carreras queda suspendida por AP-02 y
+AP-04. AP-01, AP-03, AP-05 y AP-09 quedan resueltos por las reglas de estados,
+proyeccion y vigencia de estas secciones.
 
 ### 5.5 Integridad, retencion y eliminacion
 
@@ -1400,27 +1404,28 @@ comportamiento respecto de esta ERS:
 - proveedor de pruebas en navegadores reales;
 - perfiles reproducibles de carga, tasa de exito, infraestructura, region,
   navegador y red para medir los umbrales de rendimiento ya aprobados;
-- rutas REST y esquemas OpenAPI o equivalentes;
+- ratificar la propuesta de rutas REST y esquemas OpenAPI de `docs/openapi.json`;
 - configuracion de health checks, intervalos del worker, regiones y rollback;
 - limites operativos comprobados de Vercel, Render, Supabase y Resend.
 
-### 10.5 Ambiguedades heredadas que requieren decision
+### 10.5 Ambiguedades heredadas: decisiones aprobadas y pendientes
 
-Las siguientes diferencias ya existen en la linea base de origen. Esta ERS las
-hace visibles y no elige una solucion por inferencia. Los modulos afectados no
-deben implementarse hasta registrar la decision y sincronizar las fuentes.
+Las siguientes diferencias heredadas se hacen visibles para conservar trazabilidad.
+AP-01, AP-03, AP-05 y AP-09 tienen decision aprobada y reflejada en las clausulas
+anteriores; solo los modulos afectados por AP pendientes quedan bloqueados hasta
+registrar una decision y sincronizar las fuentes.
 
-| ID | Ambiguedad | Decision requerida |
+| ID | Ambiguedad heredada | Estado / decision |
 | --- | --- | --- |
-| AP-01 | RF-IAM-03 incluye el estado `vencida`, mientras la tabla de transiciones indica que el vencimiento de un token no cambia el estado y permite reemision antes de la purga. | Definir el evento que lleva el alta a `vencida`, el estado despues de las 24 horas del token y las transiciones de reemision. |
-| AP-02 | RF-EML-01 y RF-EML-02 exigen reintentos automaticos, pero la transicion `fallida -> pendiente` se reserva al reintento manual. | Distinguir estado agregado de entrega y estado de intento; definir cuando un error transitorio se vuelve `fallida`. |
-| AP-03 | RF-INV-04 permite `confirmada -> rechazada`; RF-VIS-01 oculta identidades de rechazos y RF-VIS-02 permite datos tras una confirmacion afirmativa. | Definir la proyeccion que recibe el hospital despues de que una confirmacion cambia a rechazo. |
-| AP-04 | La linea base exige atomicidad, pero no fija precedencia para confirmaciones distintas que compiten por la ultima plaza; cierre, cancelacion o vencimiento frente a envio en vuelo; ni cambio de respuesta frente a meta alcanzada. | Definir el resultado observable esperado para cada carrera; el mecanismo tecnico de bloqueo, aislamiento o serializacion se decide en Sprint 0. |
-| AP-05 | RNF-SEC-12 incluye el token de cambio de email, pero no fija su vigencia. | Aprobar un TTL y el comportamiento observable en el limite. |
-| AP-06 | RNF-SEC-14 exige destruir el payload cifrado tras entrega definitiva, fallo final o vencimiento, pero no fija el plazo maximo de esa destruccion. | Aprobar el plazo observable y su verificacion. |
-| AP-07 | RNF-PRV-04 exige una expiracion documentada para backups sin fijar su limite respecto de `final_demo_at`. | Aprobar la cota maxima de retencion y su aplicacion a restauraciones. |
-| AP-08 | RF-EML-01 fija la secuencia base de backoff, pero no acota el jitter. | Aprobar el rango o algoritmo verificable del jitter. |
-| AP-09 | RF-INV-01 contempla vigencia `vencida`, RF-INV-02 exige tokens de accion de un uso y RF-INV-08 invalida invitaciones cuando vence la necesidad, pero no define que evento produce `activa -> vencida` ni la vigencia temporal propia de esos tokens. | Definir la relacion entre expiracion de token, invitacion y necesidad, con resultados observables en los limites. |
+| AP-01 | El alta asistida debe definir el efecto observable del vencimiento del token de 24 h y la reemision. | Resuelto: al vencer, estado `vencida`; reemision antes de 30 dias invalida tokens previos y retorna a `pendiente` sin reiniciar `created_at` ni la purga. |
+| AP-02 | RF-EML-01 y RF-EML-02 exigen reintentos automaticos, pero la transicion `fallida -> pendiente` se reserva al reintento manual. | Pendiente: distinguir estado agregado de entrega e intento; definir cuando un error transitorio pasa a `fallida`. |
+| AP-03 | RF-INV-04 permite `confirmada -> rechazada`; debe precisarse la proyeccion hospitalaria tras el cambio. | Resuelto: ocultar nombre y grupo al pasar a `rechazada`; conservar codigo opaco por necesidad y estados conforme a RF-VIS-01. |
+| AP-04 | La linea base exige atomicidad, pero no fija precedencia para confirmaciones distintas que compiten por la ultima plaza; cierre, cancelacion o vencimiento frente a envio en vuelo; ni cambio de respuesta frente a meta alcanzada. | Pendiente: definir resultados observables de cada carrera; el mecanismo tecnico se decide en Sprint 0. |
+| AP-05 | RNF-SEC-12 incluye el token de cambio de email, pero no fijaba su vigencia. | Resuelto: token de un uso por 24 h; vencido no cambia el email actual. |
+| AP-06 | RNF-SEC-14 exige destruir el payload cifrado tras entrega definitiva, fallo final o vencimiento, pero no fija el plazo maximo de esa destruccion. | Pendiente: aprobar plazo observable y verificacion. |
+| AP-07 | RNF-PRV-04 exige una expiracion documentada para backups sin fijar su limite respecto de `final_demo_at`. | Pendiente: aprobar limite y reaplicacion de eliminaciones tras restaurar. |
+| AP-08 | RF-EML-01 fija la secuencia base de backoff, pero no acota el jitter. | Pendiente: aprobar rango o algoritmo verificable. |
+| AP-09 | No estaban definidos el estado de invitaciones ni la vigencia de tokens al vencer la necesidad. | Resuelto: sin TTL separado, tokens validos solo con invitacion/necesidad activas y `now < need.expires_at`; al vencer, invitaciones pendientes pasan a `vencida`; cierre/cancelacion manual las pasa a `invalidada`. |
 
 #### Localizacion de pendientes en la lectura por rol
 
@@ -1429,15 +1434,11 @@ cambia ninguna de las decisiones pendientes anteriores.
 
 | Pendiente | Recorridos afectados |
 | --- | --- |
-| AP-01 | DON-OBJ-01 y HOS-OBJ-02: reclamo, estado y reemision de alta asistida. |
 | AP-02 | HOS-OBJ-04 y HOS-OBJ-05: reintento y estado agregado de entrega. |
-| AP-03 | DON-OBJ-05 y HOS-OBJ-05: cambio de respuesta y visibilidad posterior. |
 | AP-04 | DON-OBJ-04, DON-OBJ-05, HOS-OBJ-04 y HOS-OBJ-06: carreras entre respuestas, meta, terminales y envio en vuelo. |
-| AP-05 | DON-OBJ-06 y SA-OBJ-03: vigencia del token de cambio de email. |
 | AP-06 | HOS-OBJ-04: destruccion del payload sensible de notificacion. |
 | AP-07 | SA-OBJ-05 y retencion comun de los tres roles: limite de backups. |
 | AP-08 | HOS-OBJ-04: rango verificable de jitter. |
-| AP-09 | DON-OBJ-03 a DON-OBJ-05 y HOS-OBJ-04 a HOS-OBJ-06: vigencia de invitacion y tokens. |
 
 ## Anexo A. Inventario de pantallas
 
