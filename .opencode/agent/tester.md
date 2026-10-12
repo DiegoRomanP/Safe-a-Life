@@ -22,9 +22,7 @@ permission:
   bash:
     "*": ask
     "npm test": allow
-    "npm run test:api": allow
-    "npm run test:e2e": allow
-    "npm run test:bruno": allow
+    "npm run test*": allow
     "npm run openapi:lint": allow
     "npm run typecheck": allow
     "npm run lint": allow
