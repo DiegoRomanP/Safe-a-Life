@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://save-a-life.invalid/schemas/ratified-operations.json",
+  "$comment": "Generated from docs/openapi.json for every operation with x-ratification.status = ratified-for-implementation.",
+  "operations": {
+    "createHospitalNeed": {
+      "method": "post",
+      "path": "/api/v1/hospitals/me/needs",
+      "body": "CreateHospitalNeedBody",
+      "query": "CreateHospitalNeedQuery",
+      "params": null,
+      "headers": null,
+      "success": {
+        "status": "201",
+        "def": "CreateHospitalNeedSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "409",
+        "422",
+        "500"
+      ]
+    }
+  },
+  "$defs": {
+    "BloodType": {
+      "type": "string",
+      "enum": [
+        "O_NEG",
+        "O_POS",
+        "A_NEG",
+        "A_POS",
+        "B_NEG",
+        "B_POS",
+        "AB_NEG",
+        "AB_POS"
+      ]
+    },
+    "CreateHospitalNeedBody": {
+      "$ref": "#/$defs/CreateNeedRequest"
+    },
+    "CreateHospitalNeedQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "CreateHospitalNeedSuccess": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/NeedEnvelope"
+        },
+        {
+          "type": "object",
+          "required": [
+            "data"
+          ],
+          "properties": {
+            "data": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/Need"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "status",
+                    "confirmedIntentCount"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "const": "borrador"
+                    },
+                    "confirmedIntentCount": {
+                      "type": "integer",
+                      "const": 0
+                    },
+                    "expiresAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "Z$"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "CreateNeedRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Cuerpo de creación cerrado. El servidor deriva actor, rol, hospital y propietario; no se aceptan status, datos de paciente ni fecha/historial de donación.",
+      "required": [
+        "component",
+        "requiredBloodType",
+        "targetConfirmations",
+        "siteId",
+        "urgency",
+        "expiresInHours"
+      ],
+      "properties": {
+        "component": {
+          "type": "string",
+          "const": "RBC"
+        },
+        "requiredBloodType": {
+          "$ref": "#/$defs/BloodType"
+        },
+        "targetConfirmations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Meta de intenciones de asistir; no son unidades, volumen ni donaciones realizadas."
+        },
+        "siteId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Debe identificar una sede activa del hospital autenticado."
+        },
+        "radiusKm": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Opcional; si se omite se normaliza a 10 antes del hash idempotente, igual que enviar 10 explícitamente."
+        },
+        "urgency": {
+          "$ref": "#/$defs/Urgency"
+        },
+        "expiresInHours": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 72
+        }
+      }
+    },
+    "Need": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "needId",
+        "component",
+        "requiredBloodType",
+        "targetConfirmations",
+        "confirmedIntentCount",
+        "siteId",
+        "radiusKm",
+        "urgency",
+        "status",
+        "expiresAt"
+      ],
+      "properties": {
+        "needId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "component": {
+          "type": "string",
+          "const": "RBC"
+        },
+        "requiredBloodType": {
+          "$ref": "#/$defs/BloodType"
+        },
+        "targetConfirmations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "confirmedIntentCount": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Conteo de intenciones afirmativas vigentes; no representa unidades ni donaciones."
+        },
+        "siteId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "radiusKm": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "urgency": {
+          "$ref": "#/$defs/Urgency"
+        },
+        "status": {
+          "$ref": "#/$defs/NeedStatus"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "NeedEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/Need"
+        }
+      },
+      "examples": [
+        {
+          "data": {
+            "needId": "4c117ef2-3ebd-43f2-8629-c06d5c8df68f",
+            "component": "RBC",
+            "requiredBloodType": "O_POS",
+            "targetConfirmations": 5,
+            "confirmedIntentCount": 2,
+            "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261",
+            "radiusKm": 10,
+            "urgency": "Urgente",
+            "status": "activa",
+            "expiresAt": "2026-10-02T18:00:00Z"
+          }
+        }
+      ]
+    },
+    "NeedStatus": {
+      "type": "string",
+      "enum": [
+        "borrador",
+        "activa",
+        "meta_alcanzada",
+        "cerrada",
+        "cancelada",
+        "vencida"
+      ],
+      "description": "meta_alcanzada y vencida son estados calculados por el sistema; cerrada/cancelada/vencida son terminales."
+    },
+    "Urgency": {
+      "type": "string",
+      "enum": [
+        "Normal",
+        "Urgente",
+        "Critica"
+      ],
+      "description": "Solo informativa; no altera matching, radio, ranking, lotes ni cuotas."
+    }
+  }
+}

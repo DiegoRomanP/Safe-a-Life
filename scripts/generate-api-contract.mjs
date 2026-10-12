@@ -1,8 +1,8 @@
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import openapiTS, { astToString, COMMENT_HEADER } from 'openapi-typescript';
-import { readFile, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
@@ -22,15 +22,24 @@ const HTTP_METHODS = new Set(['get', 'put', 'post', 'delete', 'options', 'head',
 const RESERVED_DEFINITIONS = new Set(['CreateHospitalNeed201', 'CreateHospitalNeedErrorResponses']);
 const SCHEMA_ID = 'https://save-a-life.invalid/schemas/create-hospital-need.json';
 const SCHEMA_URI = 'https://json-schema.org/draft/2020-12/schema';
+const RATIFIED_SCHEMA_ID = 'https://save-a-life.invalid/schemas/ratified-operations.json';
+const RATIFIED_STATUS = 'ratified-for-implementation';
+const RATIFICATION_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const OPERATION_ID_PATTERN = /^[A-Za-z][A-Za-z0-9]*$/;
+const IDEMPOTENCY_HEADER = 'idempotency-key';
 
 export const GENERATED_FILES = Object.freeze({
   apiTypes: 'backend/src/modules/need-records/dto/openapi.ts',
   apiContract: 'backend/src/modules/need-records/dto/contract.generated.json',
   webTypes: 'apps/web/src/api/openapi.ts',
   mockTypes: 'apps/mock-api/src/api/openapi.ts',
+  backendContractTypes: 'backend/src/contract/openapi.ts',
+  backendRatifiedSchemas: 'backend/src/contract/ratified-schemas.generated.json',
 });
 
-const schemaKinds = { properties: 'map', allOf: 'array', additionalProperties: 'child' };
+const schemaKinds = {
+  properties: 'map', allOf: 'array', oneOf: 'array', additionalProperties: 'child', items: 'child',
+};
 const schemaLiterals = new Set([
   '$schema', '$id', '$comment', 'title', 'description', 'default', 'deprecated', 'readOnly',
   'writeOnly', 'type', 'enum', 'const', 'format', 'pattern', 'multipleOf', 'minimum',
@@ -290,6 +299,143 @@ export function buildContractSnapshot(spec) {
   };
 }
 
+
+function pascalCase(operationId) {
+  return `${operationId.charAt(0).toUpperCase()}${operationId.slice(1)}`;
+}
+
+/** Operaciones con `x-ratification.status === 'ratified-for-implementation'`; la fecha solo debe tener formato YYYY-MM-DD. */
+export function selectRatifiedOperations(spec) {
+  ensure(isRecord(spec) && isRecord(spec.paths), 'OPENAPI_PATHS');
+  const selected = [];
+  for (const [path, pathItem] of Object.entries(spec.paths)) {
+    ensure(isRecord(pathItem), 'OPENAPI_PATHS');
+    for (const method of HTTP_METHODS) {
+      const operation = pathItem[method];
+      if (!isRecord(operation)) continue;
+      const ratification = operation['x-ratification'];
+      if (!isRecord(ratification) || ratification.status !== RATIFIED_STATUS) continue;
+      ensure(typeof ratification.date === 'string' && RATIFICATION_DATE.test(ratification.date), 'OPERATION_RATIFICATION');
+      ensure(typeof operation.operationId === 'string' && OPERATION_ID_PATTERN.test(operation.operationId), 'OPERATION_TUPLE');
+      selected.push({ path, method, operationId: operation.operationId, operation, pathItem });
+    }
+  }
+  const ids = selected.map(({ operationId }) => operationId);
+  ensure(new Set(ids).size === ids.length, 'OPERATION_TUPLE');
+  return selected.sort((a, b) => a.operationId.localeCompare(b.operationId));
+}
+
+function resolveParameter(spec, parameter) {
+  const value = isRecord(parameter) && Object.hasOwn(parameter, '$ref') ? resolvePointer(spec, parameter.$ref) : parameter;
+  ensure(isRecord(value) && typeof value.name === 'string' && typeof value.in === 'string' && isRecord(value.schema),
+    'PARAMETER_SHAPE');
+  return value;
+}
+
+function collectParameters(spec, { pathItem, operation }) {
+  const merged = new Map();
+  for (const parameter of [...(pathItem.parameters ?? []), ...(operation.parameters ?? [])]) {
+    const resolved = resolveParameter(spec, parameter);
+    merged.set(`${resolved.in}:${resolved.name.toLowerCase()}`, resolved);
+  }
+  return [...merged.values()];
+}
+
+function objectSchemaFor(parameters, pendingNames) {
+  const required = parameters.filter(({ required: isRequired }) => isRequired === true).map(({ name }) => name);
+  return {
+    type: 'object',
+    additionalProperties: false,
+    properties: Object.fromEntries(parameters.map((parameter) => [parameter.name, toJsonSchema(parameter.schema, pendingNames)])),
+    ...(required.length > 0 ? { required } : {}),
+  };
+}
+
+function successFor(spec, operation, pendingNames) {
+  const statuses = Object.keys(operation.responses ?? {}).filter((status) => /^2\d\d$/.test(status)).sort();
+  ensure(statuses.length > 0, 'RESPONSE_SCHEMA');
+  const status = statuses[0];
+  const response = resolveResponse(spec, operation.responses[status]);
+  const media = response.content?.['application/json'];
+  if (media === undefined) {
+    ensure(status === '204' || response.content === undefined, 'RESPONSE_SCHEMA');
+    return { status, schema: { const: null } };
+  }
+  return { status, schema: toJsonSchema(mediaSchema(media), pendingNames) };
+}
+
+export function buildRatifiedSchemas(spec, operations = selectRatifiedOperations(spec)) {
+  const pendingNames = new Set();
+  const synthetic = Object.create(null);
+  const index = Object.create(null);
+  const addSynthetic = (name, schema) => {
+    ensure(!Object.hasOwn(synthetic, name), 'GENERATED_DEF_COLLISION');
+    synthetic[name] = schema;
+    return name;
+  };
+
+  for (const entry of operations) {
+    const { operationId, operation, method, path } = entry;
+    const base = pascalCase(operationId);
+    const parameters = collectParameters(spec, entry);
+    const byLocation = (location) => parameters.filter(({ in: where, name }) => where === location
+      && !(location === 'header' && name.toLowerCase() === IDEMPOTENCY_HEADER));
+
+    const media = operation.requestBody?.content?.['application/json'];
+    const success = successFor(spec, operation, pendingNames);
+    const pathParameters = byLocation('path');
+    const headerParameters = byLocation('header');
+    index[operationId] = {
+      method,
+      path,
+      body: media ? addSynthetic(`${base}Body`, toJsonSchema(mediaSchema(media), pendingNames)) : null,
+      query: addSynthetic(`${base}Query`, objectSchemaFor(byLocation('query'), pendingNames)),
+      params: pathParameters.length > 0 ? addSynthetic(`${base}Path`, objectSchemaFor(pathParameters, pendingNames)) : null,
+      headers: headerParameters.length > 0 ? addSynthetic(`${base}Headers`, objectSchemaFor(headerParameters, pendingNames)) : null,
+      success: { status: success.status, def: addSynthetic(`${base}Success`, success.schema) },
+      errorStatuses: sorted(Object.keys(operation.responses ?? {}).filter((status) => !status.startsWith('2'))),
+    };
+  }
+
+  const definitions = Object.create(null);
+  const processed = new Set();
+  while (pendingNames.size > 0) {
+    const name = pendingNames.values().next().value;
+    pendingNames.delete(name);
+    if (processed.has(name)) continue;
+    processed.add(name);
+    ensure(!Object.hasOwn(synthetic, name), 'GENERATED_DEF_COLLISION');
+    definitions[name] = toJsonSchema(resolvePointer(spec, `#/components/schemas/${escapePointerToken(name)}`), pendingNames);
+  }
+  Object.assign(definitions, synthetic);
+
+  return {
+    $schema: SCHEMA_URI,
+    $id: RATIFIED_SCHEMA_ID,
+    $comment: 'Generated from docs/openapi.json for every operation with x-ratification.status = ratified-for-implementation.',
+    operations: Object.fromEntries(Object.keys(index).sort().map((id) => [id, index[id]])),
+    $defs: Object.fromEntries(Object.keys(definitions).sort().map((name) => [name, definitions[name]])),
+  };
+}
+
+function assertRatifiedSchemasCompile(snapshot) {
+  try {
+    const ajv = new Ajv2020({
+      allErrors: true, strict: true, validateFormats: true, useDefaults: false,
+      coerceTypes: false, removeAdditional: false, multipleOfPrecision: 6, logger: false,
+    });
+    addFormats(ajv);
+    // `operations` es un índice para el validador del backend, no un keyword de JSON Schema.
+    const { operations: _operations, ...schema } = snapshot;
+    ajv.addSchema(schema);
+    for (const name of Object.keys(snapshot.$defs)) {
+      ajv.compile({ $ref: `${RATIFIED_SCHEMA_ID}#/$defs/${escapePointerToken(name)}` });
+    }
+  } catch {
+    fail('SCHEMA_COMPILE');
+  }
+}
+
 function collectOpenApiComponents(spec, objects, security = []) {
   const result = Object.create(null);
   const seeds = [];
@@ -494,6 +640,8 @@ export async function buildGeneratedArtifacts(spec) {
   auditOpenApiReferences(spec);
   const snapshot = buildContractSnapshot(spec);
   assertSnapshotCompiles(snapshot);
+  const ratifiedSchemas = buildRatifiedSchemas(spec);
+  assertRatifiedSchemasCompile(ratifiedSchemas);
   const projectedSpec = projectApiTypesSpec(spec);
   const [apiTypes, fullTypes] = await Promise.all([
     typeSource(projectedSpec),
@@ -504,6 +652,8 @@ export async function buildGeneratedArtifacts(spec) {
     [GENERATED_FILES.apiContract, `${JSON.stringify(snapshot, null, 2)}\n`],
     [GENERATED_FILES.webTypes, fullTypes],
     [GENERATED_FILES.mockTypes, fullTypes],
+    [GENERATED_FILES.backendContractTypes, fullTypes],
+    [GENERATED_FILES.backendRatifiedSchemas, `${JSON.stringify(ratifiedSchemas, null, 2)}\n`],
   ]);
 }
 
@@ -541,6 +691,7 @@ async function writeGeneratedFiles(artifacts) {
   for (const path of Object.values(GENERATED_FILES)) ensure(artifacts.has(path), 'ARTIFACT_SET');
   for (const [path, content] of artifacts) {
     try {
+      await mkdir(dirname(resolve(ROOT, path)), { recursive: true });
       await writeFile(resolve(ROOT, path), content, 'utf8');
     } catch {
       fail('GENERATED_FILE_WRITE');

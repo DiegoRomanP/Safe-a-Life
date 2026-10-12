@@ -12,7 +12,9 @@ import {
   ContractGenerationError,
   GENERATED_FILES,
   auditOpenApiReferences,
+  buildRatifiedSchemas,
   projectApiTypesSpec,
+  selectRatifiedOperations,
 } from './generate-api-contract.mjs';
 
 const source = JSON.parse(await readFile(new URL('../docs/openapi.json', import.meta.url), 'utf8'));
@@ -328,9 +330,11 @@ const backendGeneratedFiles = Object.freeze({
   apiContract: 'backend/src/modules/need-records/dto/contract.generated.json',
   webTypes: 'apps/web/src/api/openapi.ts',
   mockTypes: 'apps/mock-api/src/api/openapi.ts',
+  backendContractTypes: 'backend/src/contract/openapi.ts',
+  backendRatifiedSchemas: 'backend/src/contract/ratified-schemas.generated.json',
 });
 
-test('backend migration: generates exactly the backend DTO and unchanged web/mock artifact paths', async () => {
+test('backend migration: generates exactly the backend DTO, contract artifacts and unchanged web/mock paths', async () => {
   const artifacts = await buildGeneratedArtifacts(source);
   assert.deepEqual([...artifacts.keys()].sort(), Object.values(backendGeneratedFiles).sort());
   assert.deepEqual(GENERATED_FILES, backendGeneratedFiles);
@@ -366,4 +370,115 @@ test('backend package: wires DTO tests and TypeScript entrypoint scripts', async
   assert.equal(backendPackage.scripts.dev, 'tsx watch --env-file-if-exists=.env src/server.ts');
   assert.equal(backendPackage.scripts.start, 'node dist/server.js');
   assert.equal(rootPackage.scripts['test:backend:dto'], `npm run test --workspace ${backendPackage.name}`);
+});
+
+function ratifiedFixture() {
+  const ratified = (date = '2026-10-20') => ({ status: 'ratified-for-implementation', date });
+  const error = { $ref: '#/components/responses/NotFound' };
+  return {
+    openapi: '3.1.0',
+    info: { title: 'fixture', version: '0.0.0' },
+    paths: {
+      '/items': {
+        get: {
+          operationId: 'listItems',
+          'x-ratification': ratified(),
+          parameters: [{ $ref: '#/components/parameters/Limit' }, { name: 'kind', in: 'query', required: false, schema: { type: 'string', enum: ['a', 'b'] } }],
+          responses: {
+            200: { content: { 'application/json': { schema: { $ref: '#/components/schemas/ItemPage' } } } },
+            404: error,
+          },
+        },
+        post: {
+          operationId: 'createItem',
+          parameters: [{ name: 'Idempotency-Key', in: 'header', required: true, schema: { type: 'string', minLength: 16 } }],
+          requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/ItemInput' } } } },
+          responses: { 201: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } } } },
+        },
+      },
+      '/items/{itemId}': {
+        parameters: [{ name: 'itemId', in: 'path', required: true, schema: { type: 'string', format: 'uuid' } }],
+        put: {
+          operationId: 'replaceItem',
+          'x-ratification': ratified('2026-10-21'),
+          parameters: [{ name: 'X-Contextual-Grant', in: 'header', required: true, schema: { type: 'string' } }],
+          requestBody: { content: { 'application/json': { schema: { $ref: '#/components/schemas/ItemInput' } } } },
+          responses: { 200: { content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } } } },
+        },
+        delete: { operationId: 'deleteItem', 'x-ratification': ratified(), responses: { 204: { description: 'ok' } } },
+      },
+    },
+    components: {
+      parameters: { Limit: { name: 'limit', in: 'query', required: false, schema: { type: 'integer', minimum: 1, maximum: 100 } } },
+      responses: { NotFound: { description: 'x', content: { 'application/json': { schema: { $ref: '#/components/schemas/Item' } } } } },
+      schemas: {
+        Item: { type: 'object', additionalProperties: false, required: ['id'], properties: { id: { type: 'string' } } },
+        ItemInput: { type: 'object', additionalProperties: false, required: ['name'], properties: { name: { type: 'string', maxLength: 10 } } },
+        ItemPage: { type: 'object', additionalProperties: false, required: ['items'], properties: { items: { type: 'array', items: { $ref: '#/components/schemas/Item' } } } },
+      },
+    },
+  };
+}
+
+test('ratified selection: includes only ratified operations and validates the date format, not a fixed date', () => {
+  const ids = selectRatifiedOperations(ratifiedFixture()).map(({ operationId }) => operationId);
+  assert.deepEqual(ids, ['deleteItem', 'listItems', 'replaceItem']);
+
+  const badDate = ratifiedFixture();
+  badDate.paths['/items'].get['x-ratification'].date = '20/10/2026';
+  assert.throws(() => selectRatifiedOperations(badDate), { code: 'OPERATION_RATIFICATION' });
+});
+
+test('ratified schemas: emits closed synthetic defs per operation and skips unratified operations', () => {
+  const snapshot = buildRatifiedSchemas(ratifiedFixture());
+
+  assert.deepEqual(Object.keys(snapshot.operations), ['deleteItem', 'listItems', 'replaceItem']);
+  assert.deepEqual(snapshot.operations.listItems, {
+    method: 'get', path: '/items', body: null, query: 'ListItemsQuery', params: null, headers: null,
+    success: { status: '200', def: 'ListItemsSuccess' }, errorStatuses: ['404'],
+  });
+  assert.equal(snapshot.operations.replaceItem.body, 'ReplaceItemBody');
+  assert.equal(snapshot.operations.replaceItem.params, 'ReplaceItemPath');
+  assert.equal(snapshot.operations.replaceItem.headers, 'ReplaceItemHeaders');
+
+  const { $defs } = snapshot;
+  assert.equal($defs.CreateItemBody, undefined);
+  assert.deepEqual($defs.ListItemsQuery, {
+    type: 'object', additionalProperties: false,
+    properties: { limit: { type: 'integer', minimum: 1, maximum: 100 }, kind: { type: 'string', enum: ['a', 'b'] } },
+  });
+  assert.deepEqual($defs.ReplaceItemPath.required, ['itemId']);
+  assert.deepEqual(Object.keys($defs.ReplaceItemHeaders.properties), ['X-Contextual-Grant']);
+  assert.deepEqual($defs.DeleteItemSuccess, { const: null });
+  assert.deepEqual($defs.ReplaceItemBody, { $ref: '#/$defs/ItemInput' });
+  assert.ok($defs.Item && $defs.ItemInput && $defs.ItemPage);
+});
+
+test('ratified schemas: a synthetic def colliding with a component name fails closed', () => {
+  const collision = ratifiedFixture();
+  collision.components.schemas.ListItemsQuery = { type: 'object' };
+  collision.paths['/items'].get.responses[200].content['application/json'].schema = {
+    allOf: [{ $ref: '#/components/schemas/ItemPage' }, { $ref: '#/components/schemas/ListItemsQuery' }],
+  };
+  assert.throws(() => buildRatifiedSchemas(collision), { code: 'GENERATED_DEF_COLLISION' });
+});
+
+test('ratified schemas: the real contract includes createHospitalNeed and is part of the drift check', async () => {
+  const snapshot = buildRatifiedSchemas(source);
+  assert.ok(snapshot.operations.createHospitalNeed);
+
+  const artifacts = await buildGeneratedArtifacts(source);
+  const stale = new Map(artifacts);
+  stale.set(GENERATED_FILES.backendRatifiedSchemas, '{"stale":true}\n');
+  const temporaryRoot = await mkdtemp(join(tmpdir(), 'save-a-life-contract-ratified-'));
+  try {
+    for (const [path, content] of stale) {
+      const filePath = join(temporaryRoot, path);
+      await mkdir(dirname(filePath), { recursive: true });
+      await writeFile(filePath, content, 'utf8');
+    }
+    await assert.rejects(checkGeneratedFiles(artifacts, temporaryRoot), { code: 'GENERATED_DRIFT' });
+  } finally {
+    await rm(temporaryRoot, { recursive: true, force: true });
+  }
 });
