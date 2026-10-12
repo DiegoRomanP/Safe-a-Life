@@ -238,6 +238,27 @@ alter function api.record_public_idempotency(text, text, text, text) owner to ap
 revoke all on function api.record_public_idempotency(text, text, text, text) from public, anon, authenticated;
 grant execute on function api.record_public_idempotency(text, text, text, text) to anon, authenticated;
 
+-- Una clave de operación sensible (MFA, step-up) solo vale una vez: el secreto o el código
+-- no pueden reproducirse en un replay. ok = reclamada; conflict = ya usada con el mismo payload.
+create function api.consume_idempotency_key(p_operation text, p_key text, p_hash text) returns jsonb
+language plpgsql set search_path = '' as $$
+declare
+  v_claim jsonb;
+begin
+  if auth.uid() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
+  if p_operation !~ '^[A-Za-z]{1,60}$' or p_hash !~ '^[0-9a-f]{64}$' or char_length(p_key) not between 16 and 255 then
+    return jsonb_build_object('kind', 'invalid');
+  end if;
+  v_claim := app.claim_idempotency('user:' || auth.uid()::text, p_operation, p_key, p_hash);
+  if v_claim is null then
+    perform app.complete_idempotency('user:' || auth.uid()::text, p_operation, p_key, jsonb_build_object('kind', 'ok'));
+    return jsonb_build_object('kind', 'ok');
+  end if;
+  if v_claim ->> 'kind' = 'replayed' then return jsonb_build_object('kind', 'conflict'); end if;
+  return v_claim;
+end;
+$$;
+
 -- ---------------------------------------------------------------------------
 -- Hospitales
 -- ---------------------------------------------------------------------------
@@ -615,7 +636,8 @@ begin
   v_claim := app.claim_idempotency('user:' || auth.uid()::text, 'setFinalDemoAt', p_key, p_hash);
   if v_claim is not null then return v_claim; end if;
 
-  update app.configuration set final_demo_at = p_at;
+  -- PostgREST activa pg_safeupdate: todo UPDATE necesita WHERE.
+  update app.configuration set final_demo_at = p_at where id;
   perform app.write_audit('configuracion.final_demo_fijada', 'configuration', null, 'ok', null);
   v_reply := jsonb_build_object('kind', 'ok', 'finalDemoAt', to_jsonb(app.iso(p_at)), 'isImmutable', true);
   perform app.complete_idempotency('user:' || auth.uid()::text, 'setFinalDemoAt', p_key, v_reply);
@@ -700,7 +722,7 @@ grant execute on function
   api.list_own_hospital_sites(int, uuid), api.list_memberships(int, timestamptz, uuid),
   api.revoke_membership(text, text, uuid, text), api.get_configuration(),
   api.set_final_demo_at(text, text, timestamptz), api.list_audit_events(int, timestamptz, uuid),
-  api.list_superadmin_tasks()
+  api.list_superadmin_tasks(), api.consume_idempotency_key(text, text, text)
 to authenticated;
 -- Se vuelven a conceder las funciones de la migración base que el revoke anterior retiró.
 grant execute on function api.consume_rate_limit(text, text, int, interval), api.readiness(),

@@ -1,5 +1,6 @@
 import type { Response } from 'express';
 import { ApiError } from '../http/errors.js';
+import type { TokenPair } from './session-ports.js';
 
 export type PrincipalRole = 'donante' | 'admin_hospitalario' | 'superadmin';
 
@@ -32,4 +33,13 @@ export function requirePrincipal(res: Response): Principal {
   const principal = findPrincipal(res);
   if (!principal) throw new ApiError('AUTHENTICATION_REQUIRED');
   return principal;
+}
+
+/** Tokens vigentes de esta petición (los de las cookies o los recién renovados), para llamadas de MFA. */
+export function setSessionTokens(res: Response, tokens: TokenPair): void {
+  res.locals.sessionTokens = tokens;
+}
+
+export function findSessionTokens(res: Response): TokenPair | undefined {
+  return res.locals.sessionTokens as TokenPair | undefined;
 }
