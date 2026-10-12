@@ -7,15 +7,19 @@ import { createApp } from './app.js';
 import { parseEnv } from './config/env.js';
 import type { LogEntry, LogLevel, Logger } from './shared/observability/logger.js';
 
-const config = parseEnv({
-  SUPABASE_URL: 'https://proyecto.supabase.co',
-  SUPABASE_ANON_KEY: 'sb_publishable_test',
-  SUPABASE_JWKS_URL: 'https://proyecto.supabase.co/auth/v1/.well-known/jwks.json',
-  CSRF_SECRET: 'c'.repeat(40),
-  EMAIL_HMAC_SECRET: 'e'.repeat(40),
-  OUTBOX_KEY: Buffer.alloc(32, 9).toString('base64'),
-  ALLOWED_ORIGINS: 'https://app.example.test',
-});
+function envBase(): Record<string, string> {
+  return {
+    SUPABASE_URL: 'https://proyecto.supabase.co',
+    SUPABASE_ANON_KEY: 'sb_publishable_test',
+    SUPABASE_JWKS_URL: 'https://proyecto.supabase.co/auth/v1/.well-known/jwks.json',
+    CSRF_SECRET: 'c'.repeat(40),
+    EMAIL_HMAC_SECRET: 'e'.repeat(40),
+    OUTBOX_KEY: Buffer.alloc(32, 9).toString('base64'),
+    ALLOWED_ORIGINS: 'https://app.example.test',
+  };
+}
+
+const config = parseEnv(envBase());
 
 const servers: Server[] = [];
 
@@ -116,5 +120,29 @@ describe('createApp', () => {
     expect(text).not.toContain('canario-de-base-de-datos');
     expect(JSON.stringify(entries)).not.toContain('canario-de-base-de-datos');
     expect(entries.some(({ entry }) => entry.event === 'peticion.fallida' && entry.code === 'INTERNAL_ERROR')).toBe(true);
+  });
+});
+
+describe('createApp con proxies de confianza', () => {
+  it('toma la IP del cliente de X-Forwarded-For solo con un salto de confianza', async () => {
+    const trusted = parseEnv({ ...envBase(), TRUSTED_PROXIES: '1' });
+    const untrusted = parseEnv(envBase());
+    const ips: string[] = [];
+    const mount = (router: Express) => {
+      router.get('/ip', (req, res) => {
+        ips.push(req.ip ?? '');
+        res.status(204).end();
+      });
+    };
+
+    await fetch(`${await serve(createApp({ config: trusted, logger: fakeLogger().logger, mount }))}/ip`, {
+      headers: { 'x-forwarded-for': '203.0.113.7' },
+    });
+    await fetch(`${await serve(createApp({ config: untrusted, logger: fakeLogger().logger, mount }))}/ip`, {
+      headers: { 'x-forwarded-for': '203.0.113.7' },
+    });
+
+    expect(ips[0]).toBe('203.0.113.7');
+    expect(ips[1]).not.toBe('203.0.113.7');
   });
 });
