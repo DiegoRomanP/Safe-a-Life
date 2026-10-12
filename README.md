@@ -30,9 +30,10 @@ estático con Prism, no como flujos con estado.
 
 La [guía de entrega frontend](docs/Frontend-Handoff.md) reúne el setup humano,
 Swagger Editor 5, sincronización JSON→tipos→Bruno, matriz exacta y paquetes de
-trabajo siguientes. El inventario canónico OpenAPI tiene **55 paths, 70
-operaciones y 96 schemas**. Solo una operación está ratificada para
-implementación; las otras **69** siguen en borrador. El inventario no representa
+trabajo siguientes. El inventario canónico OpenAPI tiene **56 paths, 71
+operaciones y 99 schemas**. Están ratificadas para implementación
+`createHospitalNeed`, las dos de salud y las 21 de identidad (F2a), es decir
+**24**; las otras **47** siguen en borrador y se ratifican módulo por módulo. El inventario no representa
 cuántas operaciones están implementadas por el mock, cliente o backend. El mock
 Express, sus comprobaciones de readiness y auth siguen siendo demos, no un backend
 real. El paquete es habilitador; no declara

@@ -376,11 +376,12 @@ cookies HttpOnly usa la web local con origen permitido.
 
 ### 11.1 Cobertura global y sincronización
 
-El inventario contractual tras E2/E3 tiene 55 paths/70 operaciones/96 schemas,
-26 ejemplos media de entrada, 68 éxitos JSON y 2 vacíos 204.
+El inventario contractual tiene 56 paths/71 operaciones/99 schemas,
+26 ejemplos media de entrada, 69 éxitos JSON y 2 vacíos 204 (F2a añadió
+`enrollMfaFactor`).
 `npm run test:contract` encadena la suite contractual (72 pruebas registradas)
-y el runner HTTP. Su inventario fijo revisado comprende **377 casos**:
-70 éxitos + 34 variantes en 16 colecciones + **273 errores declarados forzados**.
+y el runner HTTP. Su inventario fijo revisado comprende **385 casos**:
+71 éxitos + 34 variantes en 16 colecciones + **280 errores declarados forzados**.
 La consulta de sedes aporta dos ejemplos media (`vacio` y `pagina`) y cuatro
 errores; el `400` del DELETE agrega el caso final respecto de E2 (376/272).
 La moderación conserva un ejemplo media singular, sin agregar variantes.
@@ -398,9 +399,9 @@ al normalizar la respuesta. Ahora el contrato usa `readOnly` porque el token es
 de salida, no para acomodar el tooling. El gate conserva modo normal + Ajv sobre
 el schema original, sin retirar anotaciones, relajar límites ni omitir operaciones.
 No se ejecutó el modo `--errors` tras esta corrección ni se afirma PASS en él.
-El resumen del runner HTTP usa conteos revisados: 70 operaciones, 68 respuestas
+El resumen del runner HTTP usa conteos revisados: 71 operaciones, 69 respuestas
 JSON de éxito, 2 respuestas 204 vacías, 26 operaciones con cuerpo, 34 variantes
-en 16 colecciones y 273 respuestas de error declaradas (377 checks HTTP); Q2
+en 16 colecciones y 280 respuestas de error declaradas (385 checks HTTP); Q2
 (2026-10-12) auditó además 35 ejemplos de schema. Son inventarios y
 comprobaciones de contrato, no cobertura productiva ni evidencia de autorización;
 no se cambian los gates.
