@@ -41,6 +41,7 @@
       "get": {
         "tags": ["Health"],
         "operationId": "getLiveness",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Solo esta operación de plataforma; liveness sin dependencias externas y readiness que comprueba la conexión y la versión de migraciones (503 si fallan). No ratifica otras operaciones (getLiveness)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §5.6; decisión de la persona usuaria de aceptar todos los votos de §2.3 (2026-10-12)"]},
         "summary": "Comprueba que el proceso está activo",
         "description": "No consulta Supabase, Resend ni Mapbox (RNF-OPS-01).",
         "security": [],
@@ -63,6 +64,7 @@
       "get": {
         "tags": ["Health"],
         "operationId": "getReadiness",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Solo esta operación de plataforma; liveness sin dependencias externas y readiness que comprueba la conexión y la versión de migraciones (503 si fallan). No ratifica otras operaciones (getReadiness)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §5.6; decisión de la persona usuaria de aceptar todos los votos de §2.3 (2026-10-12)"]},
         "summary": "Comprueba si la API puede aceptar trabajo",
         "description": "Readiness valida configuración obligatoria, conexión DB y migraciones vigentes. Devuelve 503 sin detalles sensibles cuando no está lista (RNF-OPS-02).",
         "security": [],

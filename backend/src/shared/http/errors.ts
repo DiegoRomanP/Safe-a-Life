@@ -1,6 +1,7 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { randomUUID } from 'node:crypto';
 import { PersistenceError, PersistenceUnavailableError } from '../persistence/errors.js';
+import { ContractValidationError } from '../validation/contract-validator.js';
 
 export const ERROR_STATUS = Object.freeze({
   BAD_REQUEST: 400,
@@ -64,6 +65,9 @@ export interface PublicError {
 
 function publicCodeOf(error: unknown): PublicErrorCode {
   if (error instanceof ApiError) return error.code;
+  if (error instanceof ContractValidationError) {
+    return error.category === 'shape' ? 'BAD_REQUEST' : error.category === 'rule' ? 'VALIDATION_FAILED' : 'INTERNAL_ERROR';
+  }
   if (error instanceof PersistenceUnavailableError) return 'SERVICE_UNAVAILABLE';
   if (error instanceof PersistenceError && error.reason === 'jwt') return 'AUTHENTICATION_REQUIRED';
   return 'INTERNAL_ERROR';
