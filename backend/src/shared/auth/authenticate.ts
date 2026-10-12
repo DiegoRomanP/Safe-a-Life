@@ -1,6 +1,6 @@
 import type { RequestHandler } from 'express';
 import { ACCESS_COOKIE, REFRESH_COOKIE, parseCookies } from '../http/cookies.js';
-import { setPrincipal } from './principal.js';
+import { setPrincipal, setSessionTokens } from './principal.js';
 import { clearSessionCookies, setSessionCookies } from './session-cookies.js';
 import type { ActorResolver, SessionVerifier, VerifiedClaims } from './session-ports.js';
 
@@ -24,7 +24,7 @@ export function authenticate({ verifier, actors }: AuthenticateDependencies): Re
     try {
       const cookies = parseCookies(req.get('cookie'));
       let accessToken = cookies[ACCESS_COOKIE];
-      const refreshToken = cookies[REFRESH_COOKIE];
+      let refreshToken = cookies[REFRESH_COOKIE];
       let claims: VerifiedClaims | null = accessToken ? await verifier.verifyAccessToken(accessToken) : null;
 
       if (!claims && refreshToken) {
@@ -32,6 +32,7 @@ export function authenticate({ verifier, actors }: AuthenticateDependencies): Re
         claims = renewed ? await verifier.verifyAccessToken(renewed.accessToken) : null;
         if (renewed && claims) {
           accessToken = renewed.accessToken;
+          refreshToken = renewed.refreshToken;
           setSessionCookies(res, renewed);
         } else {
           clearSessionCookies(res);
@@ -44,6 +45,7 @@ export function authenticate({ verifier, actors }: AuthenticateDependencies): Re
       }
 
       const actor = await actors.currentActor(accessToken);
+      if (refreshToken) setSessionTokens(res, Object.freeze({ accessToken, refreshToken, expiresIn: 0 }));
       if (actor) {
         setPrincipal(res, Object.freeze({
           userId: claims.userId,

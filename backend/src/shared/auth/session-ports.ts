@@ -31,3 +31,27 @@ export interface ActorResolver {
   /** `null` si el usuario no tiene cuenta de aplicación (`app.user_accounts`). */
   currentActor(accessToken: string): Promise<ActorInfo | null>;
 }
+
+export type TotpEnrollment = Readonly<{ factorId: string; otpauthUri: string }>;
+
+export type MfaFactorSummary = Readonly<{ factorId: string; verified: boolean }>;
+
+/**
+ * Operaciones de Supabase Auth con la anon key. `null` = credenciales, código o
+ * reto inválidos; un fallo de red o 5xx lanza PersistenceUnavailableError.
+ */
+export interface SessionGateway extends SessionVerifier {
+  signIn(email: string, password: string): Promise<TokenPair | null>;
+  /** Revoca todas las sesiones del usuario (V4: logout y recuperación usan scope global). */
+  signOut(accessToken: string): Promise<void>;
+  /** Como máximo un factor TOTP por usuario (config.toml: max_enrolled_factors = 1). */
+  listTotpFactors(tokens: TokenPair): Promise<readonly MfaFactorSummary[]>;
+  /** Elimina un factor pendiente de verificación (para poder re-enrolar). */
+  unenrollFactor(tokens: TokenPair, factorId: string): Promise<void>;
+  enrollTotp(tokens: TokenPair): Promise<TotpEnrollment | null>;
+  /** Devuelve el id del reto, o `null` si no se pudo crear. */
+  challenge(tokens: TokenPair, factorId: string): Promise<string | null>;
+  /** Verifica el código de un reto y devuelve los tokens elevados a AAL2. */
+  verify(tokens: TokenPair, factorId: string, challengeId: string, code: string): Promise<TokenPair | null>;
+  challengeAndVerify(tokens: TokenPair, factorId: string, code: string): Promise<TokenPair | null>;
+}

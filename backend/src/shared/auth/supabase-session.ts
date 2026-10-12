@@ -1,0 +1,123 @@
+import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
+import type { AppConfig } from '../../config/env.js';
+import { PersistenceUnavailableError } from '../persistence/errors.js';
+import { parseClaims } from './claims.js';
+import type { MfaFactorSummary, SessionGateway, TokenPair, TotpEnrollment, VerifiedClaims } from './session-ports.js';
+
+export interface SupabaseSessionOptions {
+  readonly fetch?: typeof fetch;
+}
+
+function isUnavailable(error: { name?: string; status?: number } | null | undefined): boolean {
+  if (!error) return false;
+  return error.name === 'AuthRetryableFetchError' || error.status === 0 || (error.status !== undefined && error.status >= 500);
+}
+
+function toPair(session: Pick<Session, 'access_token' | 'refresh_token' | 'expires_in'> | null | undefined): TokenPair | null {
+  if (!session?.access_token || !session.refresh_token) return null;
+  return Object.freeze({
+    accessToken: session.access_token,
+    refreshToken: session.refresh_token,
+    expiresIn: session.expires_in,
+  });
+}
+
+/**
+ * Adaptador de Supabase Auth con la anon key (ADR-004). Cada operación usa un
+ * cliente efímero sin persistencia; nunca se comparte una sesión entre usuarios.
+ * Los mensajes del proveedor no salen de este archivo.
+ */
+export function createSupabaseSessionGateway(
+  config: Pick<AppConfig, 'supabase'>,
+  options: SupabaseSessionOptions = {},
+): SessionGateway {
+  const { url, anonKey } = config.supabase;
+  const newClient = (): SupabaseClient =>
+    createClient(url, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      ...(options.fetch ? { global: { fetch: options.fetch } } : {}),
+    });
+
+  /** Cliente efímero con la sesión del usuario para las llamadas de MFA. */
+  const withSession = async (tokens: TokenPair): Promise<SupabaseClient> => {
+    const client = newClient();
+    const { error } = await client.auth.setSession({ access_token: tokens.accessToken, refresh_token: tokens.refreshToken });
+    if (isUnavailable(error)) throw new PersistenceUnavailableError();
+    return client;
+  };
+
+  const unavailableOr = <T>(error: { name?: string; status?: number } | null | undefined, value: T): T => {
+    if (isUnavailable(error)) throw new PersistenceUnavailableError();
+    return value;
+  };
+
+  return {
+    async verifyAccessToken(accessToken): Promise<VerifiedClaims | null> {
+      const { data, error } = await newClient().auth.getClaims(accessToken);
+      unavailableOr(error, null);
+      return error || !data ? null : parseClaims(data.claims);
+    },
+
+    async refresh(refreshToken) {
+      const { data, error } = await newClient().auth.refreshSession({ refresh_token: refreshToken });
+      return unavailableOr(error, error ? null : toPair(data.session));
+    },
+
+    async signIn(email, password) {
+      const { data, error } = await newClient().auth.signInWithPassword({ email, password });
+      return unavailableOr(error, error ? null : toPair(data.session));
+    },
+
+    async signOut(accessToken) {
+      const { error } = await newClient().auth.admin.signOut(accessToken, 'global');
+      // 401/403/404 significan que la sesión ya no existe: el objetivo se cumplió.
+      if (isUnavailable(error)) throw new PersistenceUnavailableError();
+    },
+
+    async listTotpFactors(tokens): Promise<readonly MfaFactorSummary[]> {
+      const client = await withSession(tokens);
+      const { data, error } = await client.auth.mfa.listFactors();
+      unavailableOr(error, null);
+      if (error || !data) return [];
+      return data.all
+        .filter((factor) => factor.factor_type === 'totp')
+        .map((factor) => Object.freeze({ factorId: factor.id, verified: factor.status === 'verified' }));
+    },
+
+    async unenrollFactor(tokens, factorId) {
+      const client = await withSession(tokens);
+      const { error } = await client.auth.mfa.unenroll({ factorId });
+      unavailableOr(error, null);
+    },
+
+    async enrollTotp(tokens): Promise<TotpEnrollment | null> {
+      const client = await withSession(tokens);
+      const { data, error } = await client.auth.mfa.enroll({ factorType: 'totp', issuer: 'Save a Life' });
+      unavailableOr(error, null);
+      if (error || !data?.totp?.uri) return null;
+      return Object.freeze({ factorId: data.id, otpauthUri: data.totp.uri });
+    },
+
+    async challenge(tokens, factorId) {
+      const client = await withSession(tokens);
+      const { data, error } = await client.auth.mfa.challenge({ factorId });
+      return unavailableOr(error, error || !data ? null : data.id);
+    },
+
+    async verify(tokens, factorId, challengeId, code) {
+      const client = await withSession(tokens);
+      const { data, error } = await client.auth.mfa.verify({ factorId, challengeId, code });
+      return unavailableOr(error, error || !data ? null : toPair({
+        access_token: data.access_token, refresh_token: data.refresh_token, expires_in: data.expires_in,
+      }));
+    },
+
+    async challengeAndVerify(tokens, factorId, code) {
+      const client = await withSession(tokens);
+      const { data, error } = await client.auth.mfa.challengeAndVerify({ factorId, code });
+      return unavailableOr(error, error || !data ? null : toPair({
+        access_token: data.access_token, refresh_token: data.refresh_token, expires_in: data.expires_in,
+      }));
+    },
+  };
+}

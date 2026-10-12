@@ -50,11 +50,14 @@ const DEFAULT_MESSAGES: Readonly<Record<PublicErrorCode, string>> = Object.freez
  */
 export class ApiError extends Error {
   readonly code: PublicErrorCode;
+  /** Solo para RATE_LIMITED: segundos para la cabecera Retry-After. */
+  readonly retryAfterSeconds: number | undefined;
 
-  constructor(code: PublicErrorCode, message: string = DEFAULT_MESSAGES[code]) {
+  constructor(code: PublicErrorCode, message: string = DEFAULT_MESSAGES[code], options: { retryAfterSeconds?: number } = {}) {
     super(message);
     this.name = 'ApiError';
     this.code = code;
+    this.retryAfterSeconds = options.retryAfterSeconds;
   }
 }
 
@@ -125,6 +128,9 @@ export function createErrorHandler(onUnexpected?: (error: unknown, correlationId
     if (!clientError && !(error instanceof ApiError)) report(error, correlationId);
 
     const { status, body } = toPublicError(clientError ?? error, correlationId);
+    if (error instanceof ApiError && error.retryAfterSeconds !== undefined) {
+      res.setHeader('Retry-After', String(Math.max(1, Math.ceil(error.retryAfterSeconds))));
+    }
     res.status(status).type('application/json').json(body);
   };
 }
