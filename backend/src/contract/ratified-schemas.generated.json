@@ -15,10 +15,12 @@
         "def": "CreateHospitalSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
         "403",
         "409",
-        "422"
+        "422",
+        "503"
       ]
     },
     "createHospitalNeed": {
@@ -53,11 +55,13 @@
         "def": "CreateHospitalSiteSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
         "403",
         "404",
         "409",
-        "422"
+        "422",
+        "503"
       ]
     },
     "createSession": {
@@ -76,7 +80,8 @@
         "401",
         "409",
         "429",
-        "500"
+        "500",
+        "503"
       ]
     },
     "deleteCurrentSession": {
@@ -94,7 +99,8 @@
         "400",
         "401",
         "403",
-        "500"
+        "500",
+        "503"
       ]
     },
     "enrollMfaFactor": {
@@ -109,11 +115,13 @@
         "def": "EnrollMfaFactorSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
         "403",
         "409",
         "429",
-        "500"
+        "500",
+        "503"
       ]
     },
     "getCsrfToken": {
@@ -128,8 +136,10 @@
         "def": "GetCsrfTokenSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
-        "500"
+        "500",
+        "503"
       ]
     },
     "getCurrentSession": {
@@ -144,8 +154,10 @@
         "def": "GetCurrentSessionSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
-        "500"
+        "500",
+        "503"
       ]
     },
     "getHospital": {
@@ -160,9 +172,11 @@
         "def": "GetHospitalSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
         "403",
-        "404"
+        "404",
+        "503"
       ]
     },
     "getLiveness": {
@@ -210,9 +224,11 @@
         "def": "GetSuperadminConfigurationSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
         "403",
-        "500"
+        "500",
+        "503"
       ]
     },
     "listAuditEvents": {
@@ -227,10 +243,12 @@
         "def": "ListAuditEventsSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
         "403",
         "422",
-        "500"
+        "500",
+        "503"
       ]
     },
     "listHospitalMemberships": {
@@ -245,8 +263,11 @@
         "def": "ListHospitalMembershipsSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
-        "403"
+        "403",
+        "422",
+        "503"
       ]
     },
     "listHospitalSites": {
@@ -261,9 +282,11 @@
         "def": "ListHospitalSitesSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
         "403",
-        "404"
+        "404",
+        "503"
       ]
     },
     "listHospitals": {
@@ -278,10 +301,12 @@
         "def": "ListHospitalsSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
         "403",
         "422",
-        "500"
+        "500",
+        "503"
       ]
     },
     "listOwnHospitalSites": {
@@ -299,7 +324,8 @@
         "400",
         "401",
         "403",
-        "500"
+        "500",
+        "503"
       ]
     },
     "listSuperadminTasks": {
@@ -314,9 +340,11 @@
         "def": "ListSuperadminTasksSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
         "403",
-        "500"
+        "500",
+        "503"
       ]
     },
     "revokeHospitalMembership": {
@@ -331,10 +359,12 @@
         "def": "RevokeHospitalMembershipSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
         "403",
         "404",
-        "409"
+        "409",
+        "503"
       ]
     },
     "setFinalDemoAt": {
@@ -349,10 +379,12 @@
         "def": "SetFinalDemoAtSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
         "403",
         "409",
-        "422"
+        "422",
+        "503"
       ]
     },
     "updateHospital": {
@@ -367,11 +399,13 @@
         "def": "UpdateHospitalSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
         "403",
         "404",
         "409",
-        "422"
+        "422",
+        "503"
       ]
     },
     "updateHospitalSite": {
@@ -386,11 +420,13 @@
         "def": "UpdateHospitalSiteSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
         "403",
         "404",
         "409",
-        "422"
+        "422",
+        "503"
       ]
     },
     "verifyMfaChallenge": {
@@ -405,10 +441,13 @@
         "def": "VerifyMfaChallengeSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
+        "403",
         "409",
         "429",
-        "500"
+        "500",
+        "503"
       ]
     },
     "verifyStepUp": {
@@ -423,10 +462,13 @@
         "def": "VerifyStepUpSuccess"
       },
       "errorStatuses": [
+        "400",
         "401",
         "403",
+        "409",
         "429",
-        "500"
+        "500",
+        "503"
       ]
     }
   },

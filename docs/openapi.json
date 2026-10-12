@@ -93,8 +93,10 @@
         "description": "Token ligado a la sesión; el cliente lo conserva en memoria y lo envía en X-CSRF-Token. No registrar su valor. Header/mecanismo final pendiente de ratificación Sprint 0.",
         "responses": {
           "200": { "description": "Token CSRF para la sesión actual.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CsrfTokenEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -109,8 +111,10 @@
             "description": "Sesión vigente; el rol y la membresía vienen de la fuente protegida.",
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthSessionEnvelope" } } }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -137,7 +141,8 @@
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "429": { "$ref": "#/components/responses/TooManyRequests" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -154,7 +159,8 @@
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -203,10 +209,13 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MfaVerificationRequest" }, "example": { "challengeId": "cb6ad07d-04d3-4e94-9534-4c0b4d1530f8", "code": "000000" } } } },
         "responses": {
           "200": { "description": "Nivel AAL2 verificado.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthSessionEnvelope" }, "example": { "data": { "actor": { "role": "admin_hospitalario", "displayName": "Admin Demo", "hospitalName": "Hospital Demo" }, "aal": 2, "mfaRequired": false, "expiresAt": "2026-10-04T12:00:00Z" } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "429": { "$ref": "#/components/responses/TooManyRequests" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -262,6 +271,7 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
@@ -276,7 +286,8 @@
           },
           "500": {
             "$ref": "#/components/responses/InternalServerError"
-          }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -291,10 +302,13 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StepUpVerificationRequest" }, "example": { "code": "000000" } } } },
         "responses": {
           "200": { "description": "Step-up vigente por el tiempo definido en RNF-SEC-05.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StepUpEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" },
           "429": { "$ref": "#/components/responses/TooManyRequests" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -872,7 +886,8 @@
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1457,9 +1472,11 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1500,10 +1517,12 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "post": {
@@ -1517,10 +1536,12 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateHospitalRequest" }, "example": { "publicName": "Hospital Demo", "legalName": "Hospital Académico Demo" } } } },
         "responses": {
           "201": { "description": "Hospital creado.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HospitalEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1533,9 +1554,11 @@
         "summary": "Consulta datos maestros del hospital",
         "responses": {
           "200": { "description": "Hospital.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HospitalEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "patch": {
@@ -1549,11 +1572,13 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateHospitalRequest" }, "example": { "publicName": "Hospital Demo Actualizado" } } } },
         "responses": {
           "200": { "description": "Hospital actualizado.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HospitalEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1599,9 +1624,11 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "post": {
@@ -1621,13 +1648,15 @@
         } } } },
         "responses": {
           "201": { "description": "Sede creada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SiteEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
-          }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1642,13 +1671,15 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateSiteRequest" }, "example": { "isActive": true } } } },
         "responses": {
           "200": { "description": "Sede actualizada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SiteEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "422": {
             "$ref": "#/components/responses/UnprocessableEntity"
-          }
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1689,8 +1720,11 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1718,15 +1752,18 @@
         "operationId": "revokeHospitalMembership",
         "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (revokeHospitalMembership)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Revoca membresía hospitalaria",
+        "description": "AAL2 y step-up reciente (RNF-SEC-05); la revocación se audita y la sesión del admin pierde acceso en la petición siguiente.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/MembershipId" }, { "$ref": "#/components/parameters/IdempotencyKey" }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RevokeMembershipRequest" }, "example": { "status": "revocada", "reason": "Baja sintética para ejemplo." } } } },
         "responses": {
           "200": { "description": "Membresía revocada y auditada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MembershipEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1863,9 +1900,11 @@
         "summary": "Consulta configuración permitida",
         "responses": {
           "200": { "description": "Configuración versionada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ConfigurationEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "patch": {
@@ -1879,10 +1918,12 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SetFinalDemoAtRequest" }, "example": { "finalDemoAt": "2026-12-31T23:59:59Z" } } } },
         "responses": {
           "200": { "description": "Fecha fijada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ConfigurationEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1924,10 +1965,12 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
