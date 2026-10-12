@@ -1,18 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { parseEnv } from '../../config/env.js';
+import { validEnvSource } from '../../test-support/env.js';
 import { PersistenceError, PersistenceUnavailableError } from './errors.js';
 import { callRpc } from './rpc.js';
 import { createSupabaseFactory } from './supabase-client.js';
 
-const config = parseEnv({
+const config = parseEnv(validEnvSource({
   SUPABASE_URL: 'http://127.0.0.1:54321',
-  SUPABASE_ANON_KEY: 'sb_publishable_test',
   SUPABASE_JWKS_URL: 'http://127.0.0.1:54321/auth/v1/.well-known/jwks.json',
-  CSRF_SECRET: 'c'.repeat(40),
-  EMAIL_HMAC_SECRET: 'e'.repeat(40),
-  OUTBOX_KEYS: `k1:${Buffer.alloc(32, 3).toString('base64')}`,
-  OUTBOX_KEY_CURRENT: 'k1',
-});
+}));
 
 interface Captured {
   url: string;

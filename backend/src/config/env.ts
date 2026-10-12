@@ -5,14 +5,21 @@ export type EmailProvider = 'fake' | 'resend';
 
 export interface AppConfig {
   readonly port: number;
-  readonly supabase: Readonly<{ url: string; anonKey: string; jwksUrl: string }>;
+  readonly supabase: Readonly<{ url: string; anonKey: string; jwksUrl: string; serviceRoleKey: string }>;
   readonly allowedOrigins: readonly string[];
   /** `false` = ningún proxy; número = saltos de confianza; lista = IP o CIDR. Se pasa tal cual a `trust proxy`. */
   readonly trustedProxies: false | number | readonly string[];
-  readonly secrets: Readonly<{ csrf: string; emailHmac: string; outboxKeyring: OutboxKeyring }>;
+  readonly secrets: Readonly<{ csrf: string; emailHmac: string; cursor: string; outboxKeyring: OutboxKeyring }>;
+  /** Identidad técnica del worker (V13): usuario de Supabase Auth con rol interno `worker`. */
+  readonly worker: Readonly<{ email: string; password: string; pollMs: number }>;
+  /** Base de los enlaces de los correos (https, o http solo hacia localhost). */
+  readonly appPublicUrl: string;
   readonly email: Readonly<{
     provider: EmailProvider;
+    from: string;
     resendApiKey: string | undefined;
+    /** Secreto de firma del webhook ya decodificado de `whsec_<base64>`. */
+    resendWebhookSecret: Buffer | undefined;
     inboxAllowlist: readonly string[];
   }>;
 }
@@ -21,6 +28,7 @@ type Source = Readonly<Record<string, string | undefined>>;
 type Reject = (name: string) => void;
 
 const DEFAULT_PORT = 3000;
+const DEFAULT_WORKER_POLL_MS = 5000;
 const MIN_SECRET_LENGTH = 32;
 const OUTBOX_KEY_BYTES = 32;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -50,29 +58,46 @@ export function parseEnv(source: Source): AppConfig {
   const supabaseUrl = parseHttpUrl('SUPABASE_URL', required(source, 'SUPABASE_URL', reject), reject);
   const anonKey = parseAnonKey(required(source, 'SUPABASE_ANON_KEY', reject), reject);
   const jwksUrl = parseHttpUrl('SUPABASE_JWKS_URL', required(source, 'SUPABASE_JWKS_URL', reject), reject);
+  const serviceRoleKey = parseServiceRoleKey(required(source, 'SUPABASE_SERVICE_ROLE_KEY', reject), anonKey, reject);
   const allowedOrigins = parseOrigins(read(source, 'ALLOWED_ORIGINS'), reject);
   const trustedProxies = parseTrustedProxies(read(source, 'TRUSTED_PROXIES'), reject);
 
   const csrf = parseSecret('CSRF_SECRET', required(source, 'CSRF_SECRET', reject), reject);
   const emailHmac = parseSecret('EMAIL_HMAC_SECRET', required(source, 'EMAIL_HMAC_SECRET', reject), reject);
   if (csrf && csrf === emailHmac) reject('EMAIL_HMAC_SECRET');
+  const cursor = parseSecret('CURSOR_SECRET', required(source, 'CURSOR_SECRET', reject), reject);
+  if (cursor && (cursor === csrf || cursor === emailHmac)) reject('CURSOR_SECRET');
   const outboxKeyring = parseOutboxKeyring(read(source, 'OUTBOX_KEYS'), read(source, 'OUTBOX_KEY_CURRENT'), reject);
 
   const provider = parseProvider(read(source, 'EMAIL_PROVIDER'), reject);
   const resendApiKey = provider === 'resend' ? required(source, 'RESEND_API_KEY', reject) : undefined;
   const inboxAllowlist = parseEmailList(read(source, 'EMAIL_INBOX_ALLOWLIST'), reject);
+  const emailFrom = parseEmail('EMAIL_FROM', required(source, 'EMAIL_FROM', reject), reject);
+  const resendWebhookSecret = provider === 'resend'
+    ? parseWebhookSecret(required(source, 'RESEND_WEBHOOK_SECRET', reject), reject)
+    : undefined;
+  const appPublicUrl = parseHttpUrl('APP_PUBLIC_URL', required(source, 'APP_PUBLIC_URL', reject), reject).replace(/\/$/, '');
+  const worker = Object.freeze({
+    email: parseEmail('WORKER_EMAIL', required(source, 'WORKER_EMAIL', reject), reject),
+    password: required(source, 'WORKER_PASSWORD', reject),
+    pollMs: parseBoundedInt('WORKER_POLL_MS', read(source, 'WORKER_POLL_MS'), 1000, 60000, DEFAULT_WORKER_POLL_MS, reject),
+  });
 
   if (failed.length > 0) throw new ConfigError(failed);
 
   return Object.freeze({
     port,
-    supabase: Object.freeze({ url: supabaseUrl, anonKey, jwksUrl }),
+    supabase: Object.freeze({ url: supabaseUrl, anonKey, jwksUrl, serviceRoleKey }),
     allowedOrigins: Object.freeze(allowedOrigins),
     trustedProxies,
-    secrets: Object.freeze({ csrf, emailHmac, outboxKeyring }),
+    secrets: Object.freeze({ csrf, emailHmac, cursor, outboxKeyring }),
+    worker,
+    appPublicUrl,
     email: Object.freeze({
       provider,
+      from: emailFrom,
       resendApiKey: resendApiKey || undefined,
+      resendWebhookSecret,
       inboxAllowlist: Object.freeze(inboxAllowlist),
     }),
   });
@@ -141,6 +166,45 @@ function parseAnonKey(raw: string, reject: Reject): string {
     return '';
   }
   return raw;
+}
+
+function parseServiceRoleKey(raw: string, anonKey: string, reject: Reject): string {
+  if (raw === '') return '';
+  if (raw === anonKey || !(raw.startsWith('sb_secret_') || isServiceRoleJwt(raw))) {
+    reject('SUPABASE_SERVICE_ROLE_KEY');
+    return '';
+  }
+  return raw;
+}
+
+function parseEmail(name: string, raw: string, reject: Reject): string {
+  if (raw === '') return '';
+  if (!EMAIL_PATTERN.test(raw)) {
+    reject(name);
+    return '';
+  }
+  return raw;
+}
+
+function parseWebhookSecret(raw: string, reject: Reject): Buffer | undefined {
+  if (raw === '') return undefined;
+  const encoded = raw.startsWith('whsec_') ? raw.slice('whsec_'.length) : '';
+  const secret = Buffer.from(encoded, 'base64');
+  if (secret.length < 16 || secret.toString('base64') !== encoded) {
+    reject('RESEND_WEBHOOK_SECRET');
+    return undefined;
+  }
+  return secret;
+}
+
+function parseBoundedInt(name: string, raw: string | undefined, min: number, max: number, fallback: number, reject: Reject): number {
+  if (raw === undefined) return fallback;
+  const value = Number(raw);
+  if (!/^\d+$/.test(raw) || value < min || value > max) {
+    reject(name);
+    return fallback;
+  }
+  return value;
 }
 
 function parseOrigins(raw: string | undefined, reject: Reject): string[] {
