@@ -1,0 +1,19 @@
+meta {
+  name: CSRF tras MFA hospital
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/auth/csrf-token
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("la sesión recibe un token CSRF", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.token.length).to.be.at.least(32);
+    bru.setVar("csrfToken", res.getBody().data.token);
+  });
+}

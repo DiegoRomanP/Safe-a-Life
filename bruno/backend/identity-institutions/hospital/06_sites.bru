@@ -1,0 +1,20 @@
+meta {
+  name: Sedes propias
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/sites
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("solo lista sedes activas y aprobadas de su hospital", function () {
+    expect(res.getStatus()).to.equal(200);
+    var ids = res.getBody().data.items.map(function (s) { return s.siteId; });
+    expect(ids).to.include(bru.getEnvVar("demoSiteId"));
+    expect(ids).to.not.include("22222222-2222-4222-8222-222222222203");
+  });
+}

@@ -1,0 +1,19 @@
+meta {
+  name: Hospitales del superadmin
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/hospitals
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("lista los hospitales sintéticos sin PII de donantes", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.items.length).to.be.at.least(3);
+    expect(JSON.stringify(res.getBody())).to.not.match(/donorName|declaredBloodType|@/);
+  });
+}

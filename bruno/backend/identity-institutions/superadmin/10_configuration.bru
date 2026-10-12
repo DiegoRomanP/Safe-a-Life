@@ -1,0 +1,18 @@
+meta {
+  name: Configuración
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/configuration
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("la configuración existe y solo expone finalDemoAt", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(Object.keys(res.getBody().data)).to.include("finalDemoAt");
+  });
+}

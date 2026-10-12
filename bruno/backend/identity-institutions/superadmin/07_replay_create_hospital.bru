@@ -1,0 +1,31 @@
+meta {
+  name: Replay de crear hospital
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/superadmin/hospitals
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {
+    "publicName": "Hospital Bruno",
+    "legalName": "Hospital Bruno S.A. (sintético)"
+  }
+}
+
+tests {
+  test("el replay devuelve el mismo hospital", function () {
+    expect(res.getStatus()).to.equal(201);
+    expect(res.getBody().data.hospitalId).to.equal(bru.getVar("createdHospitalId"));
+  });
+}

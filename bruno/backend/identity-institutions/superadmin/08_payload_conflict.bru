@@ -1,0 +1,31 @@
+meta {
+  name: Misma clave con otro payload
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/superadmin/hospitals
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {
+    "publicName": "Hospital Bruno",
+    "legalName": "Otra razón social"
+  }
+}
+
+tests {
+  test("responde 409 STATE_CONFLICT", function () {
+    expect(res.getStatus()).to.equal(409);
+    expect(res.getBody().error.code).to.equal("STATE_CONFLICT");
+  });
+}

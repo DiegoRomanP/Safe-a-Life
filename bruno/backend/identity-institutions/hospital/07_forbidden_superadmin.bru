@@ -1,0 +1,18 @@
+meta {
+  name: Admin hospitalario no accede al superadmin
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/hospitals
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("la ruta de superadmin responde 403 genérico", function () {
+    expect(res.getStatus()).to.equal(403);
+    expect(res.getBody().error.code).to.equal("ACCESS_DENIED");
+  });
+}
