@@ -363,7 +363,7 @@ test('backend migration: wires DTO tests to the preserved legacy backend package
   assert.equal(backendPackage.name, 'backend');
   assert.equal(backendPackage.version, '1.0.0');
   assert.equal(backendPackage.license, 'ISC');
-  assert.equal(backendPackage.scripts.dev, 'tsx watch --env-file=.env src/server.ts');
+  assert.equal(backendPackage.scripts.dev, 'tsx watch --env-file-if-exists=.env src/server.ts');
   assert.equal(backendPackage.scripts.start, 'node dist/server.js');
   assert.equal(rootPackage.scripts['test:backend:dto'], `npm run test --workspace ${backendPackage.name}`);
 });
