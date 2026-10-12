@@ -22,8 +22,19 @@ const server = app.listen(config.port, () => {
   logger.log('info', { event: 'servidor.iniciado' });
 });
 
+const SHUTDOWN_TIMEOUT_MS = 10_000;
+
+// Sin mensaje ni stack: pueden contener datos de la petición (OBS-01).
+for (const event of ['unhandledRejection', 'uncaughtException'] as const) {
+  process.on(event, () => {
+    logger.log('error', { event: 'proceso.error_no_controlado', code: 'INTERNAL_ERROR' });
+    process.exit(1);
+  });
+}
+
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
+    setTimeout(() => process.exit(1), SHUTDOWN_TIMEOUT_MS).unref();
     server.close(() => process.exit(0));
   });
 }
