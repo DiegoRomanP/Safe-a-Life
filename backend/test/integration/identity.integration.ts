@@ -149,7 +149,7 @@ describe('hospitales (superadmin)', () => {
     expect(sql(`select count(*) from app.hospitals where public_name = 'Hospital Concurrente'`)).toBe('1');
   });
 
-  it('el contrato rechaza un cuerpo con campos ajenos (400) y valores fuera de regla (422)', async () => {
+  it('el contrato rechaza un cuerpo con campos ajenos o valores vacíos y una clave de idempotencia corta (400)', async () => {
     const extra = await superadmin.send('POST', '/api/v1/superadmin/hospitals', { body: { publicName: 'X', legalName: 'Y', hospitalId: 'x' } });
     const rule = await superadmin.send('POST', '/api/v1/superadmin/hospitals', { body: { publicName: '', legalName: 'Y' } });
 
@@ -218,12 +218,17 @@ describe('membresías y configuración', () => {
 
     const memberships = await superadmin.send('GET', '/api/v1/superadmin/memberships?limit=100');
     const target = memberships.json.data.items.find((item: { hospitalId: string }) => item.hospitalId === HOSPITAL_IDS[2]);
-    const revoked = await superadmin.send('PATCH', `/api/v1/superadmin/memberships/${target.membershipId}`, {
-      body: { status: 'revocada', reason: 'Baja de prueba de integración' },
-    });
+    const request = { body: { status: 'revocada', reason: 'Baja de prueba de integración' }, key: `clave-revoke-${Date.now()}-0001` };
+    const revoked = await superadmin.send('PATCH', `/api/v1/superadmin/memberships/${target.membershipId}`, request);
+    // Reintento con la misma clave (p. ej. se perdió la respuesta): mismo resultado, no un 409.
+    const replay = await superadmin.send('PATCH', `/api/v1/superadmin/memberships/${target.membershipId}`, request);
+    const another = await superadmin.send('PATCH', `/api/v1/superadmin/memberships/${target.membershipId}`, { body: request.body });
 
     expect(revoked.status).toBe(200);
     expect(revoked.json.data.status).toBe('revocada');
+    expect(replay.status).toBe(200);
+    expect(replay.json).toEqual(revoked.json);
+    expect(another.status).toBe(409);
     expect((await victim.send('GET', '/api/v1/hospitals/me/sites')).status).toBe(403);
     expect(target.emailHint).toMatch(/^a\*\*\*@example\.test$/);
   });
@@ -233,7 +238,9 @@ describe('membresías y configuración', () => {
     expect(stepped.status).toBe(200);
     const finalDemoAt = new Date(Date.now() + 90 * 86_400_000).toISOString();
 
-    const first = await superadmin.send('PATCH', '/api/v1/superadmin/configuration', { body: { finalDemoAt } });
+    const key = `clave-final-demo-${Date.now()}-0001`;
+    const first = await superadmin.send('PATCH', '/api/v1/superadmin/configuration', { body: { finalDemoAt }, key });
+    const replay = await superadmin.send('PATCH', '/api/v1/superadmin/configuration', { body: { finalDemoAt }, key });
     const second = await superadmin.send('PATCH', '/api/v1/superadmin/configuration', {
       body: { finalDemoAt: new Date(Date.now() + 91 * 86_400_000).toISOString() },
     });
@@ -241,6 +248,8 @@ describe('membresías y configuración', () => {
 
     expect(first.status).toBe(200);
     expect(first.json.data.isImmutable).toBe(true);
+    expect(replay.status).toBe(200);
+    expect(replay.json).toEqual(first.json);
     expect(second.status).toBe(409);
     expect(read.json.data.finalDemoAt).toBeTruthy();
   });

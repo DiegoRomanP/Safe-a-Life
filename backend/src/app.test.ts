@@ -101,9 +101,27 @@ describe('createApp', () => {
 
     const finished = entries.find(({ entry }) => entry.event === 'peticion.finalizada');
     expect(finished?.level).toBe('info');
-    expect(Object.keys(finished?.entry ?? {}).sort()).toEqual(['correlationId', 'durationMs', 'event']);
+    expect(Object.keys(finished?.entry ?? {}).sort()).toEqual(['code', 'correlationId', 'durationMs', 'event', 'status']);
+    expect(finished?.entry.status).toBe(404);
+    expect(finished?.entry.code).toBe('RESOURCE_NOT_FOUND');
     expect(typeof finished?.entry.durationMs).toBe('number');
     expect(JSON.stringify(entries)).not.toContain('canario-en-query');
+  });
+
+  it('registra como seguridad.rechazo (warn) las respuestas 401, 403 y 429, solo con estado y código', async () => {
+    const { entries, logger } = fakeLogger();
+    const app = createApp({
+      config: { ...config, edgeSecret: 'secreto-de-borde-sintetico-0000000001' },
+      logger,
+    });
+    const base = await serve(app);
+
+    await fetch(`${base}/api/algo?token=canario-en-query`, { headers: { cookie: '__Host-sal_at=canario-cookie' } });
+
+    const rejection = entries.find(({ entry }) => entry.event === 'seguridad.rechazo');
+    expect(rejection?.level).toBe('warn');
+    expect(rejection?.entry).toMatchObject({ status: 403, code: 'ACCESS_DENIED' });
+    expect(JSON.stringify(entries)).not.toMatch(/canario/);
   });
 
   it('responde 500 genérico ante un fallo de una ruta montada y lo registra sin mensaje', async () => {

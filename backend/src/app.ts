@@ -2,12 +2,13 @@ import express from 'express';
 import type { AppConfig } from './config/env.js';
 import { correlationIdMiddleware } from './shared/http/correlation-id.js';
 import { createErrorHandler, notFoundHandler } from './shared/http/errors.js';
+import { edgeGuard } from './shared/http/edge-guard.js';
 import { originGuard } from './shared/http/origin-guard.js';
 import { securityHeaders } from './shared/http/security-headers.js';
 import type { Logger } from './shared/observability/logger.js';
 
 export interface AppDependencies {
-  readonly config: Pick<AppConfig, 'allowedOrigins' | 'trustedProxies'>;
+  readonly config: Pick<AppConfig, 'allowedOrigins' | 'trustedProxies'> & Partial<Pick<AppConfig, 'edgeSecret'>>;
   readonly logger: Logger;
   /** Rutas que necesitan el body crudo (webhook firmado); corren antes de `express.json`. */
   readonly mountBeforeJson?: (app: express.Express) => void;
@@ -21,10 +22,14 @@ function requestLogger(logger: Logger): express.RequestHandler {
   return (_req, res, next) => {
     const started = performance.now();
     res.on('finish', () => {
-      logger.log('info', {
-        event: 'peticion.finalizada',
+      // Solo estado y código público: rechazos de CSRF, Origin, sesión o tasa son visibles sin PII.
+      const rejected = res.statusCode === 401 || res.statusCode === 403 || res.statusCode === 429;
+      logger.log(rejected ? 'warn' : 'info', {
+        event: rejected ? 'seguridad.rechazo' : 'peticion.finalizada',
         correlationId: res.locals.correlationId,
         durationMs: Math.round(performance.now() - started),
+        status: res.statusCode,
+        ...(typeof res.locals.errorCode === 'string' ? { code: res.locals.errorCode } : {}),
       });
     });
     next();
@@ -46,6 +51,7 @@ export function createApp({ config, logger, mountBeforeJson, mount }: AppDepende
   app.use(securityHeaders);
   app.use(correlationIdMiddleware);
   app.use(requestLogger(logger));
+  app.use(edgeGuard(config.edgeSecret ?? ''));
   app.use(originGuard(config.allowedOrigins));
   mountBeforeJson?.(app);
   app.use(express.json({ limit: JSON_BODY_LIMIT }));

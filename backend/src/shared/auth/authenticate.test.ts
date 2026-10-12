@@ -5,7 +5,7 @@ import type { Server } from 'node:http';
 import { afterEach, describe, expect, it } from 'vitest';
 import { correlationIdMiddleware } from '../http/correlation-id.js';
 import { createErrorHandler } from '../http/errors.js';
-import { PersistenceUnavailableError } from '../persistence/errors.js';
+import { PersistenceError, PersistenceUnavailableError, UpstreamRateLimitedError } from '../persistence/errors.js';
 import { authenticate } from './authenticate.js';
 import { requireSession } from './guards.js';
 import { findPrincipal } from './principal.js';
@@ -21,14 +21,16 @@ const ACTOR: ActorInfo = { role: 'admin_hospitalario', displayName: 'Hospital Si
 
 function fakes(options: {
   valid?: Set<string>;
-  refresh?: TokenPair | null;
+  refresh?: TokenPair | null | Error;
   actor?: ActorInfo | null | Error;
+  refreshGate?: () => Promise<number | null>;
 } = {}) {
   const calls = { refresh: 0, actor: [] as string[] };
   const verifier: SessionVerifier = {
     verifyAccessToken: async (token) => (options.valid?.has(token) ? CLAIMS : null),
     refresh: async () => {
       calls.refresh += 1;
+      if (options.refresh instanceof Error) throw options.refresh;
       return options.refresh ?? null;
     },
   };
@@ -39,7 +41,7 @@ function fakes(options: {
       return options.actor === undefined ? ACTOR : options.actor;
     },
   };
-  return { calls, verifier, actors };
+  return { calls, verifier, actors, refreshGate: options.refreshGate };
 }
 
 async function start(deps: ReturnType<typeof fakes>): Promise<string> {
@@ -116,5 +118,53 @@ describe('authenticate', () => {
 
     expect(response.status).toBe(503);
     expect((await response.json()).error.code).toBe('SERVICE_UNAVAILABLE');
+  });
+
+  it('limita las renovaciones por IP ANTES de llamar a Supabase Auth', async () => {
+    const deps = fakes({ refresh: null, refreshGate: async () => 42 });
+
+    const response = await fetch(await start(deps), { headers: { cookie: '__Host-sal_at=vencido; __Host-sal_rt=rt-viejo-1' } });
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get('retry-after')).toBe('42');
+    expect(deps.calls.refresh).toBe(0);
+    expect(response.headers.getSetCookie()).toHaveLength(0);
+  });
+
+  it('consulta el límite solo cuando hay una renovación que intentar', async () => {
+    let consulted = 0;
+    const deps = fakes({ valid: new Set(['at-1']), refreshGate: async () => { consulted += 1; return null; } });
+
+    await fetch(await start(deps), { headers: { cookie: '__Host-sal_at=at-1; __Host-sal_rt=rt-viejo-1' } });
+
+    expect(consulted).toBe(0);
+  });
+
+  it('descarta sin llamar al proveedor un refresh token con forma imposible', async () => {
+    const deps = fakes({ refresh: null });
+
+    const response = await fetch(await start(deps), { headers: { cookie: `__Host-sal_rt=${'x'.repeat(300)}` } });
+
+    expect(response.status).toBe(401);
+    expect(deps.calls.refresh).toBe(0);
+    expect(response.headers.getSetCookie().every((cookie) => cookie.includes('Max-Age=0'))).toBe(true);
+  });
+
+  it('un 429 del proveedor responde 429 y NO borra las cookies de la sesión', async () => {
+    const deps = fakes({ refresh: new UpstreamRateLimitedError() });
+
+    const response = await fetch(await start(deps), { headers: { cookie: '__Host-sal_at=vencido; __Host-sal_rt=rt-viejo-1' } });
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get('retry-after')).toBe('30');
+    expect(response.headers.getSetCookie()).toHaveLength(0);
+  });
+
+  it('trata un token que vence antes de resolver el actor como sin sesión (401), no como fallo', async () => {
+    const deps = fakes({ valid: new Set(['at-1']), actor: new PersistenceError('jwt') });
+
+    const response = await fetch(await start(deps), { headers: { cookie: '__Host-sal_at=at-1' } });
+
+    expect(response.status).toBe(401);
   });
 });

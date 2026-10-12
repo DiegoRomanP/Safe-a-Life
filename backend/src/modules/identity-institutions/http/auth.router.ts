@@ -28,8 +28,10 @@ export function registerAuthRoutes(app: Express, { auth, secrets }: AuthRouterDe
     const key = requireIdempotencyKey(req);
     const body = parse<{ email: string; password: string }>(createSession, 'body', req);
     const { tokens, view } = await auth.createSession(body, { idempotencyKey: key, ipSubject: clientIpSubject(req, secrets.ipHmac) });
+    // Validar la salida ANTES de emitir cookies: un 500 no debe entregar una sesión.
+    const data = (createSession.assertSuccess({ data: view }) as { data: unknown }).data;
     setSessionCookies(res, tokens);
-    sendData(res, 200, (createSession.assertSuccess({ data: view }) as { data: unknown }).data);
+    sendData(res, 200, data);
   });
 
   app.get('/api/v1/auth/session', ...guards.session, (req, res) => {
@@ -63,8 +65,9 @@ export function registerAuthRoutes(app: Express, { auth, secrets }: AuthRouterDe
     const key = requireIdempotencyKey(req);
     const body = parse<{ challengeId: string; code: string }>(verifyMfaChallenge, 'body', req);
     const { tokens, view } = await auth.verifyMfa(requirePrincipal(res), requireTokens(res), body, key);
+    const data = (verifyMfaChallenge.assertSuccess({ data: view }) as { data: unknown }).data;
     setSessionCookies(res, tokens);
-    sendData(res, 200, (verifyMfaChallenge.assertSuccess({ data: view }) as { data: unknown }).data);
+    sendData(res, 200, data);
   });
 
   app.post('/api/v1/auth/step-up-verifications', ...guards.sessionWrite, async (req, res) => {
@@ -72,8 +75,9 @@ export function registerAuthRoutes(app: Express, { auth, secrets }: AuthRouterDe
     const key = requireIdempotencyKey(req);
     const body = parse<{ code: string }>(verifyStepUp, 'body', req);
     const { tokens, verifiedUntil } = await auth.verifyStepUp(requirePrincipal(res), requireTokens(res), body, key);
+    const data = (verifyStepUp.assertSuccess({ data: { verifiedUntil } }) as { data: unknown }).data;
     setSessionCookies(res, tokens);
-    sendData(res, 200, (verifyStepUp.assertSuccess({ data: { verifiedUntil } }) as { data: unknown }).data);
+    sendData(res, 200, data);
   });
 
 }

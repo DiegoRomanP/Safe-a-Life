@@ -1,27 +1,27 @@
 import type { Express, Response } from 'express';
-import { fingerprint } from '../../../shared/http/idempotency.js';
 import { sendData } from '../../../shared/http/respond.js';
-import type { RpcInvoker } from '../../../shared/persistence/rpc-invoker.js';
 import { compileOperation, type OperationValidator } from '../../../shared/validation/contract-validator.js';
+import type { InstitutionsService } from '../application/institutions-service.js';
+import type { Page } from '../application/institutions.ports.js';
 import {
   guardsFor, nextCursor, pageLimit, parse, readCursor, requireIdempotencyKey, requirePrincipal, type HttpSecrets,
 } from './identity-http.js';
 
 export interface InstitutionsRouterDependencies {
-  readonly rpc: RpcInvoker;
+  readonly institutions: InstitutionsService;
   readonly secrets: HttpSecrets;
 }
 
-
 const ok = (validator: OperationValidator, data: unknown): unknown => (validator.assertSuccess({ data }) as { data: unknown }).data;
-const nullable = <T>(value: T | undefined): T | null => (value === undefined ? null : value);
+
+type PageQueryParams = { limit?: number; cursor?: string };
 
 /**
- * Hospitales, sedes, membresías, configuración, auditoría y tareas del superadmin,
- * más las sedes propias del admin. Cada escritura envía a la RPC el hash canónico
- * que ella recalcula; los campos ausentes viajan como null (sin cambio).
+ * Hospitales, sedes, membresías, configuración, auditoría y tareas del superadmin, más las sedes
+ * propias del admin. El router solo parsea la petición contra el contrato, aplica los guards y
+ * serializa; la lógica vive en el servicio y la persistencia en el puerto (ADR-003).
  */
-export function registerInstitutionsRoutes(app: Express, { rpc, secrets }: InstitutionsRouterDependencies): void {
+export function registerInstitutionsRoutes(app: Express, { institutions, secrets }: InstitutionsRouterDependencies): void {
   const guards = guardsFor(secrets);
   const op = (id: string) => compileOperation(id);
   const listHospitals = op('listHospitals');
@@ -38,179 +38,110 @@ export function registerInstitutionsRoutes(app: Express, { rpc, secrets }: Insti
   const listAuditEvents = op('listAuditEvents');
   const listTasks = op('listSuperadminTasks');
   const listOwnSites = op('listOwnHospitalSites');
-  const at = (res: Response) => requirePrincipal(res).accessToken;
+  const token = (res: Response) => requirePrincipal(res).accessToken;
+
+  // Query vacía: el contrato es cerrado, un parámetro desconocido es 400.
+  const noQuery = (validator: OperationValidator, req: { query: unknown }) =>
+    validator.parseQuery(req.query as Record<string, unknown>);
 
   // Paginación común: items + cursor opaco firmado y ligado al actor y la operación.
-  const page = (validator: OperationValidator, operation: string, items: unknown, next: unknown, res: Response) =>
-    ok(validator, { items, pagination: { nextCursor: nextCursor(res, operation, next, secrets.cursor) } });
+  const respondPage = <T>(validator: OperationValidator, operation: string, result: Page<T>, res: Response) =>
+    sendData(res, 200, ok(validator, {
+      items: result.items,
+      pagination: { nextCursor: nextCursor(res, operation, result.next, secrets.cursor) },
+    }));
 
   app.get('/api/v1/superadmin/hospitals', ...guards.superadminRead, async (req, res) => {
-    const query = parse<{ limit?: number; cursor?: string }>(listHospitals, 'query', req);
+    const query = parse<PageQueryParams>(listHospitals, 'query', req);
     const cursor = readCursor(res, 'listHospitals', query, secrets.cursor);
-    const reply = await rpc({
-      accessToken: at(res), name: 'list_hospitals', okKinds: ['ok'],
-      args: { p_limit: pageLimit(query), p_cursor_created_at: cursor?.createdAt ?? null, p_cursor_id: cursor?.id ?? null },
-    });
-    sendData(res, 200, page(listHospitals, 'listHospitals', reply.items, reply.next, res));
+    respondPage(listHospitals, 'listHospitals', await institutions.listHospitals(token(res), { limit: pageLimit(query), cursor }), res);
   });
 
   app.post('/api/v1/superadmin/hospitals', ...guards.superadminWrite, async (req, res) => {
+    noQuery(createHospital, req);
     const key = requireIdempotencyKey(req);
     const body = parse<{ publicName: string; legalName: string }>(createHospital, 'body', req);
-    const reply = await rpc({
-      accessToken: at(res), name: 'create_hospital', okKinds: ['created'],
-      args: {
-        p_key: key,
-        p_hash: fingerprint([['publicName', body.publicName], ['legalName', body.legalName]]),
-        p_public_name: body.publicName, p_legal_name: body.legalName,
-      },
-    });
-    sendData(res, 201, ok(createHospital, reply.hospital));
+    sendData(res, 201, ok(createHospital, await institutions.createHospital(token(res), key, body)));
   });
 
   app.get('/api/v1/superadmin/hospitals/:hospitalId', ...guards.superadminRead, async (req, res) => {
+    noQuery(getHospital, req);
     const { hospitalId } = parse<{ hospitalId: string }>(getHospital, 'params', req);
-    const reply = await rpc({ accessToken: at(res), name: 'get_hospital', okKinds: ['ok'], args: { p_id: hospitalId } });
-    sendData(res, 200, ok(getHospital, reply.hospital));
+    sendData(res, 200, ok(getHospital, await institutions.getHospital(token(res), hospitalId)));
   });
 
   app.patch('/api/v1/superadmin/hospitals/:hospitalId', ...guards.superadminStepUp, async (req, res) => {
+    noQuery(updateHospital, req);
     const { hospitalId } = parse<{ hospitalId: string }>(updateHospital, 'params', req);
     const key = requireIdempotencyKey(req);
     const body = parse<{ publicName?: string; legalName?: string; isAuthorized?: boolean }>(updateHospital, 'body', req);
-    const reply = await rpc({
-      accessToken: at(res), name: 'update_hospital', okKinds: ['ok'],
-      args: {
-        p_key: key,
-        p_hash: fingerprint([['hospitalId', hospitalId], ['publicName', nullable(body.publicName)],
-          ['legalName', nullable(body.legalName)], ['isAuthorized', nullable(body.isAuthorized)]]),
-        p_id: hospitalId, p_public_name: nullable(body.publicName), p_legal_name: nullable(body.legalName),
-        p_is_authorized: nullable(body.isAuthorized),
-      },
-    });
-    sendData(res, 200, ok(updateHospital, reply.hospital));
+    sendData(res, 200, ok(updateHospital, await institutions.updateHospital(token(res), key, hospitalId, body)));
   });
 
   app.get('/api/v1/superadmin/hospitals/:hospitalId/sites', ...guards.superadminRead, async (req, res) => {
+    noQuery(listHospitalSites, req);
     const { hospitalId } = parse<{ hospitalId: string }>(listHospitalSites, 'params', req);
-    const reply = await rpc({ accessToken: at(res), name: 'list_hospital_sites', okKinds: ['ok'], args: { p_hospital_id: hospitalId } });
-    sendData(res, 200, ok(listHospitalSites, { items: reply.items }));
+    sendData(res, 200, ok(listHospitalSites, { items: await institutions.listHospitalSites(token(res), hospitalId) }));
   });
 
   app.post('/api/v1/superadmin/hospitals/:hospitalId/sites', ...guards.superadminWrite, async (req, res) => {
+    noQuery(createHospitalSite, req);
     const { hospitalId } = parse<{ hospitalId: string }>(createHospitalSite, 'params', req);
     const key = requireIdempotencyKey(req);
-    const body = parse<{
-      publicName: string; publicAddress: string; coordinates: { latitude: number; longitude: number }; publicInstructions?: string;
-    }>(createHospitalSite, 'body', req);
-    const latitude = String(body.coordinates.latitude);
-    const longitude = String(body.coordinates.longitude);
-    const reply = await rpc({
-      accessToken: at(res), name: 'create_hospital_site', okKinds: ['created'],
-      args: {
-        p_key: key,
-        p_hash: fingerprint([['hospitalId', hospitalId], ['publicName', body.publicName], ['publicAddress', body.publicAddress],
-          ['latitude', latitude], ['longitude', longitude], ['publicInstructions', nullable(body.publicInstructions)]]),
-        p_hospital_id: hospitalId, p_public_name: body.publicName, p_public_address: body.publicAddress,
-        p_latitude: body.coordinates.latitude, p_longitude: body.coordinates.longitude,
-        p_public_instructions: nullable(body.publicInstructions),
-      },
-    });
-    sendData(res, 201, ok(createHospitalSite, reply.site));
+    const body = parse<Parameters<InstitutionsService['createHospitalSite']>[3]>(createHospitalSite, 'body', req);
+    sendData(res, 201, ok(createHospitalSite, await institutions.createHospitalSite(token(res), key, hospitalId, body)));
   });
 
   app.patch('/api/v1/superadmin/sites/:siteId', ...guards.superadminWrite, async (req, res) => {
+    noQuery(updateHospitalSite, req);
     const { siteId } = parse<{ siteId: string }>(updateHospitalSite, 'params', req);
     const key = requireIdempotencyKey(req);
-    const body = parse<{
-      publicName?: string; publicAddress?: string; coordinates?: { latitude: number; longitude: number };
-      publicInstructions?: string; isActive?: boolean; isApproved?: boolean;
-    }>(updateHospitalSite, 'body', req);
-    const latitude = body.coordinates ? body.coordinates.latitude : null;
-    const longitude = body.coordinates ? body.coordinates.longitude : null;
-    const reply = await rpc({
-      accessToken: at(res), name: 'update_hospital_site', okKinds: ['ok'],
-      args: {
-        p_key: key,
-        p_hash: fingerprint([['siteId', siteId], ['publicName', nullable(body.publicName)],
-          ['publicAddress', nullable(body.publicAddress)], ['latitude', latitude === null ? null : String(latitude)],
-          ['longitude', longitude === null ? null : String(longitude)], ['publicInstructions', nullable(body.publicInstructions)],
-          ['isActive', nullable(body.isActive)], ['isApproved', nullable(body.isApproved)]]),
-        p_site_id: siteId, p_public_name: nullable(body.publicName), p_public_address: nullable(body.publicAddress),
-        p_latitude: latitude, p_longitude: longitude, p_public_instructions: nullable(body.publicInstructions),
-        p_is_active: nullable(body.isActive), p_is_approved: nullable(body.isApproved),
-      },
-    });
-    sendData(res, 200, ok(updateHospitalSite, reply.site));
+    const body = parse<Parameters<InstitutionsService['updateHospitalSite']>[3]>(updateHospitalSite, 'body', req);
+    sendData(res, 200, ok(updateHospitalSite, await institutions.updateHospitalSite(token(res), key, siteId, body)));
   });
 
   app.get('/api/v1/superadmin/memberships', ...guards.superadminRead, async (req, res) => {
-    const query = parse<{ limit?: number; cursor?: string }>(listMemberships, 'query', req);
+    const query = parse<PageQueryParams>(listMemberships, 'query', req);
     const cursor = readCursor(res, 'listHospitalMemberships', query, secrets.cursor);
-    const reply = await rpc({
-      accessToken: at(res), name: 'list_memberships', okKinds: ['ok'],
-      args: { p_limit: pageLimit(query), p_cursor_created_at: cursor?.createdAt ?? null, p_cursor_id: cursor?.id ?? null },
-    });
-    sendData(res, 200, page(listMemberships, 'listHospitalMemberships', reply.items, reply.next, res));
+    respondPage(listMemberships, 'listHospitalMemberships', await institutions.listMemberships(token(res), { limit: pageLimit(query), cursor }), res);
   });
 
-  app.patch('/api/v1/superadmin/memberships/:membershipId', ...guards.superadminWrite, async (req, res) => {
+  // RNF-SEC-05: cambiar membresías exige step-up.
+  app.patch('/api/v1/superadmin/memberships/:membershipId', ...guards.superadminStepUp, async (req, res) => {
+    noQuery(revokeMembership, req);
     const { membershipId } = parse<{ membershipId: string }>(revokeMembership, 'params', req);
     const key = requireIdempotencyKey(req);
     const body = parse<{ status: 'revocada'; reason: string }>(revokeMembership, 'body', req);
-    const reply = await rpc({
-      accessToken: at(res), name: 'revoke_membership', okKinds: ['ok'],
-      args: {
-        p_key: key,
-        p_hash: fingerprint([['membershipId', membershipId], ['status', body.status], ['reason', body.reason]]),
-        p_id: membershipId, p_reason: body.reason,
-      },
-    });
-    sendData(res, 200, ok(revokeMembership, reply.membership));
+    sendData(res, 200, ok(revokeMembership, await institutions.revokeMembership(token(res), key, membershipId, body.reason)));
   });
 
   app.get('/api/v1/superadmin/configuration', ...guards.superadminRead, async (req, res) => {
-    getConfiguration.parseQuery(req.query as Record<string, unknown>);
-    const reply = await rpc({ accessToken: at(res), name: 'get_configuration', okKinds: ['ok'], args: {} });
-    sendData(res, 200, ok(getConfiguration, { finalDemoAt: reply.finalDemoAt, isImmutable: reply.isImmutable }));
+    noQuery(getConfiguration, req);
+    sendData(res, 200, ok(getConfiguration, await institutions.getConfiguration(token(res))));
   });
 
   app.patch('/api/v1/superadmin/configuration', ...guards.superadminStepUp, async (req, res) => {
+    noQuery(setFinalDemoAt, req);
     const key = requireIdempotencyKey(req);
     const body = parse<{ finalDemoAt: string }>(setFinalDemoAt, 'body', req);
-    const at_ = new Date(body.finalDemoAt).toISOString();
-    const reply = await rpc({
-      accessToken: at(res), name: 'set_final_demo_at', okKinds: ['ok'],
-      args: { p_key: key, p_hash: fingerprint([['finalDemoAt', at_]]), p_at: at_ },
-    });
-    sendData(res, 200, ok(setFinalDemoAt, { finalDemoAt: reply.finalDemoAt, isImmutable: reply.isImmutable }));
+    sendData(res, 200, ok(setFinalDemoAt, await institutions.setFinalDemoAt(token(res), key, body.finalDemoAt)));
   });
 
   app.get('/api/v1/superadmin/audit-events', ...guards.superadminRead, async (req, res) => {
-    const query = parse<{ limit?: number; cursor?: string }>(listAuditEvents, 'query', req);
+    const query = parse<PageQueryParams>(listAuditEvents, 'query', req);
     const cursor = readCursor(res, 'listAuditEvents', query, secrets.cursor);
-    const reply = await rpc({
-      accessToken: at(res), name: 'list_audit_events', okKinds: ['ok'],
-      args: { p_limit: pageLimit(query), p_cursor_occurred_at: cursor?.createdAt ?? null, p_cursor_id: cursor?.id ?? null },
-    });
-    sendData(res, 200, page(listAuditEvents, 'listAuditEvents', reply.items, reply.next, res));
+    respondPage(listAuditEvents, 'listAuditEvents', await institutions.listAuditEvents(token(res), { limit: pageLimit(query), cursor }), res);
   });
 
   app.get('/api/v1/superadmin/task-queue', ...guards.superadminRead, async (req, res) => {
-    listTasks.parseQuery(req.query as Record<string, unknown>);
-    const reply = await rpc({ accessToken: at(res), name: 'list_superadmin_tasks', okKinds: ['ok'], args: {} });
-    sendData(res, 200, ok(listTasks, { items: reply.items }));
+    noQuery(listTasks, req);
+    sendData(res, 200, ok(listTasks, { items: await institutions.listTasks(token(res)) }));
   });
 
   app.get('/api/v1/hospitals/me/sites', ...guards.adminRead, async (req, res) => {
-    const query = parse<{ limit?: number; cursor?: string }>(listOwnSites, 'query', req);
+    const query = parse<PageQueryParams>(listOwnSites, 'query', req);
     const cursor = readCursor(res, 'listOwnHospitalSites', query, secrets.cursor);
-    const reply = await rpc({
-      accessToken: at(res), name: 'list_own_hospital_sites', okKinds: ['ok'],
-      args: { p_limit: pageLimit(query), p_cursor_site_id: cursor?.id ?? null },
-    });
-    const next = reply.next === null || reply.next === undefined ? null : { id: reply.next as string };
-    sendData(res, 200, page(listOwnSites, 'listOwnHospitalSites', reply.items, next, res));
+    respondPage(listOwnSites, 'listOwnHospitalSites',
+      await institutions.listOwnSites(token(res), { limit: pageLimit(query), afterSiteId: cursor?.id ?? null }), res);
   });
 }
-

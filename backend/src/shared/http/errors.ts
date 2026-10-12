@@ -1,6 +1,6 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { randomUUID } from 'node:crypto';
-import { PersistenceError, PersistenceUnavailableError } from '../persistence/errors.js';
+import { PersistenceError, PersistenceUnavailableError, UpstreamRateLimitedError } from '../persistence/errors.js';
 import { ContractValidationError } from '../validation/contract-validator.js';
 
 export const ERROR_STATUS = Object.freeze({
@@ -71,6 +71,7 @@ function publicCodeOf(error: unknown): PublicErrorCode {
   if (error instanceof ContractValidationError) {
     return error.category === 'shape' ? 'BAD_REQUEST' : error.category === 'rule' ? 'VALIDATION_FAILED' : 'INTERNAL_ERROR';
   }
+  if (error instanceof UpstreamRateLimitedError) return 'RATE_LIMITED';
   if (error instanceof PersistenceUnavailableError) return 'SERVICE_UNAVAILABLE';
   if (error instanceof PersistenceError && error.reason === 'jwt') return 'AUTHENTICATION_REQUIRED';
   return 'INTERNAL_ERROR';
@@ -125,12 +126,12 @@ export function createErrorHandler(onUnexpected?: (error: unknown, correlationId
     }
 
     const clientError = fromClientError(error);
-    if (!clientError && !(error instanceof ApiError)) report(error, correlationId);
+    if (!clientError && !(error instanceof ApiError) && !(error instanceof UpstreamRateLimitedError)) report(error, correlationId);
 
     const { status, body } = toPublicError(clientError ?? error, correlationId);
-    if (error instanceof ApiError && error.retryAfterSeconds !== undefined) {
-      res.setHeader('Retry-After', String(Math.max(1, Math.ceil(error.retryAfterSeconds))));
-    }
+    const retryAfter = error instanceof ApiError || error instanceof UpstreamRateLimitedError ? error.retryAfterSeconds : undefined;
+    if (retryAfter !== undefined) res.setHeader('Retry-After', String(Math.max(1, Math.ceil(retryAfter))));
+    res.locals.errorCode = body.error.code;
     res.status(status).type('application/json').json(body);
   };
 }

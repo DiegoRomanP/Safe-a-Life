@@ -198,3 +198,39 @@ describe('parseEnv: variables de F1', () => {
     expect(parseEnv(validEnv()).email.resendWebhookSecret).toBeUndefined();
   });
 });
+
+describe('parseEnv: secreto de borde y producción', () => {
+  const EDGE = 'b'.repeat(40);
+
+  it('acepta un secreto de borde válido y lo expone; sin él queda vacío', () => {
+    expect(parseEnv(validEnvSource({ EDGE_SHARED_SECRET: EDGE })).edgeSecret).toBe(EDGE);
+    expect(parseEnv(validEnvSource()).edgeSecret).toBe('');
+  });
+
+  it('rechaza un secreto de borde corto o igual a otro secreto, sin imprimir su valor', () => {
+    for (const value of ['corto', 'c'.repeat(40)]) {
+      expect(() => parseEnv(validEnvSource({ EDGE_SHARED_SECRET: value }))).toThrowError(/EDGE_SHARED_SECRET/);
+    }
+  });
+
+  it('en producción exige proxies, orígenes https, secreto de borde y URLs https', () => {
+    const production = { NODE_ENV: 'production', TRUSTED_PROXIES: '1', ALLOWED_ORIGINS: 'https://app.example.test', EDGE_SHARED_SECRET: EDGE };
+    expect(parseEnv(validEnvSource(production)).production).toBe(true);
+
+    const cases: Array<[string, Record<string, string | undefined>]> = [
+      ['TRUSTED_PROXIES', { TRUSTED_PROXIES: undefined }],
+      ['ALLOWED_ORIGINS', { ALLOWED_ORIGINS: undefined }],
+      ['ALLOWED_ORIGINS', { ALLOWED_ORIGINS: 'http://127.0.0.1:5173' }],
+      ['EDGE_SHARED_SECRET', { EDGE_SHARED_SECRET: undefined }],
+      ['SUPABASE_URL', { SUPABASE_URL: 'http://127.0.0.1:54321' }],
+      ['APP_PUBLIC_URL', { APP_PUBLIC_URL: 'http://localhost:5173' }],
+    ];
+    for (const [variable, override] of cases) {
+      expect(() => parseEnv(validEnvSource({ ...production, ...override }))).toThrowError(new RegExp(variable));
+    }
+  });
+
+  it('fuera de producción permite localhost sin proxies ni secreto de borde', () => {
+    expect(parseEnv(validEnvSource({ SUPABASE_URL: 'http://127.0.0.1:54321' })).production).toBe(false);
+  });
+});

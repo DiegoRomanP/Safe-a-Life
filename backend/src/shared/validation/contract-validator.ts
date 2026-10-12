@@ -58,6 +58,13 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
   }
 }
 
+/** PostgreSQL no admite U+0000 en texto: llegaría como 500 desde PostgREST. Es una entrada mal formada (400). */
+function containsNul(value: unknown, depth = 0): boolean {
+  if (typeof value === 'string') return value.includes('\u0000');
+  if (depth > 32 || typeof value !== 'object' || value === null) return false;
+  return Object.entries(value).some(([key, child]) => key.includes('\u0000') || containsNul(child, depth + 1));
+}
+
 function deepFreeze<T>(value: T): T {
   if (typeof value === 'object' && value !== null && !Object.isFrozen(value)) {
     Object.freeze(value);
@@ -123,6 +130,7 @@ export function createOperationCompiler(snapshot: RatifiedSnapshot): (operationI
     );
 
     const check = (validate: ValidateFunction | null, value: unknown): unknown => {
+      if (containsNul(value)) throw new ContractValidationError('shape');
       if (validate === null) {
         // Sin contrato para esta parte: cualquier valor presente es ajeno a la operación.
         if (isPlainRecord(value) && Object.keys(value).length === 0) return deepFreeze({});
