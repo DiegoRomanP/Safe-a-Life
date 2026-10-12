@@ -128,3 +128,20 @@ Lo que bloquea, con el voto o decisión que lo desbloquea:
     lo corrige lanzando la auditoría `security-privacy-auditor` (A11). Su
     resultado se registra abajo cuando llegue; hasta entonces el gate de
     seguridad de U2–U7c + A1–A7 está **pendiente**.
+- 2026-10-12: resultado de la auditoría `security-privacy-auditor` (subagente
+  independiente, solo lectura) sobre `90c203a..HEAD` + A1–A7: **sin hallazgos
+  Critical ni High**; 1 Medium, 7 Low e Info. No declara cumplimiento legal y
+  no cubre los gates de ADR-003 (RA2, RLS, sesión real).
+  - Corregidos: M1 (hook que lanza no filtra stack), L1 (CIDR `/0`), L2 (4xx de
+    Express → 400), L6 (handlers de proceso primero), L7-CSRF (`unknown`).
+  - Trasladado a ADR-004 (C4): L3 — toda mutación con cookie exige `Origin`
+    presente y en la allowlist (o `Sec-Fetch-Site` same-origin/none) además de
+    `X-CSRF-Token`; prueba de integración "mutación con cookie sin Origin → 403".
+  - Pendiente (endurecimiento de plataforma, antes de producción): L4 (secretos
+    de baja entropía, claves nulas/duplicadas, URLs con userinfo, `EMAIL_PROVIDER`
+    explícito en producción), L5 (eventos y módulos del logger como unión
+    cerrada; `correlationId` solo UUID), timeouts del servidor.
+  - Descartado: restringir el alfabeto de `Idempotency-Key` (el contrato solo
+    fija 16–255 caracteres); se mantiene el rechazo de valores fuera de rango.
+  - Estado del gate: PASS con hallazgos corregidos o trasladados; el
+    `reviewer-back` formal sigue por registrarse con revisión de subagente.
