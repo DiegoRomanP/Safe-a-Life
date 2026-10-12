@@ -9,6 +9,8 @@ import type { Logger } from './shared/observability/logger.js';
 export interface AppDependencies {
   readonly config: Pick<AppConfig, 'allowedOrigins' | 'trustedProxies'>;
   readonly logger: Logger;
+  /** Rutas que necesitan el body crudo (webhook firmado); corren antes de `express.json`. */
+  readonly mountBeforeJson?: (app: express.Express) => void;
   /** Los módulos montan aquí sus routers; corren antes del 404 genérico. */
   readonly mount?: (app: express.Express) => void;
 }
@@ -33,7 +35,7 @@ function requestLogger(logger: Logger): express.RequestHandler {
  * Compone middlewares comunes y routers de módulos. No abre puertos ni lee el
  * entorno; eso lo hace server.ts.
  */
-export function createApp({ config, logger, mount }: AppDependencies): express.Express {
+export function createApp({ config, logger, mountBeforeJson, mount }: AppDependencies): express.Express {
   const app = express();
   app.disable('x-powered-by');
   app.set('etag', false);
@@ -45,6 +47,7 @@ export function createApp({ config, logger, mount }: AppDependencies): express.E
   app.use(correlationIdMiddleware);
   app.use(requestLogger(logger));
   app.use(originGuard(config.allowedOrigins));
+  mountBeforeJson?.(app);
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
 
   mount?.(app);

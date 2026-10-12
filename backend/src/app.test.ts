@@ -1,4 +1,4 @@
-import type { Express } from 'express';
+import express, { type Express } from 'express';
 import type { AddressInfo } from 'node:net';
 import { once } from 'node:events';
 import type { Server } from 'node:http';
@@ -159,5 +159,30 @@ describe('createApp con proxies de confianza', () => {
 
     expect(ips[0]).toBe('203.0.113.7');
     expect(ips[1]).not.toBe('203.0.113.7');
+  });
+});
+
+describe('createApp con mountBeforeJson', () => {
+  it('entrega el body crudo a las rutas montadas antes de express.json', async () => {
+    const seen: string[] = [];
+    const app = createApp({
+      config,
+      logger: fakeLogger().logger,
+      mountBeforeJson: (router) => {
+        router.post('/crudo', express.raw({ type: 'application/json', limit: '64kb' }), (req, res) => {
+          seen.push(Buffer.isBuffer(req.body) ? req.body.toString('utf8') : 'no-buffer');
+          res.status(204).end();
+        });
+      },
+    });
+
+    const response = await fetch(`${await serve(app)}/crudo`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{"a":  1}',
+    });
+
+    expect(response.status).toBe(204);
+    expect(seen).toEqual(['{"a":  1}']);
   });
 });
