@@ -1,5 +1,6 @@
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import formatsModule from 'ajv-formats';
+import { classifyValidationFailure } from '../../../shared/validation/classify.js';
 import contractSnapshot from './contract.generated.json' with { type: 'json' };
 import type { components, operations } from './openapi.js';
 
@@ -14,13 +15,6 @@ const DEFAULT_RADIUS_KM = 10;
 const requiredInputKeys: readonly string[] = contractSnapshot.$defs.CreateNeedRequest.required;
 const requiredEnvelopeKeys: readonly string[] = contractSnapshot.$defs.NeedEnvelope.required;
 const requiredNeedKeys: readonly string[] = contractSnapshot.$defs.Need.required;
-const shapeKeywords = new Set([
-  'additionalProperties', 'format', 'maxLength', 'maxProperties', 'minLength', 'minProperties',
-  'pattern', 'required', 'type',
-]);
-const ruleKeywords = new Set([
-  'const', 'enum', 'exclusiveMaximum', 'exclusiveMinimum', 'maximum', 'minimum', 'multipleOf',
-]);
 const messages: Readonly<Record<NeedDtoErrorCategory, string>> = {
   shape: 'La forma de la solicitud no es válida.',
   rule: 'Uno o más valores no cumplen las reglas del campo.',
@@ -77,16 +71,10 @@ function hasOwnKeys(value: Record<string, unknown>, keys: readonly string[]): bo
   }
 }
 
-function classifyInputFailure(errors: readonly { keyword: string }[] | null): NeedDtoErrorCategory {
-  if (!errors?.length || errors.some(({ keyword }) => shapeKeywords.has(keyword))) return 'shape';
-  if (errors.some(({ keyword }) => ruleKeywords.has(keyword))) return 'rule';
-  return 'shape';
-}
-
 export function parseCreateNeedInput(value: unknown): NormalizedCreateNeedInputDto {
   if (!isPlainRecord(value) || !hasOwnKeys(value, requiredInputKeys)) throw new NeedDtoError('shape');
   if (!validateCreateNeedInput(value)) {
-    throw new NeedDtoError(classifyInputFailure(validateCreateNeedInput.errors ?? null));
+    throw new NeedDtoError(classifyValidationFailure(validateCreateNeedInput.errors));
   }
 
   const radiusKm = Object.hasOwn(value, 'radiusKm') ? value.radiusKm ?? DEFAULT_RADIUS_KM : DEFAULT_RADIUS_KM;
