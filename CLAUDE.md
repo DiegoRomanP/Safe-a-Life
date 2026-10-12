@@ -87,11 +87,14 @@ The npm workspace has three members: `apps/web`, `apps/mock-api` and `backend`.
   yet. Planned modules are listed in the capability map in
   `docs/plans/2026-10-12-api-backend-completo-incremental.md`; the execution
   spec is `docs/plans/2026-10-12-especificacion-faltante-backend.md`.
-- **Legacy, do not reuse:** the standalone `frontend/` (a Vite template, not a
-  workspace) is pending removal. Do not run it or copy its logic into production
-  code. The old `backend/index.js`, `backend/config/` and `database/esquema.sql`
-  were already removed.
-- **Persistence direction (ADR-003, in review).** Use PostgreSQL functions called
+- **Monolito modular, two top-level folders.** The production frontend goes in
+  `frontend/` (not built yet; today it holds only a Vite template that is not a
+  workspace, so do not run it or build on that template's logic) and the
+  production backend goes in `backend/`. Do not delete `frontend/`. `apps/web`
+  is the demo web against the mock until the real frontend exists. The old
+  `backend/index.js`, `backend/config/` and `database/esquema.sql` were already
+  removed.
+- **Persistence direction (ADR-003, accepted).** Use PostgreSQL functions called
   through Supabase RPC behind backend ports and adapters. Each atomic command is
   one RPC. A sequence of SDK calls is not a transaction. Use a request-scoped
   client with the user's JWT, plus RLS. Never use `service_role` for ordinary
