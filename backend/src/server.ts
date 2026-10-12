@@ -1,4 +1,5 @@
 import { createApp } from './app.js';
+import { buildApplication } from './composition.js';
 import { ConfigError, type AppConfig, parseEnv } from './config/env.js';
 import { createLogger } from './shared/observability/logger.js';
 
@@ -27,7 +28,8 @@ function loadConfig(): AppConfig {
 }
 
 const config = loadConfig();
-const app = createApp({ config, logger });
+const application = buildApplication(config, logger);
+const app = createApp({ config, logger, ...application });
 const server = app.listen(config.port, () => {
   logger.log('info', { event: 'servidor.iniciado' });
 });
