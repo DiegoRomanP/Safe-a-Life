@@ -99,6 +99,18 @@ otro driver ahora; su presencia no prueba que el scaffold legacy sea seguro.
    10. Funciones `worker_*`, `ingest_email_event` y la revocación de sesiones
        del adaptador de `service_role` (ADR-006), si la API de Auth no la
        ofrece.
+   11. `api.record_public_idempotency` (añadida el 2026-10-12 por decisión de la
+       persona usuaria tras la revisión de F2a): idempotencia previa a la
+       sesión (login, recuperación, registro). Acepta solo actores
+       `email:<hmac>` o `token:<hmac>` y las operaciones `createSession`,
+       `requestPasswordRecovery` y `createDonorRegistration`; nunca devuelve la
+       respuesta guardada. Tiene pruebas pgTAP de actor y operación no
+       permitidos.
+
+   Nota: `api.consume_idempotency_key` (clave de un solo uso para MFA y
+   step-up) **no** es DEFINER: es INVOKER, exige cuenta de aplicación con rol
+   admin o superadmin y solo acepta `enrollMfaFactor`, `verifyMfaChallenge` y
+   `verifyStepUp`.
 
    Cualquier DEFINER nueva exige actualizar esta lista en este ADR y pasar la
    revisión de `security-privacy-auditor`.

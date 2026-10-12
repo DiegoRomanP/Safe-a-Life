@@ -264,3 +264,45 @@ runtime de DTO ya exista.
   seguridad/privacidad aplicables; la salida de este documento no es aprobación.
 - Mantener los datos sintéticos y pendiente la validación clínica profesional y
   legal/de privacidad aplicable en Perú antes de cualquier uso real.
+
+---
+
+## Módulo implementado: identity-institutions (F2a)
+
+Estado: operaciones ratificadas e implementadas en `backend/src/modules/identity-institutions`;
+cierre sujeto a las revisiones y a la aprobación registradas en
+[`plans/2026-10-12-identity-institutions.md`](plans/2026-10-12-identity-institutions.md).
+
+- **Operaciones**: `createSession`, `getCurrentSession`, `getCsrfToken`,
+  `deleteCurrentSession`, `enrollMfaFactor`, `verifyMfaChallenge`, `verifyStepUp`,
+  `listOwnHospitalSites` y las trece del superadmin (hospitales, sedes,
+  membresías, configuración, auditoría, tareas). La lista y los cambios de
+  contrato están en el plan del módulo.
+- **Sesión** (ADR-004): cookies `__Host-sal_at` y `__Host-sal_rt`
+  (`HttpOnly; Secure; SameSite=Lax; Path=/`), JWT de 600 s con refresh
+  transparente en el servidor e inactividad de 12 h. El rol y la membresía se
+  resuelven en cada request con `api.current_actor()`, nunca desde el cliente.
+- **CSRF**: en toda mutación con cookie se exige un `Origin` presente y dentro de
+  la allowlist, más `X-CSRF-Token` firmado y ligado a la sesión.
+- **Idempotencia**: toda mutación exige `Idempotency-Key`. Las rechazadas por
+  reglas ocurren antes de reclamar la clave. Las operaciones MFA usan claves de
+  un solo uso (el replay responde 409).
+- **Persistencia** (ADR-003): tablas en el esquema `app` (no expuesto); RPC en
+  `api` con `SECURITY INVOKER` y RLS forzada. Las únicas funciones
+  `SECURITY DEFINER` de `api` son `api.consume_rate_limit`, `api.readiness` y
+  `api.record_public_idempotency`, todas en la allowlist cerrada de ADR-003.
+  `PUBLIC` no tiene `EXECUTE` en ninguna función de `api` ni de `app` (lo
+  verifica pgTAP).
+- **Replay idempotente**: las operaciones cuyo rechazo depende del estado
+  (`revokeHospitalMembership`, `setFinalDemoAt`) devuelven el resultado original
+  con la misma clave y el mismo payload aunque el estado ya haya cambiado.
+- **Step-up**: `updateHospital`, `revokeHospitalMembership` y `setFinalDemoAt`
+  exigen un TOTP verificado en los últimos 300 s (403 `STEP_UP_REQUIRED`).
+- **Cuota de Supabase Auth**: login y renovación comparten la cuota por IP del
+  backend; la renovación tiene límite propio (`refresh:ip`) y un 429 del
+  proveedor responde 429 sin cerrar la sesión (ADR-004).
+- **Fuera de este módulo**: recuperación de contraseña e invitación de admins
+  (F2b, requieren correo y el adaptador `service_role` de ADR-006).
+- **Verificación**: pgTAP, integración contra Supabase local y Bruno contra el
+  backend real (`npm run test:backend:db`, `test:backend:integration`,
+  `test:bruno:backend`). Prism y el mock no cuentan como evidencia.
