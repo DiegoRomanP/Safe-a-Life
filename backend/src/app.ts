@@ -3,6 +3,7 @@ import type { AppConfig } from './config/env.js';
 import { correlationIdMiddleware } from './shared/http/correlation-id.js';
 import { createErrorHandler, notFoundHandler } from './shared/http/errors.js';
 import { originGuard } from './shared/http/origin-guard.js';
+import { securityHeaders } from './shared/http/security-headers.js';
 import type { Logger } from './shared/observability/logger.js';
 
 export interface AppDependencies {
@@ -35,8 +36,10 @@ function requestLogger(logger: Logger): express.RequestHandler {
 export function createApp({ config, logger, mount }: AppDependencies): express.Express {
   const app = express();
   app.disable('x-powered-by');
+  app.set('etag', false);
   app.set('trust proxy', typeof config.trustedProxies === 'object' ? [...config.trustedProxies] : config.trustedProxies);
 
+  app.use(securityHeaders);
   app.use(correlationIdMiddleware);
   app.use(requestLogger(logger));
   app.use(originGuard(config.allowedOrigins));

@@ -49,6 +49,20 @@ describe('createApp', () => {
     expect(response.headers.get('x-powered-by')).toBeNull();
   });
 
+  it('añade las cabeceras de seguridad incluso en errores', async () => {
+    const base = await serve(createApp({ config, logger: fakeLogger().logger }));
+
+    const response = await fetch(`${base}/no-existe`);
+
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(response.headers.get('x-frame-options')).toBe('DENY');
+    expect(response.headers.get('content-security-policy')).toBe("default-src 'none'; frame-ancestors 'none'");
+    expect(response.headers.get('referrer-policy')).toBe('no-referrer');
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('strict-transport-security')).toBe('max-age=31536000; includeSubDomains');
+    expect(response.headers.get('etag')).toBeNull();
+  });
+
   it('responde 404 con el envelope de error y un correlationId', async () => {
     const base = await serve(createApp({ config, logger: fakeLogger().logger }));
 
