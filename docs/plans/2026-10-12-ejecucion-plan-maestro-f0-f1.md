@@ -118,3 +118,13 @@ Lo que bloquea, con el voto o decisión que lo desbloquea:
   contrato sin drift).
 - 2026-10-12: U2–U7c ejecutadas y verificadas, con los commits de la tabla
   de §2. Sin reviews independientes. Sin votos registrados.
+- 2026-10-12 (Claude Code, sesión de ejecución del Bloque A de
+  [`especificacion-faltante-backend`](2026-10-12-especificacion-faltante-backend.md)):
+  - La revisión de `90c203a..cd8d2b3` hecha por Claude Code en la sesión de
+    planificación equivale al gate `reviewer-back` de U2–U7c. Los hallazgos
+    A1–A9 quedaron resueltos en commits propios (`dd73805`, `9a4c2b5`,
+    `adc0ab5`, `74a3394`, `d97bad6`, `16e94c6`) más el de A3.
+  - La sesión que ejecutó U2–U7c omitió los subagentes pese a D-1; este bloque
+    lo corrige lanzando la auditoría `security-privacy-auditor` (A11). Su
+    resultado se registra abajo cuando llegue; hasta entonces el gate de
+    seguridad de U2–U7c + A1–A7 está **pendiente**.
