@@ -15,8 +15,8 @@ export function createCsrfToken(secret: string, sessionId: string): string {
   return `${nonce}.${macFor(secret, sessionId, nonce)}`;
 }
 
-export function verifyCsrfToken(secret: string, sessionId: string, token: string): boolean {
-  if (sessionId === '') return false;
+export function verifyCsrfToken(secret: string, sessionId: string, token: unknown): boolean {
+  if (sessionId === '' || typeof token !== 'string') return false;
   const parts = token.split('.');
   if (parts.length !== 2 || parts[0] === '' || parts[1] === '') return false;
   const [nonce, mac] = parts;

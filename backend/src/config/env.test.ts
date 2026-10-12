@@ -132,7 +132,7 @@ describe('parseEnv', () => {
   });
 
   it('rechaza TRUSTED_PROXIES con saltos fuera de rango, prefijos inválidos o nombres de host', () => {
-    for (const invalid of ['0', '6', '10.0.0.0/33', '::1/129', '10.0.0.0/', '10.0.0.0/-1', 'abc', 'proxy.example.test', '1,2']) {
+    for (const invalid of ['0', '6', '0.0.0.0/0', '::/0', '10.0.0.0/7', '10.0.0.0/33', '::1/129', '10.0.0.0/', '10.0.0.0/-1', 'abc', 'proxy.example.test', '1,2']) {
       expect(errorVariables(validEnv({ TRUSTED_PROXIES: invalid }))).toEqual(['TRUSTED_PROXIES']);
     }
   });

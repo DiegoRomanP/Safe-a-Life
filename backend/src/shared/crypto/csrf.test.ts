@@ -41,3 +41,10 @@ describe('CSRF firmado ligado a la sesión', () => {
     expect(verifyCsrfToken(SECRET, '', createCsrfToken(SECRET, ''))).toBe(false);
   });
 });
+
+describe('verifyCsrfToken con entradas no string', () => {
+  it('devuelve false en vez de lanzar si falta la cabecera', () => {
+    expect(verifyCsrfToken('s'.repeat(40), 'sesion-1', undefined)).toBe(false);
+    expect(verifyCsrfToken('s'.repeat(40), 'sesion-1', 42)).toBe(false);
+  });
+});
