@@ -1,0 +1,17 @@
+meta {
+  name: Liveness
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/health/live
+  body: none
+  auth: none
+}
+
+tests {
+  test("liveness responde 200 sin sesión", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

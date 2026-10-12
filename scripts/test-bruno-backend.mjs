@@ -15,6 +15,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const host = '127.0.0.1';
 
 const SCENARIOS = [
+  { folder: 'backend/platform' },
   { folder: 'backend/identity-institutions/hospital', user: SEED_USERS.admin1.email },
   { folder: 'backend/identity-institutions/superadmin', user: SEED_USERS.superadmin.email },
 ];
@@ -99,7 +100,7 @@ try {
   await waitForServer(server, baseUrl);
 
   for (const scenario of SCENARIOS) {
-    runScenario(scenario, baseUrl, await freshCode(secrets[scenario.user]));
+    runScenario(scenario, baseUrl, scenario.user ? await freshCode(secrets[scenario.user]) : '000000');
   }
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : 'Falló el runner Bruno del backend.'}\n`);
