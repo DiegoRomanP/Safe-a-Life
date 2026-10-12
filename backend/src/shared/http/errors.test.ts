@@ -1,8 +1,9 @@
 import express from 'express';
+import { readFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
 import { once } from 'node:events';
 import type { Server } from 'node:http';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { correlationIdMiddleware } from './correlation-id.js';
 import { ApiError, createErrorHandler, ERROR_STATUS, notFoundHandler, toPublicError } from './errors.js';
 
@@ -48,6 +49,22 @@ describe('catálogo de errores públicos', () => {
         },
       },
     });
+  });
+
+  it('mantiene code y message idénticos a los ejemplos de respuesta de docs/openapi.json', () => {
+    const spec = JSON.parse(readFileSync(new URL('../../../../docs/openapi.json', import.meta.url), 'utf8'));
+    const responses = Object.entries(spec.components.responses as Record<string, any>);
+
+    expect(responses).toHaveLength(Object.keys(ERROR_STATUS).length);
+    for (const [name, response] of responses) {
+      const example = response.content['application/json'].example.error;
+      const actual = toPublicError(new ApiError(example.code), 'x').body.error;
+      expect({ name, code: actual.code, message: actual.message }).toEqual({
+        name,
+        code: example.code,
+        message: example.message,
+      });
+    }
   });
 
   it('convierte cualquier error no controlado en INTERNAL_ERROR sin su mensaje', () => {
@@ -110,6 +127,47 @@ describe('manejador de errores de Express', () => {
     expect(response.status).toBe(400);
     expect(JSON.parse(text).error.code).toBe('BAD_REQUEST');
     expect(text).not.toContain('canario-no-json');
+  });
+
+  it('responde 400 ante errores 4xx de body-parser (codificación, charset y tamaño) sin registrarlos como fallo', async () => {
+    const unexpected: unknown[] = [];
+    const app = express();
+    app.use(correlationIdMiddleware);
+    app.use(express.json({ limit: '16kb' }));
+    app.post('/datos', (_req, res) => res.status(204).end());
+    app.use(createErrorHandler((error) => unexpected.push(error)));
+    const base = await serve(app);
+
+    const cases: Array<{ headers: Record<string, string>; body: string }> = [
+      { headers: { 'content-type': 'application/json', 'content-encoding': 'br-x' }, body: '{}' },
+      { headers: { 'content-type': 'application/json; charset=latin1' }, body: '{}' },
+      { headers: { 'content-type': 'application/json' }, body: JSON.stringify({ relleno: 'x'.repeat(17 * 1024) }) },
+      { headers: { 'content-type': 'application/json' }, body: '{roto' },
+    ];
+    for (const { headers, body } of cases) {
+      const response = await fetch(`${base}/datos`, { method: 'POST', headers, body });
+      expect(response.status).toBe(400);
+      expect((await response.json()).error.code).toBe('BAD_REQUEST');
+    }
+    expect(unexpected).toHaveLength(0);
+  });
+
+  it('no escribe en stderr ni usa el manejador final de Express si las cabeceras ya se enviaron', async () => {
+    const unexpected: unknown[] = [];
+    const stderr = vi.spyOn(process.stderr, 'write');
+    const app = express();
+    app.use(correlationIdMiddleware);
+    app.get('/parcial', (_req, res) => {
+      res.write('x');
+      throw new Error('canario-tras-cabeceras');
+    });
+    app.use(createErrorHandler((error) => unexpected.push(error)));
+
+    await fetch(`${await serve(app)}/parcial`).then((r) => r.text()).catch(() => undefined);
+
+    expect(unexpected).toHaveLength(1);
+    expect(stderr.mock.calls.map(([chunk]) => String(chunk)).join('')).not.toContain('canario-tras-cabeceras');
+    stderr.mockRestore();
   });
 
   it('incluye un correlationId UUID distinto en cada respuesta', async () => {
