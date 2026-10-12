@@ -5,12 +5,22 @@ export type LogLevel = 'info' | 'warn' | 'error';
  * Nunca se pasan bodies, query strings, URLs completas, cookies, tokens, claves
  * de idempotencia, emails, coordenadas ni errores con mensaje o stack (OBS-01/02).
  */
+/** Unión cerrada de eventos: un evento nuevo exige declararlo aquí (y revisar que no arrastre PII). */
+export type LogEvent =
+  | 'peticion.finalizada'
+  | 'peticion.fallida'
+  | 'seguridad.rechazo'
+  | 'proceso.error_no_controlado'
+  | 'servidor.iniciado';
+
 export interface LogEntry {
-  readonly event: string;
+  readonly event: LogEvent;
   readonly module?: string;
   readonly code?: string;
   readonly correlationId?: string;
   readonly durationMs?: number;
+  /** Código HTTP de la respuesta. */
+  readonly status?: number;
 }
 
 export interface Logger {
@@ -30,6 +40,10 @@ function nonNegativeNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
 }
 
+function httpStatus(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 100 && value <= 599 ? value : undefined;
+}
+
 export function createLogger(write: (line: string) => void, now: () => Date = () => new Date()): Logger {
   return {
     log(level, entry) {
@@ -41,6 +55,7 @@ export function createLogger(write: (line: string) => void, now: () => Date = ()
         code: matching(entry.code, CODE_PATTERN),
         correlationId: matching(entry.correlationId, CORRELATION_PATTERN),
         durationMs: nonNegativeNumber(entry.durationMs),
+        status: httpStatus(entry.status),
       };
       write(JSON.stringify(record));
     },

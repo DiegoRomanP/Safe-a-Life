@@ -10,6 +10,9 @@ export interface AppConfig {
   /** `false` = ningún proxy; número = saltos de confianza; lista = IP o CIDR. Se pasa tal cual a `trust proxy`. */
   readonly trustedProxies: false | number | readonly string[];
   readonly secrets: Readonly<{ csrf: string; emailHmac: string; cursor: string; outboxKeyring: OutboxKeyring }>;
+  /** Secreto compartido con el borde (rewrite de Vercel). Vacío = sin guard (desarrollo y pruebas). Ver ADR-004. */
+  readonly edgeSecret: string;
+  readonly production: boolean;
   /** Identidad técnica del worker (V13): usuario de Supabase Auth con rol interno `worker`. */
   readonly worker: Readonly<{ email: string; password: string; pollMs: number }>;
   /** Base de los enlaces de los correos (https, o http solo hacia localhost). */
@@ -67,6 +70,9 @@ export function parseEnv(source: Source): AppConfig {
   if (csrf && csrf === emailHmac) reject('EMAIL_HMAC_SECRET');
   const cursor = parseSecret('CURSOR_SECRET', required(source, 'CURSOR_SECRET', reject), reject);
   if (cursor && (cursor === csrf || cursor === emailHmac)) reject('CURSOR_SECRET');
+  const edgeRaw = read(source, 'EDGE_SHARED_SECRET');
+  const edgeSecret = edgeRaw === undefined ? '' : parseSecret('EDGE_SHARED_SECRET', edgeRaw, reject);
+  if (edgeSecret && [csrf, emailHmac, cursor].includes(edgeSecret)) reject('EDGE_SHARED_SECRET');
   const outboxKeyring = parseOutboxKeyring(read(source, 'OUTBOX_KEYS'), read(source, 'OUTBOX_KEY_CURRENT'), reject);
 
   const provider = parseProvider(read(source, 'EMAIL_PROVIDER'), reject);
@@ -83,6 +89,16 @@ export function parseEnv(source: Source): AppConfig {
     pollMs: parseBoundedInt('WORKER_POLL_MS', read(source, 'WORKER_POLL_MS'), 1000, 60000, DEFAULT_WORKER_POLL_MS, reject),
   });
 
+  // Producción: sin valores de desarrollo (HTTP, sin proxies enumerados, sin guard de borde).
+  const production = read(source, 'NODE_ENV') === 'production';
+  if (production) {
+    if (trustedProxies === false) reject('TRUSTED_PROXIES');
+    if (allowedOrigins.length === 0 || !allowedOrigins.every((origin) => origin.startsWith('https://'))) reject('ALLOWED_ORIGINS');
+    if (edgeSecret === '') reject('EDGE_SHARED_SECRET');
+    if (!supabaseUrl.startsWith('https://')) reject('SUPABASE_URL');
+    if (!appPublicUrl.startsWith('https://')) reject('APP_PUBLIC_URL');
+  }
+
   if (failed.length > 0) throw new ConfigError(failed);
 
   return Object.freeze({
@@ -91,6 +107,8 @@ export function parseEnv(source: Source): AppConfig {
     allowedOrigins: Object.freeze(allowedOrigins),
     trustedProxies,
     secrets: Object.freeze({ csrf, emailHmac, cursor, outboxKeyring }),
+    edgeSecret,
+    production,
     worker,
     appPublicUrl,
     email: Object.freeze({

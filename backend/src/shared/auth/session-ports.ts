@@ -42,8 +42,11 @@ export type MfaFactorSummary = Readonly<{ factorId: string; verified: boolean }>
  */
 export interface SessionGateway extends SessionVerifier {
   signIn(email: string, password: string): Promise<TokenPair | null>;
-  /** Revoca todas las sesiones del usuario (V4: logout y recuperación usan scope global). */
-  signOut(accessToken: string): Promise<void>;
+  /**
+   * Revoca sesiones: `global` = todas las del usuario (V4: logout y recuperación); `local` = solo la
+   * sesión de ese token (para descartar un login que no llegó a completarse).
+   */
+  signOut(accessToken: string, scope?: 'global' | 'local'): Promise<void>;
   /** Como máximo un factor TOTP por usuario (config.toml: max_enrolled_factors = 1). */
   listTotpFactors(tokens: TokenPair): Promise<readonly MfaFactorSummary[]>;
   /** Elimina un factor pendiente de verificación (para poder re-enrolar). */

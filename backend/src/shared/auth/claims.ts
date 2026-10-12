@@ -3,9 +3,11 @@ import type { VerifiedClaims } from './session-ports.js';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Extrae solo lo que el backend necesita de los claims del JWT; cualquier forma inesperada es `null`. */
-export function parseClaims(claims: unknown): VerifiedClaims | null {
+export function parseClaims(claims: unknown, expected: { issuer?: string; audience?: string } = {}): VerifiedClaims | null {
   if (typeof claims !== 'object' || claims === null) return null;
-  const { sub, session_id: sessionId, aal, role, amr } = claims as Record<string, unknown>;
+  const { sub, session_id: sessionId, aal, role, amr, iss, aud } = claims as Record<string, unknown>;
+  if (expected.issuer !== undefined && iss !== expected.issuer) return null;
+  if (expected.audience !== undefined && !(aud === expected.audience || (Array.isArray(aud) && aud.includes(expected.audience)))) return null;
   if (typeof sub !== 'string' || !UUID.test(sub)) return null;
   if (typeof sessionId !== 'string' || sessionId === '') return null;
   if (role !== 'authenticated' || (aal !== 'aal1' && aal !== 'aal2')) return null;

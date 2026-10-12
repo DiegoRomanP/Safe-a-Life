@@ -115,6 +115,15 @@ describe('validador genérico por operación', () => {
     expect(categoryOf(() => put.parseBody('texto'))).toBe('shape');
   });
 
+  it('rechaza como shape cualquier texto con U+0000 (clave o valor, anidado o no) en body, query y params', () => {
+    const put = compile('putThing');
+
+    expect(categoryOf(() => put.parseBody({ name: 'a\u0000b' }))).toBe('shape');
+    expect(categoryOf(() => put.parseBody({ 'na\u0000me': 'ok' }))).toBe('shape');
+    expect(categoryOf(() => compile('listThings').parseQuery({ cursor: 'a\u0000' }))).toBe('shape');
+    expect(categoryOf(() => put.parseParams({ thingId: '\u0000' }))).toBe('shape');
+  });
+
   it('devuelve copias congeladas y no muta la entrada', () => {
     const input = { name: 'ok' };
     const parsed = compile('putThing').parseBody(input) as { name: string };

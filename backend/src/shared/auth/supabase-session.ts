@@ -1,11 +1,18 @@
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
 import type { AppConfig } from '../../config/env.js';
-import { PersistenceUnavailableError } from '../persistence/errors.js';
+import { PersistenceUnavailableError, UpstreamRateLimitedError } from '../persistence/errors.js';
 import { parseClaims } from './claims.js';
 import type { MfaFactorSummary, SessionGateway, TokenPair, TotpEnrollment, VerifiedClaims } from './session-ports.js';
 
 export interface SupabaseSessionOptions {
   readonly fetch?: typeof fetch;
+}
+
+/** Lanza ante 429 del proveedor (cuota por IP del backend); no es un fallo de credenciales. */
+function assertNotRateLimited(error: { status?: number; code?: string } | null | undefined): void {
+  if (error && (error.status === 429 || error.code === 'over_request_rate_limit' || error.code === 'over_email_send_rate_limit')) {
+    throw new UpstreamRateLimitedError();
+  }
 }
 
 function isUnavailable(error: { name?: string; status?: number } | null | undefined): boolean {
@@ -42,20 +49,29 @@ export function createSupabaseSessionGateway(
   const withSession = async (tokens: TokenPair): Promise<SupabaseClient> => {
     const client = newClient();
     const { error } = await client.auth.setSession({ access_token: tokens.accessToken, refresh_token: tokens.refreshToken });
+    assertNotRateLimited(error);
     if (isUnavailable(error)) throw new PersistenceUnavailableError();
     return client;
   };
 
-  const unavailableOr = <T>(error: { name?: string; status?: number } | null | undefined, value: T): T => {
+  const unavailableOr = <T>(error: { name?: string; status?: number; code?: string } | null | undefined, value: T): T => {
+    assertNotRateLimited(error);
     if (isUnavailable(error)) throw new PersistenceUnavailableError();
     return value;
   };
 
   return {
     async verifyAccessToken(accessToken): Promise<VerifiedClaims | null> {
-      const { data, error } = await newClient().auth.getClaims(accessToken);
-      unavailableOr(error, null);
-      return error || !data ? null : parseClaims(data.claims);
+      // Cualquier excepción de verificación (alg desconocido, kid ajeno, JSON roto) es «sin sesión»,
+      // nunca un 500; solo la indisponibilidad del proveedor se propaga.
+      try {
+        const { data, error } = await newClient().auth.getClaims(accessToken);
+        unavailableOr(error, null);
+        return error || !data ? null : parseClaims(data.claims, { issuer: `${url}/auth/v1`, audience: 'authenticated' });
+      } catch (caught) {
+        if (caught instanceof PersistenceUnavailableError || caught instanceof UpstreamRateLimitedError) throw caught;
+        return null;
+      }
     },
 
     async refresh(refreshToken) {
@@ -68,8 +84,8 @@ export function createSupabaseSessionGateway(
       return unavailableOr(error, error ? null : toPair(data.session));
     },
 
-    async signOut(accessToken) {
-      const { error } = await newClient().auth.admin.signOut(accessToken, 'global');
+    async signOut(accessToken, scope = 'global') {
+      const { error } = await newClient().auth.admin.signOut(accessToken, scope);
       // 401/403/404 significan que la sesión ya no existe: el objetivo se cumplió.
       if (isUnavailable(error)) throw new PersistenceUnavailableError();
     },

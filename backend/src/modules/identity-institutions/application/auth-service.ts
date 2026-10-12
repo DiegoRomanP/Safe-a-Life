@@ -1,6 +1,6 @@
 import type { Principal } from '../../../shared/auth/principal.js';
 import type { ActorInfo, SessionGateway, TokenPair } from '../../../shared/auth/session-ports.js';
-import { hmacEmailSubject, hmacSha256Hex } from '../../../shared/crypto/hmac.js';
+import { deriveHmacKey, hmacEmailSubject, hmacSha256Hex } from '../../../shared/crypto/hmac.js';
 import { ApiError } from '../../../shared/http/errors.js';
 import type { IdentityDependencies, KeyOutcome } from './identity.ports.js';
 
@@ -20,6 +20,12 @@ export type CreateSessionResult = Readonly<{ tokens: TokenPair; view: AuthSessio
 
 export interface AuthServiceConfig {
   readonly emailHmacSecret: string;
+  /**
+   * Duración mínima de un login fallido (ms): iguala el tiempo de «usuario inexistente» y
+   * «contraseña incorrecta» para no revelar qué cuentas existen. 0 en pruebas unitarias.
+   */
+  readonly loginFailureFloorMs?: number;
+  readonly sleep?: (ms: number) => Promise<void>;
 }
 
 function needsMfa(role: ActorInfo['role']): boolean {
@@ -47,8 +53,13 @@ function assertKeyOk(outcome: KeyOutcome): void {
 export function createAuthService(
   sessions: SessionGateway,
   { actors, limiter, publicKeys, userKeys }: IdentityDependencies,
-  { emailHmacSecret }: AuthServiceConfig,
+  { emailHmacSecret, loginFailureFloorMs = 0, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) }: AuthServiceConfig,
 ) {
+  // Una clave por propósito: ningún valor derivado sirve de oráculo para otro uso.
+  const emailKey = deriveHmacKey(emailHmacSecret, 'email');
+  const mfaKey = deriveHmacKey(emailHmacSecret, 'mfa');
+  const idempotencyKey = deriveHmacKey(emailHmacSecret, 'idempotency');
+
   const rateLimit = async (bucket: string, subject: string, limit: number): Promise<number | null> => {
     const decision = await limiter.consume(bucket, subject, limit, WINDOW_SECONDS);
     return decision.allowed ? null : decision.retryAfterSeconds;
@@ -56,6 +67,45 @@ export function createAuthService(
   const rejectIfLimited = (...waits: Array<number | null>): void => {
     const blocked = waits.filter((wait): wait is number => wait !== null);
     if (blocked.length > 0) throw new ApiError('RATE_LIMITED', undefined, { retryAfterSeconds: Math.max(...blocked) });
+  };
+
+  const attemptLogin = async (
+    input: Readonly<{ email: string; password: string }>,
+    meta: Readonly<{ idempotencyKey: string; ipSubject: string }>,
+  ): Promise<CreateSessionResult> => {
+    const emailSubject = hmacEmailSubject(emailKey, input.email);
+    rejectIfLimited(
+      await rateLimit('login:ip', meta.ipSubject, LOGIN_LIMIT),
+      await rateLimit('login:email', emailSubject, LOGIN_LIMIT),
+    );
+
+    const tokens = await sessions.signIn(input.email, input.password);
+    if (!tokens) throw new ApiError('AUTHENTICATION_REQUIRED');
+
+    // Se cierra solo la sesión recién creada (scope local), nunca las demás sesiones legítimas del usuario.
+    const actor = await actors.currentActor(tokens.accessToken);
+    if (!actor) {
+      await sessions.signOut(tokens.accessToken, 'local');
+      throw new ApiError('AUTHENTICATION_REQUIRED');
+    }
+
+    // La contraseña NO entra en el hash: no se persiste material derivado de ella. El replay de un
+    // login repite la autenticación completa, así que basta con identificar al titular de la clave.
+    const outcome = await publicKeys.record(
+      `email:${emailSubject}`, 'createSession', meta.idempotencyKey,
+      hmacSha256Hex(idempotencyKey, JSON.stringify([input.email.trim().toLowerCase()])),
+    );
+    if (outcome !== 'ok') {
+      await sessions.signOut(tokens.accessToken, 'local');
+      assertKeyOk(outcome);
+    }
+
+    let challengeId: string | undefined;
+    if (needsMfa(actor.role)) {
+      const verified = (await sessions.listTotpFactors(tokens)).find((factor) => factor.verified);
+      if (verified) challengeId = (await sessions.challenge(tokens, verified.factorId)) ?? undefined;
+    }
+    return { tokens, view: viewOf({ ...actor }, 'aal1', challengeId) };
   };
 
   return Object.freeze({
@@ -68,36 +118,17 @@ export function createAuthService(
       input: Readonly<{ email: string; password: string }>,
       meta: Readonly<{ idempotencyKey: string; ipSubject: string }>,
     ): Promise<CreateSessionResult> {
-      const emailSubject = hmacEmailSubject(emailHmacSecret, input.email);
-      rejectIfLimited(
-        await rateLimit('login:ip', meta.ipSubject, LOGIN_LIMIT),
-        await rateLimit('login:email', emailSubject, LOGIN_LIMIT),
-      );
-
-      const tokens = await sessions.signIn(input.email, input.password);
-      if (!tokens) throw new ApiError('AUTHENTICATION_REQUIRED');
-
-      const actor = await actors.currentActor(tokens.accessToken);
-      if (!actor) {
-        await sessions.signOut(tokens.accessToken);
-        throw new ApiError('AUTHENTICATION_REQUIRED');
+      const started = Date.now();
+      try {
+        return await attemptLogin(input, meta);
+      } catch (error) {
+        // Solo el 401 se iguala en tiempo; el 429 y el 503 no revelan nada de la cuenta.
+        if (error instanceof ApiError && error.code === 'AUTHENTICATION_REQUIRED') {
+          const remaining = loginFailureFloorMs - (Date.now() - started);
+          if (remaining > 0) await sleep(remaining);
+        }
+        throw error;
       }
-
-      const outcome = await publicKeys.record(
-        `email:${emailSubject}`, 'createSession', meta.idempotencyKey,
-        hmacSha256Hex(emailHmacSecret, JSON.stringify([input.email.trim().toLowerCase(), input.password])),
-      );
-      if (outcome !== 'ok') {
-        await sessions.signOut(tokens.accessToken);
-        assertKeyOk(outcome);
-      }
-
-      let challengeId: string | undefined;
-      if (needsMfa(actor.role)) {
-        const verified = (await sessions.listTotpFactors(tokens)).find((factor) => factor.verified);
-        if (verified) challengeId = (await sessions.challenge(tokens, verified.factorId)) ?? undefined;
-      }
-      return { tokens, view: viewOf({ ...actor }, 'aal1', challengeId) };
     },
 
     /**
@@ -106,7 +137,7 @@ export function createAuthService(
      */
     async enrollMfa(principal: Principal, tokens: TokenPair, key: string) {
       if (!needsMfa(principal.role)) throw new ApiError('ACCESS_DENIED');
-      assertKeyOk(await userKeys.consume(principal.accessToken, 'enrollMfaFactor', key, hmacSha256Hex(emailHmacSecret, principal.userId)));
+      assertKeyOk(await userKeys.consume(principal.accessToken, 'enrollMfaFactor', key, hmacSha256Hex(idempotencyKey, principal.userId)));
 
       const factors = await sessions.listTotpFactors(tokens);
       if (factors.some((factor) => factor.verified)) throw new ApiError('STATE_CONFLICT');
@@ -127,8 +158,8 @@ export function createAuthService(
     ): Promise<Readonly<{ tokens: TokenPair; view: AuthSessionView }>> {
       if (!needsMfa(principal.role)) throw new ApiError('ACCESS_DENIED');
       if (principal.aal === 'aal2') throw new ApiError('STATE_CONFLICT');
-      rejectIfLimited(await rateLimit('mfa:user', hmacSha256Hex(emailHmacSecret, `mfa:${principal.userId}`), MFA_LIMIT));
-      assertKeyOk(await userKeys.consume(principal.accessToken, 'verifyMfaChallenge', key, hmacSha256Hex(emailHmacSecret, JSON.stringify([input.challengeId, input.code]))));
+      rejectIfLimited(await rateLimit('mfa:user', hmacSha256Hex(mfaKey, principal.userId), MFA_LIMIT));
+      assertKeyOk(await userKeys.consume(principal.accessToken, 'verifyMfaChallenge', key, hmacSha256Hex(idempotencyKey, JSON.stringify([input.challengeId, input.code]))));
 
       const factor = (await sessions.listTotpFactors(tokens))[0];
       if (!factor) throw new ApiError('STATE_CONFLICT');
@@ -146,8 +177,8 @@ export function createAuthService(
     ): Promise<Readonly<{ tokens: TokenPair; verifiedUntil: string }>> {
       if (!needsMfa(principal.role)) throw new ApiError('ACCESS_DENIED');
       if (principal.aal !== 'aal2') throw new ApiError('MFA_REQUIRED');
-      rejectIfLimited(await rateLimit('mfa:user', hmacSha256Hex(emailHmacSecret, `mfa:${principal.userId}`), MFA_LIMIT));
-      assertKeyOk(await userKeys.consume(principal.accessToken, 'verifyStepUp', key, hmacSha256Hex(emailHmacSecret, input.code)));
+      rejectIfLimited(await rateLimit('mfa:user', hmacSha256Hex(mfaKey, principal.userId), MFA_LIMIT));
+      assertKeyOk(await userKeys.consume(principal.accessToken, 'verifyStepUp', key, hmacSha256Hex(idempotencyKey, input.code)));
 
       const factor = (await sessions.listTotpFactors(tokens)).find((candidate) => candidate.verified);
       if (!factor) throw new ApiError('STATE_CONFLICT');

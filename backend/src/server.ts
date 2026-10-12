@@ -34,6 +34,11 @@ const server = app.listen(config.port, () => {
   logger.log('info', { event: 'servidor.iniciado' });
 });
 
+// Límites de la conexión (slowloris y conexiones colgadas).
+server.requestTimeout = 30_000;
+server.headersTimeout = 15_000;
+server.keepAliveTimeout = 5_000;
+
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
     setTimeout(() => process.exit(1), SHUTDOWN_TIMEOUT_MS).unref();

@@ -29,4 +29,15 @@ describe('parseClaims', () => {
     ];
     for (const claims of bad) expect(parseClaims(claims)).toBeNull();
   });
+
+  it('exige emisor y audiencia cuando se esperan', () => {
+    const expected = { issuer: 'http://127.0.0.1:54321/auth/v1', audience: 'authenticated' };
+    const good = { ...VALID, iss: expected.issuer, aud: 'authenticated' };
+    expect(parseClaims(good, expected)?.userId).toBe(VALID.sub);
+    expect(parseClaims({ ...good, aud: ['otra', 'authenticated'] }, expected)?.userId).toBe(VALID.sub);
+    for (const claims of [
+      { ...good, iss: 'https://otro.example.test/auth/v1' }, { ...good, iss: undefined },
+      { ...good, aud: 'anon' }, { ...good, aud: undefined },
+    ]) expect(parseClaims(claims, expected)).toBeNull();
+  });
 });

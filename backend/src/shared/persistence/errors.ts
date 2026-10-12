@@ -18,3 +18,18 @@ export class PersistenceError extends Error {
     this.reason = reason;
   }
 }
+
+/**
+ * Supabase Auth limita por IP del backend (cuota compartida por todos los usuarios): un 429 del
+ * proveedor no significa credenciales inválidas. Se presenta como 429 con Retry-After y NUNCA
+ * invalida la sesión del usuario.
+ */
+export class UpstreamRateLimitedError extends Error {
+  readonly retryAfterSeconds: number;
+
+  constructor(retryAfterSeconds = 30) {
+    super('El proveedor de identidad limitó la tasa de peticiones.');
+    this.name = 'UpstreamRateLimitedError';
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}

@@ -1,4 +1,6 @@
-import type { RequestHandler } from 'express';
+import type { Request, RequestHandler } from 'express';
+import { PersistenceError } from '../persistence/errors.js';
+import { ApiError } from '../http/errors.js';
 import { ACCESS_COOKIE, REFRESH_COOKIE, parseCookies } from '../http/cookies.js';
 import { setPrincipal, setSessionTokens } from './principal.js';
 import { clearSessionCookies, setSessionCookies } from './session-cookies.js';
@@ -7,7 +9,15 @@ import type { ActorResolver, SessionVerifier, VerifiedClaims } from './session-p
 export interface AuthenticateDependencies {
   readonly verifier: SessionVerifier;
   readonly actors: ActorResolver;
+  /**
+   * Límite de renovaciones por IP, consultado ANTES de llamar a Supabase Auth (cuota compartida por
+   * IP del backend). Devuelve los segundos a esperar si se excedió, o `null`.
+   */
+  readonly refreshGate?: (req: Request) => Promise<number | null>;
 }
+
+/** Los refresh tokens de Supabase son cadenas opacas cortas; descartar formas imposibles sin llamar al proveedor. */
+const REFRESH_TOKEN_SHAPE = /^[A-Za-z0-9._-]{4,200}$/;
 
 /**
  * Middleware de autenticación para `/api` (ADR-004). Nunca rechaza por sí mismo:
@@ -19,15 +29,22 @@ export interface AuthenticateDependencies {
  *    ambas cookies; si el refresh falla, expira las dos cookies.
  * 3. Resuelve el actor con el JWT del usuario.
  */
-export function authenticate({ verifier, actors }: AuthenticateDependencies): RequestHandler {
+export function authenticate({ verifier, actors, refreshGate }: AuthenticateDependencies): RequestHandler {
   return async (req, res, next) => {
     try {
       const cookies = parseCookies(req.get('cookie'));
       let accessToken = cookies[ACCESS_COOKIE];
-      let refreshToken = cookies[REFRESH_COOKIE];
+      let refreshToken: string | undefined = cookies[REFRESH_COOKIE];
       let claims: VerifiedClaims | null = accessToken ? await verifier.verifyAccessToken(accessToken) : null;
 
+      if (!claims && refreshToken && !REFRESH_TOKEN_SHAPE.test(refreshToken)) {
+        clearSessionCookies(res);
+        refreshToken = undefined;
+      }
+
       if (!claims && refreshToken) {
+        const wait = await refreshGate?.(req);
+        if (wait !== null && wait !== undefined) throw new ApiError('RATE_LIMITED', undefined, { retryAfterSeconds: wait });
         const renewed = await verifier.refresh(refreshToken);
         claims = renewed ? await verifier.verifyAccessToken(renewed.accessToken) : null;
         if (renewed && claims) {
@@ -44,7 +61,15 @@ export function authenticate({ verifier, actors }: AuthenticateDependencies): Re
         return;
       }
 
-      const actor = await actors.currentActor(accessToken);
+      // Un token que vence entre la verificación y esta RPC equivale a «sin sesión», no a un 401 global.
+      let actor;
+      try {
+        actor = await actors.currentActor(accessToken);
+      } catch (error) {
+        if (!(error instanceof PersistenceError && error.reason === 'jwt')) throw error;
+        next();
+        return;
+      }
       if (refreshToken) setSessionTokens(res, Object.freeze({ accessToken, refreshToken, expiresIn: 0 }));
       if (actor) {
         setPrincipal(res, Object.freeze({
