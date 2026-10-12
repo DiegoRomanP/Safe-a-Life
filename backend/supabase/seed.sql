@@ -1,0 +1,2 @@
+-- Datos sintéticos de `app.*` (sin filas de Auth). Se amplía por módulo.
+-- Todos los emails usan el dominio reservado *.example.test.

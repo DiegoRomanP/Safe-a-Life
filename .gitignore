@@ -19,3 +19,7 @@ test-results/
 .opencode/
 .atl/
 .agents/
+# Supabase local (artefactos y secretos sintéticos de pruebas)
+backend/supabase/.temp/
+backend/supabase/.branches/
+backend/.local/
