@@ -26,6 +26,8 @@ describe('catálogo de errores públicos', () => {
       BAD_REQUEST: 400,
       AUTHENTICATION_REQUIRED: 401,
       ACCESS_DENIED: 403,
+      MFA_REQUIRED: 403,
+      STEP_UP_REQUIRED: 403,
       RESOURCE_NOT_FOUND: 404,
       STATE_CONFLICT: 409,
       ACTION_UNAVAILABLE: 410,
@@ -55,7 +57,11 @@ describe('catálogo de errores públicos', () => {
     const spec = JSON.parse(readFileSync(new URL('../../../../docs/openapi.json', import.meta.url), 'utf8'));
     const responses = Object.entries(spec.components.responses as Record<string, any>);
 
-    expect(responses).toHaveLength(Object.keys(ERROR_STATUS).length);
+    // Los códigos 403 específicos (MFA_REQUIRED, STEP_UP_REQUIRED) no tienen ejemplo propio: usan el mensaje de ACCESS_DENIED.
+    expect(responses).toHaveLength(Object.keys(ERROR_STATUS).length - 2);
+    for (const code of ['MFA_REQUIRED', 'STEP_UP_REQUIRED'] as const) {
+      expect(toPublicError(new ApiError(code), 'x').body.error.message).toBe(toPublicError(new ApiError('ACCESS_DENIED'), 'x').body.error.message);
+    }
     for (const [name, response] of responses) {
       const example = response.content['application/json'].example.error;
       const actual = toPublicError(new ApiError(example.code), 'x').body.error;
