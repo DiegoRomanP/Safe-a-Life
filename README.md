@@ -62,9 +62,12 @@ Java/Spring Boot fue evaluado y descartado para esta fase.
   desde ella los tipos y snapshot del DTO backend, además de los tipos de web y
   mock; `npm run openapi:api:check` comprueba que estén sincronizados.
 - `apps/web` y `apps/mock-api` siguen siendo workspaces separados de tooling.
-  `npm run dev` inicia Vite y el mock; no inicia el scaffold legacy
-  `backend/index.js`. Los scripts conservados `dev`/`start` del paquete backend no
-  son comandos para validar una API productiva.
+  `npm run dev` inicia Vite y el mock; no inicia el backend.
+- `backend/src/server.ts` es el punto de entrada del backend: valida el entorno
+  (`backend/.env.example` lista los nombres) y compone `createApp`. Hoy solo
+  incluye middlewares comunes y un 404 seguro; no hay rutas de negocio hasta que
+  se ratifiquen sus operaciones. `backend/index.js` y `backend/config/` fueron
+  retirados por inseguros (CORS abierto, cliente global con la anon key).
 - La instalación se hace desde la raíz, cuyo `package-lock.json` es el único
   lockfile npm activo. Los pins exactos del manifiesto `backend` se conservan; el
   traslado no actualizó dependencias. Puede quedar una carpeta local ignorada
