@@ -6,7 +6,8 @@ export interface AppConfig {
   readonly port: number;
   readonly supabase: Readonly<{ url: string; anonKey: string; jwksUrl: string }>;
   readonly allowedOrigins: readonly string[];
-  readonly trustedProxies: readonly string[];
+  /** `false` = ningún proxy; número = saltos de confianza; lista = IP o CIDR. Se pasa tal cual a `trust proxy`. */
+  readonly trustedProxies: false | number | readonly string[];
   readonly secrets: Readonly<{ csrf: string; emailHmac: string; outboxKey: Buffer }>;
   readonly email: Readonly<{
     provider: EmailProvider;
@@ -49,7 +50,7 @@ export function parseEnv(source: Source): AppConfig {
   const anonKey = parseAnonKey(required(source, 'SUPABASE_ANON_KEY', reject), reject);
   const jwksUrl = parseHttpUrl('SUPABASE_JWKS_URL', required(source, 'SUPABASE_JWKS_URL', reject), reject);
   const allowedOrigins = parseOrigins(read(source, 'ALLOWED_ORIGINS'), reject);
-  const trustedProxies = parseIpList(read(source, 'TRUSTED_PROXIES'), reject);
+  const trustedProxies = parseTrustedProxies(read(source, 'TRUSTED_PROXIES'), reject);
 
   const csrf = parseSecret('CSRF_SECRET', required(source, 'CSRF_SECRET', reject), reject);
   const emailHmac = parseSecret('EMAIL_HMAC_SECRET', required(source, 'EMAIL_HMAC_SECRET', reject), reject);
@@ -66,7 +67,7 @@ export function parseEnv(source: Source): AppConfig {
     port,
     supabase: Object.freeze({ url: supabaseUrl, anonKey, jwksUrl }),
     allowedOrigins: Object.freeze(allowedOrigins),
-    trustedProxies: Object.freeze(trustedProxies),
+    trustedProxies,
     secrets: Object.freeze({ csrf, emailHmac, outboxKey }),
     email: Object.freeze({
       provider,
@@ -153,15 +154,30 @@ function parseOrigins(raw: string | undefined, reject: Reject): string[] {
   });
 }
 
-function parseIpList(raw: string | undefined, reject: Reject): string[] {
-  if (raw === undefined) return [];
-  return raw.split(',').map((entry) => entry.trim()).filter(Boolean).flatMap((entry) => {
-    if (isIP(entry) === 0) {
-      reject('TRUSTED_PROXIES');
-      return [];
-    }
-    return [entry];
-  });
+const MAX_PROXY_HOPS = 5;
+
+function isIpOrCidr(entry: string): boolean {
+  const [address, prefix, ...rest] = entry.split('/');
+  const family = isIP(address);
+  if (family === 0 || rest.length > 0) return false;
+  if (prefix === undefined) return true;
+  return /^\d{1,3}$/.test(prefix) && Number(prefix) <= (family === 4 ? 32 : 128);
+}
+
+function parseTrustedProxies(raw: string | undefined, reject: Reject): false | number | readonly string[] {
+  if (raw === undefined) return false;
+  if (/^\d+$/.test(raw)) {
+    const hops = Number(raw);
+    if (hops >= 1 && hops <= MAX_PROXY_HOPS) return hops;
+    reject('TRUSTED_PROXIES');
+    return false;
+  }
+  const entries = raw.split(',').map((entry) => entry.trim()).filter(Boolean);
+  if (entries.length === 0 || !entries.every(isIpOrCidr)) {
+    reject('TRUSTED_PROXIES');
+    return false;
+  }
+  return Object.freeze(entries);
 }
 
 function parseSecret(name: string, raw: string, reject: Reject): string {

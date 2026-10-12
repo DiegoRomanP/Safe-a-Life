@@ -35,7 +35,7 @@ function requestLogger(logger: Logger): express.RequestHandler {
 export function createApp({ config, logger, mount }: AppDependencies): express.Express {
   const app = express();
   app.disable('x-powered-by');
-  app.set('trust proxy', [...config.trustedProxies]);
+  app.set('trust proxy', typeof config.trustedProxies === 'object' ? [...config.trustedProxies] : config.trustedProxies);
 
   app.use(correlationIdMiddleware);
   app.use(requestLogger(logger));

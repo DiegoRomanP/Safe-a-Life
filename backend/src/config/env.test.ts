@@ -38,7 +38,7 @@ describe('parseEnv', () => {
 
     expect(config.port).toBe(3000);
     expect(config.allowedOrigins).toEqual([]);
-    expect(config.trustedProxies).toEqual([]);
+    expect(config.trustedProxies).toBe(false);
     expect(config.email.provider).toBe('fake');
     expect(config.email.resendApiKey).toBeUndefined();
     expect(config.email.inboxAllowlist).toEqual([]);
@@ -109,9 +109,17 @@ describe('parseEnv', () => {
     }
   });
 
-  it('acepta solo direcciones IP literales como proxies de confianza', () => {
+  it('acepta TRUSTED_PROXIES como número de saltos (1 a 5) o como lista de IP y CIDR', () => {
+    expect(parseEnv(validEnv({ TRUSTED_PROXIES: '1' })).trustedProxies).toBe(1);
+    expect(parseEnv(validEnv({ TRUSTED_PROXIES: '5' })).trustedProxies).toBe(5);
     expect(parseEnv(validEnv({ TRUSTED_PROXIES: '127.0.0.1, ::1' })).trustedProxies).toEqual(['127.0.0.1', '::1']);
-    expect(errorVariables(validEnv({ TRUSTED_PROXIES: 'proxy.example.test' }))).toEqual(['TRUSTED_PROXIES']);
+    expect(parseEnv(validEnv({ TRUSTED_PROXIES: '10.0.0.0/8, ::1/128' })).trustedProxies).toEqual(['10.0.0.0/8', '::1/128']);
+  });
+
+  it('rechaza TRUSTED_PROXIES con saltos fuera de rango, prefijos inválidos o nombres de host', () => {
+    for (const invalid of ['0', '6', '10.0.0.0/33', '::1/129', '10.0.0.0/', '10.0.0.0/-1', 'abc', 'proxy.example.test', '1,2']) {
+      expect(errorVariables(validEnv({ TRUSTED_PROXIES: invalid }))).toEqual(['TRUSTED_PROXIES']);
+    }
   });
 
   it('exige RESEND_API_KEY solo cuando el proveedor de email es resend', () => {
