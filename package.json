@@ -31,6 +31,7 @@
     "test": "npm run test --workspaces --if-present",
     "test:api": "npm run test --workspace @save-a-life/mock-api",
     "test:backend:dto": "npm run test --workspace backend",
+    "test:backend:db": "supabase test db --workdir backend",
     "test:contract": "node --test scripts/prism-contract.test.mjs && node scripts/test-prism-contract.mjs",
     "test:bruno": "node scripts/test-bruno.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
