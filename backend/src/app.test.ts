@@ -5,19 +5,11 @@ import type { Server } from 'node:http';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
 import { parseEnv } from './config/env.js';
+import { validEnvSource } from './test-support/env.js';
 import type { LogEntry, LogLevel, Logger } from './shared/observability/logger.js';
 
-function envBase(): Record<string, string> {
-  return {
-    SUPABASE_URL: 'https://proyecto.supabase.co',
-    SUPABASE_ANON_KEY: 'sb_publishable_test',
-    SUPABASE_JWKS_URL: 'https://proyecto.supabase.co/auth/v1/.well-known/jwks.json',
-    CSRF_SECRET: 'c'.repeat(40),
-    EMAIL_HMAC_SECRET: 'e'.repeat(40),
-    OUTBOX_KEYS: `k1:${Buffer.alloc(32, 9).toString('base64')}`,
-    OUTBOX_KEY_CURRENT: 'k1',
-    ALLOWED_ORIGINS: 'https://app.example.test',
-  };
+function envBase(): Record<string, string | undefined> {
+  return validEnvSource({ ALLOWED_ORIGINS: 'https://app.example.test' });
 }
 
 const config = parseEnv(envBase());

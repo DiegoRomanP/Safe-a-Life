@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { validEnvSource } from '../test-support/env.js';
 import { ConfigError, parseEnv } from './env.js';
 
 const OUTBOX_KEY = Buffer.alloc(32, 7).toString('base64');
@@ -7,16 +8,7 @@ const CSRF_SECRET = 'c'.repeat(40);
 const EMAIL_HMAC_SECRET = 'e'.repeat(40);
 
 function validEnv(overrides: Record<string, string | undefined> = {}): Record<string, string | undefined> {
-  return {
-    SUPABASE_URL: 'https://proyecto.supabase.co',
-    SUPABASE_ANON_KEY: 'sb_publishable_test',
-    SUPABASE_JWKS_URL: 'https://proyecto.supabase.co/auth/v1/.well-known/jwks.json',
-    CSRF_SECRET,
-    EMAIL_HMAC_SECRET,
-    OUTBOX_KEYS: `k1:${OUTBOX_KEY}`,
-    OUTBOX_KEY_CURRENT: 'k1',
-    ...overrides,
-  };
+  return validEnvSource({ CSRF_SECRET, EMAIL_HMAC_SECRET, OUTBOX_KEYS: `k1:${OUTBOX_KEY}`, ...overrides });
 }
 
 function errorVariables(env: Record<string, string | undefined>): readonly string[] {
@@ -138,9 +130,13 @@ describe('parseEnv', () => {
   });
 
   it('exige RESEND_API_KEY solo cuando el proveedor de email es resend', () => {
-    expect(errorVariables(validEnv({ EMAIL_PROVIDER: 'resend' }))).toEqual(['RESEND_API_KEY']);
+    expect(errorVariables(validEnv({ EMAIL_PROVIDER: 'resend' }))).toEqual(['RESEND_API_KEY', 'RESEND_WEBHOOK_SECRET']);
 
-    const config = parseEnv(validEnv({ EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test_key' }));
+    const config = parseEnv(validEnv({
+      EMAIL_PROVIDER: 'resend',
+      RESEND_API_KEY: 're_test_key',
+      RESEND_WEBHOOK_SECRET: `whsec_${Buffer.alloc(24, 1).toString('base64')}`,
+    }));
     expect(config.email.provider).toBe('resend');
     expect(config.email.resendApiKey).toBe('re_test_key');
   });
@@ -161,5 +157,44 @@ describe('parseEnv', () => {
     for (const invalid of ['0', '65536', '3000.5', 'abc']) {
       expect(errorVariables(validEnv({ PORT: invalid }))).toEqual(['PORT']);
     }
+  });
+});
+
+describe('parseEnv: variables de F1', () => {
+  it('rechaza una SUPABASE_SERVICE_ROLE_KEY ausente, igual a la anon o que no es una clave secreta', () => {
+    expect(errorVariables(validEnv({ SUPABASE_SERVICE_ROLE_KEY: undefined }))).toEqual(['SUPABASE_SERVICE_ROLE_KEY']);
+    expect(errorVariables(validEnv({ SUPABASE_SERVICE_ROLE_KEY: 'sb_publishable_test' }))).toEqual(['SUPABASE_SERVICE_ROLE_KEY']);
+    expect(parseEnv(validEnv({ SUPABASE_SERVICE_ROLE_KEY: fakeJwt({ role: 'service_role' }) })).supabase.serviceRoleKey).toContain('.');
+  });
+
+  it('exige CURSOR_SECRET distinto de los demás secretos', () => {
+    expect(errorVariables(validEnv({ CURSOR_SECRET: CSRF_SECRET }))).toEqual(['CURSOR_SECRET']);
+    expect(errorVariables(validEnv({ CURSOR_SECRET: 'corto' }))).toEqual(['CURSOR_SECRET']);
+  });
+
+  it('valida EMAIL_FROM, APP_PUBLIC_URL y la identidad del worker', () => {
+    expect(errorVariables(validEnv({ EMAIL_FROM: 'no-es-correo' }))).toEqual(['EMAIL_FROM']);
+    expect(errorVariables(validEnv({ APP_PUBLIC_URL: 'http://app.example.test' }))).toEqual(['APP_PUBLIC_URL']);
+    expect(parseEnv(validEnv({ APP_PUBLIC_URL: 'http://localhost:5173/' })).appPublicUrl).toBe('http://localhost:5173');
+    expect(errorVariables(validEnv({ WORKER_EMAIL: undefined, WORKER_PASSWORD: undefined }))).toEqual(['WORKER_EMAIL', 'WORKER_PASSWORD']);
+  });
+
+  it('acota WORKER_POLL_MS entre 1000 y 60000 con 5000 por defecto', () => {
+    expect(parseEnv(validEnv()).worker.pollMs).toBe(5000);
+    expect(parseEnv(validEnv({ WORKER_POLL_MS: '1000' })).worker.pollMs).toBe(1000);
+    for (const invalid of ['999', '60001', 'abc', '1.5']) {
+      expect(errorVariables(validEnv({ WORKER_POLL_MS: invalid }))).toEqual(['WORKER_POLL_MS']);
+    }
+  });
+
+  it('exige RESEND_WEBHOOK_SECRET con formato whsec_<base64> solo para el proveedor resend', () => {
+    const resend = { EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test' };
+    expect(errorVariables(validEnv(resend))).toEqual(['RESEND_WEBHOOK_SECRET']);
+    expect(errorVariables(validEnv({ ...resend, RESEND_WEBHOOK_SECRET: 'whsec_no base64!' }))).toEqual(['RESEND_WEBHOOK_SECRET']);
+
+    const secret = Buffer.alloc(24, 5);
+    const config = parseEnv(validEnv({ ...resend, RESEND_WEBHOOK_SECRET: `whsec_${secret.toString('base64')}` }));
+    expect(config.email.resendWebhookSecret?.equals(secret)).toBe(true);
+    expect(parseEnv(validEnv()).email.resendWebhookSecret).toBeUndefined();
   });
 });
