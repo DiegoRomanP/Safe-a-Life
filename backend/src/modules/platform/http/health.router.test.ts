@@ -15,7 +15,7 @@ afterEach(async () => {
 async function start(readiness: ReadinessGateway, timeoutMs = 2_000): Promise<string> {
   const app = express();
   app.use(correlationIdMiddleware);
-  registerHealthRoutes(app, { readiness, expectedSchemaVersion: '20261013000000', timeoutMs });
+  registerHealthRoutes(app, { readiness, expectedSchemaVersion: '20261013010000', timeoutMs });
   app.use(createErrorHandler());
   const server = app.listen(0, '127.0.0.1');
   servers.push(server);
@@ -44,7 +44,7 @@ describe('GET /health/live', () => {
 
 describe('GET /health/ready', () => {
   it('responde 200 cuando la versión de migración coincide', async () => {
-    const base = await start({ schemaVersion: async () => '20261013000000' });
+    const base = await start({ schemaVersion: async () => '20261013010000' });
 
     const response = await fetch(`${base}/health/ready`);
 

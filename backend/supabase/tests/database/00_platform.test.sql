@@ -57,9 +57,11 @@ select is((api.consume_rate_limit('login:ip', repeat('b', 64), 10, interval '15 
   'otro sujeto tiene su propio contador');
 
 -- anon ----------------------------------------------------------------------------
+create temp table expected_version as select max(version) as version from app.schema_version;
+grant select on expected_version to anon;
 set local role anon;
 select throws_ok($$select * from app.user_accounts$$, '42501', null, 'anon no lee tablas de app directamente');
-select is(api.readiness(), '20261013000000', 'readiness devuelve la última versión de migración');
+select is(api.readiness(), (select version from expected_version), 'readiness devuelve la última versión de migración');
 
 -- authenticated: superadmin AAL2 con step-up reciente ----------------------------------
 set local role authenticated;
