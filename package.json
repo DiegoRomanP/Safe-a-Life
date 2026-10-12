@@ -21,6 +21,7 @@
     "dev": "concurrently -k -n mock,web -c cyan,magenta \"npm:dev:mock\" \"npm:dev:web\"",
     "dev:mock": "npm run dev --workspace @save-a-life/mock-api",
     "dev:web": "npm run dev --workspace @save-a-life/web",
+    "dev:backend": "npm run dev --workspace backend",
     "mock:prism": "prism mock docs/openapi.json --host 127.0.0.1 --port 4010",
     "openapi:lint": "redocly lint docs/openapi.json",
     "audit:production": "npm audit --omit=dev",
