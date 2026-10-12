@@ -1,0 +1,265 @@
+# Contrato backend ratificado: crear necesidad en borrador
+
+| Campo | Valor |
+| --- | --- |
+| Estado | Contrato de `createHospitalNeed` ratificado; DTO y validación runtime existen; endpoint HTTP productivo de esta operación aún no implementado |
+| Fecha | 2026-10-04 |
+| Alcance | Solo `POST /api/v1/hospitals/me/needs`; el inventario OpenAPI global permanece en borrador |
+| Fuentes | [`openapi.json`](openapi.json), [`Api-Rules.md`](Api-Rules.md), [`1_Primeros_Alcances.md`](1_Primeros_Alcances.md) v1.2 y decisión T3 en [`plans/2026-10-04-backend-inside-out.md`](plans/2026-10-04-backend-inside-out.md) |
+
+Este documento fija el contrato y la aceptación futura de `createHospitalNeed`;
+no aprueba las operaciones vecinas ni reemplaza la línea base funcional. El
+workspace `backend` ya contiene los DTO y su validación runtime, pero no un
+endpoint funcional para esta operación ni la capa de aplicación/persistencia
+descrita aquí. El scaffold legacy `backend/index.js`/`backend/config/` se conserva
+pero no se considera ni se valida como servidor productivo. La salida es un DTO
+proyectado, no una entidad o fila de persistencia. Se usan únicamente
+identificadores y datos sintéticos.
+
+## DTO implementado y fuente canónica
+
+- Los cuatro archivos del slice viven en
+  `backend/src/modules/need-records/dto/`: `validators.ts`,
+  `validators.test.ts`, `openapi.ts` y `contract.generated.json`.
+- `validators.ts` expone `parseCreateNeedInput` y
+  `parseCreatedNeedEnvelope`. Valida los DTO en runtime con AJV 2020 y formatos;
+  rechaza forma/campos inválidos, no convierte tipos y normaliza a `10` el
+  `radiusKm` omitido. La validación de salida devuelve una proyección cerrada.
+  Solo valida el contrato declarado: no verifica grupo, elegibilidad ni seguridad
+  clínica. Este módulo no monta rutas Express ni accede a repositorios, Supabase o
+  Resend.
+- `docs/openapi.json` sigue siendo la única fuente contractual. El generador en
+  `scripts/generate-api-contract.mjs` produce los tipos `openapi.ts` de backend,
+  web y mock, además del snapshot `contract.generated.json` del DTO backend.
+  Editar esos artefactos a mano no sustituye al contrato canónico.
+- Instalar dependencias solo desde la raíz con `npm ci`; el único lock activo es
+  el `package-lock.json` raíz. `backend` es un workspace npm, no una instalación
+  independiente. Sus pins directos exactos se mantienen en `backend/package.json`
+  y el lock raíz, sin upgrades para este traslado.
+
+Comandos de referencia, ejecutados desde la raíz:
+
+| Comando | Alcance |
+| --- | --- |
+| `npm run test:backend:dto` | Pruebas de validación runtime de los DTO backend |
+| `npm run test:api:generator` | Pruebas del generador de artefactos OpenAPI |
+| `npm run openapi:api:check` | Comprueba que los artefactos generados estén sincronizados |
+| `npm run openapi:types` | Regenera los tipos backend/web/mock y el snapshot DTO backend |
+| `npm run typecheck --workspace backend` | Typecheck del workspace backend |
+| `npm run build --workspace backend` | Build DTO del workspace; no inicia el servidor |
+| `npm run lint --workspace backend` | Validación TypeScript configurada para backend |
+
+El `npm test` de raíz incluye los scripts `test` presentes en todos los
+workspaces, incluido `backend`. `npm run dev` solo inicia Vite y el mock web;
+no inicia el scaffold legacy `backend/index.js`. Los scripts `dev` y `start`
+conservados en `backend/package.json` no son instrucciones para validar una API
+HTTP productiva.
+
+## Alcance de la ratificación
+
+Se ratifican únicamente la creación en `borrador`, la entrada cerrada, el DTO de
+creación de diez campos, el conteo inicial cero, la sede activa propia, el radio
+entero opcional normalizado a 10, la urgencia informativa, el vencimiento desde
+creación UTC de PostgreSQL, el replay idempotente y el catálogo de errores de
+este caso. `GET /api/v1/hospitals/me/needs` y las otras 68 operaciones no quedan
+ratificadas por compartir ruta, recurso o schema.
+
+No se aprueban aquí la duración/refresh de sesión, el protocolo concreto de
+autenticación, nombres y mecanismo de cookie/CSRF, allowlist CORS/Origin,
+repositorio/driver, RPC, esquema SQL ni políticas/grants RLS. Las referencias
+`sessionCookie` y `csrfToken` del OpenAPI siguen siendo placeholders. La
+precondición funcional de identidad administrativa AAL2 sí aplica; su
+implementación real debe diseñarse antes del transporte protegido.
+
+## Operación HTTP futura
+
+La sección siguiente describe el contrato del transporte aún no implementado;
+no afirma que exista un handler ejecutable de `createHospitalNeed`.
+
+- Método y ruta: `POST /api/v1/hospitals/me/needs`.
+- Éxito: `201 Created`, `Content-Type: application/json` y envoltura `{ "data":
+  ... }`.
+- `Idempotency-Key` es metadata del transporte, requerida y fuera del JSON del
+  body; el schema canónico actual limita el valor a 16–255 caracteres. Se
+  conserva para reintentar la misma intención y nunca se registra.
+- La identidad/sesión y controles CSRF mostrados en OpenAPI no fijan la política
+  productiva pendiente. La autorización no se deriva de campos del request.
+
+### Entrada: body JSON cerrado
+
+Solo se admiten las siete propiedades de la tabla; `radiusKm` es la única
+opcional. `additionalProperties` es `false`.
+
+| Propiedad | Presencia | Tipo JSON / límites | Dominio |
+| --- | --- | --- | --- |
+| `component` | Requerida | string constante | Solo `RBC` |
+| `requiredBloodType` | Requerida | string enum | `O_NEG`, `O_POS`, `A_NEG`, `A_POS`, `B_NEG`, `B_POS`, `AB_NEG`, `AB_POS` |
+| `targetConfirmations` | Requerida | integer, 1–50 | Meta de intenciones de asistir, no unidades ni donaciones realizadas |
+| `siteId` | Requerida | string con formato UUID | Debe resolver a una sede activa del hospital derivado de la identidad |
+| `radiusKm` | Opcional | integer, 1–50; default contractual 10 | Si se omite, normalizar a `10` antes de calcular el hash canónico; omisión y `10` explícito representan la misma intención |
+| `urgency` | Requerida | string enum | `Normal`, `Urgente`, `Critica`; informativa, no cambia radio ni selección |
+| `expiresInHours` | Requerida | integer, 1–72 | Horas contadas desde la creación, no desde una activación posterior |
+
+No aceptar `hospitalId`, `role`, propietario/actor, `status`, campos de paciente,
+fecha o historial de última donación, ni propiedades adicionales. No se solicita,
+acepta, guarda ni infiere historia de donación.
+
+El cuerpo sintético existente en OpenAPI sirve como ejemplo de forma. En
+particular, no contiene coordenadas ni datos reales.
+
+### Salida: proyección exacta de creación
+
+El `201` contiene `{ "data": { ... } }`. `data` debe tener exactamente estos
+diez campos, sin propiedades adicionales. El schema general `NeedEnvelope` no
+cambia; el schema de respuesta de esta operación lo especializa inline mediante
+`allOf` para exigir `status = borrador` y `confirmedIntentCount = 0`.
+
+| Campo | Tipo / restricción de creación |
+| --- | --- |
+| `needId` | string UUID opaco |
+| `component` | string constante `RBC` |
+| `requiredBloodType` | Uno de los ocho valores de `BloodType` |
+| `targetConfirmations` | integer, 1–50 |
+| `confirmedIntentCount` | integer constante `0` |
+| `siteId` | string UUID de la sede validada |
+| `radiusKm` | integer, 1–50; `10` cuando se omitió en la entrada |
+| `urgency` | `Normal`, `Urgente` o `Critica` |
+| `status` | string constante `borrador` |
+| `expiresAt` | Fecha-hora RFC 3339 en UTC (`Z`) |
+
+No añadir al DTO `hospitalId`, `createdAt`, nombres de hospital/sede, actor,
+conteos de candidatos, invitaciones, paciente, coordenadas ni distancia. La sede
+solo se refleja por el `siteId` ya declarado en el contrato.
+
+## Frontera del DTO actual y caso de uso futuro sin HTTP
+
+La implementación actual termina en los DTO/validadores descritos arriba. Los
+puntos siguientes describen la frontera conceptual que deberá respetar un caso
+de uso futuro; no fijan nombres de clases, librerías o repositorios ni afirman
+que esa capa exista.
+
+- **Entrada de negocio:** los seis campos requeridos y `radiusKm` ya normalizado
+  (el caso de uso recibe el radio como entero efectivo, incluso cuando el body
+  omitió el campo).
+- **Contexto de autorización, separado del body:** identidad real validada,
+  actor con rol `admin_hospitalario`, AAL2, membresía hospitalaria vigente y
+  `hospitalId` derivado de esa membresía. La sede debe existir, estar activa y
+  pertenecer a ese hospital.
+- **Contexto de idempotencia, separado del body:** clave recibida en
+  `Idempotency-Key`, identificador de operación `createHospitalNeed`, actor y
+  hash de la intención canónica después de normalizar el radio. La clave no
+  sustituye la autorización ni forma parte del body.
+- **Salida de negocio:** proyección de necesidad con exactamente los diez
+  campos de la tabla anterior, sin la envoltura HTTP.
+- **Errores de dominio:** representan motivos del caso de uso sin asignar status
+  HTTP. Un futuro controlador traducirá solo categorías allowlisted al catálogo
+  seguro de esta especificación; nunca devolverá una excepción, fila SQL,
+  detalle de Supabase ni stack.
+
+Para la unicidad, la base de datos debe reclamar atómicamente la combinación de
+actor, operación y clave; almacenar/comparar el hash del payload normalizado y
+el resultado original. Misma clave y misma intención normalizada reproducen el
+resultado; misma clave con intención distinta o ejecución aún en curso produce
+`409`. El reclamo no puede implementarse como `SELECT` seguido de `INSERT` sin
+una restricción única.
+
+## Precondiciones, tiempo y efectos futuros
+
+1. Una identidad real autenticada corresponde a un admin hospitalario en AAL2.
+2. La membresía vigente determina el hospital del actor; ningún campo del cliente
+   puede cambiar rol, hospital o propietario.
+3. `siteId` debe ser UUID bien formado y corresponder a una sede sintética
+   sembrada, activa y propia. Sede inexistente, ajena o inactiva produce la misma
+   respuesta `422` genérica, con el mismo código y mensaje; no se permite
+   enumerar sedes.
+4. Para una creación nueva, PostgreSQL fija `created_at` y calcula
+   `expires_at = created_at + expiresInHours` en UTC, dentro de la creación
+   atómica. El `expiresAt` público es ese instante serializado en RFC 3339/UTC.
+   Activar posteriormente no recalcula ni extiende el vencimiento. La ruta de
+   activación no queda ratificada por este documento.
+5. En una transacción futura se confirman juntos: necesidad `borrador`, resultado
+   idempotente original y evento de auditoría minimizado. La auditoría usa IDs
+   opacos, actor, evento, recurso, resultado y fecha; no guarda body ni valores
+   sensibles.
+6. La creación no activa, no ejecuta matching, no calcula candidatos, no crea
+   invitaciones, no escribe outbox y no envía correo.
+7. Replay de la misma clave e intención normalizada devuelve el `201` original y
+   el mismo `expiresAt`, incluso si ese instante ya pasó; no crea otra necesidad,
+   no vuelve a calcular el plazo y no reactiva el recurso.
+
+No se define aquí precedencia de carreras entre operaciones distintas (AP-04),
+TTL/sesiones, driver, política RLS, polígono de Lima ni retención específica de
+la clave fuera de las reglas aprobadas por RNF-REL-01/02.
+
+## Errores HTTP seguros
+
+Todas las respuestas de error usan `application/json` y exactamente la forma
+`{ "error": { "code": "...", "message": "...", "correlationId": "..." } }`
+según `ErrorResponse`. `correlationId` es opaco; no se incluyen detalles de
+validación que expongan datos protegidos, body, clave idempotente, SQL, proveedor
+ni stack. El controlador futuro es responsable del mapeo; el dominio no depende
+de HTTP.
+
+| HTTP | Caso para este POST | Código / mensaje público | Regla de privacidad |
+| --- | --- | --- | --- |
+| `400` | JSON inválido o shape inválido: no-objeto, faltan requeridos, hay campos extra, formato UUID incorrecto, tipo equivocado, decimal donde se exige integer o número no finito/`NaN` | `BAD_REQUEST` / `Solicitud malformada.` | Sin valores, lista de propiedades protegidas ni mensaje del parser |
+| `401` | Sesión/identidad ausente, inválida o vencida | `AUTHENTICATION_REQUIRED` / `La sesión no está vigente.` | No exponer causa criptográfica ni estado de cuenta |
+| `403` | Actor autenticado sin rol/permisos requeridos, AAL2 o membresía hospitalaria vigente | `ACCESS_DENIED` / `La acción no está permitida.` | No exponer hospital o sede asociados a otras personas |
+| `409` | Clave repetida con hash normalizado distinto o intento concurrente todavía en curso | `STATE_CONFLICT` / `La operación entra en conflicto con el estado actual.` | No devolver clave, hash ni resultado ajeno |
+| `422` | JSON con shape correcto, pero valor fuera del dominio/límites; también sede inexistente, ajena o inactiva | `VALIDATION_FAILED` / `Uno o más valores no cumplen las reglas del campo.` | Los tres estados de sede usan idénticos status, código y mensaje; no enumerar existencia |
+| `500` | Fallo interno no clasificado | `INTERNAL_ERROR` / `No se pudo completar la solicitud.` | Rollback cuando aplique; nunca devolver diagnóstico interno |
+
+No añadir `404`, `429` u otros statuses al catálogo de este POST. El status `400`
+se reserva a sintaxis/forma y `422` a semántica; ningún error incluye datos de
+paciente ni afirma elegibilidad clínica. Las respuestas de error llevan siempre
+un `correlationId` opaco.
+
+## Criterios de aceptación para implementación futura
+
+El checklist es para integrar DTO, transporte y caso de uso; los criterios
+siguen pendientes como aceptación de la API HTTP completa aunque la validación
+runtime de DTO ya exista.
+
+- [ ] Aceptar `RBC`, los ocho enums sanguíneos y las tres urgencias exactas; meta
+      y radio aceptan solo enteros en sus límites; `expiresInHours` acepta solo
+      entero 1–72.
+- [ ] Confirmar que string para número, fracción para integer, `NaN` (JSON
+      inválido), propiedad extra y cada campo expresamente prohibido no se
+      persisten; separar `400` de `422` según el catálogo.
+- [ ] Comprobar que radio omitido y radio `10` explícito normalizan al mismo
+      payload/hash y producen el valor de salida `10`.
+- [ ] Con identidad y membresía válidas, usar una sede propia activa de los seeds
+      sintéticos; demostrar que otra sede/rol/hospital no se puede suplantar
+      desde body.
+- [ ] Hacer que sede inexistente, ajena e inactiva devuelvan exactamente el
+      mismo `422`, código y mensaje, sin diferencias que permitan enumeración.
+- [ ] Comprobar proyección `201` cerrada con exactamente diez campos, estado
+      `borrador`, conteo `0`, envoltura `data` y fecha `expiresAt` UTC; rechazar
+      columnas/campos no aprobados.
+- [ ] Con reloj de PostgreSQL controlado, fijar el vencimiento desde la creación;
+      una activación futura no lo extiende. Replay retorna el vencimiento
+      originalmente almacenado sin recomputar.
+- [ ] Repeticiones concurrentes de la misma clave/intención producen un solo
+      recurso y resultado; una clave reutilizada con otra intención o en curso
+      produce `409`. Verificar atomicidad de necesidad, registro idempotente y
+      auditoría, incluido rollback ante fallo intermedio.
+- [ ] Confirmar ausencia de matching, invitaciones, outbox, correo y datos de
+      paciente; confirmar que auditoría, logs y errores no registran body,
+      `Idempotency-Key`, PII ni datos sensibles.
+
+## Pendientes antes de aceptación backend/HTTP
+
+- Implementar el endpoint HTTP y el caso de uso dentro del workspace backend,
+  consumiendo los DTO/validadores existentes; el scaffolding Express legacy no
+  constituye ese endpoint.
+- Diseñar y probar identidad Supabase real, AAL2, autorización server-side y RLS
+  con acceso directo negativo antes de publicar HTTP protegido.
+- Cerrar de forma independiente sesión/refresh, CSRF, CORS/Origin y decisiones
+  de driver/transacción; esta ratificación no las resuelve.
+- Ejecutar pruebas unitarias/de integración contra PostgreSQL/Supabase local,
+  escenarios de rollback/concurrencia y Bruno contra el backend real. Prism,
+  mock, readiness y auth de demo no prueban esos controles.
+- Obtener revisión independiente de `reviewer-back` y los gates de
+  seguridad/privacidad aplicables; la salida de este documento no es aprobación.
+- Mantener los datos sintéticos y pendiente la validación clínica profesional y
+  legal/de privacidad aplicable en Perú antes de cualquier uso real.

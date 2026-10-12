@@ -4,7 +4,7 @@
     "title": "Save a Life API (borrador)",
     "version": "0.2.0-draft",
     "summary": "Contrato inicial propuesto para revisar en Swagger Editor.",
-    "description": "Contrato Design-First completo propuesto para frontend y mocks, no una API productiva implementada. Sus rutas y convenciones son borrador de Sprint 0. Usa exclusivamente ejemplos sintéticos. AP-02, AP-04, AP-06, AP-07 y AP-08 siguen pendientes; no inferir resultados productivos para esas reglas.",
+    "description": "Contrato Design-First para frontend y mocks, no una API productiva implementada. El estado global sigue en borrador y requiere aprobación para el inventario restante; solo POST /api/v1/hospitals/me/needs (createHospitalNeed) tiene ratificación acotada para implementación, registrada en la extensión de operación x-ratification. Esa ratificación no significa que el endpoint exista. Usa exclusivamente ejemplos sintéticos. AP-02, AP-04, AP-06, AP-07 y AP-08 siguen pendientes; no inferir resultados productivos para esas reglas.",
     "license": { "name": "MIT", "identifier": "MIT" },
     "x-contract-status": "draft",
     "x-sprint0-approval-required": true
@@ -758,6 +758,45 @@
         }
       }
     },
+    "/api/v1/hospitals/me/sites": {
+      "get": {
+        "tags": ["Hospital"],
+        "operationId": "listOwnHospitalSites",
+        "summary": "Lista sedes activas propias para seleccionar una necesidad",
+        "description": "Solo un admin_hospitalario autenticado en AAL2 con membresía protegida vigente puede consultar esta colección. El servidor deriva el hospital de la identidad actual y la membresía; el hospital debe estar activo y autorizado. Solo devuelve sedes propias activas y aprobadas, filtradas por esa institución en la consulta, sin selectores de hospital del cliente. Revalida la membresía en cada lectura y al crear una necesidad, junto con la pertenencia y vigencia de la sede elegida; esta consulta no sustituye esa revalidación ni cambia el catálogo existente de createHospitalNeed, incluido su 422 uniforme para sede inexistente, ajena o inactiva (RF-ORG-01, RF-NEC-05, RNF-SEC-05/07/08). Solo admite limit y cursor; parámetros desconocidos o inválidos producen 400. El orden estable es siteId ascendente; el cursor es opaco, sin PII y scoped por el servidor al hospital autorizado y a ese orden. Sin sedes elegibles devuelve 200 con items vacío y nextCursor null. Operación draft, no ratificada ni implementada.",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
+        "responses": {
+          "200": {
+            "description": "Página minimizada de sedes propias activas y aprobadas; la ausencia de sedes devuelve una página vacía, no un error.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OwnHospitalSiteListEnvelope" },
+                "examples": {
+                  "vacio": {
+                    "summary": "Sin sedes propias activas y aprobadas",
+                    "value": { "data": { "items": [], "pagination": { "nextCursor": null } } }
+                  },
+                  "pagina": {
+                    "summary": "Página de sedes propias seleccionables",
+                    "value": {
+                      "data": {
+                        "items": [{ "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261", "publicName": "Sede Centro Demo" }],
+                        "pagination": { "nextCursor": "cursor-sintetico-sedes-siguiente" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalServerError" }
+        }
+      }
+    },
     "/api/v1/hospitals/me/needs": {
       "get": {
         "tags": ["Hospital"],
@@ -820,7 +859,16 @@
         "tags": ["Hospital"],
         "operationId": "createHospitalNeed",
         "summary": "Crea una necesidad de glóbulos rojos",
-        "description": "El componente permitido es RBC. targetConfirmations representa una meta de intenciones de asistir, nunca unidades ni donaciones realizadas. La sede debe estar activa y pertenecer al hospital autenticado. La urgencia es informativa y no altera la selección (RF-NEC-01 a RF-NEC-05).",
+        "description": "Operación ratificada únicamente para implementar la creación de una necesidad en borrador; no ratifica las demás operaciones ni implica que exista una API real. El componente permitido es RBC. targetConfirmations representa una meta de intenciones de asistir, nunca unidades ni donaciones realizadas. La sede debe estar activa y pertenecer al hospital autenticado. La urgencia es informativa y no altera la selección (RF-NEC-01 a RF-NEC-05). El cuerpo es cerrado: no admite hospital, rol, propietario, status, datos de paciente ni fecha/historial de donación. Si se omite radiusKm, la intención se normaliza a 10 antes de calcular el hash canónico; omitirlo y enviar 10 son equivalentes para idempotencia. expiresAt se calcula desde la creación con el reloj UTC de PostgreSQL; activar después no lo extiende. Un replay de la misma clave e intención normalizada devuelve el resultado original, incluido expiresAt, sin recalcular el plazo.",
+        "x-ratification": {
+          "status": "ratified-for-implementation",
+          "date": "2026-10-04",
+          "scope": "Solo POST /api/v1/hospitals/me/needs (createHospitalNeed): cuerpo cerrado indicado por el schema, sitio activo del hospital derivado de la identidad, radio entero opcional normalizado a 10, creación en borrador, salida de creación con confirmedIntentCount=0 y expiresAt desde creación UTC de PostgreSQL con replay original. No ratifica GET de necesidades ni otra operación; no afirma implementación ni decide sesión, TTL de sesión, CSRF, CORS, driver, RLS ni persistencia concreta.",
+          "references": [
+            "docs/plans/2026-10-04-backend-inside-out.md — decisión T3 y alcance T4a (2026-10-04)",
+            "Decisión explícita de usuario registrada en T3: necesidades en borrador, apps/api con Supabase local y vencimiento desde creación"
+          ]
+        },
         "security": [
           {
             "sessionCookie": [],
@@ -849,10 +897,34 @@
         },
         "responses": {
           "201": {
-            "description": "Necesidad creada en borrador.",
+            "description": "Creación idempotente de una necesidad en borrador. expiresAt es una fecha-hora RFC 3339 en UTC calculada desde la creación por PostgreSQL; activar no extiende el plazo y replay devuelve este resultado original.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/NeedEnvelope" },
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/NeedEnvelope" },
+                    {
+                      "type": "object",
+                      "required": ["data"],
+                      "properties": {
+                        "data": {
+                          "allOf": [
+                            { "$ref": "#/components/schemas/Need" },
+                            {
+                              "type": "object",
+                              "required": ["status", "confirmedIntentCount"],
+                              "properties": {
+                                "status": { "type": "string", "const": "borrador" },
+                                "confirmedIntentCount": { "type": "integer", "const": 0 },
+                                "expiresAt": { "type": "string", "format": "date-time", "pattern": "Z$" }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
                 "example": {
                   "data": {
                     "needId": "6f01119f-152e-46d6-b997-cb7de7c64211",
@@ -972,7 +1044,7 @@
                           "batchId": "e2eaec30-1f23-40c7-b986-21395b46a531",
                           "createdAt": "2026-10-01T18:00:00Z",
                           "createdInvitationCount": 8,
-                          "deliveryCounts": { "pendiente": 0, "enviada": 8, "entregada": 6, "fallida": 0 }
+                          "deliveryCounts": { "pendiente": 0, "enviada": 2, "entregada": 6, "fallida": 0 }
                         }],
                         "pagination": { "nextCursor": "cursor-sintetico-pagina-siguiente" }
                       }
@@ -1218,10 +1290,21 @@
         "tags": ["Hospital"],
         "operationId": "withdrawOwnRecognitionPolicy",
         "summary": "Retira la oferta pública",
+        "description": "Solo retira la política del hospital derivado de la identidad vigente y mientras no esté suspendida. Sin cuerpo: expectedVersion es un query requerido, entero no negativo; ausente o inválido responde 400 uniforme. El retiro aplicado compara expectedVersion con la versión vigente, incrementa la versión y rechaza una versión obsoleta con 409. La intención canónica idempotente incluye expectedVersion y se vincula a actor, operación e Idempotency-Key: misma clave e intención reproducen el 204 original sin incrementar otra vez; intención distinta o ejecución en curso responde 409.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
-        "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
+        "parameters": [
+          { "$ref": "#/components/parameters/IdempotencyKey" },
+          {
+            "name": "expectedVersion",
+            "in": "query",
+            "required": true,
+            "description": "Versión esperada de la política propia para el retiro con control de concurrencia optimista.",
+            "schema": { "type": "integer", "minimum": 0 }
+          }
+        ],
         "responses": {
           "204": { "description": "Oferta retirada; conserva auditoría/versionado." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "409": { "$ref": "#/components/responses/Conflict" }
@@ -1617,7 +1700,7 @@
         "tags": ["Superadmin"],
         "operationId": "getContextualDonorData",
         "summary": "Lee PII exclusivamente bajo grant contextual",
-        "description": "No permite búsqueda general. Grant debe estar vigente y ligado a superadmin, solicitud, campos y acción.",
+        "description": "No permite búsqueda general. currentValues se limita al grant vigente ligado al actor superadmin, solicitud, donante, acción concreta y campos autorizados, en intersección con los campos necesarios para esa solicitud. proposedValues se limita al grant vigente ligado al actor superadmin, solicitud, donante, acción concreta y campos autorizados, en intersección con los campos necesarios para esa solicitud. El servidor resuelve al actor desde la identidad validada y al donante desde la solicitud, sin aceptar un selector alternativo de donante. El acceso conserva los controles privilegiados de RNF-SEC-05/06 y la vigencia máxima de 10 minutos del grant; esta proyección no fija un mapping nuevo GET→review o POST→execute ni cambia los endpoints de grants o ejecuciones. Cada proyección solo permite name, email y declaredBloodType como campos opcionales autorizados; sin propuesta, incluida una eliminación sin valores propuestos, proposedValues es un objeto vacío. newEmail de la propuesta se proyecta como email, sin añadir otra categoría ni propiedad al DTO. Resúmenes, auditoría, errores y telemetría permanecen sin valores PII anteriores o propuestos.",
         "security": [{ "sessionCookie": [] }],
         "parameters": [{ "$ref": "#/components/parameters/RequestId" }, { "$ref": "#/components/parameters/AccessGrantHeader" }],
         "responses": {
@@ -1785,11 +1868,35 @@
         "tags": ["Superadmin"],
         "operationId": "moderateRecognitionPolicy",
         "summary": "Suspende o levanta suspensión con motivo auditable",
+        "description": "Solo el superadmin puede aplicar publicada -> suspendida o suspendida -> sin_publicar con motivo auditable. Levantar la suspensión no republica la oferta; una nueva publicación corresponde al admin del hospital. Cada mutación compara expectedVersion con la versión vigente, incrementa la versión y rechaza una versión obsoleta con 409.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/HospitalId" }, { "$ref": "#/components/parameters/IdempotencyKey" }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ModerateRecognitionPolicyRequest" }, "example": { "status": "suspendida", "reason": "Revisión sintética para el ejemplo.", "expectedVersion": 2 } } } },
         "responses": {
-          "200": { "description": "Moderación aplicada y auditada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RecognitionPolicyEnvelope" } } } },
+          "200": {
+            "description": "Moderación aplicada y auditada; estado suspendida o sin_publicar, nunca una republicación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/RecognitionPolicyEnvelope" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "status": { "type": "string", "enum": ["suspendida", "sin_publicar"] }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": { "data": { "hospitalId": "a8b51767-5c30-41fb-bf7a-f90250f9649c", "hospitalName": "Hospital Demo", "status": "suspendida", "offeredItems": ["refrigerio", "diploma"], "version": 3, "updatedAt": "2026-10-01T18:10:00Z" } }
+              }
+            }
+          },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
@@ -2080,13 +2187,14 @@
       "CreateNeedRequest": {
         "type": "object",
         "additionalProperties": false,
+        "description": "Cuerpo de creación cerrado. El servidor deriva actor, rol, hospital y propietario; no se aceptan status, datos de paciente ni fecha/historial de donación.",
         "required": ["component", "requiredBloodType", "targetConfirmations", "siteId", "urgency", "expiresInHours"],
         "properties": {
           "component": { "type": "string", "const": "RBC" },
           "requiredBloodType": { "$ref": "#/components/schemas/BloodType" },
           "targetConfirmations": { "type": "integer", "minimum": 1, "maximum": 50, "description": "Meta de intenciones de asistir; no son unidades, volumen ni donaciones realizadas." },
           "siteId": { "type": "string", "format": "uuid", "description": "Debe identificar una sede activa del hospital autenticado." },
-          "radiusKm": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 },
+          "radiusKm": { "type": "integer", "minimum": 1, "maximum": 50, "description": "Opcional; si se omite se normaliza a 10 antes del hash idempotente, igual que enviar 10 explícitamente." },
           "urgency": { "$ref": "#/components/schemas/Urgency" },
           "expiresInHours": { "type": "integer", "minimum": 1, "maximum": 72 }
         }
@@ -2164,18 +2272,19 @@
       },
       "InvitationBatchRecord": {
         "type": "object",
+        "description": "Registro mínimo de un lote con conteos de entrega por estado actual; no contiene intentos acumulados ni datos de donantes.",
         "additionalProperties": false,
         "required": ["batchId", "createdAt", "createdInvitationCount", "deliveryCounts"],
         "properties": {
           "batchId": { "type": "string", "format": "uuid" },
           "createdAt": { "type": "string", "format": "date-time" },
           "createdInvitationCount": { "type": "integer", "minimum": 0, "maximum": 50 },
-          "deliveryCounts": { "type": "object", "additionalProperties": false, "required": ["pendiente", "enviada", "entregada", "fallida"], "properties": { "pendiente": { "type": "integer", "minimum": 0 }, "enviada": { "type": "integer", "minimum": 0 }, "entregada": { "type": "integer", "minimum": 0 }, "fallida": { "type": "integer", "minimum": 0 } } }
+          "deliveryCounts": { "type": "object", "description": "Cuatro conteos de estado actual mutuamente excluyentes: cada invitación del lote pertenece a un solo estado y su suma es createdInvitationCount. enviada excluye las invitaciones ya entregadas; no son acumulados ni conteos de intentos. AP-02 sigue pendiente respecto de la relación operativa entre estado agregado e intentos y de cuándo un error transitorio pasa a fallida; esta proyección no define reintentos ni umbrales de fallo terminal.", "additionalProperties": false, "required": ["pendiente", "enviada", "entregada", "fallida"], "properties": { "pendiente": { "type": "integer", "minimum": 0 }, "enviada": { "type": "integer", "minimum": 0 }, "entregada": { "type": "integer", "minimum": 0 }, "fallida": { "type": "integer", "minimum": 0 } } }
         }
       },
       "InvitationBatchListEnvelope": {
         "type": "object", "additionalProperties": false, "required": ["data"],
-        "example": { "data": { "items": [{ "batchId": "e2eaec30-1f23-40c7-b986-21395b46a531", "createdAt": "2026-10-01T18:00:00Z", "createdInvitationCount": 8, "deliveryCounts": { "pendiente": 0, "enviada": 8, "entregada": 6, "fallida": 0 } }], "pagination": { "nextCursor": null } } },
+        "example": { "data": { "items": [{ "batchId": "e2eaec30-1f23-40c7-b986-21395b46a531", "createdAt": "2026-10-01T18:00:00Z", "createdInvitationCount": 8, "deliveryCounts": { "pendiente": 0, "enviada": 2, "entregada": 6, "fallida": 0 } }], "pagination": { "nextCursor": null } } },
         "properties": { "data": { "type": "object", "additionalProperties": false, "required": ["items", "pagination"], "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/InvitationBatchRecord" } }, "pagination": { "$ref": "#/components/schemas/Pagination" } } } }
       },
       "OpaqueHospitalResponse": {
@@ -2237,7 +2346,7 @@
       "CsrfTokenEnvelope": {
         "type": "object", "additionalProperties": false, "required": ["data"],
         "example": { "data": { "token": "synthetic-csrf-token-for-local-demo-only" } },
-        "properties": { "data": { "type": "object", "additionalProperties": false, "required": ["token"], "properties": { "token": { "type": "string", "minLength": 32, "maxLength": 512, "writeOnly": true } } } }
+        "properties": { "data": { "type": "object", "additionalProperties": false, "required": ["token"], "properties": { "token": { "type": "string", "minLength": 32, "maxLength": 512, "readOnly": true } } } }
       },
       "ActorRole": {
         "type": "string",
@@ -2566,6 +2675,32 @@
         "type": "object", "example": { "data": { "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261", "hospitalId": "a8b51767-5c30-41fb-bf7a-f90250f9649c", "publicName": "Sede Centro", "publicAddress": "Lima Metropolitana", "isActive": true, "isApproved": true } }, "additionalProperties": false, "required": ["data"],
         "properties": { "data": { "$ref": "#/components/schemas/Site" } }
       },
+      "OwnHospitalSite": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["siteId", "publicName"],
+        "description": "Proyección mínima para el admin del hospital: solo una sede propia activa y aprobada, no la entidad administrativa Site.",
+        "properties": {
+          "siteId": { "type": "string", "format": "uuid" },
+          "publicName": { "type": "string", "minLength": 1, "maxLength": 160 }
+        }
+      },
+      "OwnHospitalSiteListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["items", "pagination"],
+            "properties": {
+              "items": { "type": "array", "maxItems": 100, "items": { "$ref": "#/components/schemas/OwnHospitalSite" } },
+              "pagination": { "$ref": "#/components/schemas/Pagination" }
+            }
+          }
+        }
+      },
       "SiteListEnvelope": {
         "type": "object", "example": { "data": { "items": [{ "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261", "hospitalId": "a8b51767-5c30-41fb-bf7a-f90250f9649c", "publicName": "Sede Centro", "publicAddress": "Lima Metropolitana", "isActive": true, "isApproved": true }] } }, "additionalProperties": false, "required": ["data"],
         "properties": { "data": { "type": "object", "additionalProperties": false, "required": ["items"], "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Site" } } } } }
@@ -2608,8 +2743,41 @@
         "properties": { "data": { "type": "object", "additionalProperties": false, "required": ["grantId", "requestId", "action", "allowedFields", "expiresAt"], "properties": { "grantId": { "type": "string", "format": "uuid" }, "requestId": { "type": "string", "format": "uuid" }, "action": { "type": "string", "enum": ["review", "execute"] }, "allowedFields": { "type": "array", "items": { "type": "string", "enum": ["name", "email", "declaredBloodType"] } }, "expiresAt": { "type": "string", "format": "date-time" } } } }
       },
       "ContextualDonorDataEnvelope": {
-        "type": "object", "example": { "data": { "name": "Donante Demo", "declaredBloodType": "O_POS" } }, "additionalProperties": false, "required": ["data"],
-        "properties": { "data": { "type": "object", "additionalProperties": false, "properties": { "name": { "type": "string", "maxLength": 120 }, "email": { "type": "string", "format": "email", "maxLength": 254 }, "declaredBloodType": { "$ref": "#/components/schemas/BloodType" } } } }
+        "type": "object",
+        "description": "Comparación contextual minimizada para una solicitud concreta; no agrega identificadores ni categorías de datos y no se reutiliza en resúmenes o auditoría.",
+        "example": { "data": { "currentValues": { "name": "Donante Demo" }, "proposedValues": { "name": "Donante Demo Corregido" } } },
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["currentValues", "proposedValues"],
+            "description": "Ambas proyecciones se incluyen siempre como objetos cerrados; solo contienen la intersección de campos autorizados y necesarios para la solicitud.",
+            "properties": {
+              "currentValues": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "currentValues se limita al grant vigente ligado al actor superadmin, solicitud, donante, acción concreta y campos autorizados, en intersección con los campos necesarios para la solicitud: valores actuales persistidos, solo de campos autorizados presentes.",
+                "properties": {
+                  "name": { "type": "string", "maxLength": 120 },
+                  "email": { "type": "string", "format": "email", "maxLength": 254 },
+                  "declaredBloodType": { "$ref": "#/components/schemas/BloodType" }
+                }
+              },
+              "proposedValues": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "proposedValues se limita al grant vigente ligado al actor superadmin, solicitud, donante, acción concreta y campos autorizados, en intersección con los campos necesarios para la solicitud: solo valores propuestos presentes, proyectando newEmail como email y devolviendo un objeto vacío cuando no hay propuesta, incluida una eliminación sin valores propuestos.",
+                "properties": {
+                  "name": { "type": "string", "maxLength": 120 },
+                  "email": { "type": "string", "format": "email", "maxLength": 254 },
+                  "declaredBloodType": { "$ref": "#/components/schemas/BloodType" }
+                }
+              }
+            }
+          }
+        }
       },
       "ConfigurationEnvelope": {
         "type": "object", "example": { "data": { "finalDemoAt": null, "isImmutable": false } }, "additionalProperties": false, "required": ["data"],
@@ -2629,7 +2797,8 @@
       },
       "ModerateRecognitionPolicyRequest": {
         "type": "object", "additionalProperties": false, "required": ["status", "reason", "expectedVersion"],
-        "properties": { "status": { "type": "string", "enum": ["suspendida", "publicada"] }, "reason": { "type": "string", "minLength": 1, "maxLength": 300 }, "expectedVersion": { "type": "integer", "minimum": 0 } }
+        "description": "suspendida solicita publicada -> suspendida; sin_publicar solicita suspendida -> sin_publicar. Levantar la suspensión no republica la oferta. La publicación posterior corresponde al admin del hospital, no a esta moderación.",
+        "properties": { "status": { "type": "string", "enum": ["suspendida", "sin_publicar"] }, "reason": { "type": "string", "minLength": 1, "maxLength": 300 }, "expectedVersion": { "type": "integer", "minimum": 0 } }
       }
     },
     "responses": {

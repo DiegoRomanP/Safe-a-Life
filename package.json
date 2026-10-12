@@ -14,7 +14,8 @@
   },
   "workspaces": [
     "apps/mock-api",
-    "apps/web"
+    "apps/web",
+    "backend"
   ],
   "scripts": {
     "dev": "concurrently -k -n mock,web -c cyan,magenta \"npm:dev:mock\" \"npm:dev:web\"",
@@ -23,9 +24,12 @@
     "mock:prism": "prism mock docs/openapi.json --host 127.0.0.1 --port 4010",
     "openapi:lint": "redocly lint docs/openapi.json",
     "audit:production": "npm audit --omit=dev",
-    "openapi:types": "openapi-typescript docs/openapi.json -o apps/web/src/api/openapi.ts && openapi-typescript docs/openapi.json -o apps/mock-api/src/api/openapi.ts",
+    "openapi:types": "node scripts/generate-api-contract.mjs --write",
+    "openapi:api:check": "node scripts/generate-api-contract.mjs --check",
+    "test:api:generator": "node --test scripts/generate-api-contract.test.mjs",
     "test": "npm run test --workspaces --if-present",
     "test:api": "npm run test --workspace @save-a-life/mock-api",
+    "test:backend:dto": "npm run test --workspace backend",
     "test:contract": "node --test scripts/prism-contract.test.mjs && node scripts/test-prism-contract.mjs",
     "test:bruno": "node scripts/test-bruno.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
@@ -34,6 +38,8 @@
     "test:e2e": "node scripts/test-e2e.mjs"
   },
   "devDependencies": {
+    "ajv": "8.20.0",
+    "ajv-formats": "2.1.1",
     "@playwright/test": "1.63.0",
     "@redocly/cli": "2.57.0",
     "@stoplight/prism-cli": "5.16.0",
