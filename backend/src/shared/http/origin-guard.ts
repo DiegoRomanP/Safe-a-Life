@@ -11,7 +11,7 @@ const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 export function originGuard(allowedOrigins: readonly string[]): RequestHandler {
   const allowed = new Set(allowedOrigins);
 
-  return (req, _res, next) => {
+  return (req, res, next) => {
     if (!UNSAFE_METHODS.has(req.method)) {
       next();
       return;
@@ -19,6 +19,7 @@ export function originGuard(allowedOrigins: readonly string[]): RequestHandler {
 
     const origin = req.get('origin');
     if (origin !== undefined && !allowed.has(origin)) {
+      res.locals.rejectReason = 'origin';
       next(new ApiError('ACCESS_DENIED'));
       return;
     }

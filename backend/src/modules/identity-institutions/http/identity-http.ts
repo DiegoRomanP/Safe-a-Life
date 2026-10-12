@@ -24,7 +24,8 @@ export function guardsFor(secrets: HttpSecrets) {
     sessionWrite: [requireSession, csrf] as RequestHandler[],
     superadminRead,
     superadminWrite: [...superadminRead, csrf] as RequestHandler[],
-    superadminStepUp: [...superadminRead, requireStepUp(), csrf] as RequestHandler[],
+    // CSRF antes que el step-up: sin CSRF válido la respuesta es ACCESS_DENIED, no STEP_UP_REQUIRED (ADR-004).
+    superadminStepUp: [...superadminRead, csrf, requireStepUp()] as RequestHandler[],
     adminRead,
     adminWrite: [...adminRead, csrf] as RequestHandler[],
   });

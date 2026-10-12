@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Principal } from '../../../shared/auth/principal.js';
 import type { ActorInfo, SessionGateway, TokenPair } from '../../../shared/auth/session-ports.js';
+import { deriveHmacKeyring } from '../../../shared/crypto/hmac.js';
 import { ApiError } from '../../../shared/http/errors.js';
 import { createAuthService } from './auth-service.js';
 import type { IdentityDependencies, KeyOutcome } from './identity.ports.js';
@@ -48,7 +49,7 @@ function harness(options: {
     userKeys: { consume: async () => { calls.push('consume'); return options.consume ?? 'ok'; } },
   };
   const service = createAuthService(sessions, deps, {
-    emailHmacSecret: SECRET,
+    keys: deriveHmacKeyring(SECRET),
     loginFailureFloorMs: options.floorMs ?? 0,
     sleep: async (ms) => { slept.push(ms); },
   });
@@ -167,6 +168,13 @@ describe('MFA y step-up', () => {
 
     const enrolled = await harness({ factors: [] }).service.enrollMfa(principal(), TOKENS, 'clave-de-prueba-0001');
     expect(enrolled).toMatchObject({ factorId: 'f2', challengeId: 'c1' });
+  });
+
+  it('enrollMfa se limita por usuario antes de consumir la clave (cada alta gasta cuota de MFA)', async () => {
+    const { service, calls } = harness({ factors: [], allowed: () => ({ allowed: false, retryAfterSeconds: 30 }) });
+
+    expect(await codeOf(service.enrollMfa(principal(), TOKENS, 'clave-de-prueba-0001'))).toBe('RATE_LIMITED');
+    expect(calls).not.toContain('consume');
   });
 
   it('signOut revoca con alcance global', async () => {

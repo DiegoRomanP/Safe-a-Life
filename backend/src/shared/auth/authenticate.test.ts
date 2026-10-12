@@ -24,6 +24,7 @@ function fakes(options: {
   refresh?: TokenPair | null | Error;
   actor?: ActorInfo | null | Error;
   refreshGate?: () => Promise<number | null>;
+  skipRenewal?: boolean;
 } = {}) {
   const calls = { refresh: 0, actor: [] as string[] };
   const verifier: SessionVerifier = {
@@ -41,7 +42,7 @@ function fakes(options: {
       return options.actor === undefined ? ACTOR : options.actor;
     },
   };
-  return { calls, verifier, actors, refreshGate: options.refreshGate };
+  return { calls, verifier, actors, refreshGate: options.refreshGate, skipRenewal: options.skipRenewal ? () => true : undefined };
 }
 
 async function start(deps: ReturnType<typeof fakes>): Promise<string> {
@@ -166,5 +167,20 @@ describe('authenticate', () => {
     const response = await fetch(await start(deps), { headers: { cookie: '__Host-sal_at=at-1' } });
 
     expect(response.status).toBe(401);
+  });
+
+  it('una ruta sin renovación (login/logout) no consulta el límite ni renueva ni toca las cookies', async () => {
+    let consulted = 0;
+    const deps = fakes({
+      refresh: { accessToken: 'at-nuevo', refreshToken: 'rt-nuevo', expiresIn: 600 }, skipRenewal: true,
+      refreshGate: async () => { consulted += 1; return 30; },
+    });
+
+    const response = await fetch(await start(deps), { headers: { cookie: '__Host-sal_at=vencido; __Host-sal_rt=rt-viejo-1' } });
+
+    expect(response.status).toBe(401);
+    expect(deps.calls.refresh).toBe(0);
+    expect(consulted).toBe(0);
+    expect(response.headers.getSetCookie()).toHaveLength(0);
   });
 });

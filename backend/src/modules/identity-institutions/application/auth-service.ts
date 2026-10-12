@@ -1,6 +1,6 @@
 import type { Principal } from '../../../shared/auth/principal.js';
 import type { ActorInfo, SessionGateway, TokenPair } from '../../../shared/auth/session-ports.js';
-import { deriveHmacKey, hmacEmailSubject, hmacSha256Hex } from '../../../shared/crypto/hmac.js';
+import { hmacEmailSubject, hmacSha256Hex, type HmacKeyring } from '../../../shared/crypto/hmac.js';
 import { ApiError } from '../../../shared/http/errors.js';
 import type { IdentityDependencies, KeyOutcome } from './identity.ports.js';
 
@@ -19,7 +19,7 @@ export type AuthSessionView = Readonly<{
 export type CreateSessionResult = Readonly<{ tokens: TokenPair; view: AuthSessionView }>;
 
 export interface AuthServiceConfig {
-  readonly emailHmacSecret: string;
+  readonly keys: Pick<HmacKeyring, 'email' | 'mfa' | 'idempotency'>;
   /**
    * Duración mínima de un login fallido (ms): iguala el tiempo de «usuario inexistente» y
    * «contraseña incorrecta» para no revelar qué cuentas existen. 0 en pruebas unitarias.
@@ -53,12 +53,10 @@ function assertKeyOk(outcome: KeyOutcome): void {
 export function createAuthService(
   sessions: SessionGateway,
   { actors, limiter, publicKeys, userKeys }: IdentityDependencies,
-  { emailHmacSecret, loginFailureFloorMs = 0, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) }: AuthServiceConfig,
+  { keys, loginFailureFloorMs = 0, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) }: AuthServiceConfig,
 ) {
   // Una clave por propósito: ningún valor derivado sirve de oráculo para otro uso.
-  const emailKey = deriveHmacKey(emailHmacSecret, 'email');
-  const mfaKey = deriveHmacKey(emailHmacSecret, 'mfa');
-  const idempotencyKey = deriveHmacKey(emailHmacSecret, 'idempotency');
+  const { email: emailKey, mfa: mfaKey, idempotency: idempotencyKey } = keys;
 
   const rateLimit = async (bucket: string, subject: string, limit: number): Promise<number | null> => {
     const decision = await limiter.consume(bucket, subject, limit, WINDOW_SECONDS);
@@ -137,6 +135,8 @@ export function createAuthService(
      */
     async enrollMfa(principal: Principal, tokens: TokenPair, key: string) {
       if (!needsMfa(principal.role)) throw new ApiError('ACCESS_DENIED');
+      // Cada alta hace un challenge contra la cuota de MFA de la IP del backend: se limita por usuario.
+      rejectIfLimited(await rateLimit('mfa:user', hmacSha256Hex(mfaKey, principal.userId), MFA_LIMIT));
       assertKeyOk(await userKeys.consume(principal.accessToken, 'enrollMfaFactor', key, hmacSha256Hex(idempotencyKey, principal.userId)));
 
       const factors = await sessions.listTotpFactors(tokens);

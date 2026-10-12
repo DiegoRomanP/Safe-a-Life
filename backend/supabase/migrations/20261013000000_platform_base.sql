@@ -12,8 +12,7 @@ revoke all on schema app, api from public, anon, authenticated;
 grant usage on schema api to anon, authenticated;
 grant usage on schema app to authenticated;
 
--- Sin accesos por defecto para anon/authenticated en objetos nuevos. OJO: un REVOKE por esquema no
--- quita el EXECUTE que PostgreSQL concede a PUBLIC; eso lo corrige la migración de endurecimiento.
+-- Nada ejecutable ni accesible por defecto en objetos nuevos creados por esta cuenta.
 alter default privileges in schema api revoke execute on functions from public, anon, authenticated;
 alter default privileges in schema app revoke execute on functions from public, anon, authenticated;
 alter default privileges in schema app revoke all on tables from public, anon, authenticated;

@@ -19,3 +19,20 @@ export function hmacEmailSubject(secret: string, email: string): string {
 export function deriveHmacKey(secret: string, purpose: string): string {
   return hmacSha256Hex(secret, `purpose:${purpose}`);
 }
+
+export interface HmacKeyring {
+  readonly email: string;
+  readonly ip: string;
+  readonly mfa: string;
+  readonly idempotency: string;
+}
+
+/** Todas las claves derivadas se calculan una sola vez en la raíz de composición y se inyectan (RNF-SEC-15). */
+export function deriveHmacKeyring(secret: string): HmacKeyring {
+  return Object.freeze({
+    email: deriveHmacKey(secret, 'email'),
+    ip: deriveHmacKey(secret, 'ip'),
+    mfa: deriveHmacKey(secret, 'mfa'),
+    idempotency: deriveHmacKey(secret, 'idempotency'),
+  });
+}

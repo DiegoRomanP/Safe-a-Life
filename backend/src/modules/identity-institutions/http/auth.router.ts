@@ -5,6 +5,7 @@ import { clientIpSubject } from '../../../shared/http/client-ip.js';
 import { sendData, sendNoContent } from '../../../shared/http/respond.js';
 import { compileOperation } from '../../../shared/validation/contract-validator.js';
 import { viewOf, type createAuthService } from '../application/auth-service.js';
+import { findPrincipal } from '../../../shared/auth/principal.js';
 import { guardsFor, parse, requireIdempotencyKey, requirePrincipal, requireTokens, type HttpSecrets } from './identity-http.js';
 
 export interface AuthRouterDependencies {
@@ -46,7 +47,12 @@ export function registerAuthRoutes(app: Express, { auth, secrets }: AuthRouterDe
     sendData(res, 200, (getCsrfToken.assertSuccess({ data: { token } }) as { data: unknown }).data);
   });
 
-  app.delete('/api/v1/auth/sessions/current', ...guards.sessionWrite, async (req, res) => {
+  // Sin sesión vigente el logout responde 401 pero expira las cookies: así un usuario con cookies
+  // obsoletas (HttpOnly, inaccesibles para el frontend) puede limpiar su estado.
+  app.delete('/api/v1/auth/sessions/current', (_req, res, next) => {
+    if (!findPrincipal(res)) clearSessionCookies(res);
+    next();
+  }, ...guards.sessionWrite, async (req, res) => {
     deleteCurrentSession.parseQuery(req.query as Record<string, unknown>);
     requireIdempotencyKey(req);
     await auth.signOut(requirePrincipal(res).accessToken);

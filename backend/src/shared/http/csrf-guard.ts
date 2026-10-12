@@ -20,6 +20,7 @@ export function requireCsrf(secret: string, allowedOrigins: readonly string[]): 
     const principal = requirePrincipal(res);
     const origin = req.get('origin');
     if (origin === undefined || !allowed.has(origin) || !verifyCsrfToken(secret, principal.sessionId, req.get('x-csrf-token'))) {
+      res.locals.rejectReason = origin === undefined || !allowed.has(origin) ? 'origin' : 'csrf';
       next(new ApiError('ACCESS_DENIED'));
       return;
     }

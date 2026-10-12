@@ -9,7 +9,7 @@ import { registerInstitutionsRoutes } from './modules/identity-institutions/http
 import { createReadinessRpcGateway } from './modules/platform/infrastructure/readiness-rpc-gateway.js';
 import { registerHealthRoutes } from './modules/platform/http/health.router.js';
 import { authenticate } from './shared/auth/authenticate.js';
-import { deriveHmacKey } from './shared/crypto/hmac.js';
+import { deriveHmacKeyring } from './shared/crypto/hmac.js';
 import { clientIpSubject } from './shared/http/client-ip.js';
 import { createSupabaseSessionGateway } from './shared/auth/supabase-session.js';
 import { createRpcInvoker } from './shared/persistence/rpc-invoker.js';
@@ -37,11 +37,12 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
   const rpc = createRpcInvoker(supabase);
   const identity = createIdentityGateways(supabase);
   const institutions = createInstitutionsService(createInstitutionsRpcGateway(rpc));
+  const hmacKeys = deriveHmacKeyring(config.secrets.emailHmac);
+  const ipHmac = hmacKeys.ip;
   const auth = createAuthService(sessions, identity, {
-    emailHmacSecret: config.secrets.emailHmac,
+    keys: hmacKeys,
     loginFailureFloorMs: 400,
   });
-  const ipHmac = deriveHmacKey(config.secrets.emailHmac, 'ip');
   const httpSecrets = {
     csrf: config.secrets.csrf,
     cursor: config.secrets.cursor,
@@ -61,6 +62,9 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
       app.use('/api', authenticate({
         verifier: sessions,
         actors: identity.actors,
+        // Login y logout no renuevan: un límite agotado no debe impedir entrar ni salir.
+        skipRenewal: (req) => (req.method === 'POST' && req.path === '/v1/auth/sessions')
+          || (req.method === 'DELETE' && req.path === '/v1/auth/sessions/current'),
         refreshGate: async (req) => {
           const decision = await identity.limiter.consume('refresh:ip', clientIpSubject(req, ipHmac), REFRESH_LIMIT, REFRESH_WINDOW_SECONDS);
           return decision.allowed ? null : decision.retryAfterSeconds;

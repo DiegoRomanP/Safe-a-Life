@@ -12,9 +12,12 @@ export interface HealthDependencies {
   readonly readiness: ReadinessGateway;
   readonly expectedSchemaVersion: string;
   readonly timeoutMs?: number;
+  readonly now?: () => number;
 }
 
 const DEFAULT_TIMEOUT_MS = 2_000;
+/** Resultado de readiness reutilizable: un acceso directo sin autenticar no genera una RPC por petición. */
+const READY_CACHE_MS = 5_000;
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
@@ -30,9 +33,10 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
  * GET /health/ready: 200 solo si la base responde y las migraciones coinciden con
  * las que este backend espera; cualquier otro caso es 503 sin detalle.
  */
-export function registerHealthRoutes(app: Express, { readiness, expectedSchemaVersion, timeoutMs = DEFAULT_TIMEOUT_MS }: HealthDependencies): void {
+export function registerHealthRoutes(app: Express, { readiness, expectedSchemaVersion, timeoutMs = DEFAULT_TIMEOUT_MS, now = Date.now }: HealthDependencies): void {
   const live = compileOperation('getLiveness');
   const ready = compileOperation('getReadiness');
+  let cached: { ok: boolean; until: number } | undefined;
 
   app.get('/health/live', (req, res, next) => {
     try {
@@ -46,13 +50,16 @@ export function registerHealthRoutes(app: Express, { readiness, expectedSchemaVe
   app.get('/health/ready', async (req, res, next) => {
     try {
       ready.parseQuery(req.query);
-      let version: string | null;
-      try {
-        version = await withTimeout(readiness.schemaVersion(), timeoutMs);
-      } catch {
-        throw new ApiError('SERVICE_UNAVAILABLE');
+      if (!cached || cached.until <= now()) {
+        let ok = false;
+        try {
+          ok = (await withTimeout(readiness.schemaVersion(), timeoutMs)) === expectedSchemaVersion;
+        } catch {
+          ok = false;
+        }
+        cached = { ok, until: now() + READY_CACHE_MS };
       }
-      if (version !== expectedSchemaVersion) throw new ApiError('SERVICE_UNAVAILABLE');
+      if (!cached.ok) throw new ApiError('SERVICE_UNAVAILABLE');
       sendData(res, 200, (ready.assertSuccess({ data: { status: 'ready' } }) as { data: unknown }).data);
     } catch (error) {
       next(error);

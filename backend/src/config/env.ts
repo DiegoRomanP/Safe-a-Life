@@ -90,7 +90,8 @@ export function parseEnv(source: Source): AppConfig {
   });
 
   // Producción: sin valores de desarrollo (HTTP, sin proxies enumerados, sin guard de borde).
-  const production = read(source, 'NODE_ENV') === 'production';
+  // RENDER lo define la plataforma: fallar cerrado aunque falte NODE_ENV=production.
+  const production = read(source, 'NODE_ENV') === 'production' || read(source, 'RENDER') !== undefined;
   if (production) {
     if (trustedProxies === false) reject('TRUSTED_PROXIES');
     if (allowedOrigins.length === 0 || !allowedOrigins.every((origin) => origin.startsWith('https://'))) reject('ALLOWED_ORIGINS');

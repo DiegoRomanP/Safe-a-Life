@@ -1,3 +1,4 @@
+import { ApiError } from '../../../shared/http/errors.js';
 import { fingerprint } from '../../../shared/http/idempotency.js';
 import type {
   Coordinates, HospitalPatch, InstitutionsRepository, PageQuery, SiteInput, SitePatch,
@@ -79,8 +80,11 @@ export function createInstitutionsService(repository: InstitutionsRepository) {
 
     getConfiguration: (token: string) => repository.getConfiguration(token),
 
-    setFinalDemoAt: (token: string, key: string, finalDemoAt: string) => {
-      const iso = new Date(finalDemoAt).toISOString();
+    setFinalDemoAt: async (token: string, key: string, finalDemoAt: string) => {
+      const parsed = new Date(finalDemoAt);
+      // `date-time` admite el segundo intercalar (23:59:60), que Date no representa.
+      if (Number.isNaN(parsed.getTime())) throw new ApiError('VALIDATION_FAILED');
+      const iso = parsed.toISOString();
       return repository.setFinalDemoAt(token, { key, hash: fingerprint([['finalDemoAt', iso]]) }, iso);
     },
 

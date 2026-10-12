@@ -18,7 +18,7 @@ function equalSecrets(provided: string | undefined, expected: string): boolean {
  * balanceador. Con `secret` vacío el guard no hace nada (desarrollo y pruebas).
  */
 export function edgeGuard(secret: string, onReject?: () => void): RequestHandler {
-  return (req, _res, next) => {
+  return (req, res, next) => {
     if (secret === '' || req.path === '/health/live' || req.path === '/health/ready') {
       next();
       return;
@@ -27,6 +27,7 @@ export function edgeGuard(secret: string, onReject?: () => void): RequestHandler
       next();
       return;
     }
+    res.locals.rejectReason = 'edge';
     onReject?.();
     next(new ApiError('ACCESS_DENIED'));
   };

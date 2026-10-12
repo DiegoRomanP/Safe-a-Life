@@ -132,6 +132,8 @@ export function createErrorHandler(onUnexpected?: (error: unknown, correlationId
     const retryAfter = error instanceof ApiError || error instanceof UpstreamRateLimitedError ? error.retryAfterSeconds : undefined;
     if (retryAfter !== undefined) res.setHeader('Retry-After', String(Math.max(1, Math.ceil(retryAfter))));
     res.locals.errorCode = body.error.code;
+    if (error instanceof UpstreamRateLimitedError) res.locals.rejectReason = 'provider_rate_limited';
+    else if (error instanceof ApiError && error.code === 'RATE_LIMITED') res.locals.rejectReason = 'rate_limited';
     res.status(status).type('application/json').json(body);
   };
 }

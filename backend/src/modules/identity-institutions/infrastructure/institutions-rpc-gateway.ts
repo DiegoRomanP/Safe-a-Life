@@ -33,7 +33,7 @@ export function parseMembership(value: unknown): MembershipView {
   const row = closedRecord(value, ['membershipId', 'hospitalId', 'role', 'status', 'emailHint']);
   return Object.freeze({
     membershipId: asString(row.membershipId), hospitalId: asString(row.hospitalId),
-    role: oneOf(row.role, ['admin_hospitalario'] as const), status: oneOf(row.status, ['activa', 'revocada'] as const),
+    role: oneOf(row.role, ['admin_hospitalario'] as const), status: oneOf(row.status, ['pendiente', 'activa', 'revocada'] as const),
     emailHint: asString(row.emailHint),
   });
 }

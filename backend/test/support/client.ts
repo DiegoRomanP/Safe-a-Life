@@ -4,6 +4,9 @@ import { resolve } from 'node:path';
 import { DEMO_PASSWORD } from './local-env.js';
 import { freshTotpCode } from './totp.js';
 
+/** Todas las respuestas recibidas por cualquier ApiClient del proceso (para comprobar el contrato). */
+export const observed: Array<{ method: string; path: string; status: number }> = [];
+
 export const APP_ORIGIN = 'http://127.0.0.1:5173';
 
 export interface ApiResponse {
@@ -60,6 +63,7 @@ export class ApiClient {
     });
     const text = await response.text();
     this.storeCookies(response.headers);
+    observed.push({ method, path: path.split('?')[0], status: response.status });
     let json: any;
     try {
       json = text ? JSON.parse(text) : undefined;

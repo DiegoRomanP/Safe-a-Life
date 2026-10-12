@@ -72,4 +72,13 @@ describe('GET /health/ready', () => {
 
     expect((await fetch(`${base}/health/ready`)).status).toBe(503);
   });
+
+  it('reutiliza el resultado 5 s: peticiones directas repetidas no generan una consulta cada una', async () => {
+    let calls = 0;
+    const base = await start({ schemaVersion: async () => { calls += 1; return '20261013010000'; } });
+
+    for (let i = 0; i < 5; i += 1) expect((await fetch(`${base}/health/ready`)).status).toBe(200);
+
+    expect(calls).toBe(1);
+  });
 });
