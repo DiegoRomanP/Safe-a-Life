@@ -9,10 +9,11 @@
 
 Este documento fija el contrato y la aceptación futura de `createHospitalNeed`;
 no aprueba las operaciones vecinas ni reemplaza la línea base funcional. El
-workspace `backend` ya contiene los DTO y su validación runtime, pero no un
-endpoint funcional para esta operación ni la capa de aplicación/persistencia
-descrita aquí. El scaffold legacy `backend/index.js`/`backend/config/` se conserva
-pero no se considera ni se valida como servidor productivo. La salida es un DTO
+workspace `backend` contiene los DTO y su validación runtime, además de la
+plataforma HTTP (`src/server.ts` + `createApp`, configuración validada y
+utilidades compartidas), pero todavía no registra ninguna ruta de negocio ni la
+capa de aplicación/persistencia descrita aquí. El scaffold legacy
+(`backend/index.js`, `backend/config/`) ya fue retirado. La salida es un DTO
 proyectado, no una entidad o fila de persistencia. Se usan únicamente
 identificadores y datos sintéticos.
 
@@ -46,14 +47,14 @@ Comandos de referencia, ejecutados desde la raíz:
 | `npm run openapi:api:check` | Comprueba que los artefactos generados estén sincronizados |
 | `npm run openapi:types` | Regenera los tipos backend/web/mock y el snapshot DTO backend |
 | `npm run typecheck --workspace backend` | Typecheck del workspace backend |
-| `npm run build --workspace backend` | Build DTO del workspace; no inicia el servidor |
+| `npm run build --workspace backend` | Compila `backend/src` a `backend/dist`; no inicia el servidor |
+| `npm run dev:backend` | Inicia `backend/src/server.ts` con `tsx watch` (sin rutas de negocio todavía) |
 | `npm run lint --workspace backend` | Validación TypeScript configurada para backend |
 
 El `npm test` de raíz incluye los scripts `test` presentes en todos los
 workspaces, incluido `backend`. `npm run dev` solo inicia Vite y el mock web;
-no inicia el scaffold legacy `backend/index.js`. Los scripts `dev` y `start`
-conservados en `backend/package.json` no son instrucciones para validar una API
-HTTP productiva.
+no inicia el backend; para eso existe `npm run dev:backend`. Mientras no haya
+rutas de negocio, ese servidor no es evidencia de la API productiva.
 
 ## Alcance de la ratificación
 
