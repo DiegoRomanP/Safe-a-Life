@@ -23,6 +23,7 @@ segundo ecosistema al prototipo.
 
 ## Decision
 
+- Usar TypeScript para el backend y el frontend.
 - Usar React 18 y Tailwind CSS para el frontend, desplegado en Vercel.
 - Usar Node.js y Express para el backend, desplegado en Render.
 - Usar PostgreSQL y Supabase Auth mediante Supabase.
@@ -30,12 +31,18 @@ segundo ecosistema al prototipo.
   adaptador falso para pruebas. El responsable del proyecto reporta API y
   dominio configurados; esta decision no sustituye su comprobacion operativa
   antes de la demo.
+- Los valores operativos del email (un intento y cinco reintentos, timeout de
+  10 s, backoff de 1/2/5/10/20 min con jitter, reconciliacion de 5 min,
+  allowlist de bandejas y webhook firmado) ya estan fijados en la linea base
+  funcional v1.2 (RF-EML-01..04). Este ADR no los vuelve a listar como
+  pendientes; el detalle de implementacion vive en ADR-005.
 - Calcular Haversine como funcion pura de dominio en backend; PostGIS se reserva
   como opcion futura.
 - Organizar el backend como monolito modular. El dominio no depende de Express,
   Supabase, Resend ni un proveedor de mapas.
 - Aplicar autorizacion en Express y RLS por rol, hospital y propietario.
-  `service_role` permanece exclusivamente en backend.
+  `service_role` permanece exclusivamente en backend y solo dentro de la
+  allowlist cerrada de ADR-006.
 
 ## Alternativas consideradas
 
