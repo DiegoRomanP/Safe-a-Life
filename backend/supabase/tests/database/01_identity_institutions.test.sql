@@ -36,6 +36,7 @@ begin
     '{"sub":"%s","role":"authenticated","aal":"%s","amr":[%s]}', p_uid, p_aal,
     case when p_step_up then format('{"method":"totp","timestamp":%s}', extract(epoch from now())::bigint) else '{"method":"password","timestamp":1}' end), true);
 end $$;
+grant execute on function pg_temp.login(text, text, boolean) to authenticated, anon;
 
 -- Paridad del hash canónico con Node (fingerprint de shared/http/idempotency.ts) ------------------
 select is(app.fingerprint('[["publicName","Hospital Ñandú \"X\" 🩸"],["legalName","Razón Social S.A."]]'::jsonb),
