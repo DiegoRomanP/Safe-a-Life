@@ -55,6 +55,14 @@
       "type": "remote",
       "enabled": true,
       "url": "https://design.penpot.app/mcp/stream?userToken={env:PENPOT_USER_TOKEN}"
+    },
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "Authorization": "Bearer {env:CONTEXT_7}"
+      },
+      "enabled": true
     }
   }
 }
