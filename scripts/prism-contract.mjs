@@ -10,11 +10,13 @@ const Ajv2020 = validatorRequire('ajv/dist/2020.js');
 const addFormats = validatorRequire('ajv-formats');
 const schemaId = 'urn:save-a-life:contract';
 const methods = new Set(['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace']);
-// Frozen final E2/E3 inventory: 70 success + 34 variants (16 media collections)
-// + 273 declared errors = 377 HTTP cases. The sites GET adds one operation,
+// Frozen final E2/E3 inventory: 71 success + 34 variants (16 media collections)
+// + 280 declared errors = 385 HTTP cases. The sites GET adds one operation,
 // two media variants and four errors to T4a; DELETE adds its uniform 400 in E3.
+// F2a (2026-10-12) adds enrollMfaFactor (1 success, 5 errors) and the 422 of
+// createHospitalSite/updateHospitalSite (2 errors).
 // Updating coverage requires explicit review; never derive it from the candidate.
-const expected = { operations: 70, json: 68, empty: 2, bodies: 26, variants: 34, variantCollections: 16, errors: 273 };
+const expected = { operations: 71, json: 69, empty: 2, bodies: 26, variants: 34, variantCollections: 16, errors: 280 };
 
 // Reviewed E2/E3 coverage fixture (method, path template, operationId), not a second
 // contract: NO payloads, schemas or behavior. Never derive/refresh it from the
@@ -29,6 +31,7 @@ const reviewedOperations = Object.freeze([
   ['post', '/api/v1/auth/password-recovery-requests', 'requestPasswordRecovery'],
   ['post', '/api/v1/auth/password-reset-actions/{token}', 'completePasswordReset'],
   ['post', '/api/v1/auth/mfa-verifications', 'verifyMfaChallenge'],
+  ['post', '/api/v1/auth/mfa-enrollments', 'enrollMfaFactor'],
   ['post', '/api/v1/auth/step-up-verifications', 'verifyStepUp'],
   ['post', '/api/v1/donor-registrations', 'createDonorRegistration'],
   ['get', '/api/v1/donor-email-verification-actions/{token}', 'getDonorEmailVerificationPreview'],

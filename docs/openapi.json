@@ -251,6 +251,13 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/MfaEnrollmentEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "factorId": "6f1c2c1e-9f47-4b0c-8d6a-2f6a3a5c1e01",
+                    "otpauthUri": "otpauth://totp/Save%20a%20Life:admin@example.test?secret=EJEMPLOSINTETICO&issuer=Save%20a%20Life",
+                    "challengeId": "cb6ad07d-04d3-4e94-9534-4c0b4d1530f8"
+                  }
                 }
               }
             }
