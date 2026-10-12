@@ -143,10 +143,10 @@ test('TYPE_DRIFT rejects either changed type source and missing coverage without
 // Moderation replaces its singular response example; it adds no media variant.
 const finalReviewedPreflight = Object.freeze({
   operations: 71, json: 69, empty: 2, bodies: 26, variants: 34,
-  variantCollections: 16, errors: 322, cases: 427,
+  variantCollections: 16, errors: 351, cases: 456,
 });
 
-test('preflight covers reviewed final 71 operations, 69 JSON, 2 empty, 26 bodies, 34 variants, 16 collections, 322 errors and 427 cases', () => {
+test('preflight covers reviewed final 71 operations, 69 JSON, 2 empty, 26 bodies, 34 variants, 16 collections, 351 errors and 456 cases', () => {
   const plan = buildPlan(contract());
   for (const [field, expected] of Object.entries(finalReviewedPreflight)) {
     assert.equal(field === 'cases' ? plan.cases.length : plan.stats[field], expected, `reviewed final inventory: ${field}`);
@@ -589,10 +589,10 @@ test('C3 sites examples cover an empty list and a paginated minimal site without
   for (const example of examples) assertValid(valid, example, 'C3 example');
 });
 
-test('C3 sites declare uniform 400, 401, 403, 500 and 503 errors', () => {
+test('C3 sites declare uniform 400, 401, 403, 422, 429, 500 and 503 errors', () => {
   const operation = canonicalOperation('/api/v1/hospitals/me/sites', 'get', 'C3');
-  assert.deepEqual(Object.keys(operation.responses).sort(), ['200', '400', '401', '403', '500', '503']);
-  assertUniformErrors(operation, ['400', '401', '403', '500', '503'], 'C3');
+  assert.deepEqual(Object.keys(operation.responses).sort(), ['200', '400', '401', '403', '422', '429', '500', '503']);
+  assertUniformErrors(operation, ['400', '401', '403', '422', '429', '500', '503'], 'C3');
 });
 
 function contextualSchema(spec = source) {
