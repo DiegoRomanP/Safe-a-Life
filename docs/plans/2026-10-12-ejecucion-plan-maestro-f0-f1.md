@@ -145,3 +145,9 @@ Lo que bloquea, con el voto o decisión que lo desbloquea:
     fija 16–255 caracteres); se mantiene el rechazo de valores fuera de rango.
   - Estado del gate: PASS con hallazgos corregidos o trasladados; el
     `reviewer-back` formal sigue por registrarse con revisión de subagente.
+- 2026-10-12: la persona usuaria aclaró que el proyecto es un monolito modular
+  con dos carpetas de primer nivel: `frontend/` para el frontend real (aún sin
+  construir) y `backend/` para el backend. **Se cancela el borrado de
+  `frontend/`** previsto en F0.8 (aprobado antes por error de contexto);
+  `frontend/` se conserva intacto. `apps/web` sigue siendo la web de demostración
+  contra el mock hasta que exista el frontend real.
