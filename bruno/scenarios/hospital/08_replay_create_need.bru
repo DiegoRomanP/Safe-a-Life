@@ -1,0 +1,90 @@
+meta {
+  name: Hospital replays draft creation with explicit default radius
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: 55555555-5555-4555-8555-555555555555
+}
+
+body:json {
+  {
+    "component": "RBC",
+    "requiredBloodType": "A_POS",
+    "targetConfirmations": 3,
+    "siteId": "{{demoSiteId}}",
+    "radiusKm": 10,
+    "urgency": "Normal",
+    "expiresInHours": 12
+  }
+}
+
+tests {
+  test("normalized creation replay returns 201 and JSON content type", function () {
+    const contentType = res.getHeader("content-type");
+    expect(res.getStatus() === 201, "replay status").to.equal(true);
+    expect(typeof contentType === "string"
+      && contentType.split(";")[0].trim().toLowerCase() === "application/json",
+      "replay content type").to.equal(true);
+  });
+
+  test("creation replay retains the closed draft projection", function () {
+    const envelope = res.getBody();
+    const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+    expect(isRecord(envelope) && Object.keys(envelope).length === 1
+      && Object.keys(envelope)[0] === "data", "closed replay envelope").to.equal(true);
+
+    const need = envelope.data;
+    const fields = [
+      "needId", "component", "requiredBloodType", "targetConfirmations", "confirmedIntentCount",
+      "siteId", "radiusKm", "urgency", "status", "expiresAt",
+    ];
+    expect(isRecord(need) && Object.keys(need).length === fields.length
+      && fields.every((field) => Object.prototype.hasOwnProperty.call(need, field)),
+      "exact replay allowlist").to.equal(true);
+
+    const uuid = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+    const bloodTypes = ["O_NEG", "O_POS", "A_NEG", "A_POS", "B_NEG", "B_POS", "AB_NEG", "AB_POS"];
+    expect(typeof need.needId === "string" && uuid.test(need.needId), "opaque replay ID").to.equal(true);
+    expect(need.component === "RBC", "replay component").to.equal(true);
+    expect(bloodTypes.includes(need.requiredBloodType) && need.requiredBloodType === "A_POS",
+      "replay request enum preserved").to.equal(true);
+    expect(Number.isInteger(need.targetConfirmations) && need.targetConfirmations === 3,
+      "replay target preserved").to.equal(true);
+    expect(Number.isInteger(need.confirmedIntentCount) && need.confirmedIntentCount === 0,
+      "replay does not increment confirmations").to.equal(true);
+    expect(typeof need.siteId === "string" && uuid.test(need.siteId)
+      && need.siteId === bru.getEnvVar("demoSiteId"), "replay site preserved").to.equal(true);
+    expect(Number.isInteger(need.radiusKm) && need.radiusKm === 10, "normalized replay radius").to.equal(true);
+    expect(need.urgency === "Normal", "replay urgency preserved").to.equal(true);
+    expect(need.status === "borrador", "replay draft state").to.equal(true);
+    expect(typeof need.expiresAt === "string"
+      && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(need.expiresAt)
+      && Number.isFinite(Date.parse(need.expiresAt)), "replay UTC expiry").to.equal(true);
+  });
+
+  test("creation replay preserves the original opaque ID and expiry", function () {
+    const envelope = res.getBody();
+    const originalId = bru.getVar("t4qCreatedNeedId");
+    const originalExpiry = bru.getVar("t4qCreatedNeedExpiresAt");
+    expect(typeof originalId === "string" && originalId.length === 36,
+      "original creation ID available").to.equal(true);
+    expect(typeof originalExpiry === "string" && Number.isFinite(Date.parse(originalExpiry)),
+      "original creation expiry available").to.equal(true);
+    expect(envelope !== null && typeof envelope === "object" && envelope.data !== null
+      && typeof envelope.data === "object" && envelope.data.needId === originalId,
+      "original creation ID replayed").to.equal(true);
+    expect(envelope !== null && typeof envelope === "object" && envelope.data !== null
+      && typeof envelope.data === "object" && envelope.data.expiresAt === originalExpiry,
+      "original creation expiry replayed").to.equal(true);
+  });
+}

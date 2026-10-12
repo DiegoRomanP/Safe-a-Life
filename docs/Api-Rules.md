@@ -2,14 +2,17 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | Reglas para el contrato OpenAPI propuesto; ratificación de rutas en Sprint 0 |
+| Estado | Convenciones globales en borrador; solo `createHospitalNeed` está ratificada para implementación |
 | Alcance | API REST Node.js/Express del prototipo académico |
 | Contrato de trabajo | [`openapi.json`](openapi.json), borrador importable en Swagger Editor/Prism/Bruno |
 | Fuentes principales | [`1_Primeros_Alcances.md`](1_Primeros_Alcances.md), [`2_Especificaciones_De_Software.md`](2_Especificaciones_De_Software.md), [`ADR-001`](decisions/ADR-001-stack-del-prototipo.md) |
 
 Guía operativa para humanos frontend: [Frontend-Handoff.md](Frontend-Handoff.md).
-Contiene setup, matriz de las 69 operaciones, ejemplos/modos y paquetes de trabajo.
+Contiene setup, matriz histórica de 69 operaciones, ejemplos/modos y paquetes de
+trabajo; la nueva consulta draft de sedes propias todavía no figura en esa guía.
 Revisada independientemente para este paquete local; no ratifica el API productivo.
+El contrato acotado de creación de necesidad se documenta en
+[Backend-Contracts.md](Backend-Contracts.md).
 
 ## 1. Propósito y autoridad
 
@@ -25,15 +28,23 @@ La precedencia documental es:
    permanece en borrador; mientras siga así, la línea base funcional prevalece.
 4. Este documento concreta convenciones de diseño de API dentro de esos límites.
 5. `openapi.json` propone el inventario REST para los recorridos descritos de los
-   tres roles, pero permanece como borrador hasta revisión/ratificación en Sprint
-   0; no describe una API productiva ya implementada.
+   tres roles. Su estado global permanece en borrador y exige aprobación para el
+   resto: solo `POST /api/v1/hospitals/me/needs` (`createHospitalNeed`) quedó
+   ratificado para implementación el 2026-10-04, con alcance registrado en su
+   extensión `x-ratification` y en [Backend-Contracts.md](Backend-Contracts.md).
+   Las otras 69 operaciones siguen en borrador, incluido el `GET` de esa misma
+   ruta. La ratificación contractual no significa que la API real esté
+   implementada.
 
-La ERS deja para Sprint 0 cerrar rutas, esquemas OpenAPI o equivalentes y el
-acceso concreto a datos. El JSON es la propuesta Design-First que frontend, mock
-y Bruno consumen; aún no es el contrato de producción. Antes de implementar,
-revisar estos documentos junto con `.opencode/references/project-requirements.md`;
-si existe discrepancia, detener el cambio afectado y solicitar sincronización en
-vez de elegir una fuente silenciosamente.
+La ERS deja para Sprint 0 cerrar las rutas restantes, esquemas OpenAPI o
+equivalentes y el acceso concreto a datos. El JSON es la propuesta Design-First
+que frontend, mock y Bruno consumen; mantiene su estado global de borrador y no
+describe una API productiva ya implementada. La excepción es el contrato de
+`createHospitalNeed`, ratificado solo para implementación y sin cerrar sesión,
+TTL, CSRF, CORS ni persistencia. Antes de implementar, revisar estos documentos
+junto con `.opencode/references/project-requirements.md`; si existe discrepancia,
+detener el cambio afectado y solicitar sincronización en vez de elegir una fuente
+silenciosamente.
 
 ## 2. Convenciones propuestas para el contrato
 
@@ -103,6 +114,12 @@ compatibilidad de producción:
   duración de demo no fijan la política productiva de expiración/refresh.
 - Toda mutación autenticada por cookie valida `Origin` contra allowlist exacta y
   token CSRF. CORS nunca usa `*` junto con credenciales.
+- El token de salida de `CsrfTokenEnvelope` es `readOnly: true`, no `writeOnly`:
+  lo emite el servidor para enviarlo después en el header CSRF, no como body de
+  entrada de esa consulta. Conserva `data`/`token` requeridos, ambos objetos
+  cerrados, límites de 32–512 caracteres y el ejemplo sintético existente. El
+  cliente lo mantiene solo en memoria; nunca se registra. Esta anotación no fija
+  el mecanismo productivo pendiente ni relaja la validación.
 - Consultar la membresía vigente en cada operación protegida. Derivar rol y
   hospital de identidad/datos protegidos, nunca de parámetros o metadata
   editables por el cliente.
@@ -121,8 +138,22 @@ compatibilidad de producción:
   grupo, y conservar solo código por necesidad y estados opacos. No exponer email,
   teléfono, ID global, ubicación, coordenadas ni distancia del donante.
 - El superadmin no tiene navegación rutinaria del padrón. El acceso excepcional
-  a PII exige step-up y grant contextual, temporal, limitado a solicitud/usuario/
-  campos/acción y auditado conforme a RNF-SEC-05/06.
+  a PII exige step-up y grant contextual, temporal, ligado al actor superadmin,
+  solicitud, donante, acción concreta y campos, y auditado conforme a RNF-SEC-05/06.
+  En el GET contextual, `currentValues` se limita al grant vigente ligado al actor
+  superadmin, solicitud, donante, acción concreta y campos autorizados, en
+  intersección con los campos necesarios para esa solicitud.
+  `proposedValues` se limita al grant vigente ligado al actor superadmin,
+  solicitud, donante, acción concreta y campos autorizados, en intersección con
+  los campos necesarios para esa solicitud. El servidor resuelve al actor desde
+  la identidad validada y al donante desde la solicitud, sin selector alternativo.
+  El DTO exige ambos objetos cerrados; cada uno admite solo `name` (máximo 120),
+  `email` (formato email, máximo 254) y `declaredBloodType` (enum existente),
+  todos opcionales y solo si están autorizados. Sin propuesta, incluida una
+  eliminación sin valores propuestos, `proposedValues` es `{}`; `newEmail` se
+  proyecta como `email`. Resúmenes generales y auditoría siguen sin valores PII
+  anteriores o propuestos. Esta forma draft no define un mapping GET→`review` /
+  POST→`execute`, ni modifica grants, ejecuciones o sus acciones aceptadas.
 - No incluir pacientes, diagnósticos, historias clínicas, contacto
   paciente-donante, listas de donantes ni afirmaciones de elegibilidad clínica.
 - Los tokens son secretos de un solo uso, ligados a recurso y acción, guardados
@@ -169,6 +200,43 @@ compatibilidad de producción:
   reintentar solo lectura. «Preparar otro lote» habilita una intención nueva;
   la siguiente solicitud usa nueva clave. No repetir POST para refrescar una lista.
 
+### 6.1 Políticas de reconocimiento versionadas
+
+La moderación draft solo admite `suspendida` y `sin_publicar`: el superadmin aplica
+`publicada -> suspendida` o `suspendida -> sin_publicar`, siempre con motivo
+auditable. Levantar la suspensión **no republica** la oferta; una nueva publicación
+corresponde al admin del hospital. Cada mutación compara la versión esperada,
+incrementa la versión y rechaza una versión obsoleta con `409`, conforme a la
+línea base §4.4. El `200` de moderación especializa `RecognitionPolicyEnvelope`
+con `allOf` para restringir solo su estado y tiene un ejemplo media singular de
+suspensión. El enum general `RecognitionPolicyStatus` conserva sus tres estados
+y las demás respuestas de políticas no cambian.
+
+El DELETE draft `withdrawOwnRecognitionPolicy` no recibe body. Requiere query
+`expectedVersion` entero no negativo, además de `Idempotency-Key`, sesión por
+cookie y CSRF/Origin. Solo retira la política propia derivada de la identidad y
+membresía vigentes, mientras no esté suspendida. El retiro aplicado compara la
+versión vigente con `expectedVersion`, incrementa la versión y conserva auditoría;
+una versión obsoleta produce `409`. La intención canónica idempotente incluye
+`expectedVersion`, ligada a actor, operación y clave: el replay de la misma
+intención reproduce el `204` original, vacío, sin incrementar de nuevo; intención
+distinta con la misma clave o ejecución en curso conserva el `409` uniforme.
+Query ausente o inválida produce `400` mediante `BadRequest`/`ErrorResponse`, sin
+valores de entrada ni detalles del recurso. Esto concreta las reglas existentes
+de versión e idempotencia; no define una política nueva ni una implementación.
+
+### 6.2 Conteos de entrega del lote
+
+`deliveryCounts` contiene exactamente `pendiente`, `enviada`, `entregada` y
+`fallida`, requeridos y enteros no negativos. Son conteos de **estado actual
+mutuamente excluyentes**: cada invitación pertenece a un solo estado y la suma
+es `createdInvitationCount`. No representan acumulados ni número de intentos;
+`enviada` excluye las invitaciones ya `entregada`. Los dos ejemplos canónicos
+conservan ocho invitaciones con conteos `0/2/6/0`, no catorce eventos acumulados.
+AP-02 sigue pendiente: la relación operativa entre estado agregado e intentos y
+cuándo un error transitorio pasa a `fallida` no quedan resueltos por esta
+proyección. No se introducen reintentos, transiciones ni umbrales de fallo terminal.
+
 ## 7. Respuestas y errores
 
 - Las respuestas con cuerpo usan `application/json`. Cada éxito con cuerpo usa
@@ -214,6 +282,23 @@ compatibilidad de producción:
 - El mapa opcional devuelve solo celdas fijas de 1 km con `k >= 5`, centro
   redondeado a dos decimales y datos de una necesidad propia; nunca perfiles,
   coordenadas individuales o filtros arbitrarios diferenciables.
+
+La consulta draft `GET /api/v1/hospitals/me/sites` requiere sesión de un
+`admin_hospitalario` en AAL2 y membresía protegida vigente. El servidor deriva el
+hospital de la identidad actual y la membresía, exige hospital activo autorizado
+y consulta únicamente sedes propias activas y aprobadas. No recibe selectores de
+hospital ni filtros adicionales: solo reutiliza `Limit` (entero 1–100, default 20)
+y `Cursor` (opaco, máximo 512); query inválida o desconocida usa `400` uniforme.
+El orden es `siteId` ascendente y el cursor queda scoped por el servidor a la
+institución autorizada y a ese orden. La envoltura cerrada es `data` con `items`
+y `pagination` requerida; cada sede exige únicamente `siteId` UUID y
+`publicName` de 1–160 caracteres. No incluye hospitalId, dirección, coordenadas,
+flags administrativos ni contacto. Sin sedes elegibles responde `200` con lista
+vacía y `nextCursor: null`; errores `400/401/403/500` reutilizan `ErrorResponse`.
+Al crear una necesidad se revalidan la membresía y la sede; listar no concede
+autorización futura. Se preserva el POST ratificado y su catálogo existente,
+incluido el `422` idéntico para sede inexistente, ajena o inactiva. Esta consulta
+no tiene handler stateful, UI ni solicitud Bruno añadidos en este slice.
 
 Las reglas anteriores son objetivo contractual/productivo, no una declaración de
 conformidad completa del mock. Express implementa cursor completo solo en
@@ -285,18 +370,34 @@ cookies HttpOnly usa la web local con origen permitido.
 
 ### 11.1 Cobertura global y sincronización
 
-El paquete tiene 54 paths/69 operaciones/94 schemas, 26 ejemplos media de entrada,
-67 éxitos JSON y 2 vacíos 204. `npm run test:contract` ejecuta 27 pruebas del runner
-y 369 checks HTTP en Prism normal: 69 éxitos + 32 variantes en 15 colecciones +
-268 errores declarados forzados. Ajv2020 verifica schemas y selección exacta;
-audita además 35 valores de ejemplo en anotaciones de schema, incluso eclipsados.
+El inventario contractual tras E2/E3 tiene 55 paths/70 operaciones/96 schemas,
+26 ejemplos media de entrada, 68 éxitos JSON y 2 vacíos 204.
+`npm run test:contract` encadena la suite contractual (72 pruebas registradas)
+y el runner HTTP. Su inventario fijo revisado comprende **377 casos**:
+70 éxitos + 34 variantes en 16 colecciones + **273 errores declarados forzados**.
+La consulta de sedes aporta dos ejemplos media (`vacio` y `pagina`) y cuatro
+errores; el `400` del DELETE agrega el caso final respecto de E2 (376/272).
+La moderación conserva un ejemplo media singular, sin agregar variantes.
+El preflight QA exige el inventario final completo; no se relaja ni se omite.
+Estas cifras no afirman una ejecución HTTP exitosa. Ajv2020 verifica schemas y
+selección exacta; audita además 35 valores de ejemplo en anotaciones de schema,
+incluso eclipsados.
 El runner falla cerrado ante tuplas/refs/ejemplos/cobertura inválidos o deriva de
 los dos tipos regenerados en memoria. Los errores forzados no prueban autorización
 ni detección productiva de abusos.
 
-Prism `--errors` normaliza salida eliminando `writeOnly` y discrepa en
-`getCsrfToken` (500). El gate usa modo normal + Ajv sobre el schema original;
-no retirar anotaciones ni omitir operaciones para adaptar el contrato al tooling.
+La discrepancia histórica de Prism `--errors` en `getCsrfToken` (500) ocurrió
+cuando el schema de salida anotaba el token como `writeOnly` y Prism lo excluía
+al normalizar la respuesta. Ahora el contrato usa `readOnly` porque el token es
+de salida, no para acomodar el tooling. El gate conserva modo normal + Ajv sobre
+el schema original, sin retirar anotaciones, relajar límites ni omitir operaciones.
+No se ejecutó el modo `--errors` tras esta corrección ni se afirma PASS en él.
+El resumen del runner HTTP usa conteos revisados: 70 operaciones, 68 respuestas
+JSON de éxito, 2 respuestas 204 vacías, 26 operaciones con cuerpo, 34 variantes
+en 16 colecciones y 273 respuestas de error declaradas (377 checks HTTP); Q2
+(2026-10-12) auditó además 35 ejemplos de schema. Son inventarios y
+comprobaciones de contrato, no cobertura productiva ni evidencia de autorización;
+no se cambian los gates.
 
 Ciclo del dueño contractual: editar solo JSON → `npm run openapi:lint` →
 `npm run test:contract`; ante `TYPE_DRIFT` revisado, `npm run openapi:types` →
@@ -306,12 +407,16 @@ Antes de reimportar Bruno ejecutar `bru import openapi --help`, importar con
 env ni ajustes de runtime. Comando completo en
 [Frontend-Handoff.md](Frontend-Handoff.md#ciclo-de-actualización-json--tipos--bruno).
 
-Las 69 solicitudes principales Bruno y sus 26 bodies están canonizados, pero
+Las 69 solicitudes principales Bruno preexistentes y sus 26 bodies están
+canonizados para su inventario anterior, sin la nueva consulta de sedes, pero
 11 paths token y 2 grants quedan vacíos para valores sintéticos runtime.
 `environments/prism.bru` solo contiene baseUrl. Los examples secundarios heredados
 no se canonizaron: pueden tener apiKey placeholder/entradas incompletas y no son
-auth ni contrato vigente. Escenarios Bruno: 22 llamadas/18 operaciones distintas.
-No confundirlos con 69 secuencias stateful.
+auth ni contrato vigente. La aceptación Q1 (2026-10-12) registró `npm test`
+151/151 (mock 50, web 15, DTO 86), suite contractual 72/72, Bruno CLI 24
+requests/29 tests y E2E 10/10. Son resultados de esas suites y corridas; no
+representan cobertura ni implementación de API productiva, autenticación o RLS.
+No confundirlos con 70 secuencias stateful ni con cobertura de la consulta nueva.
 
 Para E2E usar `npm run test:e2e -- --trace=off`: la configuración conserva
 `retain-on-failure` y sus trazas pueden guardar headers/cookies/bodies. No compartir
@@ -320,8 +425,10 @@ Las pruebas y revisiones de este paquete no sustituyen las de producción de §1
 
 ## 12. Pendientes para Sprint 0
 
-- Ratificar el inventario de endpoints de `openapi.json` antes de implementar API
-  real; actualizar el único contrato canónico si producto ajusta una operación.
+- Ratificar individualmente las otras 69 operaciones del inventario de
+  `openapi.json` antes de implementarlas; `createHospitalNeed` es la única
+  excepción contractual actual y todavía no está implementada. Actualizar el
+  único contrato canónico si producto ajusta una operación.
 - Confirmar prefijo de versión, nombre de cookie, mecanismo/nombre CSRF,
   política de CORS/Origin, esquema de éxito/error y límites de paginación.
 - AP-01, AP-03, AP-05 y AP-09 quedaron resueltos en la revisión 1.2 de la línea

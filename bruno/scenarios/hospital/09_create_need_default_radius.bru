@@ -1,0 +1,83 @@
+meta {
+  name: Hospital creates an independent draft with omitted radius
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-create-default
+}
+
+body:json {
+  {
+    "component": "RBC",
+    "requiredBloodType": "A_POS",
+    "targetConfirmations": 3,
+    "siteId": "{{demoSiteId}}",
+    "urgency": "Normal",
+    "expiresInHours": 12
+  }
+}
+
+tests {
+  test("independent draft creation returns 201 and JSON content type", function () {
+    const contentType = res.getHeader("content-type");
+    expect(res.getStatus() === 201, "independent creation status").to.equal(true);
+    expect(typeof contentType === "string"
+      && contentType.split(";")[0].trim().toLowerCase() === "application/json",
+      "independent creation content type").to.equal(true);
+  });
+
+  test("independent omitted radius creates the closed default draft", function () {
+    const envelope = res.getBody();
+    const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+    expect(isRecord(envelope) && Object.keys(envelope).length === 1
+      && Object.keys(envelope)[0] === "data", "closed independent creation envelope").to.equal(true);
+
+    const need = envelope.data;
+    const fields = [
+      "needId", "component", "requiredBloodType", "targetConfirmations", "confirmedIntentCount",
+      "siteId", "radiusKm", "urgency", "status", "expiresAt",
+    ];
+    expect(isRecord(need) && Object.keys(need).length === fields.length
+      && fields.every((field) => Object.prototype.hasOwnProperty.call(need, field)),
+      "exact independent creation allowlist").to.equal(true);
+
+    const uuid = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+    const bloodTypes = ["O_NEG", "O_POS", "A_NEG", "A_POS", "B_NEG", "B_POS", "AB_NEG", "AB_POS"];
+    expect(typeof need.needId === "string" && uuid.test(need.needId), "opaque independent creation ID").to.equal(true);
+    expect(need.component === "RBC", "independent creation component").to.equal(true);
+    expect(bloodTypes.includes(need.requiredBloodType) && need.requiredBloodType === "A_POS",
+      "independent creation request enum preserved").to.equal(true);
+    expect(Number.isInteger(need.targetConfirmations) && need.targetConfirmations === 3,
+      "independent creation target preserved").to.equal(true);
+    expect(Number.isInteger(need.confirmedIntentCount) && need.confirmedIntentCount === 0,
+      "independent initial confirmation count").to.equal(true);
+    expect(typeof need.siteId === "string" && uuid.test(need.siteId)
+      && need.siteId === bru.getEnvVar("demoSiteId"), "independent creation site preserved").to.equal(true);
+    expect(Number.isInteger(need.radiusKm) && need.radiusKm === 10, "independent omitted radius default").to.equal(true);
+    expect(need.urgency === "Normal", "independent creation urgency preserved").to.equal(true);
+    expect(need.status === "borrador", "independent creation draft state").to.equal(true);
+    expect(typeof need.expiresAt === "string"
+      && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(need.expiresAt)
+      && Number.isFinite(Date.parse(need.expiresAt)), "independent creation UTC expiry").to.equal(true);
+  });
+
+  test("independent creation does not replay the earlier intention", function () {
+    const envelope = res.getBody();
+    const originalId = bru.getVar("t4qCreatedNeedId");
+    expect(typeof originalId === "string" && originalId.length === 36,
+      "earlier creation ID available").to.equal(true);
+    expect(envelope !== null && typeof envelope === "object" && envelope.data !== null
+      && typeof envelope.data === "object" && typeof envelope.data.needId === "string"
+      && envelope.data.needId !== originalId, "independent creation ID differs").to.equal(true);
+  });
+}
