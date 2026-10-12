@@ -186,3 +186,40 @@ describe('manejador de errores de Express', () => {
     expect(first.error.correlationId).not.toBe(second.error.correlationId);
   });
 });
+
+describe('endurecimiento del manejador (auditoría A11)', () => {
+  it('no filtra el stack si el hook de diagnóstico lanza, ni en NODE_ENV de desarrollo', async () => {
+    const app = express();
+    app.set('env', 'production');
+    app.use(correlationIdMiddleware);
+    app.get('/fallo', () => {
+      throw new Error('canario-original');
+    });
+    app.use(
+      createErrorHandler(() => {
+        throw new Error('canario-del-logger secret=abc');
+      }),
+    );
+
+    const response = await fetch(`${await serve(app)}/fallo`);
+    const text = await response.text();
+
+    expect(response.status).toBe(500);
+    expect(JSON.parse(text).error.code).toBe('INTERNAL_ERROR');
+    expect(text).not.toContain('canario');
+    expect(text).not.toMatch(/\bat \S+:\d+/);
+  });
+
+  it('responde 400 si un parámetro de ruta no se puede decodificar', async () => {
+    const unexpected: unknown[] = [];
+    const app = express();
+    app.use(correlationIdMiddleware);
+    app.get('/n/:id', (_req, res) => res.status(204).end());
+    app.use(createErrorHandler((error) => unexpected.push(error)));
+
+    const response = await fetch(`${await serve(app)}/n/%E0%A4%A`);
+
+    expect(response.status).toBe(400);
+    expect(unexpected).toHaveLength(0);
+  });
+});

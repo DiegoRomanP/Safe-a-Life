@@ -4,6 +4,16 @@ import { createLogger } from './shared/observability/logger.js';
 
 const logger = createLogger((line) => process.stdout.write(`${line}\n`));
 
+const SHUTDOWN_TIMEOUT_MS = 10_000;
+
+// Sin mensaje ni stack: pueden contener datos de la petición (OBS-01).
+for (const event of ['unhandledRejection', 'uncaughtException'] as const) {
+  process.on(event, () => {
+    logger.log('error', { event: 'proceso.error_no_controlado', code: 'INTERNAL_ERROR' });
+    process.exit(1);
+  });
+}
+
 function loadConfig(): AppConfig {
   try {
     return parseEnv(process.env);
@@ -21,16 +31,6 @@ const app = createApp({ config, logger });
 const server = app.listen(config.port, () => {
   logger.log('info', { event: 'servidor.iniciado' });
 });
-
-const SHUTDOWN_TIMEOUT_MS = 10_000;
-
-// Sin mensaje ni stack: pueden contener datos de la petición (OBS-01).
-for (const event of ['unhandledRejection', 'uncaughtException'] as const) {
-  process.on(event, () => {
-    logger.log('error', { event: 'proceso.error_no_controlado', code: 'INTERNAL_ERROR' });
-    process.exit(1);
-  });
-}
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {

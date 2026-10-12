@@ -162,7 +162,10 @@ function isIpOrCidr(entry: string): boolean {
   const family = isIP(address);
   if (family === 0 || rest.length > 0) return false;
   if (prefix === undefined) return true;
-  return /^\d{1,3}$/.test(prefix) && Number(prefix) <= (family === 4 ? 32 : 128);
+  if (!/^\d{1,3}$/.test(prefix)) return false;
+  // Un prefijo muy corto (p. ej. /0) confiaría en media Internet y permitiría falsificar X-Forwarded-For.
+  const [min, max] = family === 4 ? [8, 32] : [16, 128];
+  return Number(prefix) >= min && Number(prefix) <= max;
 }
 
 function parseTrustedProxies(raw: string | undefined, reject: Reject): false | number | readonly string[] {

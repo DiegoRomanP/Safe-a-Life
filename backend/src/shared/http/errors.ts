@@ -68,13 +68,13 @@ export function toPublicError(error: unknown, correlationId: string): PublicErro
 }
 
 /**
- * Errores 4xx de body-parser (JSON roto, cuerpo grande, codificación o charset
- * no soportados, petición abortada) son del cliente: se devuelven como BAD_REQUEST.
+ * Errores 4xx de Express o body-parser (JSON roto, cuerpo grande, codificación
+ * o charset no soportados, parámetro de ruta no decodificable) son del cliente:
+ * se devuelven como BAD_REQUEST.
  */
-function fromBodyParserError(error: unknown): ApiError | undefined {
+function fromClientError(error: unknown): ApiError | undefined {
   if (typeof error !== 'object' || error === null) return undefined;
-  const { type, status } = error as { type?: unknown; status?: unknown };
-  if (typeof type !== 'string') return undefined;
+  const { status } = error as { status?: unknown };
   return Number.isInteger(status) && (status as number) >= 400 && (status as number) <= 499 ? new ApiError('BAD_REQUEST') : undefined;
 }
 
@@ -83,6 +83,15 @@ export const notFoundHandler: RequestHandler = (_req, _res, next) => {
 };
 
 export function createErrorHandler(onUnexpected?: (error: unknown, correlationId: string) => void): ErrorRequestHandler {
+  // Si el diagnóstico falla, el error nuevo no debe llegar al manejador final de Express (stack en la respuesta).
+  const report = (error: unknown, correlationId: string): void => {
+    try {
+      onUnexpected?.(error, correlationId);
+    } catch {
+      // Intencionalmente vacío: nada que registrar sin riesgo de filtrar datos.
+    }
+  };
+
   // Express reconoce un manejador de errores por su aridad (4 parámetros).
   return (error, req, res, _next) => {
     const correlationId = typeof res.locals.correlationId === 'string' ? res.locals.correlationId : randomUUID();
@@ -90,13 +99,13 @@ export function createErrorHandler(onUnexpected?: (error: unknown, correlationId
     // Con cabeceras ya enviadas no se puede responder. next(error) llevaría al
     // manejador final de Express, que imprime el stack en stderr (OBS-01).
     if (res.headersSent) {
-      onUnexpected?.(error, correlationId);
+      report(error, correlationId);
       req.socket.destroy();
       return;
     }
 
-    const clientError = fromBodyParserError(error);
-    if (!clientError && !(error instanceof ApiError)) onUnexpected?.(error, correlationId);
+    const clientError = fromClientError(error);
+    if (!clientError && !(error instanceof ApiError)) report(error, correlationId);
 
     const { status, body } = toPublicError(clientError ?? error, correlationId);
     res.status(status).type('application/json').json(body);

@@ -37,6 +37,8 @@ export function createApp({ config, logger, mount }: AppDependencies): express.E
   const app = express();
   app.disable('x-powered-by');
   app.set('etag', false);
+  // Nunca exponer stacks desde el manejador final de Express, sin importar NODE_ENV.
+  app.set('env', 'production');
   app.set('trust proxy', typeof config.trustedProxies === 'object' ? [...config.trustedProxies] : config.trustedProxies);
 
   app.use(securityHeaders);
