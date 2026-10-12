@@ -32,9 +32,9 @@ const DEFAULT_MESSAGES: Readonly<Record<PublicErrorCode, string>> = Object.freez
   STATE_CONFLICT: 'La operación entra en conflicto con el estado actual.',
   ACTION_UNAVAILABLE: 'El enlace no está disponible.',
   VALIDATION_FAILED: 'Uno o más valores no cumplen las reglas del campo.',
-  RATE_LIMITED: 'Demasiados intentos. Inténtalo más tarde.',
-  INTERNAL_ERROR: 'Error interno del servidor.',
-  SERVICE_UNAVAILABLE: 'Servicio no disponible temporalmente.',
+  RATE_LIMITED: 'Intenta nuevamente más tarde.',
+  INTERNAL_ERROR: 'No se pudo completar la solicitud.',
+  SERVICE_UNAVAILABLE: 'El servicio no está listo para aceptar solicitudes.',
 });
 
 /**
@@ -67,11 +67,15 @@ export function toPublicError(error: unknown, correlationId: string): PublicErro
   };
 }
 
-/** Errores de body-parser (JSON malformado o cuerpo demasiado grande) se devuelven como BAD_REQUEST. */
+/**
+ * Errores 4xx de body-parser (JSON roto, cuerpo grande, codificación o charset
+ * no soportados, petición abortada) son del cliente: se devuelven como BAD_REQUEST.
+ */
 function fromBodyParserError(error: unknown): ApiError | undefined {
   if (typeof error !== 'object' || error === null) return undefined;
-  const { type } = error as { type?: unknown };
-  return typeof type === 'string' && type.startsWith('entity.') ? new ApiError('BAD_REQUEST') : undefined;
+  const { type, status } = error as { type?: unknown; status?: unknown };
+  if (typeof type !== 'string') return undefined;
+  return Number.isInteger(status) && (status as number) >= 400 && (status as number) <= 499 ? new ApiError('BAD_REQUEST') : undefined;
 }
 
 export const notFoundHandler: RequestHandler = (_req, _res, next) => {
@@ -79,13 +83,18 @@ export const notFoundHandler: RequestHandler = (_req, _res, next) => {
 };
 
 export function createErrorHandler(onUnexpected?: (error: unknown, correlationId: string) => void): ErrorRequestHandler {
-  return (error, _req, res, next) => {
+  // Express reconoce un manejador de errores por su aridad (4 parámetros).
+  return (error, req, res, _next) => {
+    const correlationId = typeof res.locals.correlationId === 'string' ? res.locals.correlationId : randomUUID();
+
+    // Con cabeceras ya enviadas no se puede responder. next(error) llevaría al
+    // manejador final de Express, que imprime el stack en stderr (OBS-01).
     if (res.headersSent) {
-      next(error);
+      onUnexpected?.(error, correlationId);
+      req.socket.destroy();
       return;
     }
 
-    const correlationId = typeof res.locals.correlationId === 'string' ? res.locals.correlationId : randomUUID();
     const clientError = fromBodyParserError(error);
     if (!clientError && !(error instanceof ApiError)) onUnexpected?.(error, correlationId);
 
