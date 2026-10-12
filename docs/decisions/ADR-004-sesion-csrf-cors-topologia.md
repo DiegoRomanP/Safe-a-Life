@@ -53,16 +53,40 @@ dejar por escrito cómo se compensa que `originGuard` deje pasar una mutación s
    vigente si `amr` contiene `method: 'totp'` con `timestamp ≥ now − 300 s`.
    Códigos 403 específicos: `MFA_REQUIRED` y `STEP_UP_REQUIRED` (mismo mensaje
    genérico de 403). Verificar con la documentación el formato exacto de `amr`.
-6. **Topología (V3).** Vercel reescribe `/api/*` y `/health/*` hacia Render:
-   navegador y API comparten origen, por eso `SameSite=Lax` basta y **no se
-   configura CORS en producción**. En desarrollo, el proxy de Vite entrega el
-   mismo origen. `TRUSTED_PROXIES` admite un entero de saltos (Render: `1`) o
-   una lista de IP/CIDR (prefijos demasiado cortos se rechazan); el rate limit
-   por IP depende de que `req.ip` sea el cliente real.
-7. **Cookies `__Host-` en local.** Requieren `Secure`. Si Chrome o Bruno no las
-   aceptan sobre `http://127.0.0.1`, se permite `COOKIE_SECURE=false` **solo**
-   si `ALLOWED_ORIGINS` contiene únicamente orígenes locales, con nombres sin el
-   prefijo `__Host-`. Verificar antes de F2a.
+6. **Topología (V3) y secreto de borde.** Vercel reescribe `/api/*` y
+   `/health/*` hacia Render: navegador y API comparten origen, por eso
+   `SameSite=Lax` basta y **no se configura CORS en producción**. En desarrollo,
+   el proxy de Vite entrega el mismo origen. `TRUSTED_PROXIES` admite un entero
+   de saltos o una lista de IP/CIDR (prefijos demasiado cortos se rechazan); el
+   rate limit por IP depende de que `req.ip` sea el cliente real.
+   - **Decisión del 2026-10-12 (revisión de seguridad de F2a):** el borde de
+     Vercel inyecta una cabecera secreta `X-Edge-Secret` (variable
+     `EDGE_SHARED_SECRET`, ≥ 32 caracteres, distinta de los demás secretos) y
+     Express rechaza con 403 genérico toda petición sin ella, salvo `/health/*`
+     para los sondeos del balanceador. Así un acceso directo a `*.onrender.com`
+     no puede falsificar `X-Forwarded-For` ni esquivar el límite por IP. En
+     `NODE_ENV=production` la configuración exige `TRUSTED_PROXIES`, orígenes y
+     URLs `https` y `EDGE_SHARED_SECRET`.
+   - El número exacto de saltos entre Vercel y Render (y si Render añade o
+     reemplaza `X-Forwarded-For`) **se confirma en staging** antes de fijar
+     `TRUSTED_PROXIES`; con un salto incorrecto todos los usuarios de una región
+     de Vercel compartirían el bucket de login. La inyección de la cabecera en el
+     rewrite de Vercel también se verifica en F9.
+   - El sujeto del rate limit por IP agrupa IPv6 por prefijo /64.
+   - **Cuota de Supabase Auth.** Todas las llamadas a `/auth/v1/token` y a MFA
+     salen desde la IP del backend, y Supabase limita esos endpoints por IP
+     (cuota compartida por todos los usuarios). Por eso: (a) la renovación de
+     sesión tiene su propio límite por IP (`refresh:ip`) que se consulta antes
+     de llamar a Auth, y los refresh tokens con forma imposible se descartan sin
+     llamar; (b) un 429 del proveedor responde 429 con `Retry-After` y **nunca
+     borra las cookies** de la sesión; (c) la cuota de MFA (15 por minuto por
+     IP) no es configurable y limita el login de admins concurrentes: se vigila
+     en la demo.
+7. **Cookies `__Host-` en local.** Requieren `Secure`. Verificado el 2026-10-12:
+   Bruno CLI 4.2.0 y `fetch` de Node las aceptan sobre `http://127.0.0.1`, así
+   que no hace falta la excepción `COOKIE_SECURE=false`. Si un navegador no las
+   aceptara en local, se permite esa excepción **solo** con `ALLOWED_ORIGINS`
+   local y nombres sin el prefijo `__Host-`.
 8. **Contrato.** C-5: `components.securitySchemes.sessionCookie.name =
    __Host-sal_at` y se retira `x-pending-sprint0` de `sessionCookie` y
    `csrfToken`. C-6: los códigos 403 anteriores se documentan en

@@ -65,10 +65,13 @@ Java/Spring Boot fue evaluado y descartado para esta fase.
 - `apps/web` y `apps/mock-api` siguen siendo workspaces separados de tooling.
   `npm run dev` inicia Vite y el mock; no inicia el backend.
 - `backend/src/server.ts` es el punto de entrada del backend: valida el entorno
-  (`backend/.env.example` lista los nombres) y compone `createApp`. Hoy solo
-  incluye middlewares comunes y un 404 seguro; no hay rutas de negocio hasta que
-  se ratifiquen sus operaciones. `backend/index.js` y `backend/config/` fueron
-  retirados por inseguros (CORS abierto, cliente global con la anon key).
+  (`backend/.env.example` lista los nombres) y compone `createApp` mediante
+  `backend/src/composition.ts`. Hoy expone salud (`/health/live`, `/health/ready`)
+  y el módulo `identity-institutions` (sesión, MFA, instituciones; F2a). El resto
+  de las operaciones se implementa por módulo tras su ratificación.
+  `backend/supabase/` contiene el proyecto Supabase local (migraciones, siembra
+  y pruebas pgTAP). `backend/index.js` y `backend/config/` fueron retirados por
+  inseguros (CORS abierto, cliente global con la anon key).
 - La instalación se hace desde la raíz, cuyo `package-lock.json` es el único
   lockfile npm activo. Los pins exactos del manifiesto `backend` se conservan; el
   traslado no actualizó dependencias. Puede quedar una carpeta local ignorada
@@ -111,6 +114,9 @@ operaciones adicionales en la web stateful.
 ```bash
 npm test                         # Incluye pruebas de mock/web y DTO backend
 npm run test:backend:dto         # Validación runtime de DTO need-records
+npm run test:backend:db          # pgTAP (requiere `supabase start --workdir backend`)
+npm run test:backend:integration # Integración contra Supabase local (reinicia y siembra la base)
+npm run test:bruno:backend       # Bruno CLI contra el backend real
 npm run test:api:generator       # Pruebas del generador OpenAPI
 npm run openapi:api:check        # Comprueba artefactos generados sin escribirlos
 npm run test:api                 # Integración del mock con Supertest

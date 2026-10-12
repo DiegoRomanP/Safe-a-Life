@@ -37,6 +37,9 @@ npm run test:backend:dto           # backend DTO validators only
 npm run test:api                   # mock-api Supertest integration
 npm run test:contract              # Prism + Ajv2020 contract runner
 npm run test:bruno                 # starts/resets mock on ephemeral port, runs bruno/scenarios
+npm run test:backend:db            # pgTAP (needs `supabase start --workdir backend`)
+npm run test:backend:integration   # vitest against local Supabase (resets + seeds the DB)
+npm run test:bruno:backend         # Bruno CLI against the REAL backend (bruno/backend/**)
 npm run test:e2e -- --trace=off    # Playwright; stop `npm run dev` first
 npm run typecheck                  # also `npm run lint` (= tsc --noEmit)
 npm run build
@@ -62,17 +65,21 @@ If Chromium is missing, run `npx playwright install chromium`.
 The npm workspace has three members: `apps/web`, `apps/mock-api` and `backend`.
 
 - **Contract-first.** `docs/openapi.json` (OpenAPI 3.1) is the single canonical
-  contract. `scripts/generate-api-contract.mjs` derives four generated files from
-  it: `backend/src/modules/need-records/dto/openapi.ts`,
+  contract. `scripts/generate-api-contract.mjs` derives six generated files from
+  it: `backend/src/contract/openapi.ts`,
+  `backend/src/contract/ratified-schemas.generated.json` (per-operation schemas of
+  every ratified operation, used by `compileOperation`),
+  `backend/src/modules/need-records/dto/openapi.ts`,
   `backend/.../dto/contract.generated.json`, `apps/web/src/api/openapi.ts` and
   `apps/mock-api/src/api/openapi.ts`. Never hand-edit these. Edit the JSON, then
   lint, run `openapi:types`, and rerun the contract/Bruno tests.
-- **Ratification status.** Only `POST /api/v1/hospitals/me/needs`
-  (`createHospitalNeed`) is ratified for implementation. The other 69 operations
-  are drafts. Implementing any of them, or changing behavior around open AP items,
-  needs explicit user approval. `docs/Backend-Contracts.md` defines the ratified
-  scope (draft status, omitted radius defaults to 10, idempotency, audit,
-  expiry computed from the UTC PostgreSQL creation time).
+- **Ratification status.** Ratified for implementation (`x-ratification` in
+  `docs/openapi.json`): `createHospitalNeed`, the health pair and the 21
+  identity-institutions operations of F2a (session, MFA, step-up, hospitals,
+  sites, memberships, configuration, audit, task queue). The rest are drafts.
+  Implementing any of them, or changing behavior around open AP items, needs
+  explicit user approval per module. `docs/Backend-Contracts.md` defines the
+  ratified scope.
 - **`apps/web`** is React 18 + Vite + Tailwind 4 + react-router. Vite proxies
   `/api` to the mock on port 4011 only, with no fallback to Prism or the backend.
 - **`apps/mock-api`** is a stateful Express + zod demo with synthetic in-memory
@@ -80,11 +87,13 @@ The npm workspace has three members: `apps/web`, `apps/mock-api` and `backend`.
   real auth or RLS. `/__mock/reset` is a test-only endpoint and is not in OpenAPI.
 - **`backend`** is the production modular monolith (Express, Supabase, Resend
   behind adapters). `src/server.ts` is the entrypoint (`npm run dev:backend`),
-  `src/app.ts` exposes `createApp({config, logger, mount})`, `src/config/env.ts`
-  validates the environment and `src/shared/*` holds the common HTTP, crypto
-  and observability pieces. `src/modules/need-records/dto/` has the AJV 2020
-  validators. There are no business routes, services, repositories, auth or RLS
-  yet. Planned modules are listed in the capability map in
+  `src/composition.ts` wires the adapters, `src/app.ts` exposes
+  `createApp({config, logger, mount})`, `src/config/env.ts` validates the
+  environment and `src/shared/*` holds HTTP, auth, persistence and crypto pieces.
+  `src/modules/{platform,identity-institutions}` are implemented (F2a);
+  `src/modules/need-records/dto/` has the AJV 2020 validators. `supabase/` holds
+  the local project: migrations, `seed.sql` and pgTAP tests. Planned modules are
+  listed in the capability map in
   `docs/plans/2026-10-12-api-backend-completo-incremental.md`; the execution
   spec is `docs/plans/2026-10-12-especificacion-faltante-backend.md`.
 - **Monolito modular, two top-level folders.** The production frontend goes in
