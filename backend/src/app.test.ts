@@ -14,7 +14,8 @@ function envBase(): Record<string, string> {
     SUPABASE_JWKS_URL: 'https://proyecto.supabase.co/auth/v1/.well-known/jwks.json',
     CSRF_SECRET: 'c'.repeat(40),
     EMAIL_HMAC_SECRET: 'e'.repeat(40),
-    OUTBOX_KEY: Buffer.alloc(32, 9).toString('base64'),
+    OUTBOX_KEYS: `k1:${Buffer.alloc(32, 9).toString('base64')}`,
+    OUTBOX_KEY_CURRENT: 'k1',
     ALLOWED_ORIGINS: 'https://app.example.test',
   };
 }

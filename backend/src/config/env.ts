@@ -1,4 +1,5 @@
 import { isIP } from 'node:net';
+import { isValidKid, type OutboxKeyring } from '../shared/crypto/outbox-cipher.js';
 
 export type EmailProvider = 'fake' | 'resend';
 
@@ -8,7 +9,7 @@ export interface AppConfig {
   readonly allowedOrigins: readonly string[];
   /** `false` = ningún proxy; número = saltos de confianza; lista = IP o CIDR. Se pasa tal cual a `trust proxy`. */
   readonly trustedProxies: false | number | readonly string[];
-  readonly secrets: Readonly<{ csrf: string; emailHmac: string; outboxKey: Buffer }>;
+  readonly secrets: Readonly<{ csrf: string; emailHmac: string; outboxKeyring: OutboxKeyring }>;
   readonly email: Readonly<{
     provider: EmailProvider;
     resendApiKey: string | undefined;
@@ -55,7 +56,7 @@ export function parseEnv(source: Source): AppConfig {
   const csrf = parseSecret('CSRF_SECRET', required(source, 'CSRF_SECRET', reject), reject);
   const emailHmac = parseSecret('EMAIL_HMAC_SECRET', required(source, 'EMAIL_HMAC_SECRET', reject), reject);
   if (csrf && csrf === emailHmac) reject('EMAIL_HMAC_SECRET');
-  const outboxKey = parseOutboxKey(required(source, 'OUTBOX_KEY', reject), reject);
+  const outboxKeyring = parseOutboxKeyring(read(source, 'OUTBOX_KEYS'), read(source, 'OUTBOX_KEY_CURRENT'), reject);
 
   const provider = parseProvider(read(source, 'EMAIL_PROVIDER'), reject);
   const resendApiKey = provider === 'resend' ? required(source, 'RESEND_API_KEY', reject) : undefined;
@@ -68,7 +69,7 @@ export function parseEnv(source: Source): AppConfig {
     supabase: Object.freeze({ url: supabaseUrl, anonKey, jwksUrl }),
     allowedOrigins: Object.freeze(allowedOrigins),
     trustedProxies,
-    secrets: Object.freeze({ csrf, emailHmac, outboxKey }),
+    secrets: Object.freeze({ csrf, emailHmac, outboxKeyring }),
     email: Object.freeze({
       provider,
       resendApiKey: resendApiKey || undefined,
@@ -189,13 +190,29 @@ function parseSecret(name: string, raw: string, reject: Reject): string {
   return raw;
 }
 
-function parseOutboxKey(raw: string, reject: Reject): Buffer {
-  const key = Buffer.from(raw, 'base64');
-  if (raw === '' || key.length !== OUTBOX_KEY_BYTES || key.toString('base64') !== raw) {
-    reject('OUTBOX_KEY');
-    return Buffer.alloc(OUTBOX_KEY_BYTES);
+function parseOutboxKeyring(rawKeys: string | undefined, currentKid: string | undefined, reject: Reject): OutboxKeyring {
+  const keys = new Map<string, Buffer>();
+  const fallback: OutboxKeyring = Object.freeze({ currentKid: '', keys });
+
+  if (rawKeys === undefined) reject('OUTBOX_KEYS');
+  if (currentKid === undefined) reject('OUTBOX_KEY_CURRENT');
+  if (rawKeys === undefined || currentKid === undefined) return fallback;
+
+  for (const entry of rawKeys.split(',').map((item) => item.trim()).filter(Boolean)) {
+    const separator = entry.indexOf(':');
+    const kid = separator === -1 ? '' : entry.slice(0, separator);
+    const encoded = separator === -1 ? '' : entry.slice(separator + 1);
+    const key = Buffer.from(encoded, 'base64');
+    if (!isValidKid(kid) || keys.has(kid) || key.length !== OUTBOX_KEY_BYTES || key.toString('base64') !== encoded) {
+      reject('OUTBOX_KEYS');
+      continue;
+    }
+    keys.set(kid, key);
   }
-  return key;
+  if (keys.size === 0) reject('OUTBOX_KEYS');
+  if (!keys.has(currentKid)) reject('OUTBOX_KEY_CURRENT');
+
+  return Object.freeze({ currentKid, keys });
 }
 
 function parseProvider(raw: string | undefined, reject: Reject): EmailProvider {

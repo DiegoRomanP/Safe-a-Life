@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ConfigError, parseEnv } from './env.js';
 
 const OUTBOX_KEY = Buffer.alloc(32, 7).toString('base64');
+const OUTBOX_KEY_B = Buffer.alloc(32, 8).toString('base64');
 const CSRF_SECRET = 'c'.repeat(40);
 const EMAIL_HMAC_SECRET = 'e'.repeat(40);
 
@@ -12,7 +13,8 @@ function validEnv(overrides: Record<string, string | undefined> = {}): Record<st
     SUPABASE_JWKS_URL: 'https://proyecto.supabase.co/auth/v1/.well-known/jwks.json',
     CSRF_SECRET,
     EMAIL_HMAC_SECRET,
-    OUTBOX_KEY,
+    OUTBOX_KEYS: `k1:${OUTBOX_KEY}`,
+    OUTBOX_KEY_CURRENT: 'k1',
     ...overrides,
   };
 }
@@ -42,7 +44,8 @@ describe('parseEnv', () => {
     expect(config.email.provider).toBe('fake');
     expect(config.email.resendApiKey).toBeUndefined();
     expect(config.email.inboxAllowlist).toEqual([]);
-    expect(config.secrets.outboxKey).toHaveLength(32);
+    expect(config.secrets.outboxKeyring.currentKid).toBe('k1');
+    expect(config.secrets.outboxKeyring.keys.get('k1')).toHaveLength(32);
   });
 
   it('devuelve una configuración congelada', () => {
@@ -54,9 +57,9 @@ describe('parseEnv', () => {
   });
 
   it('informa solo los nombres de las variables obligatorias que faltan', () => {
-    const env = validEnv({ CSRF_SECRET: undefined, OUTBOX_KEY: '' });
+    const env = validEnv({ CSRF_SECRET: undefined, OUTBOX_KEYS: '', OUTBOX_KEY_CURRENT: undefined });
 
-    expect(errorVariables(env)).toEqual(['CSRF_SECRET', 'OUTBOX_KEY']);
+    expect(errorVariables(env)).toEqual(['CSRF_SECRET', 'OUTBOX_KEYS', 'OUTBOX_KEY_CURRENT']);
   });
 
   it('no filtra valores de secretos mal formados en el mensaje de error', () => {
@@ -79,10 +82,22 @@ describe('parseEnv', () => {
     expect(errorVariables(env)).toEqual(['EMAIL_HMAC_SECRET']);
   });
 
-  it('rechaza una clave de OUTBOX que no decodifica a 32 bytes', () => {
-    const env = validEnv({ OUTBOX_KEY: Buffer.alloc(16, 1).toString('base64') });
+  it('acepta un keyring con varias claves y una clave actual presente', () => {
+    const config = parseEnv(validEnv({ OUTBOX_KEYS: `k1:${OUTBOX_KEY},k2:${OUTBOX_KEY_B}`, OUTBOX_KEY_CURRENT: 'k2' }));
 
-    expect(errorVariables(env)).toEqual(['OUTBOX_KEY']);
+    expect(config.secrets.outboxKeyring.currentKid).toBe('k2');
+    expect([...config.secrets.outboxKeyring.keys.keys()]).toEqual(['k1', 'k2']);
+  });
+
+  it('rechaza claves del outbox que no decodifican a 32 bytes, kids inválidos o repetidos', () => {
+    const short = Buffer.alloc(16, 1).toString('base64');
+    for (const invalid of [`k1:${short}`, `K1:${OUTBOX_KEY}`, `sin-separador`, `k1:${OUTBOX_KEY},k1:${OUTBOX_KEY_B}`, `k1:${OUTBOX_KEY}x`]) {
+      expect(errorVariables(validEnv({ OUTBOX_KEYS: invalid }))).toContain('OUTBOX_KEYS');
+    }
+  });
+
+  it('rechaza una OUTBOX_KEY_CURRENT que no está en el keyring', () => {
+    expect(errorVariables(validEnv({ OUTBOX_KEY_CURRENT: 'k9' }))).toEqual(['OUTBOX_KEY_CURRENT']);
   });
 
   it('acepta http solo para localhost en la URL de Supabase local', () => {
