@@ -88,6 +88,7 @@
       "get": {
         "tags": ["Authentication"],
         "operationId": "getCsrfToken",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (getCsrfToken)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Obtiene token CSRF para mutaciones de la sesión actual",
         "description": "Token ligado a la sesión; el cliente lo conserva en memoria y lo envía en X-CSRF-Token. No registrar su valor. Header/mecanismo final pendiente de ratificación Sprint 0.",
         "responses": {
@@ -101,6 +102,7 @@
       "get": {
         "tags": ["Authentication"],
         "operationId": "getCurrentSession",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (getCurrentSession)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Obtiene el actor asociado a la sesión actual",
         "responses": {
           "200": {
@@ -116,6 +118,7 @@
       "post": {
         "tags": ["Authentication"],
         "operationId": "createSession",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (createSession)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Inicia sesión mediante Express y Supabase Auth",
         "description": "La respuesta no enumera cuentas; administradores deben completar MFA/AAL2 antes de operaciones administrativas.",
         "security": [],
@@ -142,6 +145,7 @@
       "delete": {
         "tags": ["Authentication"],
         "operationId": "deleteCurrentSession",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (deleteCurrentSession)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Cierra la sesión actual",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
@@ -192,6 +196,7 @@
       "post": {
         "tags": ["Authentication"],
         "operationId": "verifyMfaChallenge",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (verifyMfaChallenge)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Completa MFA para alcanzar AAL2",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
@@ -205,10 +210,74 @@
         }
       }
     },
+    "/api/v1/auth/mfa-enrollments": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "enrollMfaFactor",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (enrollMfaFactor)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
+        "summary": "Enrola el factor TOTP de un admin o superadmin",
+        "description": "Solo admin hospitalario o superadmin con sesión AAL1 y sin factor verificado. Devuelve el secreto del autenticador (otpauthUri) y un reto que se completa con verifyMfaChallenge. La respuesta es no-store.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Factor creado pendiente de verificación.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaEnrollmentEnvelope"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          }
+        }
+      }
+    },
     "/api/v1/auth/step-up-verifications": {
       "post": {
         "tags": ["Authentication"],
         "operationId": "verifyStepUp",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (verifyStepUp)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Valida step-up para una acción privilegiada",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
@@ -764,6 +833,7 @@
       "get": {
         "tags": ["Hospital"],
         "operationId": "listOwnHospitalSites",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (listOwnHospitalSites)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Lista sedes activas propias para seleccionar una necesidad",
         "description": "Solo un admin_hospitalario autenticado en AAL2 con membresía protegida vigente puede consultar esta colección. El servidor deriva el hospital de la identidad actual y la membresía; el hospital debe estar activo y autorizado. Solo devuelve sedes propias activas y aprobadas, filtradas por esa institución en la consulta, sin selectores de hospital del cliente. Revalida la membresía en cada lectura y al crear una necesidad, junto con la pertenencia y vigencia de la sede elegida; esta consulta no sustituye esa revalidación ni cambia el catálogo existente de createHospitalNeed, incluido su 422 uniforme para sede inexistente, ajena o inactiva (RF-ORG-01, RF-NEC-05, RNF-SEC-05/07/08). Solo admite limit y cursor; parámetros desconocidos o inválidos producen 400. El orden estable es siteId ascendente; el cursor es opaco, sin PII y scoped por el servidor al hospital autorizado y a ese orden. Sin sedes elegibles devuelve 200 con items vacío y nextCursor null. Operación draft, no ratificada ni implementada.",
         "security": [{ "sessionCookie": [] }],
@@ -1350,6 +1420,7 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "listSuperadminTasks",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (listSuperadminTasks)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Lista tareas administrativas sin exponer el padrón",
         "responses": {
           "200": {
@@ -1389,6 +1460,7 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "listHospitals",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (listHospitals)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Lista hospitales autorizados",
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
         "responses": {
@@ -1430,6 +1502,7 @@
       "post": {
         "tags": ["Superadmin"],
         "operationId": "createHospital",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (createHospital)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Crea hospital autorizado",
         "description": "Solo superadmin; no existe autorregistro hospitalario.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
@@ -1449,6 +1522,7 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "getHospital",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (getHospital)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Consulta datos maestros del hospital",
         "responses": {
           "200": { "description": "Hospital.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HospitalEnvelope" } } } },
@@ -1460,6 +1534,7 @@
       "patch": {
         "tags": ["Superadmin"],
         "operationId": "updateHospital",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (updateHospital)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Actualiza datos maestros de un hospital",
         "description": "AAL2 y step-up reciente para cambios privilegiados; guardar evento de auditoría minimizado.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
@@ -1480,6 +1555,7 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "listHospitalSites",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (listHospitalSites)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Lista sedes del hospital",
         "responses": {
           "200": {
@@ -1502,7 +1578,12 @@
                           "publicName": "Sede Centro",
                           "publicAddress": "Lima Metropolitana",
                           "isActive": true,
-                          "isApproved": true
+                          "isApproved": true,
+                          "coordinates": {
+                            "latitude": -12.046374,
+                            "longitude": -77.042793
+                          },
+                          "publicInstructions": null
                         }]
                       }
                     }
@@ -1519,16 +1600,27 @@
       "post": {
         "tags": ["Superadmin"],
         "operationId": "createHospitalSite",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (createHospitalSite)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Crea una sede para el hospital",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateSiteRequest" }, "example": { "publicName": "Sede Centro Demo", "publicAddress": "Lima Metropolitana" } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateSiteRequest" }, "example": {
+          "publicName": "Sede Centro Demo",
+          "publicAddress": "Lima Metropolitana",
+          "coordinates": {
+            "latitude": -12.046374,
+            "longitude": -77.042793
+          }
+        } } } },
         "responses": {
           "201": { "description": "Sede creada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SiteEnvelope" } } } },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
         }
       }
     },
@@ -1536,6 +1628,7 @@
       "patch": {
         "tags": ["Superadmin"],
         "operationId": "updateHospitalSite",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (updateHospitalSite)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Actualiza o aprueba una sede",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/SiteId" }, { "$ref": "#/components/parameters/IdempotencyKey" }],
@@ -1545,7 +1638,10 @@
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          }
         }
       }
     },
@@ -1553,6 +1649,7 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "listHospitalMemberships",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (listHospitalMemberships)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Lista membresías administrativas minimizadas",
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
         "responses": {
@@ -1612,6 +1709,7 @@
       "patch": {
         "tags": ["Superadmin"],
         "operationId": "revokeHospitalMembership",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (revokeHospitalMembership)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Revoca membresía hospitalaria",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/MembershipId" }, { "$ref": "#/components/parameters/IdempotencyKey" }],
@@ -1754,6 +1852,7 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "getSuperadminConfiguration",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (getSuperadminConfiguration)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Consulta configuración permitida",
         "responses": {
           "200": { "description": "Configuración versionada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ConfigurationEnvelope" } } } },
@@ -1765,6 +1864,7 @@
       "patch": {
         "tags": ["Superadmin"],
         "operationId": "setFinalDemoAt",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (setFinalDemoAt)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Fija una vez la fecha final de demo",
         "description": "AAL2 + step-up reciente; no permite modificar final_demo_at después de fijarlo.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
@@ -1783,6 +1883,7 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "listAuditEvents",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (listAuditEvents)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Consulta auditoría append-only minimizada",
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
         "responses": {
@@ -1913,16 +2014,14 @@
       "sessionCookie": {
         "type": "apiKey",
         "in": "cookie",
-        "name": "session",
-        "description": "Nombre placeholder. En producción será Secure y HttpOnly; el nombre definitivo se fija en Sprint 0. No pegar una cookie real en Swagger Editor.",
-        "x-pending-sprint0": true
+        "name": "__Host-sal_at",
+        "description": "Cookie de acceso HttpOnly, Secure, SameSite=Lax y Path=/ con el JWT de Supabase (ADR-004). La renovación usa la cookie __Host-sal_rt, que nunca aparece en el contrato. No pegar una cookie real en Swagger Editor."
       },
       "csrfToken": {
         "type": "apiKey",
         "in": "header",
         "name": "X-CSRF-Token",
-        "description": "Header placeholder para documentar la protección CSRF; nombre/mecanismo definitivo pendiente de Sprint 0.",
-        "x-pending-sprint0": true
+        "description": "Token CSRF firmado y ligado a la sesión, obtenido con getCsrfToken. Toda mutación con cookie exige además un Origin presente y permitido (ADR-004)."
       }
     },
     "parameters": {
@@ -2413,6 +2512,43 @@
           "code": { "type": "string", "pattern": "^[0-9]{6,8}$" }
         }
       },
+      "MfaEnrollment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "factorId",
+          "otpauthUri",
+          "challengeId"
+        ],
+        "properties": {
+          "factorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "otpauthUri": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 512,
+            "description": "URI otpauth:// para el código QR o la clave del autenticador. Es un secreto: respuesta no-store."
+          },
+          "challengeId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "MfaEnrollmentEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/MfaEnrollment"
+          }
+        }
+      },
       "StepUpVerificationRequest": {
         "type": "object",
         "additionalProperties": false,
@@ -2662,19 +2798,64 @@
         "properties": { "data": { "type": "object", "additionalProperties": false, "required": ["items", "pagination"], "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Hospital" } }, "pagination": { "$ref": "#/components/schemas/Pagination" } } } }
       },
       "Site": {
-        "type": "object", "additionalProperties": false, "required": ["siteId", "hospitalId", "publicName", "isActive", "isApproved"],
-        "properties": { "siteId": { "type": "string", "format": "uuid" }, "hospitalId": { "type": "string", "format": "uuid" }, "publicName": { "type": "string", "minLength": 1, "maxLength": 160 }, "publicAddress": { "type": "string", "maxLength": 240 }, "isActive": { "type": "boolean" }, "isApproved": { "type": "boolean" } }
+        "type": "object", "additionalProperties": false, "required": [
+          "siteId",
+          "hospitalId",
+          "publicName",
+          "coordinates",
+          "isActive",
+          "isApproved"
+        ],
+        "properties": { "siteId": { "type": "string", "format": "uuid" }, "hospitalId": { "type": "string", "format": "uuid" }, "publicName": { "type": "string", "minLength": 1, "maxLength": 160 }, "publicAddress": { "type": "string", "maxLength": 240 }, "coordinates": {"$ref": "#/components/schemas/SiteCoordinates"}, "publicInstructions": {"type": ["string", "null"], "maxLength": 1000, "description": "Instrucciones públicas para el donante; si es null se muestra un texto neutral fijo."}, "isActive": { "type": "boolean" }, "isApproved": { "type": "boolean" } }
+      },
+      "SiteCoordinates": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "latitude",
+          "longitude"
+        ],
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90,
+            "multipleOf": 1e-06
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180,
+            "multipleOf": 1e-06
+          }
+        }
       },
       "CreateSiteRequest": {
-        "type": "object", "additionalProperties": false, "required": ["publicName", "publicAddress"],
-        "properties": { "publicName": { "type": "string", "minLength": 1, "maxLength": 160 }, "publicAddress": { "type": "string", "minLength": 1, "maxLength": 240 } }
+        "type": "object", "additionalProperties": false, "required": [
+          "publicName",
+          "publicAddress",
+          "coordinates"
+        ],
+        "properties": { "publicName": { "type": "string", "minLength": 1, "maxLength": 160 }, "publicAddress": { "type": "string", "minLength": 1, "maxLength": 240 }, "coordinates": {"$ref": "#/components/schemas/SiteCoordinates"}, "publicInstructions": {"type": "string", "maxLength": 1000, "description": "Instrucciones públicas para el donante; si se omite se muestra un texto neutral fijo."} }
       },
       "UpdateSiteRequest": {
         "type": "object", "additionalProperties": false, "minProperties": 1,
-        "properties": { "publicName": { "type": "string", "minLength": 1, "maxLength": 160 }, "publicAddress": { "type": "string", "minLength": 1, "maxLength": 240 }, "isActive": { "type": "boolean" }, "isApproved": { "type": "boolean" } }
+        "properties": { "publicName": { "type": "string", "minLength": 1, "maxLength": 160 }, "publicAddress": { "type": "string", "minLength": 1, "maxLength": 240 }, "isActive": { "type": "boolean" }, "isApproved": { "type": "boolean" }, "coordinates": {"$ref": "#/components/schemas/SiteCoordinates"}, "publicInstructions": {"type": "string", "maxLength": 1000, "description": "Instrucciones públicas para el donante; si se omite se muestra un texto neutral fijo."} }
       },
       "SiteEnvelope": {
-        "type": "object", "example": { "data": { "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261", "hospitalId": "a8b51767-5c30-41fb-bf7a-f90250f9649c", "publicName": "Sede Centro", "publicAddress": "Lima Metropolitana", "isActive": true, "isApproved": true } }, "additionalProperties": false, "required": ["data"],
+        "type": "object", "example": { "data": {
+          "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261",
+          "hospitalId": "a8b51767-5c30-41fb-bf7a-f90250f9649c",
+          "publicName": "Sede Centro",
+          "publicAddress": "Lima Metropolitana",
+          "isActive": true,
+          "isApproved": true,
+          "coordinates": {
+            "latitude": -12.046374,
+            "longitude": -77.042793
+          },
+          "publicInstructions": null
+        } }, "additionalProperties": false, "required": ["data"],
         "properties": { "data": { "$ref": "#/components/schemas/Site" } }
       },
       "OwnHospitalSite": {
@@ -2704,7 +2885,19 @@
         }
       },
       "SiteListEnvelope": {
-        "type": "object", "example": { "data": { "items": [{ "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261", "hospitalId": "a8b51767-5c30-41fb-bf7a-f90250f9649c", "publicName": "Sede Centro", "publicAddress": "Lima Metropolitana", "isActive": true, "isApproved": true }] } }, "additionalProperties": false, "required": ["data"],
+        "type": "object", "example": { "data": { "items": [{
+          "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261",
+          "hospitalId": "a8b51767-5c30-41fb-bf7a-f90250f9649c",
+          "publicName": "Sede Centro",
+          "publicAddress": "Lima Metropolitana",
+          "isActive": true,
+          "isApproved": true,
+          "coordinates": {
+            "latitude": -12.046374,
+            "longitude": -77.042793
+          },
+          "publicInstructions": null
+        }] } }, "additionalProperties": false, "required": ["data"],
         "properties": { "data": { "type": "object", "additionalProperties": false, "required": ["items"], "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Site" } } } } }
       },
       "Membership": {

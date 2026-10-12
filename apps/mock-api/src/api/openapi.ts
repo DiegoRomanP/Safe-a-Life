@@ -169,6 +169,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/mfa-enrollments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enrola el factor TOTP de un admin o superadmin
+         * @description Solo admin hospitalario o superadmin con sesión AAL1 y sin factor verificado. Devuelve el secreto del autenticador (otpauthUri) y un reto que se completa con verifyMfaChallenge. La respuesta es no-store.
+         */
+        post: operations["enrollMfaFactor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/step-up-verifications": {
         parameters: {
             query?: never;
@@ -1499,6 +1519,20 @@ export interface components {
             challengeId: string;
             code: string;
         };
+        MfaEnrollment: {
+            /** Format: uuid */
+            factorId: string;
+            /**
+             * Format: uri
+             * @description URI otpauth:// para el código QR o la clave del autenticador. Es un secreto: respuesta no-store.
+             */
+            otpauthUri: string;
+            /** Format: uuid */
+            challengeId: string;
+        };
+        MfaEnrollmentEnvelope: {
+            data: components["schemas"]["MfaEnrollment"];
+        };
         StepUpVerificationRequest: {
             code: string;
         };
@@ -1960,18 +1994,31 @@ export interface components {
             hospitalId: string;
             publicName: string;
             publicAddress?: string;
+            coordinates: components["schemas"]["SiteCoordinates"];
+            /** @description Instrucciones públicas para el donante; si es null se muestra un texto neutral fijo. */
+            publicInstructions?: string | null;
             isActive: boolean;
             isApproved: boolean;
+        };
+        SiteCoordinates: {
+            latitude: number;
+            longitude: number;
         };
         CreateSiteRequest: {
             publicName: string;
             publicAddress: string;
+            coordinates: components["schemas"]["SiteCoordinates"];
+            /** @description Instrucciones públicas para el donante; si se omite se muestra un texto neutral fijo. */
+            publicInstructions?: string;
         };
         UpdateSiteRequest: {
             publicName?: string;
             publicAddress?: string;
             isActive?: boolean;
             isApproved?: boolean;
+            coordinates?: components["schemas"]["SiteCoordinates"];
+            /** @description Instrucciones públicas para el donante; si se omite se muestra un texto neutral fijo. */
+            publicInstructions?: string;
         };
         /**
          * @example {
@@ -1981,7 +2028,12 @@ export interface components {
          *         "publicName": "Sede Centro",
          *         "publicAddress": "Lima Metropolitana",
          *         "isActive": true,
-         *         "isApproved": true
+         *         "isApproved": true,
+         *         "coordinates": {
+         *           "latitude": -12.046374,
+         *           "longitude": -77.042793
+         *         },
+         *         "publicInstructions": null
          *       }
          *     }
          */
@@ -2010,7 +2062,12 @@ export interface components {
          *             "publicName": "Sede Centro",
          *             "publicAddress": "Lima Metropolitana",
          *             "isActive": true,
-         *             "isApproved": true
+         *             "isApproved": true,
+         *             "coordinates": {
+         *               "latitude": -12.046374,
+         *               "longitude": -77.042793
+         *             },
+         *             "publicInstructions": null
          *           }
          *         ]
          *       }
@@ -2737,6 +2794,36 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthorized"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+        };
+    };
+    enrollMfaFactor: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave estable para reintentos de la misma intención. El servidor la liga a actor, operación y hash canónico del payload; no registrar su valor. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Factor creado pendiente de verificación. */
+            201: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    "Referrer-Policy"?: "no-referrer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MfaEnrollmentEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
@@ -4284,7 +4371,11 @@ export interface operations {
                 /**
                  * @example {
                  *       "publicName": "Sede Centro Demo",
-                 *       "publicAddress": "Lima Metropolitana"
+                 *       "publicAddress": "Lima Metropolitana",
+                 *       "coordinates": {
+                 *         "latitude": -12.046374,
+                 *         "longitude": -77.042793
+                 *       }
                  *     }
                  */
                 "application/json": components["schemas"]["CreateSiteRequest"];
@@ -4304,6 +4395,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
         };
     };
     updateHospitalSite: {
@@ -4342,6 +4434,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
         };
     };
     listHospitalMemberships: {
