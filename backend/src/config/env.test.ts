@@ -233,4 +233,11 @@ describe('parseEnv: secreto de borde y producción', () => {
   it('fuera de producción permite localhost sin proxies ni secreto de borde', () => {
     expect(parseEnv(validEnvSource({ SUPABASE_URL: 'http://127.0.0.1:54321' })).production).toBe(false);
   });
+
+  it('en Render (variable RENDER) exige los mismos controles aunque falte NODE_ENV', () => {
+    expect(() => parseEnv(validEnvSource({ RENDER: 'true' }))).toThrowError(/TRUSTED_PROXIES/);
+    expect(parseEnv(validEnvSource({
+      RENDER: 'true', TRUSTED_PROXIES: '1', ALLOWED_ORIGINS: 'https://app.example.test', EDGE_SHARED_SECRET: 'b'.repeat(40),
+    })).production).toBe(true);
+  });
 });

@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startBackend, type RunningBackend } from '../support/app.js';
 import { ApiClient, totpSecretFor } from '../support/client.js';
+import { undeclaredStatuses } from '../support/contract-statuses.js';
 import { sql } from '../support/db.js';
 import { HOSPITAL_IDS, SEED_USERS } from '../support/local-env.js';
 import { freshTotpCode } from '../support/totp.js';
@@ -159,5 +160,12 @@ describe('salud y guard de borde', () => {
     } finally {
       await edge.close();
     }
+  });
+});
+
+
+describe('contrato', () => {
+  it('todo estado HTTP devuelto por el backend está declarado para su operación en docs/openapi.json', () => {
+    expect(undeclaredStatuses()).toEqual([]);
   });
 });

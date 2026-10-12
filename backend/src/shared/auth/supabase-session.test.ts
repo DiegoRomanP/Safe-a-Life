@@ -40,4 +40,21 @@ describe('adaptador de Supabase Auth', () => {
       expect(await gateway.verifyAccessToken(token).catch((error) => (error instanceof PersistenceUnavailableError ? 'down' : 'throw'))).toBeNull();
     }
   });
+
+  it('un 429 en el logout NO cuenta como sesión revocada', async () => {
+    const limited = createSupabaseSessionGateway(CONFIG, { fetch: respond(429, { code: 'over_request_rate_limit' }) });
+
+    await expect(limited.signOut('at-de-prueba')).rejects.toBeInstanceOf(UpstreamRateLimitedError);
+  });
+
+  it('cada llamada a Auth lleva un límite de tiempo', async () => {
+    let signal: AbortSignal | null | undefined;
+    const gateway = createSupabaseSessionGateway(CONFIG, {
+      fetch: (async (_input, init) => { signal = init?.signal; return new Response('{}', { status: 400 }); }) as typeof fetch,
+    });
+
+    await gateway.signIn('a@example.test', 'x');
+
+    expect(signal).toBeInstanceOf(AbortSignal);
+  });
 });

@@ -4,6 +4,8 @@ import { PersistenceUnavailableError, UpstreamRateLimitedError } from '../persis
 import { parseClaims } from './claims.js';
 import type { MfaFactorSummary, SessionGateway, TokenPair, TotpEnrollment, VerifiedClaims } from './session-ports.js';
 
+const AUTH_TIMEOUT_MS = 8_000;
+
 export interface SupabaseSessionOptions {
   readonly fetch?: typeof fetch;
 }
@@ -39,10 +41,16 @@ export function createSupabaseSessionGateway(
   options: SupabaseSessionOptions = {},
 ): SessionGateway {
   const { url, anonKey } = config.supabase;
+  // `iss` de Supabase Auth es el origen del proyecto + /auth/v1, sin barra final ni ruta extra.
+  const issuer = `${new URL(url).origin}/auth/v1`;
+  // Ninguna llamada a Auth queda sin límite de tiempo: un Auth lento no debe retener los handlers.
+  const baseFetch = options.fetch ?? fetch;
+  const boundedFetch: typeof fetch = (input, init) =>
+    baseFetch(input, { ...init, signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(AUTH_TIMEOUT_MS)]) : AbortSignal.timeout(AUTH_TIMEOUT_MS) });
   const newClient = (): SupabaseClient =>
     createClient(url, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-      ...(options.fetch ? { global: { fetch: options.fetch } } : {}),
+      global: { fetch: boundedFetch },
     });
 
   /** Cliente efímero con la sesión del usuario para las llamadas de MFA. */
@@ -67,7 +75,7 @@ export function createSupabaseSessionGateway(
       try {
         const { data, error } = await newClient().auth.getClaims(accessToken);
         unavailableOr(error, null);
-        return error || !data ? null : parseClaims(data.claims, { issuer: `${url}/auth/v1`, audience: 'authenticated' });
+        return error || !data ? null : parseClaims(data.claims, { issuer, audience: 'authenticated' });
       } catch (caught) {
         if (caught instanceof PersistenceUnavailableError || caught instanceof UpstreamRateLimitedError) throw caught;
         return null;
@@ -86,6 +94,8 @@ export function createSupabaseSessionGateway(
 
     async signOut(accessToken, scope = 'global') {
       const { error } = await newClient().auth.admin.signOut(accessToken, scope);
+      // Un 429 no es «sesión ya revocada»: el refresh token seguiría vivo.
+      assertNotRateLimited(error);
       // 401/403/404 significan que la sesión ya no existe: el objetivo se cumplió.
       if (isUnavailable(error)) throw new PersistenceUnavailableError();
     },

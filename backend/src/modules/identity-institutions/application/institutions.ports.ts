@@ -17,7 +17,7 @@ export type SiteView = Readonly<{
 }>;
 
 export type MembershipView = Readonly<{
-  membershipId: string; hospitalId: string; role: 'admin_hospitalario'; status: 'activa' | 'revocada'; emailHint: string;
+  membershipId: string; hospitalId: string; role: 'admin_hospitalario'; status: 'pendiente' | 'activa' | 'revocada'; emailHint: string;
 }>;
 
 export type ConfigurationView = Readonly<{ finalDemoAt: string | null; isImmutable: boolean }>;

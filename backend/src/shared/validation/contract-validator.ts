@@ -58,11 +58,20 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
   }
 }
 
-/** PostgreSQL no admite U+0000 en texto: llegaría como 500 desde PostgREST. Es una entrada mal formada (400). */
+/**
+ * PostgreSQL no admite U+0000 ni surrogates UTF-16 sueltos en texto: llegarían como 500 desde
+ * PostgREST. Es una entrada mal formada (400).
+ */
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+
+function isUnstorableText(text: string): boolean {
+  return text.includes('\u0000') || LONE_SURROGATE.test(text);
+}
+
 function containsNul(value: unknown, depth = 0): boolean {
-  if (typeof value === 'string') return value.includes('\u0000');
+  if (typeof value === 'string') return isUnstorableText(value);
   if (depth > 32 || typeof value !== 'object' || value === null) return false;
-  return Object.entries(value).some(([key, child]) => key.includes('\u0000') || containsNul(child, depth + 1));
+  return Object.entries(value).some(([key, child]) => isUnstorableText(key) || containsNul(child, depth + 1));
 }
 
 function deepFreeze<T>(value: T): T {

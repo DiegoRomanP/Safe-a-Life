@@ -66,4 +66,10 @@ describe('hash canónico de las escrituras (paridad con app.fingerprint de SQL)'
 
     expect(seen[0].envelope?.hash).not.toBe(seen[1].envelope?.hash);
   });
+
+  it('una fecha date-time válida para el esquema pero inexistente para Date (segundo intercalar) es 422, no 500', async () => {
+    const { service } = recorder();
+
+    await expect(service.setFinalDemoAt('t', 'clave-de-prueba-0001', '2027-06-30T23:59:60Z')).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+  });
 });

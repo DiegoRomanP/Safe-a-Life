@@ -14,6 +14,11 @@ export interface AuthenticateDependencies {
    * IP del backend). Devuelve los segundos a esperar si se excedió, o `null`.
    */
   readonly refreshGate?: (req: Request) => Promise<number | null>;
+  /**
+   * Rutas que nunca renuevan la sesión (login y logout): un límite de renovaciones agotado no debe
+   * impedir iniciar ni cerrar sesión. Sin renovación se tratan como sin sesión y no se tocan cookies.
+   */
+  readonly skipRenewal?: (req: Request) => boolean;
 }
 
 /** Los refresh tokens de Supabase son cadenas opacas cortas; descartar formas imposibles sin llamar al proveedor. */
@@ -29,13 +34,18 @@ const REFRESH_TOKEN_SHAPE = /^[A-Za-z0-9._-]{4,200}$/;
  *    ambas cookies; si el refresh falla, expira las dos cookies.
  * 3. Resuelve el actor con el JWT del usuario.
  */
-export function authenticate({ verifier, actors, refreshGate }: AuthenticateDependencies): RequestHandler {
+export function authenticate({ verifier, actors, refreshGate, skipRenewal }: AuthenticateDependencies): RequestHandler {
   return async (req, res, next) => {
     try {
       const cookies = parseCookies(req.get('cookie'));
       let accessToken = cookies[ACCESS_COOKIE];
       let refreshToken: string | undefined = cookies[REFRESH_COOKIE];
       let claims: VerifiedClaims | null = accessToken ? await verifier.verifyAccessToken(accessToken) : null;
+
+      if (!claims && skipRenewal?.(req)) {
+        next();
+        return;
+      }
 
       if (!claims && refreshToken && !REFRESH_TOKEN_SHAPE.test(refreshToken)) {
         clearSessionCookies(res);

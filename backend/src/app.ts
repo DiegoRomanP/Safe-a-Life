@@ -19,7 +19,7 @@ export interface AppDependencies {
 const JSON_BODY_LIMIT = '16kb';
 
 function requestLogger(logger: Logger): express.RequestHandler {
-  return (_req, res, next) => {
+  return (req, res, next) => {
     const started = performance.now();
     res.on('finish', () => {
       // Solo estado y código público: rechazos de CSRF, Origin, sesión o tasa son visibles sin PII.
@@ -29,6 +29,8 @@ function requestLogger(logger: Logger): express.RequestHandler {
         correlationId: res.locals.correlationId,
         durationMs: Math.round(performance.now() - started),
         status: res.statusCode,
+        ...(typeof req.route?.path === 'string' ? { route: `${req.baseUrl}${req.route.path}` } : {}),
+        ...(typeof res.locals.rejectReason === 'string' ? { reason: res.locals.rejectReason } : {}),
         ...(typeof res.locals.errorCode === 'string' ? { code: res.locals.errorCode } : {}),
       });
     });

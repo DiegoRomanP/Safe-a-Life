@@ -21,6 +21,10 @@ export interface LogEntry {
   readonly durationMs?: number;
   /** Código HTTP de la respuesta. */
   readonly status?: number;
+  /** Plantilla de la ruta (`/api/v1/x/:id`), nunca la URL real. */
+  readonly route?: string;
+  /** Motivo interno de un rechazo de seguridad (`edge`, `csrf`, `origin`, `provider_rate_limited`...). */
+  readonly reason?: string;
 }
 
 export interface Logger {
@@ -28,6 +32,7 @@ export interface Logger {
 }
 
 const TOKEN_PATTERN = /^[a-z0-9_.-]{1,80}$/;
+const ROUTE_PATTERN = /^[A-Za-z0-9/_:.-]{1,120}$/;
 const CODE_PATTERN = /^[A-Z0-9_]{1,40}$/;
 const CORRELATION_PATTERN = /^[A-Za-z0-9-]{1,100}$/;
 const FALLBACK_EVENT = 'evento_no_valido';
@@ -56,6 +61,8 @@ export function createLogger(write: (line: string) => void, now: () => Date = ()
         correlationId: matching(entry.correlationId, CORRELATION_PATTERN),
         durationMs: nonNegativeNumber(entry.durationMs),
         status: httpStatus(entry.status),
+        route: matching(entry.route, ROUTE_PATTERN),
+        reason: matching(entry.reason, TOKEN_PATTERN),
       };
       write(JSON.stringify(record));
     },

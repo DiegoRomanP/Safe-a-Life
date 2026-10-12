@@ -18,6 +18,10 @@ describe('guards cerrados de las proyecciones RPC', () => {
     expect(parseMembership({ membershipId: 'm1', hospitalId: 'h1', role: 'admin_hospitalario', status: 'revocada', emailHint: 'a***@x.test' }).status).toBe('revocada');
   });
 
+  it('aceptan una membresía pendiente (alta por invitación, F2b)', () => {
+    expect(parseMembership({ membershipId: 'm1', hospitalId: 'h1', role: 'admin_hospitalario', status: 'pendiente', emailHint: 'a***@x.test' }).status).toBe('pendiente');
+  });
+
   it('rechazan claves de más, de menos o de otro tipo con un fallo de persistencia (500)', () => {
     const bad: Array<() => unknown> = [
       () => parseHospital({ ...HOSPITAL, extra: 'x' }),
