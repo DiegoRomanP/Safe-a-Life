@@ -249,6 +249,12 @@ proyección. No se introducen reintentos, transiciones ni umbrales de fallo term
   - `400`: solicitud malformada o parámetros inválidos.
   - `401`: sesión ausente, inválida o vencida.
   - `403`: actor autenticado sin permiso para una acción que no revele datos.
+    Dos códigos específicos comparten el mensaje genérico de `ACCESS_DENIED`
+    (ADR-004): `MFA_REQUIRED` cuando falta AAL2 y `STEP_UP_REQUIRED` cuando el
+    step-up (TOTP de 5 min o menos) está ausente o vencido. Un 403 por Origin
+    o CSRF ausente o inválido usa `ACCESS_DENIED`.
+  - `409` también cubre `STATE_CONFLICT` por una política de reconocimiento
+    suspendida que se intenta publicar o retirar.
   - `404`: recurso inexistente o no visible para ese actor; no confirmar
     existencia de recursos ajenos.
   - `409`: conflicto de estado, concurrencia o clave idempotente incompatible/en
@@ -425,12 +431,14 @@ Las pruebas y revisiones de este paquete no sustituyen las de producción de §1
 
 ## 12. Pendientes para Sprint 0
 
-- Ratificar individualmente las otras 69 operaciones del inventario de
-  `openapi.json` antes de implementarlas; `createHospitalNeed` es la única
-  excepción contractual actual y todavía no está implementada. Actualizar el
+- Ratificar individualmente las demás operaciones del inventario de
+  `openapi.json` antes de implementarlas, módulo por módulo (D-2); cada
+  operación ratificada lleva `x-ratification` y se regenera
+  `backend/src/contract/ratified-schemas.generated.json`. Actualizar el
   único contrato canónico si producto ajusta una operación.
-- Confirmar prefijo de versión, nombre de cookie, mecanismo/nombre CSRF,
-  política de CORS/Origin, esquema de éxito/error y límites de paginación.
+- Cookie `__Host-sal_at`, mecanismo CSRF firmado, Origin obligatorio y política
+  de CORS (ninguna en producción) quedaron fijados en ADR-004. Pendiente
+  confirmar prefijo de versión, esquema de éxito/error y límites de paginación.
 - AP-01, AP-03, AP-05 y AP-09 quedaron resueltos en la revisión 1.2 de la línea
   base: aplicar esas reglas a alta asistida, proyección hospitalaria, verificación
   de email e invitaciones/tokens. AP-02, AP-04, AP-06, AP-07 y AP-08 siguen
