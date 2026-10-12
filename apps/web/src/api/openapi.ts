@@ -922,7 +922,10 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Revoca membresía hospitalaria */
+        /**
+         * Revoca membresía hospitalaria
+         * @description AAL2 y step-up reciente (RNF-SEC-05); la revocación se audita y la sesión del admin pierde acceso en la petición siguiente.
+         */
         patch: operations["revokeHospitalMembership"];
         trace?: never;
     };
@@ -2562,8 +2565,10 @@ export interface operations {
                     "application/json": components["schemas"]["CsrfTokenEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getCurrentSession: {
@@ -2584,8 +2589,10 @@ export interface operations {
                     "application/json": components["schemas"]["AuthSessionEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createSession: {
@@ -2639,6 +2646,7 @@ export interface operations {
             409: components["responses"]["Conflict"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     deleteCurrentSession: {
@@ -2664,6 +2672,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     requestPasswordRecovery: {
@@ -2793,10 +2802,13 @@ export interface operations {
                     "application/json": components["schemas"]["AuthSessionEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     enrollMfaFactor: {
@@ -2831,11 +2843,13 @@ export interface operations {
                     "application/json": components["schemas"]["MfaEnrollmentEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     verifyStepUp: {
@@ -2868,10 +2882,13 @@ export interface operations {
                     "application/json": components["schemas"]["StepUpEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createDonorRegistration: {
@@ -3601,6 +3618,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listOwnHospitalNeeds: {
@@ -4203,9 +4221,11 @@ export interface operations {
                     "application/json": components["schemas"]["SuperadminTasksEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listHospitals: {
@@ -4231,10 +4251,12 @@ export interface operations {
                     "application/json": components["schemas"]["HospitalListEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createHospital: {
@@ -4268,10 +4290,12 @@ export interface operations {
                     "application/json": components["schemas"]["HospitalEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getHospital: {
@@ -4294,9 +4318,11 @@ export interface operations {
                     "application/json": components["schemas"]["HospitalEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     updateHospital: {
@@ -4331,11 +4357,13 @@ export interface operations {
                     "application/json": components["schemas"]["HospitalEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listHospitalSites: {
@@ -4358,9 +4386,11 @@ export interface operations {
                     "application/json": components["schemas"]["SiteListEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createHospitalSite: {
@@ -4400,11 +4430,13 @@ export interface operations {
                     "application/json": components["schemas"]["SiteEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     updateHospitalSite: {
@@ -4439,11 +4471,13 @@ export interface operations {
                     "application/json": components["schemas"]["SiteEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listHospitalMemberships: {
@@ -4469,8 +4503,11 @@ export interface operations {
                     "application/json": components["schemas"]["MembershipListEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     inviteHospitalAdmin: {
@@ -4543,10 +4580,12 @@ export interface operations {
                     "application/json": components["schemas"]["MembershipEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listCorrectionRequests: {
@@ -4761,9 +4800,11 @@ export interface operations {
                     "application/json": components["schemas"]["ConfigurationEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     setFinalDemoAt: {
@@ -4796,10 +4837,12 @@ export interface operations {
                     "application/json": components["schemas"]["ConfigurationEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listAuditEvents: {
@@ -4825,10 +4868,12 @@ export interface operations {
                     "application/json": components["schemas"]["AuditEventListEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listRecognitionPoliciesForModeration: {

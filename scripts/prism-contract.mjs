@@ -11,12 +11,14 @@ const addFormats = validatorRequire('ajv-formats');
 const schemaId = 'urn:save-a-life:contract';
 const methods = new Set(['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace']);
 // Frozen final E2/E3 inventory: 71 success + 34 variants (16 media collections)
-// + 280 declared errors = 385 HTTP cases. The sites GET adds one operation,
+// + 280 declared errors = 385 HTTP cases (before the F2a review hardening below). The sites GET adds one operation,
 // two media variants and four errors to T4a; DELETE adds its uniform 400 in E3.
 // F2a (2026-10-12) adds enrollMfaFactor (1 success, 5 errors) and the 422 of
 // createHospitalSite/updateHospitalSite (2 errors).
+// F2a review hardening (2026-10-12) declares 42 more errors (400 on the typed inputs, 503 on every
+// non-health operation, and the specific 403/409/422 that the backend really returns): 322 / 427.
 // Updating coverage requires explicit review; never derive it from the candidate.
-const expected = { operations: 71, json: 69, empty: 2, bodies: 26, variants: 34, variantCollections: 16, errors: 280 };
+const expected = { operations: 71, json: 69, empty: 2, bodies: 26, variants: 34, variantCollections: 16, errors: 322 };
 
 // Reviewed E2/E3 coverage fixture (method, path template, operationId), not a second
 // contract: NO payloads, schemas or behavior. Never derive/refresh it from the
