@@ -53,7 +53,7 @@ Quedan para F2b: `requestPasswordRecovery`, `completePasswordReset`,
   `InstitutionsRepository` y su gateway RPC con guards cerrados
   (`shared/persistence/guards.ts`); routers `auth` e `institutions` que solo
   parsean, aplican guards y serializan.
-- **Pruebas**: 280 unitarias del backend (`npm test`), 35 de integración contra
+- **Pruebas**: 288 unitarias del backend (`npm test`), 37 de integración contra
   Supabase local (`npm run test:backend:integration`) y Bruno contra el backend
   real (`npm run test:bruno:backend`).
 
@@ -92,9 +92,9 @@ Quedan para F2b: `requestPasswordRecovery`, `completePasswordReset`,
 | Comando | Resultado |
 | --- | --- |
 | `npm run typecheck` | verde |
-| `npm test` | verde (280 pruebas del backend, más mock y web) |
+| `npm test` | verde (288 pruebas del backend, más mock y web) |
 | `npm run test:backend:db` | 99 pruebas pgTAP en verde |
-| `npm run test:backend:integration` | 35 pruebas en verde |
+| `npm run test:backend:integration` | 37 pruebas en verde (incluye que todo estado HTTP devuelto esté declarado en el contrato) |
 | `npm run test:bruno:backend` | 28 solicitudes y 30 pruebas en verde (plataforma, hospital, superadmin) |
 | `npm run openapi:lint`, `openapi:api:check`, `test:api:generator` | verdes |
 | `npm run test:contract`, `npm run test:api` | verdes |
@@ -112,9 +112,33 @@ lectura:
   falso, M1 proxies, M2 step-up en revocación, M3 material derivado de la
   contraseña en la base, y hallazgos bajos B1–B8.
 
-Corrección: todos los hallazgos se atendieron (ver §2 y §3) salvo los de §6.
-**Segunda ronda: pendiente.** No hay ningún PASS registrado; no se declarará
-hasta que un subagente independiente lo emita.
+Segunda ronda (2026-10-12), subagentes nuevos de contexto separado:
+
+- `reviewer-back`: **FAIL** (un bloqueante). M-1: el backend emitía estados que
+  el contrato no declaraba (429 en operaciones con cookie, 500, 403 en
+  `createSession`, 422 en revoke y en sedes propias). Bajos: B-1 membresía
+  `pendiente`, B-2 sin límite en `enrollMfaFactor`, B-3 segundo intercalar en
+  `finalDemoAt`, B-4 surrogates sueltos, B-5 logout ante 429, B-6 desvío de
+  `createSession` sin documentar, B-7 orden de guards.
+- `security-privacy-auditor`: **PASS con observaciones** (sin hallazgos críticos
+  ni altos; el módulo lo cierra la persona usuaria). Observaciones: O1 cuota
+  global de `/token` agotable de forma distribuida (decisión de la persona
+  usuaria pendiente), O2 el límite de renovación bloqueaba login y logout, O3
+  llamadas a Auth sin timeout, O4 fallar cerrado sin `NODE_ENV`, O5 readiness sin
+  caché, O6 telemetría sin motivo ni ruta, O7 grants en bloque, O8 normalizar
+  `iss`, O9 la anon key es de hecho confidencial, O10 bloqueo dirigido de
+  cuentas, O11 derivación de claves dispersa.
+
+Correcciones de la segunda ronda: contrato completo (351 errores / 456 casos en
+el inventario de Prism) y una prueba de integración que falla si el backend
+devuelve un estado no declarado; login y logout no renuevan sesión (el logout sin
+sesión expira las cookies); timeout de 8 s en toda llamada a Auth; `iss`
+normalizado; fallar cerrado en Render; readiness con caché de 5 s; log con ruta
+y motivo; llavero HMAC derivado una sola vez en la raíz de composición; B-1 a
+B-5 y B-7 corregidos.
+
+**Tercera ronda: pendiente.** El único PASS registrado hasta ahora es el de
+seguridad de la segunda ronda, y es anterior a estas correcciones.
 
 ## 6. Pendientes conocidos
 
@@ -136,8 +160,28 @@ hasta que un subagente independiente lo emita.
   asimétricas en producción: el access token vale hasta 600 s y SEC-07 lo
   mitiga resolviendo el actor en cada petición.
 
+- **B-6 (desvío)**: `createSession` deriva la identidad del actor y el hash de
+  idempotencia del email normalizado (sin contraseña). Por eso «misma clave con
+  otro payload → 409» ya no ocurre en el login y cada login escribe una fila.
+- **O1 (decisión tuya pendiente)**: Supabase limita `/auth/v1/token` por IP del
+  backend en un solo bucket (150 cada 5 min, login y renovación juntos). Un
+  ataque distribuido lo agota aunque el límite por IP del backend funcione.
+  Opciones: `Sb-Forwarded-For` (exige una clave `sb_secret_…` en el gateway de
+  sesión, lo que choca con ADR-006), subir los límites del proyecto y añadir un
+  techo global con alerta, o aceptar el riesgo documentado. Debe quedar en
+  ADR-004 antes de F9.
+- O3 queda parcial: hay timeout, pero un token con `alg` HS* o `kid` ajeno aún
+  provoca una llamada a Auth antes de cualquier límite (`getClaims` de auth-js).
+  `SUPABASE_JWKS_URL` sigue sin usarse.
+- O7: el `grant execute on all functions in schema app` repite el de la primera
+  migración; se concederá función por función cuando haya DEFINER en `app`.
+- El `alter default privileges … revoke execute … from public` es global:
+  afectará a funciones de extensiones futuras (p. ej. cube/earthdistance en F5),
+  que necesitarán grants explícitos.
+
 ## 7. Bitácora
 
 - 2026-10-12: ratificación, migraciones, pgTAP, API, integración y Bruno contra
   el backend real.
 - 2026-10-12: primera ronda de revisión independiente (dos FAIL) y remediación.
+- 2026-10-12: segunda ronda (reviewer-back FAIL, seguridad PASS con observaciones) y remediación.
