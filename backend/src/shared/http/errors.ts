@@ -1,5 +1,6 @@
 import type { ErrorRequestHandler, RequestHandler } from 'express';
 import { randomUUID } from 'node:crypto';
+import { PersistenceError, PersistenceUnavailableError } from '../persistence/errors.js';
 
 export const ERROR_STATUS = Object.freeze({
   BAD_REQUEST: 400,
@@ -61,10 +62,17 @@ export interface PublicError {
   readonly body: ErrorResponse;
 }
 
-/** Cualquier error que no sea ApiError se presenta como INTERNAL_ERROR genérico. */
+function publicCodeOf(error: unknown): PublicErrorCode {
+  if (error instanceof ApiError) return error.code;
+  if (error instanceof PersistenceUnavailableError) return 'SERVICE_UNAVAILABLE';
+  if (error instanceof PersistenceError && error.reason === 'jwt') return 'AUTHENTICATION_REQUIRED';
+  return 'INTERNAL_ERROR';
+}
+
+/** Errores de persistencia se traducen a 503/401; cualquier otro error inesperado es INTERNAL_ERROR genérico. */
 export function toPublicError(error: unknown, correlationId: string): PublicError {
-  const code: PublicErrorCode = error instanceof ApiError ? error.code : 'INTERNAL_ERROR';
-  const message = error instanceof ApiError ? error.message : DEFAULT_MESSAGES.INTERNAL_ERROR;
+  const code = publicCodeOf(error);
+  const message = error instanceof ApiError ? error.message : DEFAULT_MESSAGES[code];
 
   return {
     status: ERROR_STATUS[code],
