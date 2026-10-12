@@ -5,6 +5,9 @@ export const ERROR_STATUS = Object.freeze({
   BAD_REQUEST: 400,
   AUTHENTICATION_REQUIRED: 401,
   ACCESS_DENIED: 403,
+  // 403 específicos (C-6): mismo mensaje genérico que ACCESS_DENIED.
+  MFA_REQUIRED: 403,
+  STEP_UP_REQUIRED: 403,
   RESOURCE_NOT_FOUND: 404,
   STATE_CONFLICT: 409,
   ACTION_UNAVAILABLE: 410,
@@ -28,6 +31,8 @@ const DEFAULT_MESSAGES: Readonly<Record<PublicErrorCode, string>> = Object.freez
   BAD_REQUEST: 'Solicitud malformada.',
   AUTHENTICATION_REQUIRED: 'La sesión no está vigente.',
   ACCESS_DENIED: 'La acción no está permitida.',
+  MFA_REQUIRED: 'La acción no está permitida.',
+  STEP_UP_REQUIRED: 'La acción no está permitida.',
   RESOURCE_NOT_FOUND: 'El recurso no está disponible.',
   STATE_CONFLICT: 'La operación entra en conflicto con el estado actual.',
   ACTION_UNAVAILABLE: 'El enlace no está disponible.',
