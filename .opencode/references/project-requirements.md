@@ -13,8 +13,9 @@ decidir cual debe actualizarse.
 - Demo objetivo: 3 hospitales autorizados y hasta 500 donantes sinteticos.
 - Modelo mediado por hospital: nunca hay contacto paciente-donante.
 - Roles: superadmin, admin de hospital y donante.
-- Hospitales y administradores se precargan; no existe autorregistro de
-  hospitales.
+- Los hospitales los gestiona solo el superadmin y los administradores de
+  hospital los invita el superadmin (RF-IAM-05, RF-ORG-01); no se precargan y no
+  existe autorregistro de hospitales.
 - Fuera de alcance: pagos, historia clinica completa, contacto directo,
   tamizaje medico real y decisiones clinicas automatizadas.
 
@@ -39,8 +40,9 @@ decidir cual debe actualizarse.
 - Cada admin opera solo necesidades y respuestas de su propia institucion; el
   hospital se deriva de la identidad validada, no de un valor confiado al
   cliente.
-- El donante gestiona grupo sanguineo declarado, ubicacion sintetica y
-  disponibilidad. El sistema no solicita, acepta, almacena ni infiere fecha o
+- El donante edita directamente solo disponibilidad y ubicacion sintetica; su
+  nombre, email y grupo sanguineo declarado cambian unicamente mediante una
+  solicitud de correccion (RF-PRO-01/02). El sistema no solicita, acepta, almacena ni infiere fecha o
   historial de ultima donacion (RF-PRO-05).
 - El hospital crea, consulta, activa, cierra o cancela necesidades de su
   institucion. La meta representa confirmaciones de intencion, no unidades.
@@ -48,8 +50,10 @@ decidir cual debe actualizarse.
   globulos rojos y calcula distancia Haversine con coordenadas validadas.
 - El sistema crea una invitacion unica por necesidad y donante y solicita su
   envio idempotente mediante Resend.
-- Las respuestas quedan registradas una sola vez y visibles solo para el
-  hospital propietario mediante una lista permitida de campos.
+- La respuesta del donante se puede alternar mientras la necesidad no sea
+  terminal y deja historial inmutable (RF-INV-04); la primera respuesta por token
+  es atomica y de un solo uso. Son visibles solo para el hospital propietario
+  mediante una lista permitida de campos (RF-VIS-01/02).
 - Confirmar o rechazar usa tokens aleatorios distintos por accion, almacenados
   como hash, de un solo uso y ligados a invitacion/accion. No tienen TTL
   independiente: solo sirven mientras invitacion y necesidad esten activas y
@@ -137,11 +141,13 @@ trade-offs y criterios de reconsideracion constan en
 
 ## Decisiones pendientes
 
-- Versiones del entorno local de Design-First fijadas por ADR-002 y
-  `package-lock.json` (Node 24.19.0, npm 12.0.2, Express 5.2.1, React 18.3.1,
-  TypeScript 5.9.3, Vite 8.3.2). La configuración de despliegue/producción y el
-  acceso real a datos siguen pendientes.
-- Detalles de login/recuperacion/MFA, nombre de cookie, CSRF, CORS y Origin.
+- Versiones fijadas por ADR-002 y `package-lock.json` (Node 24.19.0, npm 12.0.2,
+  Express 5.2.1, React 18.3.1, TypeScript 5.9.3, Vite 8.3.2). Los valores de
+  email, la precision de ubicacion de 3 decimales y la purga a 30 dias de
+  `final_demo_at` ya estan fijados en la linea base v1.2. La configuración de
+  despliegue/producción y el acceso real a datos siguen pendientes.
+- Sesion, nombre de cookie, CSRF, CORS y Origin: ver ADR-004 (login, recuperacion
+  y MFA se concretan en el modulo identity-institutions).
 - Ratificar en Sprint 0 el inventario propuesto completo de `docs/openapi.json`
   (54 rutas/69 operaciones); continúa siendo una propuesta y no un contrato API
   productivo implementado.
