@@ -1,12 +1,18 @@
 begin;
+-- Aislamiento: las pruebas corren sobre una base que puede estar sembrada. Todo se revierte con el rollback.
+truncate app.sites, app.hospital_memberships, app.hospitals, app.user_accounts cascade;
+alter table app.configuration disable trigger configuration_guard;
+update app.configuration set final_demo_at = null;
+alter table app.configuration enable trigger configuration_guard;
+
 select plan(42);
 
 -- Fixtures sintéticos (como propietario; las pruebas de acceso cambian de rol) ---------------------
 insert into auth.users (id, instance_id, aud, role, email) values
-  ('00000000-0000-4000-8000-0000000000b1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'super@example.test'),
-  ('00000000-0000-4000-8000-0000000000b2', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin1@example.test'),
-  ('00000000-0000-4000-8000-0000000000b3', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin2@example.test'),
-  ('00000000-0000-4000-8000-0000000000b4', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'donante@example.test');
+  ('00000000-0000-4000-8000-0000000000b1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-super@example.test'),
+  ('00000000-0000-4000-8000-0000000000b2', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-admin1@example.test'),
+  ('00000000-0000-4000-8000-0000000000b3', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-admin2@example.test'),
+  ('00000000-0000-4000-8000-0000000000b4', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-donante@example.test');
 insert into app.user_accounts (user_id, role, display_name) values
   ('00000000-0000-4000-8000-0000000000b1', 'superadmin', null),
   ('00000000-0000-4000-8000-0000000000b2', 'admin_hospitalario', null),
@@ -87,7 +93,7 @@ select is(api.create_hospital('clave-hospital-0001', app.fingerprint(jsonb_build
   'payload_conflict', 'la misma clave con otro payload es payload_conflict');
 select is(api.create_hospital('clave-hospital-0002', repeat('a', 64), 'Falso', 'Falso S.A.') ->> 'kind', 'invalid',
   'un hash que no coincide con el payload es invalid');
-select is((select count(*)::int from app.audit_events where event = 'hospital.creado'), 1, 'la auditoría registra una sola creación');
+select is((select count(*)::int from app.audit_events where event = 'hospital.creado' and occurred_at = now()), 1, 'la auditoría registra una sola creación');
 
 -- Paginación ---------------------------------------------------------------------------------------------
 select is(jsonb_array_length(api.list_hospitals(2) -> 'items'), 2, 'list_hospitals respeta el límite');
