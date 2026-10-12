@@ -1,12 +1,18 @@
 begin;
+-- Aislamiento: las pruebas corren sobre una base que puede estar sembrada. Todo se revierte con el rollback.
+truncate app.sites, app.hospital_memberships, app.hospitals, app.user_accounts cascade;
+alter table app.configuration disable trigger configuration_guard;
+update app.configuration set final_demo_at = null;
+alter table app.configuration enable trigger configuration_guard;
+
 select plan(30);
 
 -- Usuarios sintéticos de Auth (la fila de app.user_accounts se inserta como propietario).
 insert into auth.users (id, instance_id, aud, role, email)
 values
-  ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'superadmin@example.test'),
-  ('00000000-0000-4000-8000-0000000000a2', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'donante@example.test'),
-  ('00000000-0000-4000-8000-0000000000a3', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'sinrol@example.test');
+  ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-superadmin@example.test'),
+  ('00000000-0000-4000-8000-0000000000a2', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-donante@example.test'),
+  ('00000000-0000-4000-8000-0000000000a3', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-sinrol@example.test');
 insert into app.user_accounts (user_id, role, display_name) values
   ('00000000-0000-4000-8000-0000000000a1', 'superadmin', 'Superadministración'),
   ('00000000-0000-4000-8000-0000000000a2', 'donante', 'Donante sintético');
