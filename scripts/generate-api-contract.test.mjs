@@ -357,7 +357,7 @@ test('backend migration: registers backend as the only production workspace and 
   assert.deepEqual([...rootPackage.workspaces].sort(), ['apps/mock-api', 'apps/web', 'backend']);
 });
 
-test('backend migration: wires DTO tests to the preserved legacy backend package', async () => {
+test('backend package: wires DTO tests and TypeScript entrypoint scripts', async () => {
   const rootPackage = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
   const backendPackage = JSON.parse(await readFile(new URL('../backend/package.json', import.meta.url), 'utf8'));
   assert.equal(backendPackage.name, 'backend');
