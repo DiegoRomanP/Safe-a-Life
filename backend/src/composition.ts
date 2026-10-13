@@ -11,6 +11,11 @@ import { registerInstitutionsRoutes } from './modules/identity-institutions/http
 import { createNeedDraftService } from './modules/need-records/application/create-need-draft.js';
 import { createNeedsService } from './modules/need-records/application/needs-service.js';
 import { createNeedsRpcGateway } from './modules/need-records/infrastructure/needs-rpc-gateway.js';
+import { createActionTokensService } from './modules/identity-institutions/application/action-tokens-service.js';
+import { createActionTokensRpcGateway } from './modules/identity-institutions/infrastructure/action-tokens-rpc-gateway.js';
+import { createSupabaseAuthAdmin } from './modules/identity-institutions/infrastructure/supabase-auth-admin.js';
+import { registerActionTokenRoutes } from './modules/identity-institutions/http/action-tokens.router.js';
+import { sealEmailPayload } from './modules/email-delivery/application/email-payload.js';
 import { registerNeedsRoutes } from './modules/need-records/http/needs.router.js';
 import { createWebhookIngester } from './modules/email-delivery/application/ingest-webhook.js';
 import { createOutboxRpcGateway } from './modules/email-delivery/infrastructure/outbox-rpc-gateway.js';
@@ -54,12 +59,23 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
     raw: (accessToken, name, args) => callRpc(supabase.forUser(accessToken), name, args),
   });
   const needs = createNeedsService(needsGateway.repository);
-  const institutions = createInstitutionsService(createInstitutionsRpcGateway(rpc));
+  const institutionsRepository = createInstitutionsRpcGateway(rpc);
+  const institutions = createInstitutionsService(institutionsRepository);
   const hmacKeys = deriveHmacKeyring(config.secrets.emailHmac);
   const ipHmac = hmacKeys.ip;
   const auth = createAuthService(sessions, identity, {
     keys: hmacKeys,
     loginFailureFloorMs: 400,
+  });
+  const actionTokens = createActionTokensService({
+    repository: createActionTokensRpcGateway(rpc),
+    sessions,
+    admin: createSupabaseAuthAdmin(config),
+    limiter: identity.limiter,
+    publicKeys: identity.publicKeys,
+    keys: hmacKeys,
+    seal: (outboxId, payload) => sealEmailPayload(config.secrets.outboxKeyring, outboxId, payload),
+    hospitalName: async (accessToken, hospitalId) => (await institutionsRepository.getHospital(accessToken, hospitalId)).publicName,
   });
   const httpSecrets = {
     csrf: config.secrets.csrf,
@@ -107,6 +123,7 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
       }));
       registerAuthRoutes(app, { auth, secrets: { ...httpSecrets, ipHmac } });
       registerInstitutionsRoutes(app, { institutions, secrets: httpSecrets });
+      registerActionTokenRoutes(app, { tokens: actionTokens, secrets: { ...httpSecrets, ipHmac } });
       registerNeedsRoutes(app, {
         needs,
         createDraft: (accessToken) => createNeedDraftService(needsGateway.draftGatewayFor(accessToken)),

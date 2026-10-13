@@ -95,6 +95,13 @@ export function createSupabaseSessionGateway(
       return unavailableOr(error, error ? null : toPair(data.session));
     },
 
+    async signUp(email, password) {
+      const { data, error } = await newClient().auth.signUp({ email, password });
+      assertNotRateLimited(error);
+      if (error?.code === 'user_already_exists' || error?.code === 'email_exists') return 'exists';
+      return unavailableOr(error, error ? null : toPair(data.session));
+    },
+
     async signOut(accessToken, scope = 'global') {
       const { error } = await newClient().auth.admin.signOut(accessToken, scope);
       // Un 429 no es «sesión ya revocada»: el refresh token seguiría vivo.
