@@ -80,6 +80,14 @@ language sql stable set search_path = '' as $$
   select exists (select 1 from app.user_accounts ua where ua.user_id = app.jwt_sub() and ua.role = 'worker')
 $$;
 
+-- Identidad técnica de la API (webhook firmado y RPC de tokens de acción, F2b/F4/F5): rol propio, distinto del `worker`.
+-- Así el proceso de la API no guarda la credencial que opera el outbox (reclamar lotes, registrar intentos, expirar): una API
+-- comprometida no puede destruir el correo pendiente (F4 M-2).
+create function app.is_api_technical() returns boolean
+language sql stable set search_path = '' as $$
+  select exists (select 1 from app.user_accounts ua where ua.user_id = app.jwt_sub() and ua.role = 'api_technical')
+$$;
+
 -- Único acceso a auth.users: el correo de UN destinatario por id. Lo crea `postgres` (que sí tiene USAGE y
 -- SELECT sobre auth) y solo lo ejecuta app_privileged; no devuelve nada más del usuario.
 create function app.user_email(p_user_id uuid) returns text
@@ -263,7 +271,7 @@ declare
   v_matched int := 0;
 begin
   if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
-  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if not app.is_api_technical() then return jsonb_build_object('kind', 'forbidden'); end if;
   if p_event_id is null or char_length(p_event_id) not between 1 and 255
      or p_provider_message_id is null or char_length(p_provider_message_id) not between 1 and 255
      or p_type is null or p_type not in ('email.sent', 'email.delivered', 'email.bounced', 'email.failed') then
@@ -293,7 +301,7 @@ alter function api.worker_expire_outbox() owner to app_privileged;
 alter function api.ingest_email_event(text, text, text, timestamptz) owner to app_privileged;
 
 grant execute on function app.advance_delivery(text, text) to authenticated, app_privileged;
-grant execute on function app.jwt_sub(), app.is_worker(), app.user_email(uuid) to app_privileged;
+grant execute on function app.jwt_sub(), app.is_worker(), app.is_api_technical(), app.user_email(uuid) to app_privileged;
 grant execute on function app.enqueue_email(uuid, text, uuid, uuid, text, timestamptz) to app_privileged;
 grant execute on function
   api.worker_claim_due_outbox(int), api.worker_record_attempt(uuid, int, text, int, text, timestamptz),

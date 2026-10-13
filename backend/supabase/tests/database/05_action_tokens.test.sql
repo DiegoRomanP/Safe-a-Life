@@ -16,7 +16,7 @@ insert into app.user_accounts (user_id, role, display_name) values
   ('00000000-0000-4000-8000-0000000000f1', 'superadmin', null),
   ('00000000-0000-4000-8000-0000000000f2', 'donante', 'Donante Sintético'),
   ('00000000-0000-4000-8000-0000000000f6', 'admin_hospitalario', null),
-  ('00000000-0000-4000-8000-0000000000f7', 'worker', null);
+  ('00000000-0000-4000-8000-0000000000f7', 'api_technical', null);
 insert into app.hospitals (hospital_id, public_name, legal_name, is_authorized) values
   ('10000000-0000-4000-8000-0000000000f1', 'Hospital Tokens', 'Hospital Tokens S.A.', true),
   ('10000000-0000-4000-8000-0000000000f2', 'Hospital Sin Autorizar Tokens', 'Hospital Sin Autorizar S.A.', false);

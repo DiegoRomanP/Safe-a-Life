@@ -184,7 +184,7 @@ declare
   v_hospital jsonb;
 begin
   select ua.role, ua.display_name into v_role, v_name from app.user_accounts ua where ua.user_id = auth.uid();
-  if v_role is null or v_role = 'worker' then
+  if v_role is null or v_role in ('worker', 'api_technical') then
     return null;
   end if;
 

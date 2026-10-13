@@ -1,6 +1,6 @@
 -- donor-records (F5): perfil del donante, altas asistidas por hospitales y verificación de correo.
 -- Reglas heredadas de F2b: las RPC que reciben un hash de token, un id de usuario o una sesión recién creada con signUp
--- solo las ejecuta la identidad técnica del backend (app.is_worker); un cliente directo de PostgREST no puede elegirlos.
+-- solo las ejecuta la identidad técnica del backend (app.is_api_technical); un cliente directo de PostgREST no puede elegirlos.
 -- Las DEFINER no usan el esquema auth (app_privileged no tiene USAGE): leen el JWT del GUC (app.jwt_sub, app.jwt_claims).
 
 -- Polígono DEMO_ONLY-1 (espejo de domain/lima-polygon.ts; una prueba lo mantiene sincronizado): punto dentro o sobre el borde.
@@ -190,7 +190,7 @@ declare
   v_reply jsonb := jsonb_build_object('kind', 'ok');
 begin
   if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
-  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if not app.is_api_technical() then return jsonb_build_object('kind', 'forbidden'); end if;
   if p_user_id is null or p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' or p_outbox_id is null
      or p_sealed is null or char_length(p_sealed) not between 20 and 4000
      or p_actor_ref is null or p_actor_ref !~ '^email:[0-9a-f]{64}$'
@@ -225,7 +225,7 @@ declare
   v_expires timestamptz;
 begin
   if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
-  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if not app.is_api_technical() then return jsonb_build_object('kind', 'forbidden'); end if;
   if p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' then return jsonb_build_object('kind', 'invalid'); end if;
   v_state := app.d_token_state(p_token_hash, 'verificacion_email');
   if v_state <> 'ok' then return jsonb_build_object('kind', v_state); end if;
@@ -242,7 +242,7 @@ declare
   v_profile app.donor_profiles;
 begin
   if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
-  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if not app.is_api_technical() then return jsonb_build_object('kind', 'forbidden'); end if;
   if p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' then return jsonb_build_object('kind', 'invalid'); end if;
   select * into v_token from app.action_tokens where token_hash = p_token_hash and kind = 'verificacion_email' for update;
   if not found then return jsonb_build_object('kind', 'not_found'); end if;
@@ -439,7 +439,7 @@ declare
   v_user uuid;
 begin
   if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
-  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if not app.is_api_technical() then return jsonb_build_object('kind', 'forbidden'); end if;
   if p_signup_id is null or p_hospital_id is null or p_seq is null or p_outbox_id is null
      or p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' or p_sealed is null or char_length(p_sealed) not between 20 and 4000 then
     return jsonb_build_object('kind', 'invalid');
@@ -482,7 +482,7 @@ declare
   v_user uuid;
 begin
   if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
-  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if not app.is_api_technical() then return jsonb_build_object('kind', 'forbidden'); end if;
   if p_email is null or char_length(p_email) > 254 or p_email <> lower(btrim(p_email))
      or p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' or p_outbox_id is null
      or p_sealed is null or char_length(p_sealed) not between 20 and 4000
@@ -522,7 +522,7 @@ declare
   v_signup app.assisted_signups;
 begin
   if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
-  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if not app.is_api_technical() then return jsonb_build_object('kind', 'forbidden'); end if;
   if p_signup_id is null or p_hospital_id is null then return jsonb_build_object('kind', 'invalid'); end if;
   select * into v_signup from app.assisted_signups s where s.signup_id = p_signup_id and s.hospital_id = p_hospital_id;
   if not found then return jsonb_build_object('kind', 'not_found'); end if;
@@ -543,7 +543,7 @@ declare
   v_user uuid;
 begin
   if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
-  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if not app.is_api_technical() then return jsonb_build_object('kind', 'forbidden'); end if;
   if p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' then return jsonb_build_object('kind', 'invalid'); end if;
   v_state := app.d_token_state(p_token_hash, 'alta_asistida');
   if v_state <> 'ok' then return jsonb_build_object('kind', v_state); end if;
@@ -566,7 +566,7 @@ declare
   v_signup app.assisted_signups;
 begin
   if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
-  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if not app.is_api_technical() then return jsonb_build_object('kind', 'forbidden'); end if;
   if p_user_id is null or p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' then return jsonb_build_object('kind', 'invalid'); end if;
   -- Mismo orden de bloqueo que la reemisión (primero el alta, después sus tokens): sin interbloqueos.
   select * into v_token from app.action_tokens where token_hash = p_token_hash and kind = 'alta_asistida';
@@ -715,7 +715,7 @@ declare
   v_expires timestamptz;
 begin
   if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
-  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if not app.is_api_technical() then return jsonb_build_object('kind', 'forbidden'); end if;
   if p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' then return jsonb_build_object('kind', 'invalid'); end if;
   v_state := app.d_token_state(p_token_hash, 'cambio_email');
   if v_state <> 'ok' then return jsonb_build_object('kind', v_state); end if;
@@ -731,7 +731,7 @@ declare
   v_token app.action_tokens;
 begin
   if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
-  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if not app.is_api_technical() then return jsonb_build_object('kind', 'forbidden'); end if;
   if p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' then return jsonb_build_object('kind', 'invalid'); end if;
   select * into v_token from app.action_tokens where token_hash = p_token_hash and kind = 'cambio_email' for update;
   if not found then return jsonb_build_object('kind', 'not_found'); end if;
@@ -757,7 +757,7 @@ declare
   v_profile app.donor_profiles;
 begin
   if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
-  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if not app.is_api_technical() then return jsonb_build_object('kind', 'forbidden'); end if;
   if p_user_id is null or p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' or p_outbox_id is null
      or p_sealed is null or char_length(p_sealed) not between 20 and 4000 then
     return jsonb_build_object('kind', 'invalid');
@@ -782,7 +782,7 @@ create function api.confirm_password_setup(p_user_id uuid) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 begin
   if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
-  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if not app.is_api_technical() then return jsonb_build_object('kind', 'forbidden'); end if;
   if p_user_id is null then return jsonb_build_object('kind', 'invalid'); end if;
   update app.donor_profiles set password_setup_required = false, updated_at = now()
   where donor_id = p_user_id and password_setup_required;

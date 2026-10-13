@@ -25,7 +25,7 @@ insert into app.user_accounts (user_id, role, display_name) values
   ('00000000-0000-4000-8000-0000000000b1', 'donante', null),
   ('00000000-0000-4000-8000-0000000000b2', 'donante', null),
   ('00000000-0000-4000-8000-0000000000b3', 'donante', null),
-  ('00000000-0000-4000-8000-0000000000c1', 'worker', null),
+  ('00000000-0000-4000-8000-0000000000c1', 'api_technical', null),
   ('00000000-0000-4000-8000-0000000000d2', 'donante', null);
 insert into app.hospitals (hospital_id, public_name, legal_name, is_authorized) values
   ('10000000-0000-4000-8000-0000000000a1', 'Hospital Donantes Uno', 'Hospital Donantes Uno S.A.', true),
