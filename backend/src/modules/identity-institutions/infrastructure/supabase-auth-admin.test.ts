@@ -43,6 +43,34 @@ describe('AuthAdmin (service_role)', () => {
     expect(JSON.stringify(error)).not.toContain('canario');
   });
 
+  it('updateEmail llama al endpoint de administración con el correo nuevo ya confirmado', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+
+    await admin(() => json(USER), calls).updateEmail(USER.id, 'nuevo@example.test');
+
+    expect(calls[0].url).toContain(`/auth/v1/admin/users/${USER.id}`);
+    expect(calls[0].init.method).toBe('PUT');
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({ email: 'nuevo@example.test', email_confirm: true });
+    expect(JSON.stringify(calls[0].init.headers)).toContain('clave-elevada-sintetica');
+  });
+
+  it('un correo que ya pertenece a otro usuario (500 con 23505, o email_exists) es un rechazo, no una caída', async () => {
+    const duplicate = admin(() => json({ code: '23505', message: 'canario-detalle' }, 500));
+    const exists = admin(() => json({ code: 422, error_code: 'email_exists', msg: 'canario-detalle' }, 422));
+
+    const error = await duplicate.updateEmail(USER.id, 'otro@example.test').catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(PersistenceError);
+    expect(JSON.stringify(error)).not.toContain('canario');
+    await expect(exists.updateEmail(USER.id, 'otro@example.test')).rejects.toBeInstanceOf(PersistenceError);
+  });
+
+  it('updateEmail: un 5xx sin ese código, un 429 o un fallo de red son indisponibilidad (503)', async () => {
+    await expect(admin(() => json({ msg: 'canario-detalle' }, 500)).updateEmail(USER.id, 'a@example.test')).rejects.toBeInstanceOf(PersistenceUnavailableError);
+    await expect(admin(() => json({}, 429)).updateEmail(USER.id, 'a@example.test')).rejects.toBeInstanceOf(PersistenceUnavailableError);
+    await expect(admin(() => { throw new TypeError('fetch failed'); }).updateEmail(USER.id, 'a@example.test')).rejects.toBeInstanceOf(PersistenceUnavailableError);
+    await expect(admin(() => json({ msg: 'otro' }, 400)).updateEmail(USER.id, 'a@example.test')).rejects.toBeInstanceOf(PersistenceError);
+  });
+
   it('deleteInertUser invoca la función atómica y devuelve si se borró', async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
 

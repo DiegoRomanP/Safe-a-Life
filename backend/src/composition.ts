@@ -16,6 +16,10 @@ import { createActionTokensRpcGateway } from './modules/identity-institutions/in
 import { createSupabaseAuthAdmin } from './modules/identity-institutions/infrastructure/supabase-auth-admin.js';
 import { registerActionTokenRoutes } from './modules/identity-institutions/http/action-tokens.router.js';
 import { sealEmailPayload } from './modules/email-delivery/application/email-payload.js';
+import { createDonorRecordsService } from './modules/donor-records/application/donor-records-service.js';
+import { createDonorRecordsRpcGateway } from './modules/donor-records/infrastructure/donor-records-rpc-gateway.js';
+import { registerDonorRecordsRoutes } from './modules/donor-records/http/donor-records.router.js';
+import { openEmailChange } from './modules/donor-records/application/email-change.js';
 import { registerNeedsRoutes } from './modules/need-records/http/needs.router.js';
 import { createWebhookIngester } from './modules/email-delivery/application/ingest-webhook.js';
 import { createOutboxRpcGateway } from './modules/email-delivery/infrastructure/outbox-rpc-gateway.js';
@@ -82,14 +86,24 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
       secret: config.email.resendWebhookSecret,
     });
 
+  const authAdmin = createSupabaseAuthAdmin(config);
   const actionTokens = createActionTokensService({
     repository: createActionTokensRpcGateway(rpc, technicalRpc),
     sessions,
-    admin: createSupabaseAuthAdmin(config),
+    admin: authAdmin,
     limiter: identity.limiter,
     keys: hmacKeys,
     seal: (outboxId, payload) => sealEmailPayload(config.secrets.outboxKeyring, outboxId, payload),
     hospitalName: async (accessToken, hospitalId) => (await institutionsRepository.getHospital(accessToken, hospitalId)).publicName,
+  });
+  const donors = createDonorRecordsService({
+    repository: createDonorRecordsRpcGateway(rpc, technicalRpc),
+    sessions,
+    admin: authAdmin,
+    limiter: identity.limiter,
+    keys: hmacKeys,
+    seal: (outboxId, payload) => sealEmailPayload(config.secrets.outboxKeyring, outboxId, payload),
+    open: (context, sealed) => openEmailChange(config.secrets.outboxKeyring, context, sealed),
   });
   const httpSecrets = {
     csrf: config.secrets.csrf,
@@ -126,6 +140,7 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
       registerAuthRoutes(app, { auth, secrets: { ...httpSecrets, ipHmac } });
       registerInstitutionsRoutes(app, { institutions, secrets: httpSecrets });
       registerActionTokenRoutes(app, { tokens: actionTokens, secrets: { ...httpSecrets, ipHmac } });
+      registerDonorRecordsRoutes(app, { donors, secrets: { ...httpSecrets, ipHmac } });
       registerNeedsRoutes(app, {
         needs,
         createDraft: (accessToken) => createNeedDraftService(needsGateway.draftGatewayFor(accessToken)),
