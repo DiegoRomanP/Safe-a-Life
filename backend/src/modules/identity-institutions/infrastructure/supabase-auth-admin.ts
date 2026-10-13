@@ -51,8 +51,24 @@ export function createSupabaseAuthAdmin(
     },
 
     async updateEmail(userId, newEmail) {
-      const { error } = await client().auth.admin.updateUserById(userId, { email: newEmail, email_confirm: true });
-      if (error) failure(error);
+      // Se llama al endpoint directamente: con un correo ya ocupado Auth responde 500 con la violación de unicidad de SQL
+      // (23505) y el cliente lo trata como un fallo reintentable, indistinguible de una caída real. Solo se inspecciona el
+      // código; el texto del proveedor nunca se devuelve ni se registra.
+      let response: Response;
+      try {
+        response = await boundedFetch(`${url}/auth/v1/admin/users/${encodeURIComponent(userId)}`, {
+          method: 'PUT',
+          headers: { apikey: serviceRoleKey, authorization: `Bearer ${serviceRoleKey}`, 'content-type': 'application/json' },
+          body: JSON.stringify({ email: newEmail, email_confirm: true }),
+        });
+      } catch {
+        throw new PersistenceUnavailableError();
+      }
+      if (response.ok) return;
+      const body = (await response.json().catch(() => null)) as { code?: unknown; error_code?: unknown } | null;
+      if (body?.code === '23505' || body?.error_code === 'email_exists') throw new PersistenceError('rejected');
+      if (response.status >= 500 || response.status === 429) throw new PersistenceUnavailableError();
+      throw new PersistenceError('rejected');
     },
 
     async deleteInertUser(userId, email, minAgeSeconds) {

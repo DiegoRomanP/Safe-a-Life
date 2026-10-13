@@ -21,6 +21,7 @@ export function guardsFor(secrets: HttpSecrets) {
   const csrf = requireCsrf(secrets.csrf, secrets.allowedOrigins);
   const superadminRead: RequestHandler[] = [requireSession, requireRole('superadmin'), requireAal2];
   const adminRead: RequestHandler[] = [requireSession, requireRole('admin_hospitalario'), requireAal2, requireActiveMembership];
+  const donorRead: RequestHandler[] = [requireSession, requireRole('donante')];
   return Object.freeze({
     session: [requireSession] as RequestHandler[],
     sessionWrite: [requireSession, csrf] as RequestHandler[],
@@ -30,6 +31,8 @@ export function guardsFor(secrets: HttpSecrets) {
     superadminStepUp: [...superadminRead, csrf, requireStepUp()] as RequestHandler[],
     adminRead,
     adminWrite: [...adminRead, csrf] as RequestHandler[],
+    donorRead,
+    donorWrite: [...donorRead, csrf] as RequestHandler[],
   });
 }
 
