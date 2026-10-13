@@ -301,14 +301,17 @@ cierre sujeto a las revisiones y a la aprobación registradas en
 - **Login y logout**: el login nunca renueva la sesión. El logout renueva con el
   refresh token si el access venció, para revocar la sesión en Auth; si el límite
   de renovación está agotado o el proveedor responde 429, responde 401, expira las
-  cookies y la revocación queda diferida hasta que caduque el refresh token. Toda
+  cookies y la revocación queda diferida hasta que caduque el refresh token (también
+  si Auth o el limitador no están disponibles). Toda
   llamada a Auth tiene un plazo de 8 s (503 si no contesta).
-- **Estados globales**: toda operación de `/api` declara 400, 401, 403 (también el
+- **Estados globales**: toda operación ratificada y servida de `/api` declara 400, 401, 403 (también el
   guard de borde `X-Edge-Secret`), 429, 500 y 503; la pareja de salud declara 400 y
   500. Lo verifica una prueba estructural y las pruebas de integración.
 - **Cuota de Supabase Auth**: login y renovación comparten la cuota por IP del
-  backend; la renovación tiene límite propio (`refresh:ip`) y un 429 del
-  proveedor responde 429 sin cerrar la sesión (ADR-004).
+  backend (150 cada 5 min, no ampliable); la renovación tiene límite propio
+  (`refresh:ip`), ambos flujos tienen un techo global propio de 60 cada 5 min que
+  protege esa cuota, y un 429 del proveedor responde 429 sin cerrar la sesión
+  (ADR-004, decisión O1).
 - **Fuera de este módulo**: recuperación de contraseña e invitación de admins
   (F2b, requieren correo y el adaptador `service_role` de ADR-006).
 - **Verificación**: pgTAP, integración contra Supabase local y Bruno contra el
