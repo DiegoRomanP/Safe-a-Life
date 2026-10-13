@@ -12,6 +12,10 @@ import { createNeedDraftService } from './modules/need-records/application/creat
 import { createNeedsService } from './modules/need-records/application/needs-service.js';
 import { createNeedsRpcGateway } from './modules/need-records/infrastructure/needs-rpc-gateway.js';
 import { registerNeedsRoutes } from './modules/need-records/http/needs.router.js';
+import { createWebhookIngester } from './modules/email-delivery/application/ingest-webhook.js';
+import { createOutboxRpcGateway } from './modules/email-delivery/infrastructure/outbox-rpc-gateway.js';
+import { registerResendWebhookRoutes } from './modules/email-delivery/http/resend-webhook.router.js';
+import { createTechnicalSession } from './shared/auth/technical-session.js';
 import { createReadinessRpcGateway } from './modules/platform/infrastructure/readiness-rpc-gateway.js';
 import { registerHealthRoutes } from './modules/platform/http/health.router.js';
 import { authenticate } from './shared/auth/authenticate.js';
@@ -63,8 +67,23 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
     allowedOrigins: config.allowedOrigins,
   };
 
+  // El webhook firmado necesita la sesión técnica (rol `worker`) para llamar a ingest_email_event (V13).
+  const technicalSession = createTechnicalSession({
+    signIn: () => sessions.signIn(config.worker.email, config.worker.password),
+    refresh: (refreshToken) => sessions.refresh(refreshToken),
+  });
+  const webhookIngester = config.email.resendWebhookSecret === undefined
+    ? undefined
+    : createWebhookIngester({
+      gateway: createOutboxRpcGateway(rpc, () => technicalSession.accessToken()),
+      secret: config.email.resendWebhookSecret,
+    });
+
   return Object.freeze({
-    mountBeforeJson: () => undefined,
+    // Rutas con cuerpo crudo (webhook firmado): van antes de `express.json`.
+    mountBeforeJson: (app: Express) => {
+      if (webhookIngester) registerResendWebhookRoutes(app, { ingester: webhookIngester });
+    },
     mount: (app: Express) => {
       registerHealthRoutes(app, {
         readiness: createReadinessRpcGateway(supabase),

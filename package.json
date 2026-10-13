@@ -39,7 +39,8 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
-    "test:e2e": "node scripts/test-e2e.mjs"
+    "test:e2e": "node scripts/test-e2e.mjs",
+    "dev:worker": "npm run dev:worker --workspace backend"
   },
   "devDependencies": {
     "ajv": "8.20.0",

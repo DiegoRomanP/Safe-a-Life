@@ -79,9 +79,9 @@ export function parseEnv(source: Source): AppConfig {
   const resendApiKey = provider === 'resend' ? required(source, 'RESEND_API_KEY', reject) : undefined;
   const inboxAllowlist = parseEmailList(read(source, 'EMAIL_INBOX_ALLOWLIST'), reject);
   const emailFrom = parseEmail('EMAIL_FROM', required(source, 'EMAIL_FROM', reject), reject);
-  const resendWebhookSecret = provider === 'resend'
-    ? parseWebhookSecret(required(source, 'RESEND_WEBHOOK_SECRET', reject), reject)
-    : undefined;
+  // Obligatorio con Resend; en modo falso es opcional y, si se define, habilita el webhook (pruebas y demo local).
+  const webhookRaw = provider === 'resend' ? required(source, 'RESEND_WEBHOOK_SECRET', reject) : read(source, 'RESEND_WEBHOOK_SECRET');
+  const resendWebhookSecret = webhookRaw === undefined ? undefined : parseWebhookSecret(webhookRaw, reject);
   const appPublicUrl = parseHttpUrl('APP_PUBLIC_URL', required(source, 'APP_PUBLIC_URL', reject), reject).replace(/\/$/, '');
   const worker = Object.freeze({
     email: parseEmail('WORKER_EMAIL', required(source, 'WORKER_EMAIL', reject), reject),
