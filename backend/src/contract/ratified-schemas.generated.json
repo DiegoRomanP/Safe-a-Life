@@ -42,7 +42,9 @@
         "403",
         "409",
         "422",
-        "500"
+        "429",
+        "500",
+        "503"
       ]
     },
     "createHospitalSite": {
@@ -208,6 +210,27 @@
         "500"
       ]
     },
+    "getOwnHospitalNeed": {
+      "method": "get",
+      "path": "/api/v1/hospitals/me/needs/{needId}",
+      "body": null,
+      "query": "GetOwnHospitalNeedQuery",
+      "params": "GetOwnHospitalNeedPath",
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "GetOwnHospitalNeedSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "404",
+        "429",
+        "500",
+        "503"
+      ]
+    },
     "getReadiness": {
       "method": "get",
       "path": "/health/ready",
@@ -330,6 +353,27 @@
         "503"
       ]
     },
+    "listOwnHospitalNeeds": {
+      "method": "get",
+      "path": "/api/v1/hospitals/me/needs",
+      "body": null,
+      "query": "ListOwnHospitalNeedsQuery",
+      "params": null,
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "ListOwnHospitalNeedsSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "422",
+        "429",
+        "500",
+        "503"
+      ]
+    },
     "listOwnHospitalSites": {
       "method": "get",
       "path": "/api/v1/hospitals/me/sites",
@@ -409,6 +453,29 @@
         "400",
         "401",
         "403",
+        "409",
+        "422",
+        "429",
+        "500",
+        "503"
+      ]
+    },
+    "transitionOwnHospitalNeed": {
+      "method": "patch",
+      "path": "/api/v1/hospitals/me/needs/{needId}",
+      "body": "TransitionOwnHospitalNeedBody",
+      "query": "TransitionOwnHospitalNeedQuery",
+      "params": "TransitionOwnHospitalNeedPath",
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "TransitionOwnHospitalNeedSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "404",
         "409",
         "422",
         "429",
@@ -1016,6 +1083,27 @@
     "GetLivenessSuccess": {
       "$ref": "#/$defs/HealthEnvelope"
     },
+    "GetOwnHospitalNeedPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "needId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "needId"
+      ]
+    },
+    "GetOwnHospitalNeedQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "GetOwnHospitalNeedSuccess": {
+      "$ref": "#/$defs/NeedEnvelope"
+    },
     "GetReadinessQuery": {
       "type": "object",
       "additionalProperties": false,
@@ -1235,6 +1323,28 @@
     },
     "ListHospitalsSuccess": {
       "$ref": "#/$defs/HospitalListEnvelope"
+    },
+    "ListOwnHospitalNeedsQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        },
+        "cursor": {
+          "type": "string",
+          "maxLength": 512
+        },
+        "status": {
+          "$ref": "#/$defs/NeedStatus"
+        }
+      }
+    },
+    "ListOwnHospitalNeedsSuccess": {
+      "$ref": "#/$defs/NeedListEnvelope"
     },
     "ListOwnHospitalSitesQuery": {
       "type": "object",
@@ -1530,6 +1640,57 @@
         }
       ]
     },
+    "NeedListEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "items",
+            "pagination"
+          ],
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/Need"
+              }
+            },
+            "pagination": {
+              "$ref": "#/$defs/Pagination"
+            }
+          }
+        }
+      },
+      "examples": [
+        {
+          "data": {
+            "items": [
+              {
+                "needId": "4c117ef2-3ebd-43f2-8629-c06d5c8df68f",
+                "component": "RBC",
+                "requiredBloodType": "O_POS",
+                "targetConfirmations": 5,
+                "confirmedIntentCount": 2,
+                "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261",
+                "radiusKm": 10,
+                "urgency": "Urgente",
+                "status": "activa",
+                "expiresAt": "2026-10-02T18:00:00Z"
+              }
+            ],
+            "pagination": {
+              "nextCursor": null
+            }
+          }
+        }
+      ]
+    },
     "NeedStatus": {
       "type": "string",
       "enum": [
@@ -1541,6 +1702,24 @@
         "vencida"
       ],
       "description": "meta_alcanzada y vencida son estados calculados por el sistema; cerrada/cancelada/vencida son terminales."
+    },
+    "NeedTransitionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "activa",
+            "cerrada",
+            "cancelada"
+          ],
+          "description": "El servidor valida que la transición desde el estado actual esté permitida. No incluye estados calculados ni permite reabrir terminales."
+        }
+      }
     },
     "OwnHospitalSite": {
       "type": "object",
@@ -1928,6 +2107,30 @@
           }
         }
       ]
+    },
+    "TransitionOwnHospitalNeedBody": {
+      "$ref": "#/$defs/NeedTransitionRequest"
+    },
+    "TransitionOwnHospitalNeedPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "needId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "needId"
+      ]
+    },
+    "TransitionOwnHospitalNeedQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "TransitionOwnHospitalNeedSuccess": {
+      "$ref": "#/$defs/NeedEnvelope"
     },
     "UpdateHospitalBody": {
       "$ref": "#/$defs/UpdateHospitalRequest"

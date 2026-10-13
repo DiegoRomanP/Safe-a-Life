@@ -193,6 +193,25 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
+        /** @description Límite de intentos o abuso alcanzado. */
+        TooManyRequests: {
+            headers: {
+                "Retry-After"?: number;
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "error": {
+                 *         "code": "RATE_LIMITED",
+                 *         "message": "Intenta nuevamente más tarde.",
+                 *         "correlationId": "00000000-0000-4000-8000-000000000429"
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
         /** @description Error interno sin detalles de implementación. */
         InternalServerError: {
             headers: {
@@ -205,6 +224,24 @@ export interface components {
                  *         "code": "INTERNAL_ERROR",
                  *         "message": "No se pudo completar la solicitud.",
                  *         "correlationId": "00000000-0000-4000-8000-000000000500"
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description API no lista o dependencia obligatoria indisponible; respuesta sin detalles sensibles. */
+        ServiceUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "error": {
+                 *         "code": "SERVICE_UNAVAILABLE",
+                 *         "message": "El servicio no está listo para aceptar solicitudes.",
+                 *         "correlationId": "00000000-0000-4000-8000-000000000503"
                  *       }
                  *     }
                  */
@@ -288,7 +325,9 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
 }

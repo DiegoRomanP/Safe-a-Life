@@ -9,7 +9,8 @@ const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const OPENAPI_PATH = 'docs/openapi.json';
 const NEEDS_PATH = '/api/v1/hospitals/me/needs';
 const OPERATION_ID = 'createHospitalNeed';
-const ERROR_STATUSES = ['400', '401', '403', '409', '422', '500'];
+// F3 (2026-10-13) añade 429 y 503: los middlewares globales de /api los emiten en toda operación.
+const ERROR_STATUSES = ['400', '401', '403', '409', '422', '429', '500', '503'];
 const COMPONENT_SECTIONS = new Set(['examples', 'parameters', 'responses', 'schemas', 'securitySchemes']);
 const SCHEMA_MAP_KEYWORDS = new Set(['$defs', 'dependentSchemas', 'patternProperties', 'properties']);
 const SCHEMA_ARRAY_KEYWORDS = new Set(['allOf', 'anyOf', 'oneOf', 'prefixItems']);

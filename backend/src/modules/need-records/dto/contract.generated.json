@@ -85,7 +85,9 @@
         "403",
         "409",
         "422",
-        "500"
+        "429",
+        "500",
+        "503"
       ],
       "properties": {
         "400": {
@@ -103,7 +105,13 @@
         "422": {
           "$ref": "#/$defs/ErrorResponse"
         },
+        "429": {
+          "$ref": "#/$defs/ErrorResponse"
+        },
         "500": {
+          "$ref": "#/$defs/ErrorResponse"
+        },
+        "503": {
           "$ref": "#/$defs/ErrorResponse"
         }
       }
@@ -237,9 +245,23 @@
         },
         {
           "error": {
+            "code": "RATE_LIMITED",
+            "message": "Intenta nuevamente más tarde.",
+            "correlationId": "00000000-0000-4000-8000-000000000429"
+          }
+        },
+        {
+          "error": {
             "code": "INTERNAL_ERROR",
             "message": "No se pudo completar la solicitud.",
             "correlationId": "00000000-0000-4000-8000-000000000500"
+          }
+        },
+        {
+          "error": {
+            "code": "SERVICE_UNAVAILABLE",
+            "message": "El servicio no está listo para aceptar solicitudes.",
+            "correlationId": "00000000-0000-4000-8000-000000000503"
           }
         }
       ]

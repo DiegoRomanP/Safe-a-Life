@@ -59,10 +59,10 @@ test('snapshot preserves the approved closed request, create-only 201, UTC-Z rul
   assert.equal(definitions.Need.properties.expiresAt.pattern, undefined);
 
   const errors = definitions.CreateHospitalNeedErrorResponses;
-  assert.deepEqual(Object.keys(errors.properties).sort(), ['400', '401', '403', '409', '422', '500']);
+  assert.deepEqual(Object.keys(errors.properties).sort(), ['400', '401', '403', '409', '422', '429', '500', '503']);
   assert.ok(Object.values(errors.properties).every((schema) => schema.$ref === '#/$defs/ErrorResponse'));
   assert.equal(definitions.ErrorResponse.additionalProperties, false);
-  assert.equal(definitions.ErrorResponse.examples.length, 6);
+  assert.equal(definitions.ErrorResponse.examples.length, 8);
 });
 
 test('type projection contains only the approved POST, and generated API DTO types are local and narrow', async () => {
