@@ -185,7 +185,7 @@ declare
 begin
   -- Solo la identidad técnica del backend: quien conozca el hash de un token no debe poder consultarlo desde fuera.
   if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
-  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if not app.is_api_technical() then return jsonb_build_object('kind', 'forbidden'); end if;
   if p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' then return jsonb_build_object('kind', 'invalid'); end if;
   select * into v_token from app.action_tokens where token_hash = p_token_hash and kind = 'invitacion_admin';
   if not found then return jsonb_build_object('kind', 'not_found'); end if;
@@ -278,7 +278,7 @@ declare
   v_reply jsonb := jsonb_build_object('kind', 'ok');
 begin
   if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
-  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if not app.is_api_technical() then return jsonb_build_object('kind', 'forbidden'); end if;
   if char_length(v_email) > 254 or v_email !~ '^[^[:space:]@]{1,64}@[^[:space:]@]{1,190}$'
      or p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' or p_outbox_id is null
      or p_sealed is null or char_length(p_sealed) not between 20 and 4000
@@ -296,7 +296,7 @@ begin
 
   v_user := app.user_id_by_email(v_email);
   -- Cuentas de usuario final (donante, admin, superadmin); la identidad técnica `worker` no se recupera por correo.
-  if v_user is not null and exists (select 1 from app.user_accounts ua where ua.user_id = v_user and ua.role <> 'worker') then
+  if v_user is not null and exists (select 1 from app.user_accounts ua where ua.user_id = v_user and ua.role not in ('worker', 'api_technical')) then
     perform pg_advisory_xact_lock(hashtextextended('recovery:' || v_user::text, 0));
     -- Tope por cuenta (3 enlaces por hora): aunque se salten los límites del backend con la credencial técnica, no se
     -- puede inundar a una víctima ni encadenar intentos. Superado, responde `ok` sin crear nada.
@@ -325,7 +325,7 @@ declare
   v_token app.action_tokens;
 begin
   if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
-  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if not app.is_api_technical() then return jsonb_build_object('kind', 'forbidden'); end if;
   if p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' then return jsonb_build_object('kind', 'invalid'); end if;
   select * into v_token from app.action_tokens where token_hash = p_token_hash and kind = 'recuperacion' for update;
   if not found then return jsonb_build_object('kind', 'not_found'); end if;

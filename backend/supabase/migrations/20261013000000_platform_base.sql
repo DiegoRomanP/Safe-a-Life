@@ -25,7 +25,7 @@ grant usage on schema app to app_privileged;
 grant usage, create on schema api to app_privileged;
 grant usage on schema extensions to app_privileged, authenticated;
 
-create type app.actor_role as enum ('donante', 'admin_hospitalario', 'superadmin', 'worker');
+create type app.actor_role as enum ('donante', 'admin_hospitalario', 'superadmin', 'worker', 'api_technical');
 
 -- ---------------------------------------------------------------------------
 -- Tablas

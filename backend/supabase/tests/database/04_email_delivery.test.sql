@@ -2,16 +2,18 @@ begin;
 -- Aislamiento: la base puede estar sembrada. Todo se revierte con el rollback.
 truncate app.email_outbox, app.email_webhook_events, app.user_accounts cascade;
 
-select plan(76);
+select plan(80);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000000e1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-mail-worker@example.test'),
   ('00000000-0000-4000-8000-0000000000e2', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-mail-admin@example.test'),
-  ('00000000-0000-4000-8000-0000000000e3', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-mail-donante@example.test');
+  ('00000000-0000-4000-8000-0000000000e3', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-mail-donante@example.test'),
+  ('00000000-0000-4000-8000-0000000000e4', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-mail-api@example.test');
 insert into app.user_accounts (user_id, role, display_name) values
   ('00000000-0000-4000-8000-0000000000e1', 'worker', null),
   ('00000000-0000-4000-8000-0000000000e2', 'admin_hospitalario', null),
-  ('00000000-0000-4000-8000-0000000000e3', 'donante', 'Donante Sintético');
+  ('00000000-0000-4000-8000-0000000000e3', 'donante', 'Donante Sintético'),
+  ('00000000-0000-4000-8000-0000000000e4', 'api_technical', null);
 
 create function pg_temp.login(p_uid text) returns void language plpgsql as $$
 begin
@@ -60,6 +62,13 @@ select is(api.ingest_email_event('evt-1', 'prov-1', 'email.sent', now()) ->> 'ki
 select pg_temp.login('00000000-0000-4000-8000-0000000000e3');
 select is(api.worker_claim_due_outbox(5) ->> 'kind', 'forbidden', 'un donante no reclama el outbox');
 select is(api.ingest_email_event('evt-1', 'prov-1', 'email.sent', now()) ->> 'kind', 'forbidden', 'un donante no ingiere eventos');
+-- F4 M-2: el worker opera el outbox y la API ingiere eventos; ninguna identidad hace lo de la otra.
+select pg_temp.login('00000000-0000-4000-8000-0000000000e1');
+select is(api.ingest_email_event('evt-1', 'prov-1', 'email.sent', now()) ->> 'kind', 'forbidden', 'el worker no ingiere eventos del proveedor');
+select pg_temp.login('00000000-0000-4000-8000-0000000000e4');
+select is(api.worker_claim_due_outbox(5) ->> 'kind', 'forbidden', 'la identidad técnica de la API no reclama el outbox');
+select is(api.worker_record_attempt(gen_random_uuid(), 1, 'ok', 200, 'x', null) ->> 'kind', 'forbidden', 'ni registra intentos');
+select is(api.worker_expire_outbox() ->> 'kind', 'forbidden', 'ni vence el outbox');
 
 -- Reclamo -------------------------------------------------------------------------------------------------
 reset role;
@@ -186,25 +195,26 @@ insert into app.email_outbox (outbox_id, kind, idempotency_key, sealed_payload, 
 set local role authenticated;
 select pg_temp.login('00000000-0000-4000-8000-0000000000e1');
 select is(api.worker_record_attempt('60000000-0000-4000-8000-00000000000a', 1, 'ok', 200, 'prov-00a', null) ->> 'status', 'enviado', 'prepara un mensaje enviado con id de proveedor');
+select pg_temp.login('00000000-0000-4000-8000-0000000000e4');
 select is(api.ingest_email_event('evt-otro', 'prov-00a', 'email.opened', now()) ->> 'kind', 'invalid', 'un tipo fuera de los cuatro se rechaza en la base');
 select is(api.ingest_email_event('', 'prov-00a', 'email.delivered', now()) ->> 'kind', 'invalid', 'un event_id vacío es invalid');
 select is(api.ingest_email_event('evt-d1', 'prov-00a', 'email.delivered', now()) -> 'matched', 'true'::jsonb, 'un delivered de un mensaje conocido coincide');
 reset role;
 select is((select delivery_state from app.email_outbox where outbox_id = '60000000-0000-4000-8000-00000000000a'), 'entregada', 'delivered avanza a entregada');
 set local role authenticated;
-select pg_temp.login('00000000-0000-4000-8000-0000000000e1');
+select pg_temp.login('00000000-0000-4000-8000-0000000000e4');
 select is(api.ingest_email_event('evt-s1', 'prov-00a', 'email.sent', now()) ->> 'duplicate', 'false', 'un sent posterior es un evento nuevo');
 reset role;
 select is((select delivery_state from app.email_outbox where outbox_id = '60000000-0000-4000-8000-00000000000a'), 'entregada', 'delivered antes que sent no retrocede');
 set local role authenticated;
-select pg_temp.login('00000000-0000-4000-8000-0000000000e1');
+select pg_temp.login('00000000-0000-4000-8000-0000000000e4');
 select is(api.ingest_email_event('evt-d1', 'prov-00a', 'email.delivered', now()) ->> 'duplicate', 'true', 'el mismo event_id es un duplicado');
 select is(api.ingest_email_event('evt-b1', 'prov-00a', 'email.bounced', now()) ->> 'kind', 'ok', 'un rebote posterior a la entrega se registra');
 reset role;
 select is((select delivery_state from app.email_outbox where outbox_id = '60000000-0000-4000-8000-00000000000a'), 'entregada', 'un rebote no invalida una entrega ya confirmada');
 select is((select count(*)::int from app.email_webhook_events where provider_message_id = 'prov-00a'), 3, 'el duplicado no creó otra fila de evento');
 set local role authenticated;
-select pg_temp.login('00000000-0000-4000-8000-0000000000e1');
+select pg_temp.login('00000000-0000-4000-8000-0000000000e4');
 select is(api.ingest_email_event('evt-x1', 'prov-desconocido', 'email.delivered', now()) -> 'matched', 'false'::jsonb, 'un evento de un mensaje desconocido se registra sin efecto');
 select is(api.ingest_email_event('evt-f1', 'prov-007', 'email.failed', now()) ->> 'kind', 'ok', 'un failed de un id desconocido es ok');
 
@@ -213,8 +223,9 @@ reset role;
 insert into app.email_outbox (outbox_id, kind, idempotency_key, sealed_payload, status, attempt_count, lease_until, not_after) values
   ('60000000-0000-4000-8000-00000000000b', 'invitacion', 'outbox-60000000-0000-4000-8000-00000000000b', 'v1.k1.a.b.c', 'en_curso', 1, now() + interval '60 seconds', now() + interval '1 day');
 set local role authenticated;
-select pg_temp.login('00000000-0000-4000-8000-0000000000e1');
+select pg_temp.login('00000000-0000-4000-8000-0000000000e4');
 select is(api.ingest_email_event('evt-early', 'prov-early', 'email.delivered', now()) -> 'matched', 'false'::jsonb, 'un delivered cuyo mensaje aún no tiene id del proveedor no coincide todavía');
+select pg_temp.login('00000000-0000-4000-8000-0000000000e1');
 select is(api.worker_record_attempt('60000000-0000-4000-8000-00000000000b', 1, 'ok', 200, 'prov-early', null) ->> 'status', 'enviado', 'el intento posterior se registra');
 reset role;
 select is((select delivery_state from app.email_outbox where outbox_id = '60000000-0000-4000-8000-00000000000b'), 'entregada',
