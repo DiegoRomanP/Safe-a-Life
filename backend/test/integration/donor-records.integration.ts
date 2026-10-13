@@ -727,6 +727,39 @@ describe('las RPC con hash de token o id de usuario no son ejecutables por un cl
   });
 });
 
+describe('auditoría de denegaciones (RNF-AUD-01)', () => {
+  const eventually = async (check: () => boolean): Promise<void> => {
+    for (let attempt = 0; attempt < 40 && !check(); attempt += 1) await new Promise((resolve) => setTimeout(resolve, 100));
+  };
+
+  it('un 403 y un 409 a un donante autenticado dejan eventos denegados, deduplicados y sin datos de la petición', async () => {
+    const { email, client } = await verifiedDonor();
+    const userId = sql(`select id from auth.users where email = '${email}'`);
+    const count = (event: string) => Number(sql(`select count(*) from app.audit_events where actor_id = '${userId}' and event = '${event}' and result = 'denegado'`));
+
+    expect((await client.send('GET', SIGNUPS)).status).toBe(403);
+    expect((await client.send('GET', SIGNUPS)).status).toBe(403);
+    expect((await onboard(client)).status).toBe(200);
+    expect((await onboard(client, {}, randomUUID())).status).toBe(409);
+    await eventually(() => count('denegacion.acceso') >= 1 && count('denegacion.conflicto') >= 1);
+
+    expect(count('denegacion.acceso')).toBe(1);
+    expect(count('denegacion.conflicto')).toBe(1);
+    const reasons = sql(`select string_agg(reason, '|' order by reason) from app.audit_events where actor_id = '${userId}' and result = 'denegado'`);
+    expect(reasons).toBe('GET /api/v1/hospitals/me/assisted-signups|PUT /api/v1/donors/me/onboarding-profile');
+    expect(reasons).not.toContain(email);
+  });
+
+  it('una petición sin sesión que se rechaza no deja evento (no hay actor)', async () => {
+    const before = sql("select count(*) from app.audit_events where result = 'denegado'");
+
+    expect((await anonymous().send('GET', SIGNUPS)).status).toBe(401);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    expect(sql("select count(*) from app.audit_events where result = 'denegado'")).toBe(before);
+  });
+});
+
 describe('identidades técnicas separadas (F4 M-2)', () => {
   const kindOf = async (name: string, args: Record<string, unknown>, token: string) =>
     ((await (await rpc(name, args, token)).json()) as { kind?: string }).kind;

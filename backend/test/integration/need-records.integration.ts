@@ -329,6 +329,10 @@ describe('createHospitalNeed', () => {
       expect(limited.status).toBe(429);
       expect(limited.json.error.code).toBe('RATE_LIMITED');
       expect(Number(limited.headers.get('retry-after'))).toBeGreaterThan(0);
+      for (let attempt = 0; attempt < 40 && sql(`select count(*) from app.audit_events where event = 'denegacion.limite' and actor_id = (select id from auth.users where email = '${SEED_USERS.admin2.email}')`) === '0'; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+      expect(sql(`select reason from app.audit_events where event = 'denegacion.limite' and actor_id = (select id from auth.users where email = '${SEED_USERS.admin2.email}') limit 1`)).toBe('POST /api/v1/hospitals/me/needs');
       expect(sql(`select count(*) from app.needs where target_confirmations = 19 and hospital_id = '${HOSPITAL_IDS[1]}'`)).toBe('0');
     } finally {
       sql(`delete from app.needs where hospital_id = '${HOSPITAL_IDS[1]}' and target_confirmations = 2 and radius_km = 1`);
