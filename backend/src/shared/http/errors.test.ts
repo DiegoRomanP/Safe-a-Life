@@ -102,6 +102,31 @@ describe('manejador de errores de Express', () => {
     expect(unexpected).toHaveLength(1);
   });
 
+  it('añade Retry-After a todo 429: el valor del error si lo trae y uno por defecto si no', async () => {
+    const app = express();
+    app.use(correlationIdMiddleware);
+    app.get('/con-espera', () => {
+      throw new ApiError('RATE_LIMITED', undefined, { retryAfterSeconds: 12.2 });
+    });
+    app.get('/sin-espera', () => {
+      throw new ApiError('RATE_LIMITED');
+    });
+    app.get('/otro', () => {
+      throw new ApiError('STATE_CONFLICT');
+    });
+    app.use(createErrorHandler(() => undefined));
+    const base = await serve(app);
+
+    const withWait = await fetch(`${base}/con-espera`);
+    const withoutWait = await fetch(`${base}/sin-espera`);
+    const conflict = await fetch(`${base}/otro`);
+
+    expect([withWait.status, withoutWait.status, conflict.status]).toEqual([429, 429, 409]);
+    expect(withWait.headers.get('retry-after')).toBe('13');
+    expect(withoutWait.headers.get('retry-after')).toBe('60');
+    expect(conflict.headers.get('retry-after')).toBeNull();
+  });
+
   it('responde 404 RESOURCE_NOT_FOUND para rutas inexistentes', async () => {
     const app = express();
     app.use(correlationIdMiddleware);

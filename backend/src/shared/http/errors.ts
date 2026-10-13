@@ -3,6 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { PersistenceError, PersistenceUnavailableError, UpstreamRateLimitedError } from '../persistence/errors.js';
 import { ContractValidationError } from '../validation/contract-validator.js';
 
+/** Espera sugerida (s) para un 429 cuya espera exacta se desconoce. */
+export const DEFAULT_RETRY_AFTER_SECONDS = 60;
+
 export const ERROR_STATUS = Object.freeze({
   BAD_REQUEST: 400,
   AUTHENTICATION_REQUIRED: 401,
@@ -134,6 +137,8 @@ export function createErrorHandler(onUnexpected?: (error: unknown, correlationId
     const { status, body } = toPublicError(clientError ?? error, correlationId);
     const retryAfter = error instanceof ApiError || error instanceof UpstreamRateLimitedError ? error.retryAfterSeconds : undefined;
     if (retryAfter !== undefined) res.setHeader('Retry-After', String(Math.max(1, Math.ceil(retryAfter))));
+    // Todo 429 lleva Retry-After: los que llegan de una RPC no conocen la espera exacta y usan el valor por defecto.
+    else if (status === 429) res.setHeader('Retry-After', String(DEFAULT_RETRY_AFTER_SECONDS));
     res.locals.errorCode = body.error.code;
     if (error instanceof UpstreamRateLimitedError) res.locals.rejectReason = 'provider_rate_limited';
     else if (error instanceof ApiError && error.code === 'RATE_LIMITED') res.locals.rejectReason = error.reason ?? 'rate_limited';

@@ -449,3 +449,8 @@ Estado: implementado en `backend/src/modules/donor-records`; revisiones y cierre
   token), lo aplica con `service_role` (único adaptador) y cierra todas las sesiones. Un correo ya ocupado es 409.
 - **RPC técnicas**: toda RPC que recibe un hash de token o un id de usuario solo la ejecuta la sesión técnica del backend.
 
+## Cabecera `Retry-After` en los 429
+
+Todo 429 del backend lleva `Retry-After` (decisión de la persona usuaria, 2026-10-13). Los límites que conocen la espera
+(login, MFA, registro, tokens) la envían; los que llegan de una RPC (`rate_limited`) usan el valor por defecto de 60 s del
+manejador central de errores (`DEFAULT_RETRY_AFTER_SECONDS`).

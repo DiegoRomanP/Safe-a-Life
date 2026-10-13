@@ -328,6 +328,7 @@ describe('createHospitalNeed', () => {
       expect(replay.status).toBe(201);
       expect(limited.status).toBe(429);
       expect(limited.json.error.code).toBe('RATE_LIMITED');
+      expect(Number(limited.headers.get('retry-after'))).toBeGreaterThan(0);
       expect(sql(`select count(*) from app.needs where target_confirmations = 19 and hospital_id = '${HOSPITAL_IDS[1]}'`)).toBe('0');
     } finally {
       sql(`delete from app.needs where hospital_id = '${HOSPITAL_IDS[1]}' and target_confirmations = 2 and radius_km = 1`);
