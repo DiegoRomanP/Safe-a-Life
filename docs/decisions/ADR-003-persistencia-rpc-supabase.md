@@ -141,7 +141,11 @@ otro driver ahora; su presencia no prueba que el scaffold legacy sea seguro.
    `api.worker_revoke_sessions(uuid)` (borra las filas de `auth.sessions` de un
    usuario; GoTrue no ofrece revocación por usuario, ADR-006 punto 3) también son
    DEFINER propiedad de `postgres`, con `EXECUTE` solo para `app_privileged` y
-   `service_role` respectivamente. La prueba pgTAP fija las tres como únicas. Las
+   `service_role` respectivamente. Una cuarta, `api.worker_delete_inert_user(uuid, text, interval)`,
+   sustituye a `deleteUser` en el reemplazo de usuarios huérfanos: borra el usuario de
+   Auth en una sola sentencia solo si el correo coincide, no tiene cuenta de aplicación
+   y supera la edad mínima (sin carrera entre comprobar y borrar); `EXECUTE` solo para
+   `service_role`. La prueba pgTAP fija las cuatro como únicas. Las
    DEFINER de tokens (`invite_hospital_admin`, `get_admin_invitation_preview`,
    `link_admin_account`, `request_password_recovery`, `consume_password_reset`)
    pertenecen a `app_privileged` (ítems 3 y 4) y leen el `sub`, el AAL y el `amr`

@@ -43,8 +43,14 @@ describe('AuthAdmin (service_role)', () => {
     expect(JSON.stringify(error)).not.toContain('canario');
   });
 
-  it('deleteUser acepta que el usuario ya no exista (404)', async () => {
-    await expect(admin(() => json({ msg: 'no existe' }, 404)).deleteUser(USER.id)).resolves.toBeUndefined();
+  it('deleteInertUser invoca la función atómica y devuelve si se borró', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+
+    await expect(admin(() => json(true, 200), calls).deleteInertUser(USER.id, 'a@x.example.test', 60)).resolves.toBe(true);
+    await expect(admin(() => json(false, 200)).deleteInertUser(USER.id, 'a@x.example.test', 60)).resolves.toBe(false);
+
+    expect(calls[0].url).toContain('/rest/v1/rpc/worker_delete_inert_user');
+    expect(JSON.parse(calls[0].init.body as string)).toEqual({ p_user_id: USER.id, p_email: 'a@x.example.test', p_min_age: '60 seconds' });
   });
 
   it('revokeAllSessions invoca la función api.worker_revoke_sessions', async () => {

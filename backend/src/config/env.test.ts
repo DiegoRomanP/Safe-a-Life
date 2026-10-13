@@ -219,6 +219,7 @@ describe('parseEnv: secreto de borde y producción', () => {
   it('en producción exige proxies, orígenes https, secreto de borde y URLs https', () => {
     const production = {
       NODE_ENV: 'production', TRUSTED_PROXIES: '1', ALLOWED_ORIGINS: 'https://app.example.test', EDGE_SHARED_SECRET: EDGE,
+      WORKER_PASSWORD: 'w'.repeat(40),
       EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test_key', RESEND_WEBHOOK_SECRET: `whsec_${Buffer.alloc(24, 1).toString('base64')}`,
     };
     expect(parseEnv(validEnvSource(production)).production).toBe(true);
@@ -232,6 +233,8 @@ describe('parseEnv: secreto de borde y producción', () => {
       ['APP_PUBLIC_URL', { APP_PUBLIC_URL: 'http://localhost:5173' }],
       // El remitente falso descartaría los correos en silencio.
       ['EMAIL_PROVIDER', { EMAIL_PROVIDER: 'fake' }],
+      // La credencial técnica opera el outbox y las recuperaciones: en producción, larga.
+      ['WORKER_PASSWORD', { WORKER_PASSWORD: 'solo-veinte-caracteres' }],
     ];
     for (const [variable, override] of cases) {
       expect(() => parseEnv(validEnvSource({ ...production, ...override }))).toThrowError(new RegExp(variable));
@@ -246,6 +249,7 @@ describe('parseEnv: secreto de borde y producción', () => {
     expect(() => parseEnv(validEnvSource({ RENDER: 'true' }))).toThrowError(/TRUSTED_PROXIES/);
     expect(parseEnv(validEnvSource({
       RENDER: 'true', TRUSTED_PROXIES: '1', ALLOWED_ORIGINS: 'https://app.example.test', EDGE_SHARED_SECRET: 'b'.repeat(40),
+      WORKER_PASSWORD: 'w'.repeat(40),
       EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test_key', RESEND_WEBHOOK_SECRET: `whsec_${Buffer.alloc(24, 1).toString('base64')}`,
     })).production).toBe(true);
   });

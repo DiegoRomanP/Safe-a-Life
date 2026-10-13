@@ -19,11 +19,11 @@
 
 - **Migración** `20261013050000_action_tokens.sql`: `app.action_tokens` (solo el hash del token), `app.admin_invitations`,
   helpers para DEFINER sin el esquema `auth` (`app.jwt_claims`, `app.d_require`, `app.d_step_up_fresh`, `app.d_audit`),
-  las cinco RPC DEFINER y las excepciones `app.user_id_by_email` y `api.worker_revoke_sessions` (propiedad de `postgres`).
+  las cinco RPC DEFINER y las excepciones `app.user_id_by_email`, `api.worker_revoke_sessions` y `api.worker_delete_inert_user` (propiedad de `postgres`).
 - **Aplicación**: `action-tokens-service` (invitar, vista previa, reclamar, recuperar, completar), puertos
   `ActionTokensRepository` y `AuthAdmin`.
 - **Infraestructura**: `action-tokens-rpc-gateway` (guards cerrados), `supabase-auth-admin` (**único** archivo con
-  `service_role`: `updatePassword`, `updateEmail`, `deleteUser`, `revokeAllSessions`) y `signUp` en el gateway de sesión.
+  `service_role`: `updatePassword`, `updateEmail`, `deleteInertUser`, `revokeAllSessions`) y `signUp` en el gateway de sesión.
 - **HTTP**: `action-tokens.router.ts`.
 - **Pruebas**: unitarias (servicio, gateway, adaptador con Auth simulado), pgTAP (`05_action_tokens`), integración
   (`action-tokens.integration.ts`) y Bruno (`superadmin/17_invite_admin` y la carpeta `tokens`, donde el runner hace de
@@ -101,12 +101,33 @@ propia, cuenta `worker`, huérfano por antigüedad, cupo de invitaciones, replay
 (llamada directa con la anon key, tres carreras reales, huérfano, cuenta con vida propia, 3 solicitudes por hora) y
 unitarias.
 
-**Estado:** no existe una segunda revisión independiente de estas correcciones: **no se afirma ningún PASS**.
+Segunda ronda (2026-10-13), `security-privacy-auditor` sobre las correcciones: **PASS condicionado** (sin críticos ni
+bloqueantes nuevos). Condiciones y respuesta:
+
+- **M1** (la credencial técnica `WORKER_*` permite pedir recuperaciones saltándose los límites del backend): se añadió un
+  tope por cuenta dentro de la RPC (3 enlaces por hora, sobre filas reales, con bloqueo asesor por cuenta; superado,
+  responde `ok` sin crear nada) y la contraseña técnica debe tener al menos 32 caracteres en producción. **Riesgo
+  residual aceptado bajo la autonomía concedida:** quien robe `WORKER_EMAIL`/`WORKER_PASSWORD` puede, además de operar el
+  outbox, emitir hasta 3 enlaces por hora y cuenta; la mitigación operativa es guardar la credencial solo en el secreto
+  del servicio y rotarla (ver runbook de F9). Queda a decisión de la persona usuaria si quiere más barreras.
+- **M2** (reintento de la segunda revocación): si falla también el reintento, `completePasswordReset` responde 503 en vez
+  de éxito silencioso (prueba unitaria nueva); el token ya está consumido y se puede pedir otro enlace.
+- **M3** (bloqueante de F5, `deleteUser` no atómico): sustituido por `api.worker_delete_inert_user` (ADR-003/006);
+  pgTAP: correo distinto, cuenta con vida propia, usuario joven (registro en curso) y borrado válido.
+- **B1**: bloqueo asesor por superadmin antes de contar invitaciones. **B4**: `requestPasswordRecovery` y
+  `createDonorRegistration` salen de `record_public_idempotency` (llevan su propia idempotencia dentro de la RPC).
+- **Riesgos residuales documentados (B2, B3, B5):** B2, el 409 del reclamo revela que un correo invitado ya tiene
+  cuenta (aceptado: solo se llega con un token de invitación válido); B3, los intentos de reclamo se limitan por IP y
+  por token pero no por correo; B5, las respuestas de `requestPasswordRecovery` igualan estado y cuerpo, y el piso de
+  tiempo de 150 ms no elimina por completo la señal de temporización bajo carga.
+
+**Estado:** la segunda ronda fue una revisión independiente; no se ejecutó una tercera sobre las correcciones de esta
+ronda, por lo que **no se afirma un PASS sobre ellas**.
 
 ## 6. Pendientes conocidos
 
 - `updateEmail` y el flujo de cambio de correo del donante (`verifyEmailChange`): F5.
-- Purga de usuarios de Auth inertes (`signUp` público sin cuenta de aplicación) tras 24 h con `deleteUser` (ADR-006): worker de purgas, F7.
+- Purga de usuarios de Auth inertes (`signUp` público sin cuenta de aplicación) tras 24 h con `deleteInertUser` (ADR-006): worker de purgas, F7.
 - Purga de `action_tokens` vencidos y de `admin_invitations` (el correo invitado queda en claro tras consumirse o vencer): F7.
 - El reclamo no es idempotente en la práctica: un reintento tras perder el 201 da 410 aunque la cuenta ya exista (el
   invitado puede iniciar sesión); el `replayed` de `link_admin_account` solo es alcanzable por una llamada directa con

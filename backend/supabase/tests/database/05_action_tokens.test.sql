@@ -2,7 +2,7 @@ begin;
 -- Aislamiento: la base puede estar sembrada. Todo se revierte con el rollback.
 truncate app.action_tokens, app.admin_invitations, app.email_outbox, app.hospital_memberships, app.hospitals, app.user_accounts cascade;
 
-select plan(89);
+select plan(100);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000000f1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-tok-super@example.test'),
@@ -257,6 +257,34 @@ select is(api.consume_password_reset(repeat('a', 64)) ->> 'kind', 'gone', 'un to
 select is(api.consume_password_reset(repeat('2', 64)) ->> 'kind', 'not_found', 'un token de otro tipo no sirve para recuperar la contraseña');
 reset role;
 select is((select count(*)::int from app.audit_events where event = 'recuperacion.completada' and actor_kind = 'sistema' and resource_id = '00000000-0000-4000-8000-0000000000f2'), 1, 'se audita la recuperación completada');
+
+-- Tope por cuenta: 3 enlaces de recuperación por hora aunque se salten los límites del backend --------------------
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000f7');
+select is(api.request_password_recovery('pgtap-tok-donante@example.test', repeat('d', 64), '70000000-0000-4000-8000-00000000000d', repeat('s', 40),
+  'email:' || repeat('a', 64), 'clave-recup-0000010', repeat('b', 64)) ->> 'kind', 'ok', 'segunda solicitud de la hora: ok');
+select is(api.request_password_recovery('pgtap-tok-donante@example.test', repeat('e', 64), '70000000-0000-4000-8000-00000000000e', repeat('s', 40),
+  'email:' || repeat('a', 64), 'clave-recup-0000011', repeat('b', 64)) ->> 'kind', 'ok', 'tercera solicitud de la hora: ok');
+select is(api.request_password_recovery('pgtap-tok-donante@example.test', repeat('f', 64), '70000000-0000-4000-8000-00000000000f', repeat('s', 40),
+  'email:' || repeat('a', 64), 'clave-recup-0000012', repeat('b', 64)) ->> 'kind', 'ok', 'la cuarta responde igual (no revela el tope)');
+reset role;
+select is((select count(*)::int from app.action_tokens where kind = 'recuperacion' and subject_id = '00000000-0000-4000-8000-0000000000f2' and created_at > now() - interval '1 hour'), 3,
+  'pero solo hay tres tokens de recuperación por hora para la cuenta');
+select is((select count(*)::int from app.action_tokens where token_hash = repeat('f', 64)) + (select count(*)::int from app.email_outbox where outbox_id = '70000000-0000-4000-8000-00000000000f'), 0,
+  'la solicitud sobre el tope no crea token ni encola correo');
+
+-- Borrado atómico de usuarios de Auth inertes --------------------------------------------------------------
+insert into auth.users (id, instance_id, aud, role, email, created_at) values
+  ('00000000-0000-4000-8000-0000000000f8', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'inerte-viejo@example.test', now() - interval '1 hour'),
+  ('00000000-0000-4000-8000-0000000000f9', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'inerte-joven@example.test', now());
+select is(array(select r.role from (values ('anon'), ('authenticated'), ('service_role')) r(role)
+  where has_function_privilege(r.role, 'api.worker_delete_inert_user(uuid, text, interval)', 'EXECUTE')), array['service_role'], 'solo service_role borra usuarios inertes');
+select is(api.worker_delete_inert_user('00000000-0000-4000-8000-0000000000f8', 'otro@example.test', interval '60 seconds'), false, 'con un correo que no coincide no se borra');
+select is(api.worker_delete_inert_user('00000000-0000-4000-8000-0000000000f2', 'pgtap-tok-donante@example.test', interval '0 seconds'), false, 'un usuario con cuenta de aplicación nunca se borra');
+select is(api.worker_delete_inert_user('00000000-0000-4000-8000-0000000000f9', 'inerte-joven@example.test', interval '60 seconds'), false, 'un usuario más joven que la edad mínima (registro en curso) no se borra');
+select is(api.worker_delete_inert_user('00000000-0000-4000-8000-0000000000f8', 'INERTE-VIEJO@example.test', interval '60 seconds'), true, 'un usuario inerte, antiguo y con el correo correcto se borra');
+select is((select count(*)::int from auth.users where id in ('00000000-0000-4000-8000-0000000000f8', '00000000-0000-4000-8000-0000000000f2', '00000000-0000-4000-8000-0000000000f9')), 2,
+  'y solo ese: los otros dos siguen existiendo');
 
 -- Invitar: replay tras desautorizar el hospital y tope por superadmin ------------------------------------------
 update app.hospitals set is_authorized = false where hospital_id = '10000000-0000-4000-8000-0000000000f1';

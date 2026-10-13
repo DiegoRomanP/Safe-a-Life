@@ -15,6 +15,8 @@ const IP_WINDOW_SECONDS = 15 * 60;
 const EMAIL_LIMIT = 3;
 const EMAIL_WINDOW_SECONDS = 60 * 60;
 const RECOVERY_FLOOR_MS = 150;
+/** Un usuario de Auth más joven que esto puede ser el registro en curso del propio invitado: no se reemplaza. */
+const ORPHAN_MIN_AGE_SECONDS = 60;
 
 /** Cifra el correo de un tipo con el id del outbox como AAD (lo aporta el módulo de correo). */
 export type SealEmail = (outboxId: string, payload: Readonly<{ recipient: string; token: string; hospitalName?: string }>) => string;
@@ -92,7 +94,8 @@ export function createActionTokensService({
       let created = await sessions.signUp(email, password);
       if (created === 'exists') {
         if (orphanUserId === null) throw new ApiError('STATE_CONFLICT');
-        await admin.deleteUser(orphanUserId);
+        // Borrado atómico y condicional: si entretanto se creó una cuenta con vida propia, no se borra y es 409.
+        if (!(await admin.deleteInertUser(orphanUserId, email, ORPHAN_MIN_AGE_SECONDS))) throw new ApiError('STATE_CONFLICT');
         created = await sessions.signUp(email, password);
         if (created === 'exists') throw new ApiError('STATE_CONFLICT');
       }
@@ -112,7 +115,7 @@ export function createActionTokensService({
       } catch (error) {
         // La cuenta de Auth quedó sin cuenta de aplicación: se elimina para no dejar usuarios inertes (si esto falla,
         // el siguiente reclamo la reemplaza como huérfana).
-        if (userId) await admin.deleteUser(userId).catch(() => undefined);
+        if (userId) await admin.deleteInertUser(userId, email, 0).catch(() => undefined);
         await sessions.signOut(created.accessToken, 'local').catch(() => undefined);
         throw error;
       }
@@ -149,7 +152,17 @@ export function createActionTokensService({
       const { userId } = await repository.consumePasswordReset(hashToken(token));
       await admin.revokeAllSessions(userId);
       await admin.updatePassword(userId, newPassword);
-      await admin.revokeAllSessions(userId).catch(() => admin.revokeAllSessions(userId)).catch(() => undefined);
+      // Si la revocación final falla (tras un reintento) el cambio ya se hizo pero podrían sobrevivir sesiones abiertas con la
+      // contraseña vieja: no se responde éxito en silencio. El token ya está consumido; el usuario puede pedir otro enlace.
+      try {
+        await admin.revokeAllSessions(userId);
+      } catch {
+        try {
+          await admin.revokeAllSessions(userId);
+        } catch {
+          throw new ApiError('SERVICE_UNAVAILABLE');
+        }
+      }
     },
   });
 }

@@ -55,10 +55,16 @@ export function createSupabaseAuthAdmin(
       if (error) failure(error);
     },
 
-    async deleteUser(userId) {
-      const { error } = await client().auth.admin.deleteUser(userId);
-      // 404: el usuario ya no existe; el objetivo se cumplió.
-      if (error && error.status !== 404) failure(error);
+    async deleteInertUser(userId, email, minAgeSeconds) {
+      // Borrado condicional y atómico en la base (api.worker_delete_inert_user): no hay carrera entre comprobar y borrar.
+      const { data, error } = await client().schema('api').rpc('worker_delete_inert_user', {
+        p_user_id: userId, p_email: email, p_min_age: `${Math.max(0, Math.floor(minAgeSeconds))} seconds`,
+      });
+      if (error) {
+        if (error.code === undefined || /fetch|network/i.test(error.message)) throw new PersistenceUnavailableError();
+        throw new PersistenceError('rejected');
+      }
+      return data === true;
     },
 
     async revokeAllSessions(userId) {
