@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | Implementado; revisiones independientes pendientes (ver §5) |
+| Estado | Cerrado el 2026-10-13 bajo la autonomía concedida (ver §8) |
 | Fecha | 2026-10-13 |
 | Rama | `feat/backend-developing` |
 | Especificación | `docs/plans/2026-10-12-especificacion-faltante-backend.md` §6 F2b; ADR-004, ADR-005 y ADR-006 |
@@ -47,7 +47,26 @@
   `inviteHospitalAdmin` se prueba en pgTAP, no por HTTP.
 - **D-7: el admin invitado queda en AAL1 con `mfaRequired: true`**; debe enrolar TOTP (`enrollMfaFactor`) para operar.
 - **D-8: contrato.** Las operaciones públicas no exigen 401 en la prueba estructural (`security: []`); todas declaran
-  400, 403, 429, 500 y 503. Prism: 390 errores y 496 casos.
+  400, 403, 429, 500 y 503. Prism: 391 errores y 497 casos.
+- **D-10 (hallazgo crítico de la primera ronda): las RPC públicas ya no las ejecuta `anon`.** La vista previa, la
+  solicitud de recuperación y el consumo del reset exigen la identidad técnica del backend (`app.is_worker()`), con
+  `EXECUTE` solo para `authenticated`. Antes `request_password_recovery` aceptaba de un llamador anónimo el hash del
+  token: con la anon key (pública) se podía crear un token de recuperación para cualquier correo con un hash elegido y
+  luego restablecer su contraseña. El backend las llama con su sesión técnica (`createTechnicalInvoker`, con
+  reintento ante un 401). Prueba de integración: la llamada directa con la anon key falla y no crea nada.
+- **D-11: idempotencia de la recuperación dentro de la RPC.** Un reintento con la misma clave no crea otro token ni
+  otro correo (antes `record_public_idempotency` devolvía `ok` también en un replay). El contrato declara el 409
+  (`in_progress` en una solicitud simultánea idéntica).
+- **D-12: reset con revocación en dos pasos.** consumir → revocar sesiones → cambiar contraseña → revocar otra vez
+  (con un reintento): si Auth falla a mitad, las sesiones anteriores ya no existen; los access tokens vigentes valen
+  hasta 600 s.
+- **D-13: usuarios huérfanos.** Un usuario de Auth sin cuenta de aplicación y de más de un minuto que ocupa el correo
+  invitado se elimina al reclamar (quien tiene el token es dueño del buzón) y se repite el registro; una cuenta con
+  vida propia nunca se elimina (409). El minuto evita borrar el registro en curso de un reclamo simultáneo.
+- **D-14: límites.** Recuperación: 10 por IP cada 15 min y 3 por correo por hora. Invitaciones: 20 por superadmin por
+  hora, contadas sobre invitaciones reales. La cuenta técnica `worker` no se recupera por correo. Bloqueo por
+  correo/sujeto con `pg_advisory_xact_lock` para dejar un único token vigente.
+- **D-15: la invitación comprueba el replay antes del estado del hospital** (peek → estado → claim).
 - **D-9: `ApiClient`, TOTP y entorno de pruebas.** Con `/tmp` lleno por procesos ajenos, las pruebas usan
   `TMPDIR=backend/.local/tmp`.
 
@@ -56,23 +75,53 @@
 | Comando | Resultado |
 | --- | --- |
 | `npm run typecheck` | verde |
-| `npm test` | verde (623 pruebas del backend, más mock y web) |
-| `npm run test:backend:db` | 348 pruebas pgTAP en verde (71 de `05_action_tokens`) |
-| `npm run test:backend:integration` | 150 pruebas en verde (19 de `action-tokens`) |
+| `npm test` | verde (631 pruebas del backend, más mock y web) |
+| `npm run test:backend:db` | 366 pruebas pgTAP en verde (89 de `05_action_tokens`) |
+| `npm run test:backend:integration` | 159 pruebas en verde (28 de `action-tokens`) |
 | `npm run test:bruno:backend` | superadmin 18 solicitudes, tokens 10 solicitudes y 11 pruebas, más el resto |
-| `npm run test:contract` | 72 pruebas en verde (390 errores y 496 casos) |
+| `npm run test:contract` | 72 pruebas en verde (391 errores y 497 casos) |
 
 ## 5. Revisiones independientes
 
-Pendientes. No se afirma ningún PASS hasta que ocurra.
+Primera ronda (2026-10-13), subagentes de contexto separado, solo lectura, sobre `4fdd04d..fa5482a`:
+
+- `security-privacy-auditor`: **FAIL** (1 crítico). Crítico: `api.request_password_recovery`, ejecutable por `anon`,
+  aceptaba el hash del token del llamador: toma de cualquier cuenta de la aplicación con solo conocer su correo. Medios:
+  saltarse el backend (límites y piso de tiempo), ocupación pública del correo invitado (bloqueo del invitado),
+  orden de la revocación en el reset, spam de correos de recuperación. Bajos: la cuenta `worker` recuperable,
+  `lower(email)` sin índice, retención del correo invitado, varios tokens vigentes simultáneos, sin cuota de
+  invitaciones.
+- `reviewer-back`: **FAIL** (1 bloqueante, 4 mayores). Bloqueante: el mismo hallazgo crítico. Mayores: 409 de la
+  recuperación no declarado, correos duplicados al repetir la misma clave, sesiones vivas si falla la revocación tras
+  cambiar la contraseña, ninguna carrera con prueba. Menores: reclamo no idempotente en la práctica (el `replayed` es
+  inalcanzable), limpieza con huecos, `weak_password` como 503, gobernanza (ADR-003), pruebas débiles.
+
+Correcciones: ver D-10 a D-15, más pruebas pgTAP nuevas (anon sin acceso, usuario no técnico `forbidden`, idempotencia
+propia, cuenta `worker`, huérfano por antigüedad, cupo de invitaciones, replay tras desautorizar), de integración
+(llamada directa con la anon key, tres carreras reales, huérfano, cuenta con vida propia, 3 solicitudes por hora) y
+unitarias.
+
+**Estado:** no existe una segunda revisión independiente de estas correcciones: **no se afirma ningún PASS**.
 
 ## 6. Pendientes conocidos
 
 - `updateEmail` y el flujo de cambio de correo del donante (`verifyEmailChange`): F5.
 - Purga de usuarios de Auth inertes (`signUp` público sin cuenta de aplicación) tras 24 h con `deleteUser` (ADR-006): worker de purgas, F7.
-- Purga de `action_tokens` vencidos: F7.
+- Purga de `action_tokens` vencidos y de `admin_invitations` (el correo invitado queda en claro tras consumirse o vencer): F7.
+- El reclamo no es idempotente en la práctica: un reintento tras perder el 201 da 410 aunque la cuenta ya exista (el
+  invitado puede iniciar sesión); el `replayed` de `link_admin_account` solo es alcanzable por una llamada directa con
+  la sesión del invitado. Las cookies no son reproducibles por diseño.
+- Un doble envío simultáneo del reclamo puede devolver 503 al perdedor (Auth rechaza el registro simultáneo).
+- Un correo ya encolado para una invitación anulada se envía igual con un enlace muerto (la anulación no cancela el outbox).
+- Revisión de `lower(email)` sin índice en `auth.users` (rendimiento) con `EXPLAIN`.
 - Verificar en staging la política de contraseñas del proyecto cloud y `enable_signup`.
 
 ## 7. Bitácora
 
 - 2026-10-13: contrato, migración, pgTAP, servicio, adaptadores, router, integración y Bruno contra el backend real.
+
+## 8. Cierre
+
+Cerrado el 2026-10-13 bajo la autonomía concedida por la persona usuaria. Queda a su decisión la ampliación de la
+allowlist DEFINER con tres funciones propiedad de `postgres` (D-1) y, en general, que ninguna de estas correcciones ha
+sido revisada por un subagente independiente.
