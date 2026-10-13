@@ -905,7 +905,7 @@
       "get": {
         "tags": ["Hospital"],
         "operationId": "listOwnHospitalNeeds",
-        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo need-records F3: necesidades propias del hospital (listado, consulta y transición manual). Ratifica solo esta operación; createHospitalNeed ya estaba ratificada (listOwnHospitalNeeds)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F3; votos V1 y V8 y matriz C-8 aceptados por la persona usuaria (2026-10-12)"]},
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo need-records F3: necesidades propias del hospital (listado, consulta y transición manual). Ratifica solo esta operación; createHospitalNeed ya estaba ratificada","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F3; votos V1 y V8 y matriz C-8 aceptados por la persona usuaria (2026-10-12)"]},
         "summary": "Lista necesidades de la institución autenticada",
         "description": "El hospital se deriva de la membresía vigente; no se recibe hospitalId desde el cliente.",
         "parameters": [
@@ -1068,7 +1068,7 @@
       "get": {
         "tags": ["Hospital"],
         "operationId": "getOwnHospitalNeed",
-        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo need-records F3: necesidades propias del hospital (listado, consulta y transición manual). Ratifica solo esta operación; createHospitalNeed ya estaba ratificada (getOwnHospitalNeed)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F3; votos V1 y V8 y matriz C-8 aceptados por la persona usuaria (2026-10-12)"]},
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo need-records F3: necesidades propias del hospital (listado, consulta y transición manual). Ratifica solo esta operación; createHospitalNeed ya estaba ratificada","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F3; votos V1 y V8 y matriz C-8 aceptados por la persona usuaria (2026-10-12)"]},
         "summary": "Consulta una necesidad propia",
         "responses": {
           "200": {
@@ -1091,7 +1091,7 @@
       "patch": {
         "tags": ["Hospital"],
         "operationId": "transitionOwnHospitalNeed",
-        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo need-records F3: necesidades propias del hospital (listado, consulta y transición manual). Ratifica solo esta operación; createHospitalNeed ya estaba ratificada (transitionOwnHospitalNeed)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F3; votos V1 y V8 y matriz C-8 aceptados por la persona usuaria (2026-10-12)"]},
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo need-records F3: necesidades propias del hospital (listado, consulta y transición manual). Ratifica solo esta operación; createHospitalNeed ya estaba ratificada","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F3; votos V1 y V8 y matriz C-8 aceptados por la persona usuaria (2026-10-12)"]},
         "summary": "Solicita una transición permitida de necesidad",
         "description": "Solo admite las transiciones manuales aprobadas. meta_alcanzada y vencida son estados calculados, no valores asignables por el cliente. Las terminales no se reabren (RF-NEC-06 a RF-NEC-08).",
         "security": [

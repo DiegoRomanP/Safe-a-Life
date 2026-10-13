@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | Implementado; revisiones independientes pendientes; cierre sin aprobar |
+| Estado | Implementado; primera ronda de revisión corregida; cierre sin aprobar |
 | Fecha | 2026-10-13 |
 | Rama | `feat/backend-developing` |
 | Especificación | `docs/plans/2026-10-12-especificacion-faltante-backend.md` §6 F3 y `docs/Need-Draft-Application-Spec.md` (V1) |
@@ -65,9 +65,13 @@ autorizado. Las dos mutaciones exigen además `Origin`, CSRF e `Idempotency-Key`
   idempotencia (replay o conflicto) → comprobar la sede → `claim` → insertar. Así un
   rechazo por sede no deja registro de idempotencia y el replay de una creación previa
   sigue valiendo si la sede se desactivó después (decisión sobre la apertura de spec A2 §7).
-  No se bloquea la fila de la sede (`FOR SHARE` exige una política de update que el admin
-  no tiene): la ventana de una carrera con una desactivación simultánea queda acotada por
-  la política de inserción y la clave foránea compuesta, y se acepta.
+  No se bloquea la fila de la sede: `FOR SHARE` exige una política de update que el admin
+  no tiene. La carrera con una desactivación simultánea sigue abierta (ni la política de
+  inserción, que evalúa su `exists` con el snapshot del statement, ni la clave foránea
+  compuesta, que solo impide una sede de otro hospital, la cierran). Queda como pendiente:
+  cuando F2b permita desactivar sedes, serializar con `pg_advisory_xact_lock(site_id)` en
+  ambos lados o con una función DEFINER mínima. Mitigación parcial: activar exige que la
+  sede siga vigente (D-12).
 - **D-5: el cursor manipulado es 400**, igual que en los listados de F2a, no 422.
 - **D-6: orden del listado**: más recientes primero (`created_at` y `need_id`
   descendentes). La spec no fijaba el orden.
@@ -82,6 +86,25 @@ autorizado. Las dos mutaciones exigen además `Origin`, CSRF e `Idempotency-Key`
   helpers de rutas y paginación de `identity-institutions` (sin cambio de comportamiento;
   las 40 pruebas de integración de F2a siguen en verde).
 - **D-10: `confirmedIntentCount` vale 0** hasta F6; entonces se reemplaza `app.need_json`.
+- **D-12 (hallazgos de la primera ronda): endurecimiento.** (a) Activar un borrador exige
+  sede activa y aprobada (409 si no). (b) El replay de la creación no se entrega si el
+  hospital guardado difiere del actual (`forbidden`). (c) Tope por actor: 30 creaciones y 60
+  transiciones por hora, con `api.consume_rate_limit` en SQL (cubre al llamador directo de
+  PostgREST), después de `peek` y antes de `claim`, de modo que los replays no consumen cupo
+  y una respuesta `rate_limited` no deja la clave «en curso»; responde 429 `RATE_LIMITED`
+  (sin `Retry-After`: el servicio privado de la spec A2 solo devuelve un código). Se añadió
+  `RATE_LIMITED` a `NeedDraftFailureCode` y `rate_limited` a los fallos comunes de RPC. Los
+  números son una decisión mía; ajústalos si prefieres otros. (d) Las RPC validan la
+  longitud de `p_key` (16–255) y responden `invalid`, no una excepción.
+- **D-13: formas de UUID.** `format: uuid` admite `urn:uuid:…`, que la base rechaza (500).
+  Se rechaza en el borde con 400 (sede del POST y `needId` del GET/PATCH). El casing: la
+  base devuelve el UUID en minúsculas aunque el cliente lo haya enviado en mayúsculas; el
+  servicio compara sin distinguir mayúsculas y el hash sigue usando el literal, de modo que
+  otro casing con la misma clave es un conflicto (409), no una necesidad nueva.
+- **D-14: dependencias.** `fingerprint` pasó a `shared/crypto` (la aplicación ya no importa
+  de `shared/http`). `domain/need-state.ts` es un oráculo del comportamiento de SQL: la
+  lógica real vive en la RPC y la deriva se detecta en la prueba de integración de la matriz
+  (que ahora compara con una tabla literal independiente y con el dominio).
 - **D-11: la transición no tiene cascada** (invitaciones y outbox): llega en F6 con un
   `create or replace` de `api.transition_own_need`.
 
@@ -90,26 +113,55 @@ autorizado. Las dos mutaciones exigen además `Origin`, CSRF e `Idempotency-Key`
 | Comando | Resultado |
 | --- | --- |
 | `npm run typecheck` | verde |
-| `npm test` | verde (447 pruebas del backend, más mock y web) |
-| `npm run test:backend:db` | 188 pruebas pgTAP en verde (88 de `03_need_records`) |
-| `npm run test:backend:integration` | 97 pruebas en verde (55 de `need-records`, incluida la paridad de la matriz C-8 con el dominio y el control de estados declarados) |
-| `npm run test:bruno:backend` | 21 solicitudes y 23 pruebas de `need-records` en verde, más las de F2a |
+| `npm test` | verde (451 pruebas del backend, más mock y web) |
+| `npm run test:backend:db` | 202 pruebas pgTAP en verde (102 de `03_need_records`) |
+| `npm run test:backend:integration` | 104 pruebas en verde (62 de `need-records`: rol × AAL × hospital, IDOR, 20 concurrentes, rollback, matriz C-8 con tabla literal y dimensión vencido, límites de tasa, canarios) |
+| `npm run test:bruno:backend` | 21 solicitudes y 23 pruebas de `need-records` en verde, más platform, hospital y superadmin de F2a |
 | `npm run test:bruno` (mock) | verde tras C-10 |
 | `npm run test:contract` | 72 pruebas en verde (365 errores y 470 casos) |
 | `npm run openapi:lint`, `openapi:api:check`, generador | verdes |
 
 ## 5. Revisiones independientes
 
-Pendientes. No se afirma ningún PASS hasta que ocurra.
+Primera ronda (2026-10-13), subagentes de contexto separado, solo lectura, sobre
+`b81d06a..HEAD`:
+
+- `reviewer-back`: **FAIL** (dos mayores). 1) Un `siteId` con letras en mayúsculas creaba la
+  fila y la respuesta era 500 (la base devuelve minúsculas y el servicio comparaba literal;
+  el reintento con la misma clave repetía el 500). 2) El replay de la creación no revalidaba
+  el hospital en SQL. Menores: `urn:uuid:` daba 500, una prueba de integración era vacía (los
+  UUID de siembra no tienen letras), la matriz C-8 comparaba contra el propio dominio,
+  cobertura faltante, dependencias de la aplicación hacia `shared/http`, redacción inexacta
+  de D-4 y un paréntesis residual en `x-ratification`.
+- `security-privacy-auditor`: **PASS condicionado** (sin críticos ni altos). Medios: no hay
+  tope de creación por actor ni de necesidades abiertas, y `borrador → activa` no revalidaba
+  la sede. Bajos: replay con hospital distinto, longitud de `p_key` sin validar en SQL,
+  auditoría solo de éxitos, sin retención de `idempotency_records`, huecos de pgTAP.
+
+Correcciones: ver D-12, D-13 y D-14, más 14 pruebas pgTAP nuevas, 7 de integración nuevas
+(letras en el UUID con replay y otro casing, `urn:uuid:`, replay tras revocación, tope de
+creación y de transición, desempate por `created_at` idéntico, dimensión «vencido» y tabla
+literal en la matriz C-8, activación con sede desactivada) y pruebas unitarias.
+
+**Estado:** no existe una segunda revisión independiente de estas correcciones. No se afirma
+ningún PASS de `reviewer-back`.
 
 ## 6. Pendientes conocidos
 
 - Carrera entre una creación y la desactivación simultánea de la sede (D-4).
+- Auditoría solo de éxitos: `site_unusable`, `conflict`, `forbidden` y `rate_limited` no dejan
+  evento (RNF-AUD-01); decidir si se auditan las denegaciones.
+- Retención de `idempotency_records` (su `response` conserva grupo, sede y plazo): purga con
+  el worker, ya pendiente desde F2a.
+- Tope de necesidades abiertas por hospital (además del de creación por hora): decisión de
+  producto para F6.
+- `Retry-After` en el 429 de estas rutas.
 - La cascada de la transición (invitaciones y outbox) y `confirmedIntentCount` real: F6.
 - El barrido que marca como `vencida` en la tabla (hoy solo se proyecta): worker, F6/F7.
 - `listOwnNeedResponses` sigue en borrador (F6).
 
 ## 7. Bitácora
 
+- 2026-10-13: primera ronda de revisión (reviewer-back FAIL, seguridad PASS condicionado) y remediación.
 - 2026-10-13: ratificación de las tres operaciones, dominio, aplicación, migración,
   pgTAP, gateway, router, integración y Bruno contra el backend real.
