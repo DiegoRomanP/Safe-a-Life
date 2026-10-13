@@ -151,6 +151,21 @@ otro driver ahora; su presencia no prueba que el scaffold legacy sea seguro.
    pertenecen a `app_privileged` (ítems 3 y 4) y leen el `sub`, el AAL y el `amr`
    del GUC que PostgREST valida (`app.jwt_claims`), nunca `auth.uid()`.
 
+   Ampliado en F5 (2026-10-13): las DEFINER de donantes y altas asistidas son de
+   `app_privileged`, no llaman a `auth.uid()` y siguen la regla de F2b: toda RPC
+   que recibe un hash de token o un id de usuario solo la ejecuta la sesión
+   técnica (`link_donor_account`, `reissue_donor_verification`,
+   `get_donor_verification_preview`, `verify_donor_email`,
+   `get_assisted_activation_preview`, `issue_assisted_activation`,
+   `get_assisted_signup_recipient`, `link_assisted_account`,
+   `get_email_change_preview`, `consume_email_change`). Con la sesión del admin
+   (`create_assisted_signup`, `reissue_assisted_link`) el hospital solo
+   registra el alta: no elige el hash del token, que emite la sesión técnica
+   (el primer diseño lo permitía y un admin podía reclamar cuentas con correos
+   ajenos). `api.sync_assisted_signup_status()` es una función de trigger en
+   `api` (app_privileged no puede ser propietario de funciones en `app`) que
+   nadie ejecuta por RPC.
+
 ### Convención de respuesta de toda RPC con efectos
 
 - Devuelve `jsonb` con `{"kind":"created"|"replayed"|"ok", …proyección}` o

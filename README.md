@@ -32,9 +32,9 @@ La [guía de entrega frontend](docs/Frontend-Handoff.md) reúne el setup humano,
 Swagger Editor 5, sincronización JSON→tipos→Bruno, matriz exacta y paquetes de
 trabajo siguientes. El inventario canónico OpenAPI tiene **57 paths, 72
 operaciones y 100 schemas**. Están ratificadas para implementación
-las cinco de invitación de admins y recuperación de contraseña (F2b), el webhook de Resend (F4), las cuatro de necesidades (F3: `createHospitalNeed` y listar, consultar y transicionar las
+las catorce de donantes y altas asistidas (F5), las cinco de invitación de admins y recuperación de contraseña (F2b), el webhook de Resend (F4), las cuatro de necesidades (F3: `createHospitalNeed` y listar, consultar y transicionar las
 propias), las dos de salud y las 21 de identidad (F2a), es decir
-**33**; las otras **39** siguen en borrador y se ratifican módulo por módulo. El inventario no representa
+**47**; las otras **25** siguen en borrador y se ratifican módulo por módulo. El inventario no representa
 cuántas operaciones están implementadas por el mock, cliente o backend. El mock
 Express, sus comprobaciones de readiness y auth siguen siendo demos, no un backend
 real. El paquete es habilitador; no declara
