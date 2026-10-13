@@ -1,6 +1,7 @@
 import { Ajv2020 } from 'ajv/dist/2020.js';
 import type { ValidateFunction } from 'ajv/dist/2020.js';
 import formatsModule from 'ajv-formats';
+import { CANONICAL_UUID } from './uuid.js';
 import ratifiedSnapshot from '../../contract/ratified-schemas.generated.json' with { type: 'json' };
 import { classifyValidationFailure } from './classify.js';
 
@@ -105,6 +106,8 @@ export function createOperationCompiler(snapshot: RatifiedSnapshot): (operationI
     logger: false,
   });
   formatsModule.default(ajv);
+  // La base solo acepta la forma canónica: `urn:uuid:…` (admitida por defecto) sería un 500 al llegar a PostgreSQL.
+  ajv.addFormat('uuid', CANONICAL_UUID);
   ajv.addSchema(schema);
 
   const compileDef = (name: string): ValidateFunction => ajv.compile({ $ref: `${snapshot.$id}#/$defs/${name}` });

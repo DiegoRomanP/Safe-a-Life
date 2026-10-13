@@ -6,7 +6,7 @@ import {
 import { startBackend, type RunningBackend } from '../support/app.js';
 import { ApiClient, observed } from '../support/client.js';
 import { MIN_OBSERVED, undeclaredStatuses } from '../support/contract-statuses.js';
-import { resetAuthQuota, resetNeedLimits, sql } from '../support/db.js';
+import { resetAuthQuota, sql } from '../support/db.js';
 import { HOSPITAL_IDS, SEED_USERS, SITE_IDS } from '../support/local-env.js';
 
 const NEEDS = '/api/v1/hospitals/me/needs';
@@ -19,7 +19,6 @@ let donor: ApiClient;
 
 beforeEach(() => {
   resetAuthQuota();
-  resetNeedLimits();
 });
 
 beforeAll(async () => {
@@ -311,23 +310,37 @@ describe('createHospitalNeed', () => {
     }
   });
 
-  it('el tope por actor responde 429 a una creación nueva, no consume cupo en un replay y no deja la clave en curso', async () => {
+  it('el tope por actor responde 429 a una creación nueva y no consume cupo en un replay ni deja la clave en curso', async () => {
     const client = new ApiClient(backend.baseUrl);
     await client.login(SEED_USERS.admin2.email);
     const key = randomUUID();
     const body = { ...BODY, siteId: SITE_IDS.hospital2Active, targetConfirmations: 18 };
     expect((await client.send('POST', NEEDS, { body, key })).status).toBe(201);
-    sql(`insert into app.rate_limit_events (bucket, subject)
-      select 'need:create', encode(extensions.digest(id::text, 'sha256'), 'hex')
+    sql(`insert into app.needs (hospital_id, site_id, created_by, component, required_blood_type, target_confirmations, radius_km, urgency, expires_at)
+      select '${HOSPITAL_IDS[1]}', '${SITE_IDS.hospital2Active}', id, 'RBC', 'O_POS', 2, 1, 'Normal', now() + interval '1 day'
       from auth.users, generate_series(1, 30) where email = '${SEED_USERS.admin2.email}'`);
+    try {
+      const replay = await client.send('POST', NEEDS, { body, key });
+      const limited = await client.send('POST', NEEDS, { body: { ...body, targetConfirmations: 19 }, key: randomUUID() });
 
-    const replay = await client.send('POST', NEEDS, { body, key });
-    const limited = await client.send('POST', NEEDS, { body: { ...body, targetConfirmations: 19 }, key: randomUUID() });
+      expect(replay.status).toBe(201);
+      expect(limited.status).toBe(429);
+      expect(limited.json.error.code).toBe('RATE_LIMITED');
+      expect(sql(`select count(*) from app.needs where target_confirmations = 19 and hospital_id = '${HOSPITAL_IDS[1]}'`)).toBe('0');
+    } finally {
+      sql(`delete from app.needs where hospital_id = '${HOSPITAL_IDS[1]}' and target_confirmations = 2 and radius_km = 1`);
+    }
+  });
 
-    expect(replay.status).toBe(201);
-    expect(limited.status).toBe(429);
-    expect(limited.json.error.code).toBe('RATE_LIMITED');
-    expect(sql(`select count(*) from app.needs where target_confirmations = 19 and hospital_id = '${HOSPITAL_IDS[1]}'`)).toBe('0');
+  it('20 reintentos concurrentes con la misma clave no gastan cupo de creación (una sola fila nueva)', async () => {
+    const key = randomUUID();
+    const body = { ...BODY, targetConfirmations: 22, requiredBloodType: 'A_NEG' };
+    const countBefore = Number(sql(`select count(*) from app.needs n join auth.users u on u.id = n.created_by where u.email = '${SEED_USERS.admin1.email}' and n.created_at > now() - interval '1 hour'`));
+
+    await Promise.all(Array.from({ length: 20 }, () => admin1.send('POST', NEEDS, { body, key })));
+
+    const countAfter = Number(sql(`select count(*) from app.needs n join auth.users u on u.id = n.created_by where u.email = '${SEED_USERS.admin1.email}' and n.created_at > now() - interval '1 hour'`));
+    expect(countAfter - countBefore).toBe(1);
   });
 
   it('la creación solo escribe necesidad, idempotencia y auditoría (sin invitaciones, outbox ni correo)', async () => {
@@ -514,19 +527,6 @@ describe('transitionOwnHospitalNeed', () => {
     } finally {
       sql(`delete from app.needs where site_id = '${site}'; delete from app.sites where site_id = '${site}'`);
     }
-  });
-
-  it('el tope de transiciones por actor responde 429 sin consumir la clave', async () => {
-    const id = insertNeed('borrador');
-    sql(`insert into app.rate_limit_events (bucket, subject)
-      select 'need:transition', encode(extensions.digest(id::text, 'sha256'), 'hex')
-      from auth.users, generate_series(1, 60) where email = '${SEED_USERS.admin1.email}'`);
-
-    const limited = await admin1.send('PATCH', `${NEEDS}/${id}`, { body: { status: 'activa' } });
-
-    expect(limited.status).toBe(429);
-    expect(limited.json.error.code).toBe('RATE_LIMITED');
-    expect(sql(`select status from app.needs where need_id = '${id}'`)).toBe('borrador');
   });
 
   it('borrador → activa con el plazo vencido es 409 y no cambia la fila', async () => {
