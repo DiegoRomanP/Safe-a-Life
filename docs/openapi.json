@@ -55,6 +55,7 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "500": { "$ref": "#/components/responses/InternalServerError" }
         }
@@ -78,6 +79,7 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "500": { "$ref": "#/components/responses/InternalServerError" },
           "503": { "$ref": "#/components/responses/ServiceUnavailable" }
@@ -95,6 +97,7 @@
           "200": { "description": "Token CSRF para la sesión actual.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CsrfTokenEnvelope" } } } },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "429": { "$ref": "#/components/responses/TooManyRequests" },
           "500": { "$ref": "#/components/responses/InternalServerError" },
           "503": { "$ref": "#/components/responses/ServiceUnavailable" }
@@ -114,6 +117,7 @@
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "429": { "$ref": "#/components/responses/TooManyRequests" },
           "500": { "$ref": "#/components/responses/InternalServerError" },
           "503": { "$ref": "#/components/responses/ServiceUnavailable" }
@@ -3085,7 +3089,7 @@
         "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" }, "example": { "error": { "code": "AUTHENTICATION_REQUIRED", "message": "La sesión no está vigente.", "correlationId": "00000000-0000-4000-8000-000000000401" } } } }
       },
       "Forbidden": {
-        "description": "Actor autenticado sin permiso; no revelar datos del recurso ajeno.",
+        "description": "Actor sin permiso, o petición directa sin el secreto de borde (X-Edge-Secret); no revelar datos del recurso ajeno.",
         "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" }, "example": { "error": { "code": "ACCESS_DENIED", "message": "La acción no está permitida.", "correlationId": "00000000-0000-4000-8000-000000000403" } } } }
       },
       "NotFound": {

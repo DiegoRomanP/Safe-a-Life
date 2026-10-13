@@ -18,8 +18,9 @@ const methods = new Set(['get', 'put', 'post', 'delete', 'options', 'head', 'pat
 // F2a review hardening (2026-10-12) declares 42 more errors (400 on the typed inputs, 503 on every
 // non-health operation, and the specific 403/409/422 that the backend really returns): 322 / 427.
 // Second review round adds 29 more (429, 500, the 403 of createSession and two 422): 351 / 456.
+// Third review round adds 4 more (403 of csrf-token and session, 400 of the health pair): 355 / 460.
 // Updating coverage requires explicit review; never derive it from the candidate.
-const expected = { operations: 71, json: 69, empty: 2, bodies: 26, variants: 34, variantCollections: 16, errors: 351 };
+const expected = { operations: 71, json: 69, empty: 2, bodies: 26, variants: 34, variantCollections: 16, errors: 355 };
 
 // Reviewed E2/E3 coverage fixture (method, path template, operationId), not a second
 // contract: NO payloads, schemas or behavior. Never derive/refresh it from the

@@ -2314,7 +2314,7 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
-        /** @description Actor autenticado sin permiso; no revelar datos del recurso ajeno. */
+        /** @description Actor sin permiso, o petición directa sin el secreto de borde (X-Edge-Secret); no revelar datos del recurso ajeno. */
         Forbidden: {
             headers: {
                 [name: string]: unknown;
@@ -2513,6 +2513,7 @@ export interface operations {
                     "application/json": components["schemas"]["HealthEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };
@@ -2542,6 +2543,7 @@ export interface operations {
                     "application/json": components["schemas"]["HealthEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
             503: components["responses"]["ServiceUnavailable"];
@@ -2567,6 +2569,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
             503: components["responses"]["ServiceUnavailable"];
@@ -2592,6 +2595,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
             503: components["responses"]["ServiceUnavailable"];
