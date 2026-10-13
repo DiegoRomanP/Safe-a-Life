@@ -8,6 +8,12 @@ export type Envelope = Readonly<{ key: string; hash: string }>;
 
 export type OnboardingOutcome = Readonly<{ status: 'reclamada_incompleta' | 'activa'; emailVerified: true }>;
 
+/**
+ * Resultado interno de verificar el correo de un autorregistro. `userId` y `email` no salen por HTTP: el servicio los usa para
+ * cerrar las sesiones anteriores y enviar el enlace con el que el dueño del buzón fija su contraseña.
+ */
+export type VerifiedDonor = Readonly<{ outcome: OnboardingOutcome; userId: string; email: string; passwordSetupRequired: boolean }>;
+
 export type AssistedSignupView = Readonly<{
   signupId: string;
   status: 'pendiente' | 'vencida' | 'reclamada_incompleta' | 'activa';
@@ -55,7 +61,11 @@ export interface DonorRecordsRepository {
   /** Reenvía la verificación de un registro sin verificar (respuesta idéntica en cualquier otro caso). */
   reissueDonorVerification(command: ReissueVerification): Promise<void>;
   donorVerificationPreview(tokenHash: string): Promise<Readonly<{ expiresAt: string }>>;
-  verifyDonorEmail(tokenHash: string): Promise<OnboardingOutcome>;
+  verifyDonorEmail(tokenHash: string): Promise<VerifiedDonor>;
+  /** Emite el enlace de recuperación de la contraseña pendiente (sesión técnica; solo si el perfil la exige). */
+  issuePasswordSetup(userId: string, issue: ActivationIssue): Promise<void>;
+  /** Levanta el bloqueo del perfil una vez cambiada la contraseña en Auth (sesión técnica). */
+  confirmPasswordSetup(userId: string): Promise<void>;
   assistedActivationPreview(tokenHash: string): Promise<ActivationPreview>;
   /** Correo de un alta reemitible del hospital indicado (solo para sellar el correo; nunca se devuelve por HTTP). */
   assistedSignupRecipient(signupId: string, hospitalId: string): Promise<string>;

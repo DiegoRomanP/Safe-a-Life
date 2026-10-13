@@ -7,9 +7,9 @@ const SIGNUP = { signupId: '5e5abebf-64ab-4ac4-a276-d91ca386886f', status: 'pend
 const PROFILE = { name: 'Ana', email: 'ana@example.test', declaredBloodType: 'O_POS', isAvailable: true, approximateLocation: { latitude: -12.046, longitude: -77.043 } };
 const HASH = 'a'.repeat(64);
 
-function harness(reply: Record<string, unknown>) {
+function harness(reply: Record<string, unknown> | ((name: string) => Record<string, unknown>)) {
   const calls: Array<Pick<RpcCall<string>, 'accessToken' | 'name' | 'args'>> = [];
-  const make = (label: string): RpcInvoker => (async ({ accessToken, name, args }: RpcCall<string>) => { calls.push({ accessToken, name: `${label}:${name}`, args }); return reply; }) as RpcInvoker;
+  const make = (label: string): RpcInvoker => (async ({ accessToken, name, args }: RpcCall<string>) => { calls.push({ accessToken, name: `${label}:${name}`, args }); return typeof reply === 'function' ? reply(name) : reply; }) as RpcInvoker;
   return { calls, repository: createDonorRecordsRpcGateway(make('usuario'), make('tecnica')) };
 }
 
@@ -32,7 +32,9 @@ describe('guardas cerradas de las proyecciones', () => {
 
 describe('repositorio', () => {
   it('las RPC con hash de token o id de usuario van por la sesión técnica y con argumentos p_*', async () => {
-    const { repository, calls } = harness({ kind: 'ok', status: 'incompleto', emailVerified: true });
+    const { repository, calls } = harness((name) => name === 'verify_donor_email'
+      ? { kind: 'ok', status: 'incompleto', emailVerified: true, userId: 'u-1', email: 'a@example.test', passwordSetupRequired: true }
+      : { kind: 'ok', status: 'incompleto', emailVerified: true });
 
     await repository.verifyDonorEmail(HASH);
     await repository.linkAssistedAccount('u-1', HASH);
@@ -42,13 +44,26 @@ describe('repositorio', () => {
   });
 
   it('traduce los estados del perfil a los del contrato (incompleto = reclamada_incompleta)', async () => {
-    expect((await harness({ kind: 'ok', status: 'incompleto', emailVerified: true }).repository.verifyDonorEmail(HASH)).status).toBe('reclamada_incompleta');
-    expect((await harness({ kind: 'ok', status: 'activo', emailVerified: true }).repository.verifyDonorEmail(HASH)).status).toBe('activa');
+    const verified = { kind: 'ok', emailVerified: true, userId: 'u-1', email: 'a@example.test', passwordSetupRequired: false };
+    expect((await harness({ ...verified, status: 'incompleto' }).repository.verifyDonorEmail(HASH)).outcome.status).toBe('reclamada_incompleta');
+    expect((await harness({ ...verified, status: 'activo' }).repository.verifyDonorEmail(HASH)).outcome.status).toBe('activa');
     expect((await harness({ kind: 'ok', status: 'reclamada_incompleta', emailVerified: true }).repository.linkAssistedAccount('u', HASH)).status).toBe('reclamada_incompleta');
   });
 
   it('rechaza un resultado con el correo sin verificar', async () => {
-    await expect(harness({ kind: 'ok', status: 'incompleto', emailVerified: false }).repository.verifyDonorEmail(HASH)).rejects.toThrow();
+    await expect(harness({ kind: 'ok', status: 'incompleto', emailVerified: false, userId: 'u-1', email: 'a@example.test', passwordSetupRequired: false })
+      .repository.verifyDonorEmail(HASH)).rejects.toThrow();
+  });
+
+  it('las RPC de la contraseña pendiente van por la sesión técnica con argumentos p_*', async () => {
+    const { repository, calls } = harness({ kind: 'ok' });
+
+    await repository.issuePasswordSetup('u-1', { tokenHash: HASH, outboxId: 'o-1', sealed: 'sellado' });
+    await repository.confirmPasswordSetup('u-1');
+
+    expect(calls.map((call) => call.name)).toEqual(['tecnica:issue_password_setup', 'tecnica:confirm_password_setup']);
+    expect(calls[0].args).toEqual({ p_user_id: 'u-1', p_token_hash: HASH, p_outbox_id: 'o-1', p_sealed: 'sellado' });
+    expect(calls[1].args).toEqual({ p_user_id: 'u-1' });
   });
 
   it('crear un alta usa la sesión de la persona y no envía hash de token ni correo sellado', async () => {

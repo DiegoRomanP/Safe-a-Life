@@ -30,6 +30,8 @@ export interface ActionTokensServiceDependencies {
   readonly seal: SealEmail;
   /** Nombre público del hospital (para el correo de invitación); lanza si no existe. */
   readonly hospitalName: (accessToken: string, hospitalId: string) => Promise<string>;
+  /** Se llama tras cambiar la contraseña con éxito (p. ej. para levantar el bloqueo de un perfil que debía fijarla). */
+  readonly onPasswordChanged?: (userId: string) => Promise<void>;
   readonly newToken?: () => string;
   readonly newId?: () => string;
   readonly now?: () => number;
@@ -44,7 +46,7 @@ const normalizeEmail = (email: string): string => email.trim().toLowerCase();
  * públicas las ejecuta la identidad técnica del backend: un cliente directo de PostgREST no puede elegir hashes.
  */
 export function createActionTokensService({
-  repository, sessions, admin, limiter, keys, seal, hospitalName,
+  repository, sessions, admin, limiter, keys, seal, hospitalName, onPasswordChanged,
   newToken = generateActionToken, newId = randomUUID, now = Date.now, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
 }: ActionTokensServiceDependencies) {
   const rejectIfLimited = async (checks: ReadonlyArray<readonly [string, string, number, number]>): Promise<void> => {
@@ -152,6 +154,13 @@ export function createActionTokensService({
       const { userId } = await repository.consumePasswordReset(hashToken(token));
       await admin.revokeAllSessions(userId);
       await admin.updatePassword(userId, newPassword);
+      // La contraseña ya cambió: otros módulos (p. ej. el perfil de un donante que debía fijarla) levantan su bloqueo.
+      let hookFailed = false;
+      try {
+        await onPasswordChanged?.(userId);
+      } catch {
+        hookFailed = true;
+      }
       // Si la revocación final falla (tras un reintento) el cambio ya se hizo pero podrían sobrevivir sesiones abiertas con la
       // contraseña vieja: no se responde éxito en silencio. El token ya está consumido; el usuario puede pedir otro enlace.
       try {
@@ -163,6 +172,7 @@ export function createActionTokensService({
           throw new ApiError('SERVICE_UNAVAILABLE');
         }
       }
+      if (hookFailed) throw new ApiError('SERVICE_UNAVAILABLE');
     },
   });
 }

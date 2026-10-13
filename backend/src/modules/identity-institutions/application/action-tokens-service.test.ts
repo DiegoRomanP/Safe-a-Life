@@ -14,7 +14,7 @@ const PREVIEW: AdminInvitationPreview = { hospitalName: 'Hospital Demo Uno', exp
 
 function harness(options: {
   signUp?: SignUpResult; preview?: AdminInvitationPreview | Error; linkError?: Error; allowed?: (bucket: string) => boolean;
-  hospitalError?: Error; updateError?: Error; consumeError?: Error; signUps?: SignUpResult[]; failRevokeAt?: number[]; deleteInert?: boolean;
+  hospitalError?: Error; updateError?: Error; consumeError?: Error; signUps?: SignUpResult[]; failRevokeAt?: number[]; deleteInert?: boolean; hookError?: Error;
 } = {}) {
   const calls: string[] = [];
   const sleeps: number[] = [];
@@ -49,6 +49,7 @@ function harness(options: {
     keys: deriveHmacKeyring('integration-email-hmac-sintetico-02'),
     seal: (outboxId, payload) => { seen.sealed.push([outboxId, payload]); return 'v1.k1.cifrado'; },
     hospitalName: async () => { if (options.hospitalError) throw options.hospitalError; return 'Hospital Demo Uno'; },
+    onPasswordChanged: async (userId) => { calls.push(`passwordChanged:${userId}`); if (options.hookError) throw options.hookError; },
     newToken: () => TOKEN, newId: () => OUTBOX, now: () => 1_000, sleep: async (ms) => { sleeps.push(ms); },
   });
   return { service, calls, seen, sleeps };
@@ -216,7 +217,15 @@ describe('completePasswordReset', () => {
 
     await service.completePasswordReset(TOKEN, 'otra-contrasena-larga');
 
-    expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'revokeAllSessions']);
+    expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'passwordChanged:u-1', 'revokeAllSessions']);
+  });
+
+  it('si el gancho que levanta el bloqueo falla, cierra igualmente las sesiones y responde 503', async () => {
+    const { service, calls } = harness({ hookError: new Error('canario-base') });
+
+    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+
+    expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'passwordChanged:u-1', 'revokeAllSessions']);
   });
 
   it('un token inválido no toca Auth', async () => {
@@ -245,7 +254,7 @@ describe('completePasswordReset', () => {
 
     await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).resolves.toBeUndefined();
 
-    expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'revokeAllSessions', 'revokeAllSessions']);
+    expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'passwordChanged:u-1', 'revokeAllSessions', 'revokeAllSessions']);
   });
 
   it('si la segunda revocación falla también al reintentar no se responde éxito en silencio (503)', async () => {
@@ -253,6 +262,6 @@ describe('completePasswordReset', () => {
 
     await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
 
-    expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'revokeAllSessions', 'revokeAllSessions']);
+    expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'passwordChanged:u-1', 'revokeAllSessions', 'revokeAllSessions']);
   });
 });
