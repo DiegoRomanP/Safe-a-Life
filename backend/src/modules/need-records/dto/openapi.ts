@@ -139,7 +139,7 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
-        /** @description Actor autenticado sin permiso; no revelar datos del recurso ajeno. */
+        /** @description Actor sin permiso, o petición directa sin el secreto de borde (X-Edge-Secret); no revelar datos del recurso ajeno. */
         Forbidden: {
             headers: {
                 [name: string]: unknown;

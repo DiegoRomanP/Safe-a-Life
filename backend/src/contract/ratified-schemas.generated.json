@@ -144,6 +144,7 @@
       "errorStatuses": [
         "400",
         "401",
+        "403",
         "429",
         "500",
         "503"
@@ -163,6 +164,7 @@
       "errorStatuses": [
         "400",
         "401",
+        "403",
         "429",
         "500",
         "503"
@@ -201,6 +203,7 @@
         "def": "GetLivenessSuccess"
       },
       "errorStatuses": [
+        "400",
         "404",
         "500"
       ]
@@ -217,6 +220,7 @@
         "def": "GetReadinessSuccess"
       },
       "errorStatuses": [
+        "400",
         "404",
         "500",
         "503"
