@@ -10,8 +10,15 @@ export interface LocalSupabase {
 
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost']);
 
-/** Lee la URL y las claves del Supabase LOCAL desde `supabase status`. Se niega a usar hosts remotos. */
+const cache = new Map<string, LocalSupabase>();
+
+/**
+ * Lee la URL y las claves del Supabase LOCAL desde `supabase status` (una vez por proceso: el comando tarda
+ * cientos de milisegundos y las pruebas lo invocaban en cada consulta SQL). Se niega a usar hosts remotos.
+ */
 export function readLocalSupabase(root = resolve(import.meta.dirname, '../../..')): LocalSupabase {
+  const cached = cache.get(root);
+  if (cached) return cached;
   const raw = execFileSync('supabase', ['status', '-o', 'json', '--workdir', 'backend'], { cwd: root, encoding: 'utf8' });
   const status = JSON.parse(raw.slice(raw.indexOf('{'))) as Record<string, string>;
   const local: LocalSupabase = {
@@ -23,6 +30,7 @@ export function readLocalSupabase(root = resolve(import.meta.dirname, '../../..'
   if (!LOCAL_HOSTS.has(new URL(local.apiUrl).hostname) || !LOCAL_HOSTS.has(new URL(local.dbUrl).hostname)) {
     throw new Error('Supabase no es local: se aborta.');
   }
+  cache.set(root, local);
   return local;
 }
 

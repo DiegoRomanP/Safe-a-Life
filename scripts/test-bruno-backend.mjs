@@ -10,6 +10,8 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { backendEnvFor, readLocalSupabase, SEED_USERS } from '../backend/test/support/local-env.ts';
 import { totpCode } from '../backend/test/support/totp.ts';
+import { signWebhook } from '../backend/src/modules/email-delivery/application/webhook-signature.ts';
+import { WEBHOOK_SECRET, WEBHOOK_SECRET_ENV } from '../backend/test/support/worker.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const host = '127.0.0.1';
@@ -19,6 +21,7 @@ const SCENARIOS = [
   { folder: 'backend/identity-institutions/hospital', user: SEED_USERS.admin1.email },
   { folder: 'backend/identity-institutions/superadmin', user: SEED_USERS.superadmin.email },
   { folder: 'backend/need-records/hospital', user: SEED_USERS.admin1.email },
+  { folder: 'backend/email-delivery/webhook', webhook: true },
 ];
 
 function run(command, args) {
@@ -69,6 +72,28 @@ async function stopServer(server) {
   if (server.exitCode === null) server.kill('SIGKILL');
 }
 
+/** Firmas Svix para los cuerpos exactos de bruno/backend/email-delivery/webhook (se envían como texto, sin reformatear). */
+function webhookVars() {
+  const bodies = {
+    delivered: '{"type":"email.delivered","created_at":"2026-10-13T12:00:00.000Z","data":{"email_id":"prov-bruno-0001"}}',
+    badShape: '{"type":"email.sent"}',
+    opened: '{"type":"email.opened","data":{"email_id":"prov-bruno-0001"}}',
+  };
+  const nonce = randomBytes(6).toString('hex');
+  const now = Math.floor(Date.now() / 1000);
+  const sign = (id, timestamp, body) => `v1,${signWebhook(WEBHOOK_SECRET, id, String(timestamp), body)}`;
+  const ids = { svixId: `msg_bruno_${nonce}_1`, svixIdBad: `msg_bruno_${nonce}_2`, svixIdOld: `msg_bruno_${nonce}_3`, svixIdBadShape: `msg_bruno_${nonce}_4`, svixIdOpened: `msg_bruno_${nonce}_5` };
+  return {
+    ...ids,
+    svixTimestamp: String(now),
+    svixOldTimestamp: String(now - 400),
+    sigDelivered: sign(ids.svixId, now, bodies.delivered),
+    sigOld: sign(ids.svixIdOld, now - 400, bodies.delivered),
+    sigBadShape: sign(ids.svixIdBadShape, now, bodies.badShape),
+    sigOpened: sign(ids.svixIdOpened, now, bodies.opened),
+  };
+}
+
 function runScenario(scenario, baseUrl, mfaCode) {
   const key = `${path.basename(scenario.folder)}-${randomBytes(12).toString('hex')}`;
   const result = spawnSync('bru', [
@@ -77,6 +102,7 @@ function runScenario(scenario, baseUrl, mfaCode) {
     '--env-var', `baseUrl=${baseUrl}`,
     '--env-var', `idempotencyKey=${key}`,
     '--env-var', `mfaCode=${mfaCode}`,
+    ...(scenario.webhook ? Object.entries(webhookVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
     '--tests-only',
     '--reporter-skip-all-headers',
     '--reporter-skip-body',
@@ -101,7 +127,7 @@ try {
   const local = readLocalSupabase(root);
   server = spawn(process.execPath, ['--import', 'tsx', 'backend/src/server.ts'], {
     cwd: root,
-    env: { ...process.env, ...backendEnvFor(local), NODE_ENV: 'development', PORT: String(port) },
+    env: { ...process.env, ...backendEnvFor(local, { RESEND_WEBHOOK_SECRET: WEBHOOK_SECRET_ENV }), NODE_ENV: 'development', PORT: String(port) },
     stdio: ['ignore', 'ignore', 'inherit'],
   });
   const baseUrl = `http://${host}:${port}`;
