@@ -1,0 +1,27 @@
+meta {
+  name: Campos de más
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/assisted-signups
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-signup-extra
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  { "email": "extra-{{signupEmail}}", "password": "contrasena-impuesta-1" }
+}
+
+tests {
+  test("el hospital no puede fijar contraseña ni otros campos (400)", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}

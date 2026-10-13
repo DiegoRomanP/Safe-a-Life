@@ -1,0 +1,21 @@
+meta {
+  name: Vista previa de la verificación
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donor-email-verification-actions/{{verifyToken}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("muestra la acción y el vencimiento sin mutar", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(Object.keys(res.getBody().data).sort()).to.deep.equal(["action", "expiresAt"]);
+    expect(res.getBody().data.action).to.equal("verificar_email");
+    expect(res.getHeader("cache-control")).to.equal("no-store");
+    expect(res.getHeader("referrer-policy")).to.equal("no-referrer");
+  });
+}

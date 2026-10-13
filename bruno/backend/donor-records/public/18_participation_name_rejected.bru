@@ -1,0 +1,27 @@
+meta {
+  name: El nombre no se cambia aquí
+  type: http
+  seq: 18
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/donors/me/profile
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-part-name
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  { "name": "Intruso" }
+}
+
+tests {
+  test("el nombre es un campo no permitido (400)", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}

@@ -1,0 +1,32 @@
+meta {
+  name: Completar el onboarding
+  type: http
+  seq: 12
+}
+
+put {
+  url: {{baseUrl}}/api/v1/donors/me/onboarding-profile
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-onb
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  { "name": "Donante Bruno", "declaredBloodType": "O_POS", "isAvailable": true, "approximateLocation": { "latitude": -12.046, "longitude": -77.043 } }
+}
+
+tests {
+  test("activa el perfil y devuelve el perfil propio con el correo de la sesión", function () {
+    expect(res.getStatus()).to.equal(200);
+    var data = res.getBody().data;
+    expect(Object.keys(data).sort()).to.deep.equal(["approximateLocation", "declaredBloodType", "email", "isAvailable", "name"]);
+    expect(data.email).to.equal(bru.getEnvVar("verifyEmail"));
+    expect(data.declaredBloodType).to.equal("O_POS");
+    bru.setVar("onboardingBody", JSON.stringify(data));
+  });
+}

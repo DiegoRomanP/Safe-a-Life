@@ -1,0 +1,21 @@
+meta {
+  name: El token no se reutiliza
+  type: http
+  seq: 29
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donor-email-change-actions/{{changeToken}}
+  body: none
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-change-again
+}
+
+tests {
+  test("el segundo consumo es 410", function () {
+    expect(res.getStatus()).to.equal(410);
+  });
+}

@@ -1,0 +1,26 @@
+meta {
+  name: Un correo con cuenta recibe la misma respuesta
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donor-registrations
+  body: json
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-reg-existing
+}
+
+body:json {
+  { "email": "{{existingEmail}}", "password": "{{donorPassword}}" }
+}
+
+tests {
+  test("responde 202 idéntico al registro nuevo (no enumera cuentas)", function () {
+    expect(res.getStatus()).to.equal(202);
+    expect(res.getBody().data.message).to.equal(bru.getVar("neutralMessage"));
+  });
+}

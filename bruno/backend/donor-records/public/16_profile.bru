@@ -1,0 +1,18 @@
+meta {
+  name: Perfil propio
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors/me/profile
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("devuelve el perfil activo", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.name).to.equal("Donante Bruno");
+  });
+}

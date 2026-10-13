@@ -12,9 +12,10 @@ import { backendEnvFor, readLocalSupabase, SEED_USERS } from '../backend/test/su
 import { totpCode } from '../backend/test/support/totp.ts';
 import { createHash } from 'node:crypto';
 import { createDonorAccount } from '../backend/test/support/accounts.ts';
+import { sealEmailChange } from '../backend/src/modules/donor-records/application/email-change.ts';
 import { sql } from '../backend/test/support/db.ts';
 import { signWebhook } from '../backend/src/modules/email-delivery/application/webhook-signature.ts';
-import { WEBHOOK_SECRET, WEBHOOK_SECRET_ENV } from '../backend/test/support/worker.ts';
+import { WEBHOOK_SECRET, WEBHOOK_SECRET_ENV, workerConfig } from '../backend/test/support/worker.ts';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const host = '127.0.0.1';
@@ -26,6 +27,8 @@ const SCENARIOS = [
   { folder: 'backend/need-records/hospital', user: SEED_USERS.admin1.email },
   { folder: 'backend/email-delivery/webhook', webhook: true },
   { folder: 'backend/identity-institutions/tokens', tokens: true },
+  { folder: 'backend/donor-records/public', donors: true },
+  { folder: 'backend/donor-records/hospital', user: SEED_USERS.admin1.email, hospital: true },
 ];
 
 function run(command, args) {
@@ -118,6 +121,48 @@ async function tokenVars() {
   return { adminToken, resetToken, donorEmail, recoveryEmail, unknownToken: randomBytes(32).toString('base64url'), newPassword: 'Contrasena-Nueva-Bruno-2026' };
 }
 
+/**
+ * Bandeja de entrada de F5: crea con tokens que solo el runner conoce (en la base solo existe el hash) un donante por
+ * verificar, un alta asistida por reclamar y un cambio de correo, y las cuentas que usan las pruebas.
+ */
+async function donorVars() {
+  const hash = (token) => createHash('sha256').update(token, 'utf8').digest('hex');
+  const donorPassword = 'Contrasena-Donante-Bruno-2026';
+  const suffix = randomBytes(4).toString('hex');
+  const verifyToken = randomBytes(32).toString('base64url');
+  const claimToken = randomBytes(32).toString('base64url');
+  const changeToken = randomBytes(32).toString('base64url');
+
+  const verifyEmail = await createDonorAccount(donorPassword);
+  sql(`insert into app.donor_profiles (donor_id) select id from auth.users where email = '${verifyEmail}'`);
+  sql(`insert into app.action_tokens (token_hash, kind, subject_id, expires_at)
+    select '${hash(verifyToken)}', 'verificacion_email', id, now() + interval '24 hours' from auth.users where email = '${verifyEmail}'`);
+
+  // Cuenta distinta para el registro con un correo existente: reemitir la verificación invalida el token anterior.
+  const existingEmail = await createDonorAccount(donorPassword);
+
+  const claimEmail = `bruno-alta-${suffix}@example.test`;
+  const signupId = sql(`insert into app.assisted_signups (hospital_id, email, name, activation_expires_at, purge_at)
+    values ('11111111-1111-4111-8111-111111111101', '${claimEmail}', 'Persona Reclamada', now() + interval '24 hours', now() + interval '30 days') returning signup_id`).split('\n')[0];
+  sql(`insert into app.action_tokens (token_hash, kind, subject_id, expires_at) values ('${hash(claimToken)}', 'alta_asistida', '${signupId}', now() + interval '24 hours')`);
+
+  const changeEmail = await createDonorAccount(donorPassword);
+  const changeNewEmail = `bruno-nuevo-${suffix}@example.test`;
+  const sealedEmail = sealEmailChange(workerConfig().secrets.outboxKeyring, hash(changeToken), changeNewEmail);
+  sql(`insert into app.action_tokens (token_hash, kind, subject_id, data, expires_at)
+    select '${hash(changeToken)}', 'cambio_email', id, '${JSON.stringify({ sealedEmail })}'::jsonb, now() + interval '24 hours' from auth.users where email = '${changeEmail}'`);
+
+  return {
+    donorPassword, verifyEmail, existingEmail, verifyToken, claimToken, changeToken, changeNewEmail,
+    regEmail: `bruno-registro-${suffix}@example.test`, unknownToken: randomBytes(32).toString('base64url'),
+  };
+}
+
+async function hospitalVars() {
+  const suffix = randomBytes(4).toString('hex');
+  return { signupEmail: `bruno-alta-hospital-${suffix}@example.test`, existingAccountEmail: SEED_USERS.donor1.email };
+}
+
 async function runScenario(scenario, baseUrl, mfaCode) {
   const key = `${path.basename(scenario.folder)}-${randomBytes(12).toString('hex')}`;
   const result = spawnSync('bru', [
@@ -127,6 +172,8 @@ async function runScenario(scenario, baseUrl, mfaCode) {
     '--env-var', `idempotencyKey=${key}`,
     '--env-var', `mfaCode=${mfaCode}`,
     ...(scenario.webhook ? Object.entries(webhookVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
+    ...(scenario.donors ? Object.entries(await donorVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
+    ...(scenario.hospital ? Object.entries(await hospitalVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
     ...(scenario.tokens ? Object.entries(await tokenVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
     '--tests-only',
     '--reporter-skip-all-headers',

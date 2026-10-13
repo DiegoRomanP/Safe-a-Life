@@ -1,0 +1,33 @@
+meta {
+  name: Crear un alta asistida
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/assisted-signups
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-signup
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  { "email": "{{signupEmail}}", "name": "Persona de Alta Bruno" }
+}
+
+tests {
+  test("responde 202 con la proyección operativa y sin el correo", function () {
+    expect(res.getStatus()).to.equal(202);
+    var data = res.getBody().data;
+    expect(Object.keys(data).sort()).to.deep.equal(['activationExpiresAt', 'createdAt', 'purgeAt', 'signupId', 'status']);
+    expect(data.status).to.equal("pendiente");
+    expect(JSON.stringify(res.getBody())).to.not.contain("@");
+    bru.setVar("signupId", data.signupId);
+    bru.setVar("signupBody", JSON.stringify(data));
+  });
+}
