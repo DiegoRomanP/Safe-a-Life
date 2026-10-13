@@ -87,7 +87,9 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
     });
 
   const authAdmin = createSupabaseAuthAdmin(config);
+  const donorRepository = createDonorRecordsRpcGateway(rpc, technicalRpc);
   const actionTokens = createActionTokensService({
+    onPasswordChanged: (userId) => donorRepository.confirmPasswordSetup(userId),
     repository: createActionTokensRpcGateway(rpc, technicalRpc),
     sessions,
     admin: authAdmin,
@@ -97,7 +99,7 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
     hospitalName: async (accessToken, hospitalId) => (await institutionsRepository.getHospital(accessToken, hospitalId)).publicName,
   });
   const donors = createDonorRecordsService({
-    repository: createDonorRecordsRpcGateway(rpc, technicalRpc),
+    repository: donorRepository,
     sessions,
     admin: authAdmin,
     limiter: identity.limiter,

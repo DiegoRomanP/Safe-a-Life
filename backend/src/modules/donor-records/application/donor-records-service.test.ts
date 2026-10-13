@@ -20,6 +20,7 @@ const LIMA = { latitude: -12.046, longitude: -77.043 };
 type Options = {
   signUp?: SignUpResult; signUps?: SignUpResult[]; preview?: ActivationPreview; linkError?: Error; deleteInert?: boolean;
   allowed?: (bucket: string) => boolean; updateEmailError?: Error; issueError?: Error; recipientError?: Error; reissueVerificationError?: Error; failRevokeAt?: number[]; openError?: boolean;
+  passwordSetupRequired?: boolean; verifiedEmail?: string;
 };
 
 function harness(options: Options = {}) {
@@ -34,7 +35,15 @@ function harness(options: Options = {}) {
   const repository = {
     linkDonorAccount: async (link) => { calls.push('link'); seen.links.push(link); if (options.linkError) throw options.linkError; },
     donorVerificationPreview: async (hash) => { seen.hashes.push(hash); return { expiresAt: '2026-10-14T00:00:00Z' }; },
-    verifyDonorEmail: async (hash) => { seen.hashes.push(hash); return { status: 'reclamada_incompleta', emailVerified: true }; },
+    verifyDonorEmail: async (hash) => {
+      seen.hashes.push(hash);
+      return {
+        outcome: { status: 'reclamada_incompleta', emailVerified: true }, userId: 'u-nuevo', email: options.verifiedEmail ?? 'ana@example.test',
+        passwordSetupRequired: options.passwordSetupRequired ?? true,
+      };
+    },
+    issuePasswordSetup: async (userId, issue) => { calls.push(`passwordSetup:${userId}`); seen.links.push(issue); },
+    confirmPasswordSetup: async () => undefined,
     assistedActivationPreview: async (hash) => { calls.push('preview'); seen.hashes.push(hash); return options.preview ?? PREVIEW; },
     assistedSignupRecipient: async (signupId, hospitalId) => { calls.push(`recipient:${signupId}:${hospitalId}`); if (options.recipientError) throw options.recipientError; return 'alta@example.test'; },
     linkAssistedAccount: async (userId, hash) => { calls.push(`linkAssisted:${userId}`); seen.hashes.push(hash); if (options.linkError) throw options.linkError; return { status: 'reclamada_incompleta', emailVerified: true }; },
@@ -173,6 +182,41 @@ describe('verificación de correo', () => {
     const { service } = harness({ allowed: () => false });
 
     await expect(service.verifyEmail(TOKEN, 'ip')).rejects.toMatchObject({ code: 'RATE_LIMITED', retryAfterSeconds: 33 });
+  });
+});
+
+describe('verificación de un autorregistro: contraseña pendiente', () => {
+  it('cierra las sesiones anteriores y envía el enlace de recuperación al correo verificado, en ese orden', async () => {
+    const { service, calls, seen } = harness();
+
+    await service.verifyEmail(TOKEN, 'ip');
+
+    expect(calls).toEqual(['revokeAllSessions', 'passwordSetup:u-nuevo']);
+    expect(seen.sealed).toEqual([[OUTBOX, { recipient: 'ana@example.test', token: TOKEN }]]);
+    expect(seen.links[0]).toEqual({ tokenHash: hashToken(TOKEN), outboxId: OUTBOX, sealed: 'v1.k1.cifrado' });
+    expect(JSON.stringify(seen.links)).not.toContain(TOKEN);
+  });
+
+  it('no toca sesiones ni envía nada si la contraseña no está pendiente (correo ya verificado antes)', async () => {
+    const { service, calls } = harness({ passwordSetupRequired: false });
+
+    await service.verifyEmail(TOKEN, 'ip');
+
+    expect(calls).toEqual([]);
+  });
+
+  it('si no consigue cerrar las sesiones (dos intentos) responde 503 y no envía el enlace', async () => {
+    const { service, calls } = harness({ failRevokeAt: [1, 2] });
+
+    await expect(service.verifyEmail(TOKEN, 'ip')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+    expect(calls).toEqual(['revokeAllSessions', 'revokeAllSessions']);
+  });
+
+  it('sin correo en la respuesta de la base no hace nada y responde 503', async () => {
+    const { service, calls } = harness({ verifiedEmail: '' });
+
+    await expect(service.verifyEmail(TOKEN, 'ip')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+    expect(calls).toEqual([]);
   });
 });
 

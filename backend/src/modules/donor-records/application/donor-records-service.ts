@@ -172,7 +172,20 @@ export function createDonorRecordsService({
 
     async verifyEmail(token: string, ipSubject: string): Promise<OnboardingOutcome> {
       await rejectIfLimited([['verify-email:ip', ipSubject, IP_LIMIT, IP_WINDOW_SECONDS]]);
-      return repository.verifyDonorEmail(hashToken(token));
+      const verified = await repository.verifyDonorEmail(hashToken(token));
+      if (verified.passwordSetupRequired) {
+        // Quien registró la cuenta conoce su contraseña, pero quizá no es el dueño del buzón: se cierran sus sesiones y el
+        // enlace de recuperación va al correo verificado. El perfil no se completa hasta fijar una contraseña nueva. Si algo
+        // falla, el token ya está consumido: la persona usa «olvidé mi contraseña» (que revoca las sesiones).
+        if (verified.email === '') throw new ApiError('SERVICE_UNAVAILABLE');
+        await revokeSessions(verified.userId);
+        const setupToken = newToken();
+        const outboxId = newId();
+        await repository.issuePasswordSetup(verified.userId, {
+          tokenHash: hashToken(setupToken), outboxId, sealed: seal(outboxId, { recipient: verified.email, token: setupToken }),
+        });
+      }
+      return verified.outcome;
     },
 
     async previewAssistedActivation(token: string): Promise<ActionPreview> {

@@ -2,7 +2,7 @@ import { asBoolean, asNullableString, asNumber, asString, closedRecord, oneOf } 
 import { pageOf } from '../../../shared/persistence/page.js';
 import type { RpcInvoker } from '../../../shared/persistence/rpc-invoker.js';
 import type {
-  AssistedSignupView, DonorRecordsRepository, OnboardingOutcome, OwnProfileView,
+  AssistedSignupView, DonorRecordsRepository, OnboardingOutcome, OwnProfileView, VerifiedDonor,
 } from '../application/donor-records.ports.js';
 
 const BLOOD_TYPES = ['O_NEG', 'O_POS', 'A_NEG', 'A_POS', 'B_NEG', 'B_POS', 'AB_NEG', 'AB_POS'] as const;
@@ -33,6 +33,14 @@ function parseOutcome(reply: Record<string, unknown>): OnboardingOutcome {
   // en el enum del contrato (spec F5: «reclamada_incompleta = perfil incompleto»).
   const status = oneOf(row.status, ['incompleto', 'activo', 'reclamada_incompleta'] as const);
   return Object.freeze({ status: status === 'activo' ? 'activa' as const : 'reclamada_incompleta' as const, emailVerified: true as const });
+}
+
+function parseVerified(reply: Record<string, unknown>): VerifiedDonor {
+  const row = closedRecord(reply, ['kind', 'status', 'emailVerified', 'userId', 'email', 'passwordSetupRequired']);
+  return Object.freeze({
+    outcome: parseOutcome({ kind: row.kind, status: row.status, emailVerified: row.emailVerified }),
+    userId: asString(row.userId), email: asString(row.email), passwordSetupRequired: asBoolean(row.passwordSetupRequired),
+  });
 }
 
 /**
@@ -67,7 +75,18 @@ export function createDonorRecordsRpcGateway(rpc: RpcInvoker, technical: RpcInvo
     },
 
     async verifyDonorEmail(tokenHash) {
-      return parseOutcome(await technical({ accessToken: null, name: 'verify_donor_email', okKinds: ['ok'], args: { p_token_hash: tokenHash } }));
+      return parseVerified(await technical({ accessToken: null, name: 'verify_donor_email', okKinds: ['ok'], args: { p_token_hash: tokenHash } }));
+    },
+
+    async issuePasswordSetup(userId, issue) {
+      await technical({
+        accessToken: null, name: 'issue_password_setup', okKinds: ['ok'],
+        args: { p_user_id: userId, p_token_hash: issue.tokenHash, p_outbox_id: issue.outboxId, p_sealed: issue.sealed },
+      });
+    },
+
+    async confirmPasswordSetup(userId) {
+      await technical({ accessToken: null, name: 'confirm_password_setup', okKinds: ['ok'], args: { p_user_id: userId } });
     },
 
     async assistedActivationPreview(tokenHash) {
