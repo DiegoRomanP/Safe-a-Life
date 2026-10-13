@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startBackend, type RunningBackend } from '../support/app.js';
 import { createDonorAccount, latestSealed, signUpAuthOnly } from '../support/accounts.js';
+import { readLocalSupabase } from '../support/local-env.js';
 import { ApiClient, observed } from '../support/client.js';
 import { undeclaredStatuses } from '../support/contract-statuses.js';
 import { resetAuthQuota, sql } from '../support/db.js';
@@ -150,15 +151,35 @@ describe('vista previa y reclamo de la invitación', () => {
     expect(sql(`select count(*) from app.audit_events where event = 'admin.alta'`)).not.toBe('0');
   });
 
-  it('un correo que ya existe en Auth sin cuenta de aplicación es 409 y no consume el token', async () => {
-    const email = emailFor('existente');
-    await signUpAuthOnly(email, NEW_PASSWORD);
+  it('un usuario de Auth inerte que ocupó el correo antes que el invitado se reemplaza: el invitado puede reclamar', async () => {
+    const email = emailFor('ocupado');
+    const squatter = await signUpAuthOnly(email, 'contrasena-del-intruso-2026');
+    // Un registro de menos de un minuto podría ser el del propio invitado en curso: el intruso se registró antes.
+    sql(`update auth.users set created_at = now() - interval '10 minutes' where id = '${squatter}'`);
     await invite(email);
     const { token } = latestSealed('invitacion_admin', email);
 
     const response = await new ApiClient(backend.baseUrl, '10.99.32.1').send('POST', CLAIM(token), { body: { password: NEW_PASSWORD } });
 
+    expect(response.status).toBe(201);
+    expect(sql(`select count(*) from auth.users where id = '${squatter}'`)).toBe('0');
+    expect(sql(`select role from app.user_accounts where user_id = (select id from auth.users where email = '${email}')`)).toBe('admin_hospitalario');
+    // La contraseña del intruso ya no sirve; la del invitado sí.
+    expect((await new ApiClient(backend.baseUrl, '10.99.32.2').send('POST', '/api/v1/auth/sessions', { body: { email, password: 'contrasena-del-intruso-2026' } })).status).toBe(401);
+    expect((await new ApiClient(backend.baseUrl, '10.99.32.3').send('POST', '/api/v1/auth/sessions', { body: { email, password: NEW_PASSWORD } })).status).toBe(200);
+  });
+
+  it('un correo que se convirtió en una cuenta con vida propia entre la invitación y el reclamo NO se elimina: 409 y el token sigue vigente', async () => {
+    const email = emailFor('cuenta');
+    await invite(email);
+    const { token } = latestSealed('invitacion_admin', email);
+    const owner = await signUpAuthOnly(email, 'contrasena-del-titular-2026');
+    sql(`insert into app.user_accounts (user_id, role, display_name) values ('${owner}', 'donante', 'Donante Sintético')`);
+
+    const response = await new ApiClient(backend.baseUrl, '10.99.32.4').send('POST', CLAIM(token), { body: { password: NEW_PASSWORD } });
+
     expect(response.status).toBe(409);
+    expect(sql(`select count(*) from auth.users where id = '${owner}'`)).toBe('1');
     expect((await new ApiClient(backend.baseUrl).send('GET', PREVIEW(token))).status).toBe(200);
   });
 
@@ -199,7 +220,130 @@ describe('vista previa y reclamo de la invitación', () => {
   });
 });
 
+describe('carreras sobre un mismo token', () => {
+  it('dos reclamos simultáneos del mismo token: exactamente uno crea la cuenta', async () => {
+    const email = emailFor('carrera');
+    await invite(email);
+    const { token } = latestSealed('invitacion_admin', email);
+
+    const [a, b] = await Promise.all([
+      new ApiClient(backend.baseUrl, '10.99.34.1').send('POST', CLAIM(token), { body: { password: NEW_PASSWORD } }),
+      new ApiClient(backend.baseUrl, '10.99.34.2').send('POST', CLAIM(token), { body: { password: NEW_PASSWORD } }),
+    ]);
+
+    // Un doble envío: uno gana; el otro no crea nada (409/410 si ve el estado, 503 si Auth rechaza el registro simultáneo).
+    expect([a.status, b.status].filter((status) => status === 201)).toHaveLength(1);
+    expect([409, 410, 503]).toContain([a.status, b.status].find((status) => status !== 201));
+    expect(sql(`select count(*) from app.user_accounts where user_id in (select id from auth.users where email = '${email}')`)).toBe('1');
+    expect(sql(`select count(*) from app.hospital_memberships where user_id in (select id from auth.users where email = '${email}')`)).toBe('1');
+  });
+
+  it('dos reset simultáneos del mismo token: uno cambia la contraseña y el otro es 410', async () => {
+    const email = await createDonorAccount('contrasena-original-2026');
+    await new ApiClient(backend.baseUrl, '10.99.35.1').send('POST', RECOVERY, { body: { email } });
+    const { token } = latestSealed('recuperacion', email);
+
+    const [a, b] = await Promise.all([
+      new ApiClient(backend.baseUrl, '10.99.35.2').send('POST', RESET(token), { body: { newPassword: NEW_PASSWORD } }),
+      new ApiClient(backend.baseUrl, '10.99.35.3').send('POST', RESET(token), { body: { newPassword: 'otra-contrasena-nueva-2026' } }),
+    ]);
+
+    expect([a.status, b.status].sort()).toEqual([200, 410]);
+  });
+
+  it('dos invitaciones simultáneas al mismo correo dejan un único token vigente', async () => {
+    const email = emailFor('doble');
+
+    const responses = await Promise.all([invite(email), invite(email)]);
+
+    expect(responses.map((response) => response.status)).toEqual([202, 202]);
+    expect(sql(`select count(*) from app.action_tokens where kind = 'invitacion_admin' and invalidated_at is null and consumed_at is null and subject_id in (select invitation_id from app.admin_invitations where email = '${email}')`)).toBe('1');
+  });
+});
+
+describe('las RPC de tokens no son ejecutables por un cliente directo de PostgREST', () => {
+  async function rpc(name: string, args: Record<string, unknown>, token?: string): Promise<Response> {
+    const local = readLocalSupabase();
+    return fetch(`${local.apiUrl}/rest/v1/rpc/${name}`, {
+      method: 'POST',
+      headers: {
+        apikey: local.publishableKey, authorization: `Bearer ${token ?? local.publishableKey}`,
+        'content-type': 'application/json', 'content-profile': 'api',
+      },
+      body: JSON.stringify(args),
+    });
+  }
+
+  it('con la anon key no se puede restablecer la contraseña de una víctima eligiendo el hash del token', async () => {
+    const victim = await createDonorAccount('contrasena-original-2026');
+    const attackerToken = 'T'.repeat(43);
+    const { createHash } = await import('node:crypto');
+    const attackerHash = createHash('sha256').update(attackerToken).digest('hex');
+
+    const requested = await rpc('request_password_recovery', {
+      p_email: victim, p_token_hash: attackerHash, p_outbox_id: randomUUID(), p_sealed: 'v1.k1.x'.padEnd(40, 'x'),
+      p_actor_ref: `email:${'a'.repeat(64)}`, p_key: 'clave-del-atacante-0001', p_hash: 'b'.repeat(64),
+    });
+    const reset = await new ApiClient(backend.baseUrl, '10.99.36.1').send('POST', RESET(attackerToken), { body: { newPassword: NEW_PASSWORD } });
+
+    expect(requested.status).toBeGreaterThanOrEqual(400);
+    expect(sql(`select count(*) from app.action_tokens where token_hash = '${attackerHash}'`)).toBe('0');
+    expect(reset.status).toBe(404);
+    expect((await new ApiClient(backend.baseUrl, '10.99.36.2').send('POST', '/api/v1/auth/sessions', { body: { email: victim, password: NEW_PASSWORD } })).status).toBe(401);
+  });
+
+  it('ni anon ni un usuario autenticado cualquiera ejecutan la vista previa, la solicitud ni el consumo', async () => {
+    const donorToken = (await fetch(`${readLocalSupabase().apiUrl}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: { apikey: readLocalSupabase().publishableKey, 'content-type': 'application/json' },
+      body: JSON.stringify({ email: SEED_USERS.donor1.email, password: 'Demo-Password-Sintetica-2026' }),
+    }).then((response) => response.json()) as { access_token: string }).access_token;
+    const calls: Array<[string, Record<string, unknown>]> = [
+      ['get_admin_invitation_preview', { p_token_hash: 'a'.repeat(64) }],
+      ['consume_password_reset', { p_token_hash: 'a'.repeat(64) }],
+      ['request_password_recovery', { p_email: 'x@example.test', p_token_hash: 'a'.repeat(64), p_outbox_id: randomUUID(), p_sealed: 'x'.repeat(40), p_actor_ref: `email:${'a'.repeat(64)}`, p_key: 'clave-de-prueba-0001', p_hash: 'b'.repeat(64) }],
+    ];
+
+    for (const [name, args] of calls) {
+      const anonymous = await rpc(name, args);
+      const asDonor = await rpc(name, args, donorToken);
+      expect(anonymous.status, `${name} anon`).toBeGreaterThanOrEqual(400);
+      if (asDonor.status === 200) expect(((await asDonor.json()) as { kind?: string }).kind, `${name} donante`).toBe('forbidden');
+    }
+  });
+});
+
 describe('recuperación de contraseña', () => {
+  it('un reintento con la misma clave no crea otro token ni otro correo', async () => {
+    const email = await createDonorAccount('contrasena-original-2026');
+    const key = randomUUID();
+    const client = new ApiClient(backend.baseUrl, '10.99.47.1');
+
+    const first = await client.send('POST', RECOVERY, { body: { email }, key });
+    const retry = await client.send('POST', RECOVERY, { body: { email }, key });
+
+    expect(first.status).toBe(202);
+    expect(retry.status).toBe(202);
+    expect(retry.text).toBe(first.text);
+    expect(sql(`select count(*) from app.action_tokens t join auth.users u on u.id = t.subject_id where t.kind = 'recuperacion' and u.email = '${email}'`)).toBe('1');
+  });
+
+  it('la cuenta técnica (worker) no se puede recuperar por correo', async () => {
+    await new ApiClient(backend.baseUrl, '10.99.48.1').send('POST', RECOVERY, { body: { email: SEED_USERS.worker.email } });
+
+    expect(sql(`select count(*) from app.action_tokens where kind = 'recuperacion' and subject_id = (select id from auth.users where email = '${SEED_USERS.worker.email}')`)).toBe('0');
+  });
+
+  it('a la cuarta solicitud en una hora para el mismo correo responde 429, aunque cambie la IP', async () => {
+    const email = emailFor('tres-por-hora');
+    const statuses: number[] = [];
+    for (let i = 0; i < 4; i += 1) {
+      statuses.push((await new ApiClient(backend.baseUrl, `10.99.49.${i + 1}`).send('POST', RECOVERY, { body: { email } })).status);
+    }
+
+    expect(statuses).toEqual([202, 202, 202, 429]);
+  });
+
   it('la respuesta es idéntica (estado, cuerpo y cabeceras) exista o no la cuenta', async () => {
     const existing = await createDonorAccount('contrasena-original-2026');
     const missing = emailFor('no-existe');
@@ -213,7 +357,6 @@ describe('recuperación de contraseña', () => {
     expect(b.text).toBe(a.text);
     expect(normalize(b.headers)).toEqual(normalize(a.headers));
     expect(sql(`select count(*) from app.action_tokens t join auth.users u on u.id = t.subject_id where t.kind = 'recuperacion' and u.email = '${existing}'`)).toBe('1');
-    expect(sql(`select count(*) from app.action_tokens t where t.kind = 'recuperacion' and t.created_at > now() - interval '1 minute' and t.subject_id not in (select id from auth.users where email = '${existing}')`)).not.toBe('1');
     expect(() => latestSealed('recuperacion', missing)).toThrow();
   });
 
