@@ -11,7 +11,11 @@ export type LogEvent =
   | 'peticion.fallida'
   | 'seguridad.rechazo'
   | 'proceso.error_no_controlado'
-  | 'servidor.iniciado';
+  | 'servidor.iniciado'
+  | 'worker.iniciado'
+  | 'worker.ciclo'
+  | 'worker.error'
+  | 'webhook.recibido';
 
 export interface LogEntry {
   readonly event: LogEvent;
