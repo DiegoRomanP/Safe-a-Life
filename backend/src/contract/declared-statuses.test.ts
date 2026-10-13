@@ -15,7 +15,7 @@ const operations = Object.entries(spec.paths).flatMap(([path, item]) =>
 );
 
 /** Operaciones ratificadas que el backend ya sirve. Cada módulo añade las suyas al implementarse. */
-const NOT_IMPLEMENTED_YET = new Set(['createHospitalNeed']);
+const NOT_IMPLEMENTED_YET = new Set<string>();
 
 function implemented(predicate: (path: string) => boolean) {
   return operations.filter(({ path, operation }) =>
