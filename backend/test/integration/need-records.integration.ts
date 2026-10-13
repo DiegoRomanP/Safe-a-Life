@@ -32,6 +32,8 @@ beforeAll(async () => {
   expect((await superadmin.login(SEED_USERS.superadmin.email)).status).toBe(200);
   expect((await donor.login(SEED_USERS.donor1.email)).status).toBe(200);
   sql('delete from app.needs');
+  // Estado compartido con otros archivos de integración (el orden de ejecución no está fijado).
+  sql("update app.hospital_memberships set status = 'activa', revoked_at = null, revoke_reason = null where status <> 'activa'");
 });
 
 afterAll(async () => {

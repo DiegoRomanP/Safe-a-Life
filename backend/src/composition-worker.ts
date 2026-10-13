@@ -28,7 +28,7 @@ export function buildWorker(config: AppConfig, logger: Logger, overrides: Worker
     signIn: () => sessions.signIn(config.worker.email, config.worker.password),
     refresh: (refreshToken) => sessions.refresh(refreshToken),
   });
-  const gateway = createOutboxRpcGateway(createRpcInvoker(supabase), () => technicalSession.accessToken());
+  const gateway = createOutboxRpcGateway(createRpcInvoker(supabase), () => technicalSession.accessToken(), () => technicalSession.invalidate());
 
   const sender = overrides.sender ?? (config.email.provider === 'resend'
     ? createResendSender({ apiKey: config.email.resendApiKey as string, from: config.email.from })

@@ -4,7 +4,7 @@ import { PersistenceError } from '../../../shared/persistence/errors.js';
 import type { RpcCall, RpcInvoker } from '../../../shared/persistence/rpc-invoker.js';
 import { createOutboxRpcGateway, parseClaimed } from './outbox-rpc-gateway.js';
 
-const ROW = { outboxId: '60000000-0000-4000-8000-000000000001', kind: 'recuperacion', sealedPayload: 'v1.k1.a.b.c', attemptNo: 1, idempotencyKey: 'outbox-60000000-0000-4000-8000-000000000001', recipient: null };
+const ROW = { outboxId: '60000000-0000-4000-8000-000000000001', kind: 'recuperacion', sealedPayload: 'v1.k1.a.b.c', attemptNo: 1, idempotencyKey: 'outbox-60000000-0000-4000-8000-000000000001', notAfter: '2026-10-14T12:00:00.000000Z', recipient: null };
 
 function harness(reply: Record<string, unknown> | Error) {
   const calls: Array<Pick<RpcCall<string>, 'accessToken' | 'name' | 'args'>> = [];
@@ -17,7 +17,7 @@ function harness(reply: Record<string, unknown> | Error) {
 }
 
 describe('parseClaimed (guard cerrado)', () => {
-  it('acepta los seis campos', () => {
+  it('acepta los siete campos', () => {
     expect(parseClaimed(ROW)).toEqual(ROW);
   });
 
@@ -30,6 +30,30 @@ describe('parseClaimed (guard cerrado)', () => {
 });
 
 describe('gateway del worker', () => {
+  it('ante un 401 de la sesión técnica la descarta y reintenta UNA vez con una nueva', async () => {
+    const calls: string[] = [];
+    let invalidated = 0;
+    let issued = 0;
+    const rpc = (async ({ accessToken }: RpcCall<string>) => {
+      calls.push(accessToken as string);
+      if (accessToken === 'jwt-viejo') throw new ApiError('AUTHENTICATION_REQUIRED');
+      return { kind: 'ok', items: [] };
+    }) as RpcInvoker;
+    const gateway = createOutboxRpcGateway(rpc, async () => (issued++ === 0 ? 'jwt-viejo' : 'jwt-nuevo'), () => { invalidated += 1; });
+
+    await expect(gateway.claim(5)).resolves.toEqual([]);
+
+    expect(calls).toEqual(['jwt-viejo', 'jwt-nuevo']);
+    expect(invalidated).toBe(1);
+  });
+
+  it('si el reintento también falla con 401 el error se propaga (no hay bucle)', async () => {
+    const rpc = (async () => { throw new ApiError('AUTHENTICATION_REQUIRED'); }) as unknown as RpcInvoker;
+    const gateway = createOutboxRpcGateway(rpc, async () => 'jwt', () => undefined);
+
+    await expect(gateway.claim(5)).rejects.toBeInstanceOf(ApiError);
+  });
+
   it('claim usa el JWT de la sesión técnica y valida cada elemento', async () => {
     const { gateway, calls } = harness({ kind: 'ok', items: [ROW] });
 

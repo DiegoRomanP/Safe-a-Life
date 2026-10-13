@@ -224,18 +224,23 @@ describe('membresías y configuración', () => {
     const memberships = await superadmin.send('GET', '/api/v1/superadmin/memberships?limit=100');
     const target = memberships.json.data.items.find((item: { hospitalId: string }) => item.hospitalId === HOSPITAL_IDS[2]);
     const request = { body: { status: 'revocada', reason: 'Baja de prueba de integración' }, key: `clave-revoke-${Date.now()}-0001` };
-    const revoked = await superadmin.send('PATCH', `/api/v1/superadmin/memberships/${target.membershipId}`, request);
-    // Reintento con la misma clave (p. ej. se perdió la respuesta): mismo resultado, no un 409.
-    const replay = await superadmin.send('PATCH', `/api/v1/superadmin/memberships/${target.membershipId}`, request);
-    const another = await superadmin.send('PATCH', `/api/v1/superadmin/memberships/${target.membershipId}`, { body: request.body });
+    try {
+      const revoked = await superadmin.send('PATCH', `/api/v1/superadmin/memberships/${target.membershipId}`, request);
+      // Reintento con la misma clave (p. ej. se perdió la respuesta): mismo resultado, no un 409.
+      const replay = await superadmin.send('PATCH', `/api/v1/superadmin/memberships/${target.membershipId}`, request);
+      const another = await superadmin.send('PATCH', `/api/v1/superadmin/memberships/${target.membershipId}`, { body: request.body });
 
-    expect(revoked.status).toBe(200);
-    expect(revoked.json.data.status).toBe('revocada');
-    expect(replay.status).toBe(200);
-    expect(replay.json).toEqual(revoked.json);
-    expect(another.status).toBe(409);
-    expect((await victim.send('GET', '/api/v1/hospitals/me/sites')).status).toBe(403);
-    expect(target.emailHint).toMatch(/^a\*\*\*@example\.test$/);
+      expect(revoked.status).toBe(200);
+      expect(revoked.json.data.status).toBe('revocada');
+      expect(replay.status).toBe(200);
+      expect(replay.json).toEqual(revoked.json);
+      expect(another.status).toBe(409);
+      expect((await victim.send('GET', '/api/v1/hospitals/me/sites')).status).toBe(403);
+      expect(target.emailHint).toMatch(/^a\*\*\*@example\.test$/);
+    } finally {
+      // Otros archivos de integración usan a este admin: el estado compartido se restaura.
+      sql(`update app.hospital_memberships set status = 'activa', revoked_at = null, revoke_reason = null where membership_id = '${target.membershipId}'`);
+    }
   });
 
   it('fija final_demo_at una sola vez', async () => {

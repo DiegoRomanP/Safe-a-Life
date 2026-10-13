@@ -61,13 +61,19 @@ export function createOutboxProcessor({
   };
 
   return Object.freeze({
-    async runOnce(limit = 10): Promise<BatchSummary> {
+    /** 5 por lote: con 10 s de timeout por envío el lote cabe en el lease de 120 s. */
+    async runOnce(limit = 5): Promise<BatchSummary> {
       const messages = await gateway.claim(limit);
       let sent = 0;
       let failed = 0;
       let retried = 0;
       let skipped = 0;
       for (const message of messages) {
+        // Nunca se envía pasado `not_after`, aunque el reclamo fuera válido: el barrido de vencimiento lo cerrará.
+        if (now() >= Date.parse(message.notAfter)) {
+          skipped += 1;
+          continue;
+        }
         try {
           const result = await deliver(message);
           const applied = await gateway.recordAttempt(attempt(message, result));
