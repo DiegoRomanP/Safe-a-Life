@@ -44,9 +44,12 @@ adaptador falso. ADR-003 limita al worker a `EXECUTE` sobre RPC.
 6. **Worker (V13).** Proceso separado `src/worker.ts` con una identidad técnica
    de Supabase Auth (`WORKER_EMAIL`/`WORKER_PASSWORD`) y rol interno `worker` en
    `app.user_accounts`. Solo llama a las RPC DEFINER `worker_claim_due_outbox`,
-   `worker_record_attempt`, `worker_expire_outbox` (y las de F6/F7) e
-   `ingest_email_event`; todas exigen el rol `worker`. Sus logs contienen solo
-   `event`, `code` y `durationMs`.
+   `worker_record_attempt`, `worker_expire_outbox` (y las de F6/F7); todas
+   exigen el rol `worker`. Sus logs contienen solo `event`, `code` y
+   `durationMs`. Enmienda (2026-10-13, F4 M-2): `ingest_email_event` y las RPC de
+   tokens de acción las ejecuta la identidad técnica de la API, con rol propio
+   `api_technical` (`API_TECHNICAL_EMAIL`/`API_TECHNICAL_PASSWORD`), de modo que
+   el proceso de la API no guarda la credencial que opera el outbox.
 7. **Allowlist de bandejas (RF-EML-04).** Se comprueba justo antes de llamar al
    proveedor; si el destinatario no está permitido se registra un intento
    `permanente` sin llamar a Resend.

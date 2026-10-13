@@ -61,8 +61,11 @@
   y el resto de 4xx como permanentes.
 - **D-7: allowlist.** Con Resend la lista vacía no permite nada (falla cerrado); con el remitente falso no
   restringe. Un destinatario no permitido registra un intento `permanente` sin llamar al proveedor.
-- **D-8: la API conserva `WORKER_PASSWORD`.** El webhook (público) necesita la sesión técnica para llamar a
-  `ingest_email_event`, así que el proceso de la API la usa; no existe otra forma sin `service_role`.
+- **D-8: identidades técnicas separadas (reemplaza el diseño inicial, 2026-10-13).** El webhook (público) necesita una
+  sesión técnica para llamar a `ingest_email_event`. En el primer diseño la API usaba la identidad `worker`; la decisión 5 de
+  la persona usuaria la separa: la API usa el rol `api_technical` (`API_TECHNICAL_EMAIL`/`API_TECHNICAL_PASSWORD`), que solo
+  ejecuta `ingest_email_event` y las RPC de tokens de acción; el worker conserva `worker` y es el único que reclama,
+  registra y expira el outbox. Cada proceso carga solo su credencial (`parseEnv(source, 'api' | 'worker')`).
 - **D-9: el secreto del webhook es opcional en modo `fake`** y habilita la ruta si se define (pruebas y demo);
   con `EMAIL_PROVIDER=resend` sigue siendo obligatorio. Sin secreto la ruta no existe (404).
 - **D-10: el contrato** declara 400, 401, 403 (guard de borde), 500 y 503 en el webhook y no 429 (se monta antes
@@ -114,10 +117,11 @@ Correcciones: ver D-12. No existe una segunda revisión de estas correcciones: *
 
 ## 6. Pendientes conocidos
 
-- **M-2 (riesgo aceptado, mejora pendiente):** una identidad restringida solo a `ingest_email_event` para el
-  webhook (rol `webhook`) reduciría el radio de impacto de la credencial que la API conserva; exige un nuevo valor
-  del enum de roles, otro usuario técnico y su configuración. Hasta entonces la API y el worker comparten la
-  identidad `worker` (D-8). Quien obtenga esa credencial puede agotar o marcar correos del outbox.
+- ~~**M-2**~~ **Resuelto el 2026-10-13 (decisión 5):** la API ya no tiene la credencial que opera el outbox. Nuevo valor
+  `api_technical` del enum de roles, usuario técnico propio y `app.is_api_technical()`; `ingest_email_event` y las RPC
+  de tokens (F2b y F5) lo exigen y las `worker_*` siguen exigiendo `worker`. pgTAP e integración prueban que ninguna
+  identidad ejecuta lo de la otra. Residual: quien robe la credencial de la API puede registrar eventos falsos del
+  proveedor y emitir tokens de acción, pero no destruir el correo pendiente.
 - **Configuración por proceso:** el worker exige `SUPABASE_SERVICE_ROLE_KEY` y los secretos de la API porque
   comparten `parseEnv`; un `parseWorkerEnv` los dejaría fuera. La API recibe `RESEND_API_KEY` aunque solo usa el
   secreto del webhook.
