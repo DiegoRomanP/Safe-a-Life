@@ -2,7 +2,7 @@ begin;
 -- Aislamiento: la base puede estar sembrada. Todo se revierte con el rollback.
 truncate app.action_tokens, app.admin_invitations, app.email_outbox, app.hospital_memberships, app.hospitals, app.user_accounts cascade;
 
-select plan(71);
+select plan(89);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000000f1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-tok-super@example.test'),
@@ -10,11 +10,13 @@ insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000000f3', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'nuevo-admin@example.test'),
   ('00000000-0000-4000-8000-0000000000f4', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'otro-usuario@example.test'),
   ('00000000-0000-4000-8000-0000000000f5', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'solo-auth@example.test'),
-  ('00000000-0000-4000-8000-0000000000f6', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-tok-admin@example.test');
+  ('00000000-0000-4000-8000-0000000000f6', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-tok-admin@example.test'),
+  ('00000000-0000-4000-8000-0000000000f7', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-tok-worker@example.test');
 insert into app.user_accounts (user_id, role, display_name) values
   ('00000000-0000-4000-8000-0000000000f1', 'superadmin', null),
   ('00000000-0000-4000-8000-0000000000f2', 'donante', 'Donante Sintético'),
-  ('00000000-0000-4000-8000-0000000000f6', 'admin_hospitalario', null);
+  ('00000000-0000-4000-8000-0000000000f6', 'admin_hospitalario', null),
+  ('00000000-0000-4000-8000-0000000000f7', 'worker', null);
 insert into app.hospitals (hospital_id, public_name, legal_name, is_authorized) values
   ('10000000-0000-4000-8000-0000000000f1', 'Hospital Tokens', 'Hospital Tokens S.A.', true),
   ('10000000-0000-4000-8000-0000000000f2', 'Hospital Sin Autorizar Tokens', 'Hospital Sin Autorizar S.A.', false);
@@ -40,13 +42,13 @@ select is((select bool_and(relrowsecurity and relforcerowsecurity) from pg_class
   'las tablas de tokens e invitaciones tienen RLS habilitada y forzada');
 select is((select count(*)::int from (values ('app.action_tokens'), ('app.admin_invitations')) t(name), (values ('select'), ('insert'), ('update'), ('delete')) p(priv),
   (values ('authenticated'), ('anon')) r(role) where has_table_privilege(r.role, t.name, p.priv)), 0, 'ni authenticated ni anon tocan las tablas de tokens');
-select is((select array_agg(p.proname::text order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+select is((select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'api' and has_function_privilege('anon', p.oid, 'EXECUTE') and p.proname in
   ('get_admin_invitation_preview', 'request_password_recovery', 'consume_password_reset', 'invite_hospital_admin', 'link_admin_account', 'worker_revoke_sessions')),
-  array['consume_password_reset', 'get_admin_invitation_preview', 'request_password_recovery'], 'anon solo ejecuta las tres RPC públicas por token');
+  0, 'anon no ejecuta ninguna RPC de tokens: el backend es la única vía (el hash del token no lo elige quien llama)');
 select is((select array_agg(r.role order by r.role) from (values ('anon'), ('authenticated'), ('service_role')) r(role)
   where has_function_privilege(r.role, 'api.worker_revoke_sessions(uuid)', 'EXECUTE')), array['service_role'], 'solo service_role revoca sesiones');
-select is(has_function_privilege('authenticated', 'app.user_id_by_email(text)', 'EXECUTE') or has_function_privilege('anon', 'app.user_id_by_email(text)', 'EXECUTE'), false,
+select is(has_function_privilege('authenticated', 'app.user_id_by_email(text, interval)', 'EXECUTE') or has_function_privilege('anon', 'app.user_id_by_email(text, interval)', 'EXECUTE'), false,
   'solo app_privileged busca un usuario por correo');
 
 -- Invitar a un admin ----------------------------------------------------------------------------------------
@@ -110,17 +112,35 @@ reset role;
 select is((select invalidated_at is not null from app.action_tokens where token_hash = repeat('1', 64)), true, 'la reinvitación anula el token anterior');
 select is((select invalidated_at is null from app.action_tokens where token_hash = repeat('2', 64)), true, 'el token nuevo queda vigente');
 
--- Vista previa pública ---------------------------------------------------------------------------------------
+-- Vista previa (solo la identidad técnica del backend) ----------------------------------------------------
+select set_config('request.jwt.claims', '{"role":"anon"}', true);
 set local role anon;
-select is((select array_agg(k order by k) from jsonb_object_keys(api.get_admin_invitation_preview(repeat('2', 64))) k), array['email', 'expiresAt', 'hospitalName', 'kind'],
-  'la vista previa trae hospital, vencimiento y el correo invitado (solo para la aplicación)');
+select throws_ok($$select api.get_admin_invitation_preview(repeat('2', 64))$$, '42501', null, 'anon no consulta la vista previa por RPC');
+set local role authenticated;
+select is(api.get_admin_invitation_preview(repeat('2', 64)) ->> 'kind', 'unauthenticated', 'sin sub la vista previa es unauthenticated');
+select pg_temp.login('00000000-0000-4000-8000-0000000000f2');
+select is(api.get_admin_invitation_preview(repeat('2', 64)) ->> 'kind', 'forbidden', 'un donante no consulta la vista previa por RPC');
+select pg_temp.login('00000000-0000-4000-8000-0000000000f7');
+select is((select array_agg(k order by k) from jsonb_object_keys(api.get_admin_invitation_preview(repeat('2', 64))) k), array['email', 'expiresAt', 'hospitalName', 'kind', 'orphanUserId'],
+  'la sesión técnica recibe hospital, vencimiento, correo (solo para la aplicación) y el id de un usuario huérfano');
 select is(api.get_admin_invitation_preview(repeat('2', 64)) ->> 'hospitalName', 'Hospital Tokens', 'y es el hospital de la invitación');
+reset role;
+update auth.users set created_at = now() where id = '00000000-0000-4000-8000-0000000000f3';
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000f7');
+select is(api.get_admin_invitation_preview(repeat('2', 64)) -> 'orphanUserId', 'null'::jsonb, 'un usuario de Auth recién creado (menos de un minuto) no se trata como huérfano: puede ser el registro en curso del invitado');
+reset role;
+update auth.users set created_at = now() - interval '5 minutes' where id = '00000000-0000-4000-8000-0000000000f3';
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000f7');
+select is(api.get_admin_invitation_preview(repeat('2', 64)) ->> 'orphanUserId', '00000000-0000-4000-8000-0000000000f3', 'un usuario de Auth sin cuenta de aplicación y de más de un minuto que ocupa el correo se informa como huérfano');
 select is(api.get_admin_invitation_preview(repeat('9', 64)) ->> 'kind', 'not_found', 'un token desconocido es not_found');
 select is(api.get_admin_invitation_preview('no-hex') ->> 'kind', 'invalid', 'un token con formato inválido es invalid');
 select is(api.get_admin_invitation_preview(repeat('1', 64)) ->> 'kind', 'gone', 'un token invalidado es gone');
 reset role;
 update app.action_tokens set expires_at = now() - interval '1 second', created_at = now() - interval '1 day' where token_hash = repeat('2', 64);
-set local role anon;
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000f7');
 select is(api.get_admin_invitation_preview(repeat('2', 64)) ->> 'kind', 'gone', 'un token vencido es gone');
 reset role;
 update app.action_tokens set expires_at = now() + interval '72 hours', created_at = now() where token_hash = repeat('2', 64);
@@ -160,51 +180,102 @@ set local role authenticated;
 select pg_temp.login('00000000-0000-4000-8000-0000000000f3');
 select is(api.link_admin_account(repeat('2', 64), 'clave-claim-0000002', '63dbe1dfb907adb2d13d6e04a2f68da6a4a042f6480d9f725e5f28c882fcbd7b') ->> 'kind', 'replayed', 'la misma clave repite el resultado');
 select is(api.link_admin_account(repeat('2', 64), 'clave-claim-0000003', '63dbe1dfb907adb2d13d6e04a2f68da6a4a042f6480d9f725e5f28c882fcbd7b') ->> 'kind', 'gone', 'un segundo consumo con otra clave es gone');
-set local role anon;
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000f7');
 select is(api.get_admin_invitation_preview(repeat('2', 64)) ->> 'kind', 'gone', 'la vista previa de un token consumido es gone');
 reset role;
 
--- Recuperación de contraseña -------------------------------------------------------------------------------
--- Una petición anónima real no trae `sub`: se descartan los claims de las pruebas anteriores.
+-- Recuperación de contraseña (solo la identidad técnica) -----------------------------------------------------
 select set_config('request.jwt.claims', '{"role":"anon"}', true);
 set local role anon;
-create temp table rec_existing as select api.request_password_recovery('PGTAP-TOK-DONANTE@example.test', repeat('3', 64), '70000000-0000-4000-8000-000000000003', repeat('s', 40)) as r;
-create temp table rec_missing as select api.request_password_recovery('no-existe@example.test', repeat('4', 64), '70000000-0000-4000-8000-000000000004', repeat('s', 40)) as r;
-create temp table rec_authonly as select api.request_password_recovery('solo-auth@example.test', repeat('5', 64), '70000000-0000-4000-8000-000000000005', repeat('s', 40)) as r;
-grant select on rec_existing, rec_missing, rec_authonly to anon, authenticated;
+select throws_ok($$select api.request_password_recovery('x@example.test', repeat('3', 64), gen_random_uuid(), repeat('s', 40), 'email:' || repeat('a', 64), 'clave-recup-0000001', repeat('b', 64))$$,
+  '42501', null, 'anon no puede pedir una recuperación apuntando a un hash elegido por él');
+select throws_ok($$select api.consume_password_reset(repeat('3', 64))$$, '42501', null, 'anon no consume tokens de recuperación');
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000f2');
+select is(api.request_password_recovery('pgtap-tok-donante@example.test', repeat('3', 64), gen_random_uuid(), repeat('s', 40), 'email:' || repeat('a', 64), 'clave-recup-0000001', repeat('b', 64)) ->> 'kind',
+  'forbidden', 'un usuario autenticado cualquiera (no técnico) tampoco puede pedir recuperaciones');
+select is(api.consume_password_reset(repeat('3', 64)) ->> 'kind', 'forbidden', 'ni consumir tokens de recuperación');
+select pg_temp.login('00000000-0000-4000-8000-0000000000f7');
+create temp table rec_existing as select api.request_password_recovery('PGTAP-TOK-DONANTE@example.test', repeat('3', 64), '70000000-0000-4000-8000-000000000003', repeat('s', 40),
+  'email:' || repeat('a', 64), 'clave-recup-0000001', repeat('b', 64)) as r;
+create temp table rec_missing as select api.request_password_recovery('no-existe@example.test', repeat('4', 64), '70000000-0000-4000-8000-000000000004', repeat('s', 40),
+  'email:' || repeat('c', 64), 'clave-recup-0000002', repeat('d', 64)) as r;
+create temp table rec_authonly as select api.request_password_recovery('solo-auth@example.test', repeat('5', 64), '70000000-0000-4000-8000-000000000005', repeat('s', 40),
+  'email:' || repeat('e', 64), 'clave-recup-0000003', repeat('f', 64)) as r;
+create temp table rec_worker as select api.request_password_recovery('pgtap-tok-worker@example.test', repeat('6', 64), '70000000-0000-4000-8000-000000000006', repeat('s', 40),
+  'email:' || repeat('1', 64), 'clave-recup-0000004', repeat('2', 64)) as r;
+grant select on rec_existing, rec_missing, rec_authonly, rec_worker to authenticated;
 select is((select r from rec_existing), '{"kind": "ok"}'::jsonb, 'el correo existente responde ok');
 select is((select r from rec_missing), (select r from rec_existing), 'la respuesta para un correo inexistente es idéntica');
 select is((select r from rec_authonly), (select r from rec_existing), 'y también para un usuario de Auth sin cuenta de aplicación');
-select is(api.request_password_recovery('no-es-correo', repeat('6', 64), gen_random_uuid(), repeat('s', 40)) ->> 'kind', 'invalid', 'un correo con formato inválido es invalid');
-select is(api.request_password_recovery('a@example.test', 'no-hex', gen_random_uuid(), repeat('s', 40)) ->> 'kind', 'invalid', 'un token con formato inválido es invalid');
+select is((select r from rec_worker), (select r from rec_existing), 'y para la cuenta técnica (que no se recupera por correo)');
+select is(api.request_password_recovery('no-es-correo', repeat('7', 64), gen_random_uuid(), repeat('s', 40), 'email:' || repeat('a', 64), 'clave-recup-0000005', repeat('b', 64)) ->> 'kind', 'invalid', 'un correo con formato inválido es invalid');
+select is(api.request_password_recovery('a@example.test', 'no-hex', gen_random_uuid(), repeat('s', 40), 'email:' || repeat('a', 64), 'clave-recup-0000005', repeat('b', 64)) ->> 'kind', 'invalid', 'un token con formato inválido es invalid');
+select is(api.request_password_recovery('a@example.test', repeat('7', 64), gen_random_uuid(), repeat('s', 40), 'no-es-actor', 'clave-recup-0000005', repeat('b', 64)) ->> 'kind', 'invalid', 'un actor de idempotencia con formato inválido es invalid');
 reset role;
 select is((select count(*)::int from app.action_tokens where kind = 'recuperacion' and token_hash = repeat('3', 64) and subject_id = '00000000-0000-4000-8000-0000000000f2'
   and expires_at between now() + interval '59 minutes' and now() + interval '61 minutes'), 1, 'solo para la cuenta existente se crea un token de 1 h');
-select is((select count(*)::int from app.action_tokens where token_hash in (repeat('4', 64), repeat('5', 64))), 0, 'para correos inexistentes o sin cuenta no se crea token');
-select is((select count(*)::int from app.email_outbox where outbox_id in ('70000000-0000-4000-8000-000000000004', '70000000-0000-4000-8000-000000000005')), 0, 'ni se encola correo');
+select is((select count(*)::int from app.action_tokens where token_hash in (repeat('4', 64), repeat('5', 64), repeat('6', 64))), 0, 'para correos inexistentes, sin cuenta o de la cuenta técnica no se crea token');
+select is((select count(*)::int from app.email_outbox where outbox_id in ('70000000-0000-4000-8000-000000000004', '70000000-0000-4000-8000-000000000005', '70000000-0000-4000-8000-000000000006')), 0, 'ni se encola correo');
 select is((select kind || '|' || (recipient_user_id is null)::text from app.email_outbox where outbox_id = '70000000-0000-4000-8000-000000000003'), 'recuperacion|true',
   'el correo de recuperación va sin recipient_user_id (el destinatario viaja sellado)');
-set local role anon;
-select is(api.request_password_recovery('pgtap-tok-donante@example.test', repeat('7', 64), '70000000-0000-4000-8000-000000000007', repeat('s', 40)) ->> 'kind', 'ok', 'una segunda solicitud también responde ok');
+-- Idempotencia propia: un reintento no repite el token ni el correo; otra intención con la misma clave es conflicto.
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000f7');
+select is(api.request_password_recovery('pgtap-tok-donante@example.test', repeat('8', 64), '70000000-0000-4000-8000-000000000008', repeat('s', 40),
+  'email:' || repeat('a', 64), 'clave-recup-0000001', repeat('b', 64)), '{"kind": "ok"}'::jsonb, 'el reintento con la misma clave responde igual');
+select is(api.request_password_recovery('otro@example.test', repeat('9', 64), '70000000-0000-4000-8000-000000000009', repeat('s', 40),
+  'email:' || repeat('a', 64), 'clave-recup-0000001', repeat('c', 64)) ->> 'kind', 'payload_conflict', 'la misma clave con otra intención es payload_conflict');
 reset role;
-select is((select invalidated_at is not null from app.action_tokens where token_hash = repeat('3', 64)), true, 'la segunda solicitud anula el token anterior');
+select is((select count(*)::int from app.action_tokens where kind = 'recuperacion' and subject_id = '00000000-0000-4000-8000-0000000000f2' and invalidated_at is null), 1,
+  'el reintento no creó otro token ni anuló el vigente');
+select is((select count(*)::int from app.email_outbox where outbox_id = '70000000-0000-4000-8000-000000000008'), 0, 'ni encoló un segundo correo');
+-- Una solicitud nueva (otra clave) anula el token anterior
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000f7');
+select is(api.request_password_recovery('pgtap-tok-donante@example.test', repeat('a', 64), '70000000-0000-4000-8000-00000000000a', repeat('s', 40),
+  'email:' || repeat('a', 64), 'clave-recup-0000009', repeat('b', 64)) ->> 'kind', 'ok', 'una solicitud nueva con otra clave también es ok');
+reset role;
+select is((select invalidated_at is not null from app.action_tokens where token_hash = repeat('3', 64)), true, 'la solicitud nueva anula el token anterior');
 
 -- Consumir el reset ---------------------------------------------------------------------------------------
-set local role anon;
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000f7');
 select is(api.consume_password_reset(repeat('3', 64)) ->> 'kind', 'gone', 'un token de recuperación anulado es gone');
 select is(api.consume_password_reset(repeat('9', 64)) ->> 'kind', 'not_found', 'un token desconocido es not_found');
 select is(api.consume_password_reset('no-hex') ->> 'kind', 'invalid', 'un token con formato inválido es invalid');
-create temp table consumed as select api.consume_password_reset(repeat('7', 64)) as r;
-grant select on consumed to anon, authenticated;
+create temp table consumed as select api.consume_password_reset(repeat('a', 64)) as r;
+grant select on consumed to authenticated;
 select is((select r ->> 'kind' || '|' || (r ->> 'userId') from consumed), 'ok|00000000-0000-4000-8000-0000000000f2', 'consumir devuelve el usuario al que cambiar la contraseña');
-select is(api.consume_password_reset(repeat('7', 64)) ->> 'kind', 'gone', 'el segundo consumo es gone');
+select is(api.consume_password_reset(repeat('a', 64)) ->> 'kind', 'gone', 'el segundo consumo es gone');
 reset role;
-update app.action_tokens set expires_at = now() - interval '1 second', created_at = now() - interval '2 hours', consumed_at = null, invalidated_at = null where token_hash = repeat('7', 64);
-set local role anon;
-select is(api.consume_password_reset(repeat('7', 64)) ->> 'kind', 'gone', 'un token de recuperación vencido es gone');
+update app.action_tokens set expires_at = now() - interval '1 second', created_at = now() - interval '2 hours', consumed_at = null, invalidated_at = null where token_hash = repeat('a', 64);
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000f7');
+select is(api.consume_password_reset(repeat('a', 64)) ->> 'kind', 'gone', 'un token de recuperación vencido es gone');
 select is(api.consume_password_reset(repeat('2', 64)) ->> 'kind', 'not_found', 'un token de otro tipo no sirve para recuperar la contraseña');
 reset role;
-select is((select count(*)::int from app.audit_events where event = 'recuperacion.completada' and actor_kind = 'sistema' and actor_id is null and resource_id = '00000000-0000-4000-8000-0000000000f2'), 1, 'se audita la recuperación completada, sin actor');
+select is((select count(*)::int from app.audit_events where event = 'recuperacion.completada' and actor_kind = 'sistema' and resource_id = '00000000-0000-4000-8000-0000000000f2'), 1, 'se audita la recuperación completada');
+
+-- Invitar: replay tras desautorizar el hospital y tope por superadmin ------------------------------------------
+update app.hospitals set is_authorized = false where hospital_id = '10000000-0000-4000-8000-0000000000f1';
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000f1', 'aal2', true);
+select is(api.invite_hospital_admin('clave-invitar-000002', pg_temp.invite_hash('nuevo-admin@example.test', '10000000-0000-4000-8000-0000000000f1'),
+  'nuevo-admin@example.test', '10000000-0000-4000-8000-0000000000f1', repeat('1', 64), '70000000-0000-4000-8000-000000000001', 'v1.k1.cifrado-sintetico-de-prueba.tag.ct') ->> 'kind',
+  'replayed', 'el replay de una invitación previa se devuelve aunque el hospital ya no esté autorizado (peek antes del estado)');
+reset role;
+update app.hospitals set is_authorized = true where hospital_id = '10000000-0000-4000-8000-0000000000f1';
+insert into app.admin_invitations (hospital_id, email, created_by)
+  select '10000000-0000-4000-8000-0000000000f1', 'cupo-' || g || '@example.test', '00000000-0000-4000-8000-0000000000f1' from generate_series(1, 20) g;
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000f1', 'aal2', true);
+select is(api.invite_hospital_admin('clave-invitar-000099', pg_temp.invite_hash('cupo-extra@example.test', '10000000-0000-4000-8000-0000000000f1'),
+  'cupo-extra@example.test', '10000000-0000-4000-8000-0000000000f1', repeat('b', 64), gen_random_uuid(), repeat('s', 40)) ->> 'kind',
+  'rate_limited', 'con 20 invitaciones en la última hora, una nueva es rate_limited (sin dejar clave en curso)');
+reset role;
+select is((select count(*)::int from app.idempotency_records where idem_key = 'clave-invitar-000099'), 0, 'rate_limited no deja registro de idempotencia');
 
 select * from finish();
 rollback;
