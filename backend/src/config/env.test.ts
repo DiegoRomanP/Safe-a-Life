@@ -182,6 +182,24 @@ describe('parseEnv: variables de F1', () => {
     expect(parseEnv(validEnv({ WORKER_PASSWORD: 'doce-caracteres' })).worker.password).toBe('doce-caracteres');
   });
 
+  it('la API y el worker tienen identidades técnicas distintas y cada proceso exige solo la suya', () => {
+    expect(errorVariables(validEnv({ API_TECHNICAL_EMAIL: undefined, API_TECHNICAL_PASSWORD: undefined }))).toEqual(['API_TECHNICAL_EMAIL', 'API_TECHNICAL_PASSWORD']);
+    expect(errorVariables(validEnv({ API_TECHNICAL_PASSWORD: 'corta' }))).toEqual(['API_TECHNICAL_PASSWORD']);
+    // Con el mismo usuario la API volvería a poder operar el outbox.
+    expect(errorVariables(validEnv({ API_TECHNICAL_EMAIL: 'worker@example.test' }))).toEqual(['API_TECHNICAL_EMAIL']);
+
+    const apiOnly = validEnv({ WORKER_EMAIL: undefined, WORKER_PASSWORD: undefined });
+    const api = parseEnv(apiOnly, 'api');
+    expect(api.apiTechnical.email).toBe('api-technical@example.test');
+    expect(api.worker.password).toBe('');
+    const workerOnly = validEnv({ API_TECHNICAL_EMAIL: undefined, API_TECHNICAL_PASSWORD: undefined });
+    const worker = parseEnv(workerOnly, 'worker');
+    expect(worker.worker.email).toBe('worker@example.test');
+    expect(worker.apiTechnical.password).toBe('');
+    expect(() => parseEnv(apiOnly, 'worker')).toThrowError(/WORKER_EMAIL/);
+    expect(() => parseEnv(workerOnly, 'api')).toThrowError(/API_TECHNICAL_EMAIL/);
+  });
+
   it('acota WORKER_POLL_MS entre 1000 y 60000 con 5000 por defecto', () => {
     expect(parseEnv(validEnv()).worker.pollMs).toBe(5000);
     expect(parseEnv(validEnv({ WORKER_POLL_MS: '1000' })).worker.pollMs).toBe(1000);
@@ -219,7 +237,7 @@ describe('parseEnv: secreto de borde y producción', () => {
   it('en producción exige proxies, orígenes https, secreto de borde y URLs https', () => {
     const production = {
       NODE_ENV: 'production', TRUSTED_PROXIES: '1', ALLOWED_ORIGINS: 'https://app.example.test', EDGE_SHARED_SECRET: EDGE,
-      WORKER_PASSWORD: 'w'.repeat(40),
+      WORKER_PASSWORD: 'w'.repeat(40), API_TECHNICAL_PASSWORD: 'a'.repeat(40),
       EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test_key', RESEND_WEBHOOK_SECRET: `whsec_${Buffer.alloc(24, 1).toString('base64')}`,
     };
     expect(parseEnv(validEnvSource(production)).production).toBe(true);
@@ -235,6 +253,7 @@ describe('parseEnv: secreto de borde y producción', () => {
       ['EMAIL_PROVIDER', { EMAIL_PROVIDER: 'fake' }],
       // La credencial técnica opera el outbox y las recuperaciones: en producción, larga.
       ['WORKER_PASSWORD', { WORKER_PASSWORD: 'solo-veinte-caracteres' }],
+      ['API_TECHNICAL_PASSWORD', { API_TECHNICAL_PASSWORD: 'solo-veinte-caracteres' }],
     ];
     for (const [variable, override] of cases) {
       expect(() => parseEnv(validEnvSource({ ...production, ...override }))).toThrowError(new RegExp(variable));
@@ -249,7 +268,7 @@ describe('parseEnv: secreto de borde y producción', () => {
     expect(() => parseEnv(validEnvSource({ RENDER: 'true' }))).toThrowError(/TRUSTED_PROXIES/);
     expect(parseEnv(validEnvSource({
       RENDER: 'true', TRUSTED_PROXIES: '1', ALLOWED_ORIGINS: 'https://app.example.test', EDGE_SHARED_SECRET: 'b'.repeat(40),
-      WORKER_PASSWORD: 'w'.repeat(40),
+      WORKER_PASSWORD: 'w'.repeat(40), API_TECHNICAL_PASSWORD: 'a'.repeat(40),
       EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test_key', RESEND_WEBHOOK_SECRET: `whsec_${Buffer.alloc(24, 1).toString('base64')}`,
     })).production).toBe(true);
   });

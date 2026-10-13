@@ -14,6 +14,8 @@ export function validEnvSource(overrides: Record<string, string | undefined> = {
     APP_PUBLIC_URL: 'https://app.example.test',
     WORKER_EMAIL: 'worker@example.test',
     WORKER_PASSWORD: 'contrasena-sintetica-del-worker',
+    API_TECHNICAL_EMAIL: 'api-technical@example.test',
+    API_TECHNICAL_PASSWORD: 'contrasena-sintetica-de-la-api',
     ...overrides,
   };
 }

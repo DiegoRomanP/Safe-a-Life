@@ -17,7 +17,7 @@ for (const event of ['unhandledRejection', 'uncaughtException'] as const) {
 
 function loadConfig(): AppConfig {
   try {
-    return parseEnv(process.env);
+    return parseEnv(process.env, 'api');
   } catch (error) {
     if (error instanceof ConfigError) {
       process.stderr.write(`${error.message}\n`);

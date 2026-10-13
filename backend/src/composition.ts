@@ -72,10 +72,10 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
     keys: hmacKeys,
     loginFailureFloorMs: 400,
   });
-  // Sesión técnica (rol `worker`, V13): la usan el webhook firmado y las RPC públicas de tokens de acción, que el cliente
-  // anónimo no puede ejecutar.
+  // Sesión técnica de la API (rol `api_technical`): la usan el webhook firmado y las RPC públicas de tokens de acción, que el
+  // cliente anónimo no puede ejecutar. No es la del worker: la API no puede operar el outbox (F4 M-2).
   const technicalSession = createTechnicalSession({
-    signIn: () => sessions.signIn(config.worker.email, config.worker.password),
+    signIn: () => sessions.signIn(config.apiTechnical.email, config.apiTechnical.password),
     refresh: (refreshToken) => sessions.refresh(refreshToken),
   });
   const technicalRpc = createTechnicalInvoker(rpc, () => technicalSession.accessToken(), () => technicalSession.invalidate());

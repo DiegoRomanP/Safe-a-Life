@@ -13,8 +13,16 @@ export interface AppConfig {
   /** Secreto compartido con el borde (rewrite de Vercel). Vacío = sin guard (desarrollo y pruebas). Ver ADR-004. */
   readonly edgeSecret: string;
   readonly production: boolean;
-  /** Identidad técnica del worker (V13): usuario de Supabase Auth con rol interno `worker`. */
+  /**
+   * Identidad técnica del worker (V13): usuario de Supabase Auth con rol interno `worker`; opera el outbox. Solo la lee el
+   * proceso del worker: en el de la API queda vacía.
+   */
   readonly worker: Readonly<{ email: string; password: string; pollMs: number }>;
+  /**
+   * Identidad técnica de la API (rol interno `api_technical`): webhook firmado y RPC de tokens de acción. No puede operar el
+   * outbox (F4 M-2). Solo la lee el proceso de la API: en el del worker queda vacía.
+   */
+  readonly apiTechnical: Readonly<{ email: string; password: string }>;
   /** Base de los enlaces de los correos (https, o http solo hacia localhost). */
   readonly appPublicUrl: string;
   readonly email: Readonly<{
@@ -51,7 +59,10 @@ export class ConfigError extends Error {
   }
 }
 
-export function parseEnv(source: Source): AppConfig {
+/** Qué proceso carga la configuración: cada uno exige solo la credencial técnica que usa (mínimo privilegio). */
+export type ConfigScope = 'api' | 'worker' | 'all';
+
+export function parseEnv(source: Source, scope: ConfigScope = 'all'): AppConfig {
   const failed: string[] = [];
   const reject: Reject = (name) => {
     if (!failed.includes(name)) failed.push(name);
@@ -83,11 +94,19 @@ export function parseEnv(source: Source): AppConfig {
   const webhookRaw = provider === 'resend' ? required(source, 'RESEND_WEBHOOK_SECRET', reject) : read(source, 'RESEND_WEBHOOK_SECRET');
   const resendWebhookSecret = webhookRaw === undefined ? undefined : parseWebhookSecret(webhookRaw, reject);
   const appPublicUrl = parseHttpUrl('APP_PUBLIC_URL', required(source, 'APP_PUBLIC_URL', reject), reject).replace(/\/$/, '');
+  const wantsWorker = scope !== 'api';
+  const wantsApi = scope !== 'worker';
   const worker = Object.freeze({
-    email: parseEmail('WORKER_EMAIL', required(source, 'WORKER_EMAIL', reject), reject),
-    password: parseWorkerPassword(required(source, 'WORKER_PASSWORD', reject), reject),
+    email: wantsWorker ? parseEmail('WORKER_EMAIL', required(source, 'WORKER_EMAIL', reject), reject) : '',
+    password: wantsWorker ? parseTechnicalPassword('WORKER_PASSWORD', required(source, 'WORKER_PASSWORD', reject), reject) : '',
     pollMs: parseBoundedInt('WORKER_POLL_MS', read(source, 'WORKER_POLL_MS'), 1000, 60000, DEFAULT_WORKER_POLL_MS, reject),
   });
+  const apiTechnical = Object.freeze({
+    email: wantsApi ? parseEmail('API_TECHNICAL_EMAIL', required(source, 'API_TECHNICAL_EMAIL', reject), reject) : '',
+    password: wantsApi ? parseTechnicalPassword('API_TECHNICAL_PASSWORD', required(source, 'API_TECHNICAL_PASSWORD', reject), reject) : '',
+  });
+  // Dos usuarios distintos: si fueran el mismo, la API volvería a poder operar el outbox.
+  if (wantsWorker && wantsApi && worker.email !== '' && worker.email === apiTechnical.email) reject('API_TECHNICAL_EMAIL');
 
   // Producción: sin valores de desarrollo (HTTP, sin proxies enumerados, sin guard de borde).
   // RENDER lo define la plataforma: fallar cerrado aunque falte NODE_ENV=production.
@@ -101,7 +120,8 @@ export function parseEnv(source: Source): AppConfig {
     // El remitente falso descarta los correos con resultado «ok»: en producción sería una pérdida silenciosa.
     if (provider === 'fake') reject('EMAIL_PROVIDER');
     // La credencial técnica equivale a operar el outbox y las recuperaciones: en producción, aleatoria y larga.
-    if (worker.password.length < 32) reject('WORKER_PASSWORD');
+    if (wantsWorker && worker.password.length < 32) reject('WORKER_PASSWORD');
+    if (wantsApi && apiTechnical.password.length < 32) reject('API_TECHNICAL_PASSWORD');
   }
 
   if (failed.length > 0) throw new ConfigError(failed);
@@ -115,6 +135,7 @@ export function parseEnv(source: Source): AppConfig {
     edgeSecret,
     production,
     worker,
+    apiTechnical,
     appPublicUrl,
     email: Object.freeze({
       provider,
@@ -209,9 +230,9 @@ function parseEmail(name: string, raw: string, reject: Reject): string {
   return raw;
 }
 
-/** La sesión técnica protege el outbox: una contraseña corta no es aceptable (mínimo 12 caracteres). */
-function parseWorkerPassword(raw: string, reject: Reject): string {
-  if (raw !== '' && raw.length < 12) reject('WORKER_PASSWORD');
+/** Las sesiones técnicas protegen el outbox y los tokens de acción: una contraseña corta no es aceptable (mínimo 12 caracteres). */
+function parseTechnicalPassword(name: string, raw: string, reject: Reject): string {
+  if (raw !== '' && raw.length < 12) reject(name);
   return raw;
 }
 
