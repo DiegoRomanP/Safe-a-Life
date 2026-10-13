@@ -1,8 +1,8 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startBackend, type RunningBackend } from '../support/app.js';
-import { ApiClient, observedFetch, totpSecretFor } from '../support/client.js';
-import { undeclaredStatuses } from '../support/contract-statuses.js';
-import { sql } from '../support/db.js';
+import { ApiClient, observed, observedFetch, totpSecretFor } from '../support/client.js';
+import { MIN_OBSERVED, undeclaredStatuses } from '../support/contract-statuses.js';
+import { resetAuthQuota, sql } from '../support/db.js';
 import { HOSPITAL_IDS, SEED_USERS } from '../support/local-env.js';
 import { freshTotpCode } from '../support/totp.js';
 
@@ -14,6 +14,10 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await backend.close();
+});
+
+beforeEach(() => {
+  resetAuthQuota();
 });
 
 describe('renovación de sesión y cuota de Auth (A1)', () => {
@@ -30,6 +34,8 @@ describe('renovación de sesión y cuota de Auth (A1)', () => {
 
     expect(statuses.filter((status) => status === 429).length).toBeGreaterThan(0);
     expect(statuses[0]).toBe(401);
+    // Una sola IP no puede agotar el techo global de renovación de todos (O1).
+    expect(Number(sql("select count(*) from app.rate_limit_events where bucket = 'authquota:refresh'"))).toBeLessThan(80);
     // Otra IP (otro usuario) sigue iniciando sesión con normalidad.
     const legit = new ApiClient(backend.baseUrl, '10.99.2.2');
     expect((await legit.login(SEED_USERS.donor1.email)).status).toBe(200);
@@ -140,6 +146,38 @@ describe('CSRF, nombres largos y tiempo de respuesta', () => {
   });
 });
 
+describe('techo global de /token (O1)', () => {
+  it('con el techo de login agotado responde 429 con Retry-After sin tocar Auth, y las sesiones abiertas siguen renovándose', async () => {
+    const open = new ApiClient(backend.baseUrl, '10.99.12.1');
+    await open.login(SEED_USERS.donor1.email);
+    sql("insert into app.rate_limit_events (bucket, subject) select 'authquota:login', repeat('0', 64) from generate_series(1, 50)");
+
+    const blocked = await new ApiClient(backend.baseUrl, '10.99.12.2').send('POST', '/api/v1/auth/sessions', {
+      body: { email: SEED_USERS.donor2.email, password: 'Demo-Password-Sintetica-2026' },
+    });
+    open.cookies.set('__Host-sal_at', 'access-vencido');
+    const renewed = await open.send('GET', '/api/v1/auth/session');
+
+    expect(blocked.status).toBe(429);
+    expect(Number(blocked.headers.get('retry-after'))).toBeGreaterThan(0);
+    expect(blocked.json.error.code).toBe('RATE_LIMITED');
+    expect(renewed.status).toBe(200);
+  });
+
+  it('con el techo de renovación agotado responde 429 y los logins siguen funcionando', async () => {
+    const stale = new ApiClient(backend.baseUrl, '10.99.12.3');
+    await stale.login(SEED_USERS.donor1.email);
+    sql("insert into app.rate_limit_events (bucket, subject) select 'authquota:refresh', repeat('0', 64) from generate_series(1, 80)");
+    stale.cookies.set('__Host-sal_at', 'access-vencido');
+
+    const denied = await stale.send('GET', '/api/v1/auth/session');
+    const login = await new ApiClient(backend.baseUrl, '10.99.12.4').login(SEED_USERS.donor2.email);
+
+    expect(denied.status).toBe(429);
+    expect(login.status).toBe(200);
+  });
+});
+
 describe('cierre de sesión con el access token vencido', () => {
   const activeSessions = (email: string) =>
     Number(sql(`select count(*) from auth.sessions s join auth.users u on u.id = s.user_id where u.email = '${email}'`));
@@ -201,6 +239,8 @@ describe('salud y guard de borde', () => {
 
 describe('contrato', () => {
   it('todo estado HTTP devuelto por el backend está declarado para su operación en docs/openapi.json', () => {
+    // Sin un mínimo, ejecutar solo esta prueba (-t) dejaría `observed` vacío y pasaría sin comprobar nada.
+    expect(observed.length).toBeGreaterThan(MIN_OBSERVED);
     expect(undeclaredStatuses()).toEqual([]);
   });
 

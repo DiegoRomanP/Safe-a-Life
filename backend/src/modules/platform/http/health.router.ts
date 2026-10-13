@@ -41,15 +41,12 @@ export function registerHealthRoutes(app: Express, { readiness, expectedSchemaVe
   let inflight: Promise<boolean> | undefined;
 
   const check = (): Promise<boolean> => {
-    inflight ??= (async () => {
-      try {
-        return (await withTimeout(readiness.schemaVersion(), timeoutMs)) === expectedSchemaVersion;
-      } catch {
-        return false;
-      } finally {
-        inflight = undefined;
-      }
-    })();
+    // `Promise.resolve().then` también cubre un puerto que lance de forma síncrona; `finally` limpia
+    // `inflight` siempre después de asignarlo, así que ninguna ruta de error deja la comprobación colgada.
+    inflight ??= Promise.resolve()
+      .then(() => withTimeout(readiness.schemaVersion(), timeoutMs))
+      .then((version) => version === expectedSchemaVersion, () => false)
+      .finally(() => { inflight = undefined; });
     return inflight;
   };
 

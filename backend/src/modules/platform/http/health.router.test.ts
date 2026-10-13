@@ -119,4 +119,15 @@ describe('GET /health/ready', () => {
 
     expect((await fetch(`${base}/health/ready?x=1`)).status).toBe(400);
   });
+
+  it('un puerto que lanza de forma síncrona da 503 y se recupera en la siguiente comprobación', async () => {
+    let clock = 1_000;
+    let broken = true;
+    const base = await start({ schemaVersion: (() => { if (broken) throw new Error('síncrono'); return Promise.resolve('20261013010000'); }) as ReadinessGateway['schemaVersion'] }, 2_000, () => clock);
+
+    expect((await fetch(`${base}/health/ready`)).status).toBe(503);
+    broken = false;
+    clock += 6_000;
+    expect((await fetch(`${base}/health/ready`)).status).toBe(200);
+  });
 });

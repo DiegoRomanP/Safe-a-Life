@@ -52,12 +52,15 @@ export class ApiError extends Error {
   readonly code: PublicErrorCode;
   /** Solo para RATE_LIMITED: segundos para la cabecera Retry-After. */
   readonly retryAfterSeconds: number | undefined;
+  /** Motivo interno para el log de seguridad (nunca sale en la respuesta). */
+  readonly reason: string | undefined;
 
-  constructor(code: PublicErrorCode, message: string = DEFAULT_MESSAGES[code], options: { retryAfterSeconds?: number } = {}) {
+  constructor(code: PublicErrorCode, message: string = DEFAULT_MESSAGES[code], options: { retryAfterSeconds?: number; reason?: string } = {}) {
     super(message);
     this.name = 'ApiError';
     this.code = code;
     this.retryAfterSeconds = options.retryAfterSeconds;
+    this.reason = options.reason;
   }
 }
 
@@ -133,7 +136,7 @@ export function createErrorHandler(onUnexpected?: (error: unknown, correlationId
     if (retryAfter !== undefined) res.setHeader('Retry-After', String(Math.max(1, Math.ceil(retryAfter))));
     res.locals.errorCode = body.error.code;
     if (error instanceof UpstreamRateLimitedError) res.locals.rejectReason = 'provider_rate_limited';
-    else if (error instanceof ApiError && error.code === 'RATE_LIMITED') res.locals.rejectReason = 'rate_limited';
+    else if (error instanceof ApiError && error.code === 'RATE_LIMITED') res.locals.rejectReason = error.reason ?? 'rate_limited';
     res.status(status).type('application/json').json(body);
   };
 }

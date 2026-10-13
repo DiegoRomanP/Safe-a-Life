@@ -19,7 +19,9 @@ function equalSecrets(provided: string | undefined, expected: string): boolean {
  */
 export function edgeGuard(secret: string, onReject?: () => void): RequestHandler {
   return (req, res, next) => {
-    if (secret === '' || req.path === '/health/live' || req.path === '/health/ready') {
+    // Express enruta sin distinguir mayúsculas ni barra final: la exención debe coincidir con él.
+    const path = req.path.toLowerCase().replace(/\/+$/, '');
+    if (secret === '' || path === '/health/live' || path === '/health/ready') {
       next();
       return;
     }

@@ -2,6 +2,7 @@ import type { Principal } from '../../../shared/auth/principal.js';
 import type { ActorInfo, SessionGateway, TokenPair } from '../../../shared/auth/session-ports.js';
 import { hmacEmailSubject, hmacSha256Hex, type HmacKeyring } from '../../../shared/crypto/hmac.js';
 import { ApiError } from '../../../shared/http/errors.js';
+import { requireAuthQuota } from './auth-quota.js';
 import type { IdentityDependencies, KeyOutcome } from './identity.ports.js';
 
 const LOGIN_LIMIT = 10;
@@ -76,6 +77,9 @@ export function createAuthService(
       await rateLimit('login:ip', meta.ipSubject, LOGIN_LIMIT),
       await rateLimit('login:email', emailSubject, LOGIN_LIMIT),
     );
+    // Techo global de /token (O1): después de los límites por IP y por email, para que un solo atacante
+    // bloqueado por ellos no consuma cupo global, y antes de llamar a Auth.
+    await requireAuthQuota(limiter, 'login');
 
     const tokens = await sessions.signIn(input.email, input.password);
     if (!tokens) throw new ApiError('AUTHENTICATION_REQUIRED');

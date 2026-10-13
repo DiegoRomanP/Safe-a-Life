@@ -50,6 +50,17 @@ describe('edgeGuard', () => {
     expect((await fetch(`${base}/health/live`)).status).toBe(200);
   });
 
+  it('la exención de /health sigue el enrutado de Express (barra final y mayúsculas), no una igualdad exacta', async () => {
+    const base = await start(SECRET);
+
+    expect((await fetch(`${base}/health/live/`)).status).toBe(200);
+    expect((await fetch(`${base}/HEALTH/LIVE`)).status).toBe(200);
+    // Lo que NO es salud sigue exigiendo el secreto, también con variantes de ruta.
+    expect((await fetch(`${base}/api/x/`)).status).toBe(403);
+    expect((await fetch(`${base}/health/live/../api/x`)).status).toBe(403);
+    expect((await fetch(`${base}/health/liveness`)).status).toBe(403);
+  });
+
   it('no hace nada si no hay secreto configurado', async () => {
     const base = await start('');
 

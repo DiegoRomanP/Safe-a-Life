@@ -25,6 +25,9 @@ function loadOperations(): readonly Operation[] {
   return operations;
 }
 
+/** Mínimo de respuestas registradas para que la comprobación de contrato no pase de forma vacía. */
+export const MIN_OBSERVED = 30;
+
 /**
  * Respuestas observadas durante la prueba cuyo estado HTTP la operación NO declara en
  * docs/openapi.json (el contrato debe listar todo lo que el backend puede devolver).

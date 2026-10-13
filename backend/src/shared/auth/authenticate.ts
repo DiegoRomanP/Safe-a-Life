@@ -1,5 +1,5 @@
 import type { Request, RequestHandler } from 'express';
-import { PersistenceError, UpstreamRateLimitedError } from '../persistence/errors.js';
+import { PersistenceError, PersistenceUnavailableError, UpstreamRateLimitedError } from '../persistence/errors.js';
 import { ApiError } from '../http/errors.js';
 import { ACCESS_COOKIE, REFRESH_COOKIE, parseCookies } from '../http/cookies.js';
 import { setPrincipal, setSessionTokens } from './principal.js';
@@ -11,17 +11,20 @@ export interface AuthenticateDependencies {
   readonly actors: ActorResolver;
   /**
    * Límite de renovaciones por IP, consultado ANTES de llamar a Supabase Auth (cuota compartida por
-   * IP del backend). Devuelve los segundos a esperar si se excedió, o `null`.
+   * IP del backend). Devuelve la denegación (segundos a esperar y motivo de alerta) si se excedió, o `null`.
    */
-  readonly refreshGate?: (req: Request) => Promise<number | null>;
+  readonly refreshGate?: (req: Request) => Promise<RefreshDenial | null>;
   /**
    * Política de renovación por ruta (por defecto `normal`):
    * - `skip` (login): nunca renueva; se trata como sin sesión y no se tocan cookies.
-   * - `lenient` (logout): intenta renovar para poder revocar la sesión, pero un límite agotado o un 429
-   *   del proveedor equivalen a «sin sesión» en vez de abortar: salir nunca debe quedar bloqueado.
+   * - `lenient` (logout): intenta renovar para poder revocar la sesión, pero un límite agotado, un 429
+   *   del proveedor o su indisponibilidad equivalen a «sin sesión» en vez de abortar: salir nunca debe
+   *   quedar bloqueado (la revocación queda diferida hasta que caduque el refresh token).
    */
   readonly renewalPolicy?: (req: Request) => RenewalPolicy;
 }
+
+export type RefreshDenial = Readonly<{ retryAfterSeconds: number; reason?: string }>;
 
 export type RenewalPolicy = 'normal' | 'skip' | 'lenient';
 
@@ -58,23 +61,28 @@ export function authenticate({ verifier, actors, refreshGate, renewalPolicy }: A
       }
 
       if (!claims && refreshToken) {
-        const wait = await refreshGate?.(req);
-        if (wait !== null && wait !== undefined) {
-          if (policy === 'lenient') {
-            next();
-            return;
-          }
-          throw new ApiError('RATE_LIMITED', undefined, { retryAfterSeconds: wait });
-        }
-        let renewed: TokenPair | null;
+        let denial: RefreshDenial | null | undefined;
+        let renewed: TokenPair | null = null;
         try {
-          renewed = await verifier.refresh(refreshToken);
+          denial = await refreshGate?.(req);
+          if (!denial) renewed = await verifier.refresh(refreshToken);
         } catch (error) {
-          if (policy === 'lenient' && error instanceof UpstreamRateLimitedError) {
+          // Salir nunca debe quedar bloqueado: en logout, un proveedor saturado o caído equivale a «sin sesión».
+          if (policy === 'lenient' && (error instanceof UpstreamRateLimitedError || error instanceof PersistenceUnavailableError)) {
             next();
             return;
           }
           throw error;
+        }
+        if (denial) {
+          if (policy === 'lenient') {
+            next();
+            return;
+          }
+          throw new ApiError('RATE_LIMITED', undefined, {
+            retryAfterSeconds: denial.retryAfterSeconds,
+            ...(denial.reason ? { reason: denial.reason } : {}),
+          });
         }
         claims = renewed ? await verifier.verifyAccessToken(renewed.accessToken) : null;
         if (renewed && claims) {
