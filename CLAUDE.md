@@ -74,7 +74,7 @@ The npm workspace has three members: `apps/web`, `apps/mock-api` and `backend`.
   `apps/mock-api/src/api/openapi.ts`. Never hand-edit these. Edit the JSON, then
   lint, run `openapi:types`, and rerun the contract/Bruno tests.
 - **Ratification status.** Ratified for implementation (`x-ratification` in
-  `docs/openapi.json`): the Resend webhook of F4, the four need operations of F3 (`createHospitalNeed`,
+  `docs/openapi.json`): the five admin-invitation / password-recovery operations of F2b, the Resend webhook of F4, the four need operations of F3 (`createHospitalNeed`,
   list, get and transition of own needs), the health pair and the 21
   identity-institutions operations of F2a (session, MFA, step-up, hospitals,
   sites, memberships, configuration, audit, task queue). The rest are drafts.
