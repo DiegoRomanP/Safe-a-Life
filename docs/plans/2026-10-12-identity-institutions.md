@@ -53,7 +53,7 @@ Quedan para F2b: `requestPasswordRecovery`, `completePasswordReset`,
   `InstitutionsRepository` y su gateway RPC con guards cerrados
   (`shared/persistence/guards.ts`); routers `auth` e `institutions` que solo
   parsean, aplican guards y serializan.
-- **Pruebas**: 302 unitarias del backend (`npm test`), 40 de integración contra
+- **Pruebas**: 313 unitarias del backend (`npm test`), 42 de integración contra
   Supabase local (`npm run test:backend:integration`) y Bruno contra el backend
   real (`npm run test:bruno:backend`).
 
@@ -61,8 +61,8 @@ Quedan para F2b: `requestPasswordRecovery`, `completePasswordReset`,
 
 - **Replay de operaciones MFA**: `verifyMfaChallenge`, `verifyStepUp` y
   `enrollMfaFactor` responden 409 ante una clave ya usada, porque el código TOTP
-  no se puede reutilizar. Es una excepción a REL-01 que **espera tu aprobación**
-  al cerrar el módulo.
+  no se puede reutilizar. Excepción a REL-01 **aprobada por ti el 2026-10-12**,
+  igual que la del login (B-6: sin 409 por «misma clave con otro payload»).
 - **Step-up en `revokeHospitalMembership`** (RNF-SEC-05): decisión tuya del
   2026-10-12. El contrato ya declaraba 403.
 - **Contrato**: tras la revisión se declararon en `docs/openapi.json` los errores
@@ -103,9 +103,9 @@ Quedan para F2b: `requestPasswordRecovery`, `completePasswordReset`,
 | Comando | Resultado |
 | --- | --- |
 | `npm run typecheck` | verde |
-| `npm test` | verde (302 pruebas del backend, más mock y web) |
+| `npm test` | verde (313 pruebas del backend, más mock y web) |
 | `npm run test:backend:db` | 100 pruebas pgTAP en verde |
-| `npm run test:backend:integration` | 40 pruebas en verde (incluye que todo estado HTTP observado esté declarado, con control negativo, y el logout con access vencido contra `auth.sessions`) |
+| `npm run test:backend:integration` | 42 pruebas en verde (incluye que todo estado HTTP observado esté declarado, con control negativo, y el logout con access vencido contra `auth.sessions`) |
 | `npm run test:bruno:backend` | 28 solicitudes y 30 pruebas en verde (plataforma, hospital, superadmin) |
 | `npm run openapi:lint`, `openapi:api:check`, `test:api:generator` | verdes |
 | `npm run test:contract`, `npm run test:api` | verdes |
@@ -173,16 +173,26 @@ Correcciones de la tercera ronda: 403/400 declarados y contadores de Prism
 los `fetch` crudos y control negativo del verificador; política de renovación
 (`skip`/`lenient`/`normal`) con ruta normalizada, pruebas unitarias y dos de
 integración (logout con access vencido revoca en `auth.sessions`; con el límite
-agotado responde 401 y expira cookies); readiness con single-flight y pruebas de
+agotado responde 401 y expira cookies); techos globales de `/token` (O1); readiness con single-flight y pruebas de
 expiración a los 5 s; timeout de Auth inyectable con prueba real de aborto (503);
 control positivo de pares sustitutos; el rechazo de `23:59:60` se afirma antes de
 tocar el repositorio; prueba pgTAP reescrita (ahora 100).
 
-**Estado de la revisión:** `reviewer-back` FAIL (ronda 3) y seguridad PASS con
-observaciones (ronda 3). No existe una nueva revisión de las correcciones de la
-tercera ronda: **no se afirma un PASS de `reviewer-back`**. Queda a tu criterio
-pedir una cuarta revisión o aprobar el cierre con los FAIL corregidos y
-verificados por las pruebas.
+Cuarta ronda (2026-10-12), `reviewer-back` nuevo, enfocada en las correcciones
+(`ccab19e..14a1137`): **PASS con observaciones** (sin bloqueantes ni mayores). Confirmó
+resueltos el contrato (sin 413/415/405 emitibles; las 21 operaciones declaran los
+seis estados globales) y el logout con access vencido, sin regresiones. No ejecutó
+integración, pgTAP ni Bruno; esas las ejecuté yo. Observaciones y estado:
+M1 single-flight colgado ante un puerto que lanza de forma síncrona (corregido y
+probado), M2 la comprobación de contrato podía pasar vacía (mínimo de 30
+observaciones), M3 el guard de borde exigía el secreto en `/health/live/` o en
+mayúsculas (exención alineada con Express), M4 el logout devolvía 503 sin expirar
+cookies si Auth o el limitador estaban caídos (ahora 401 y cookies expiradas, con
+revocación diferida), M5 pruebas faltantes en `lenient` (añadidas), M6 redacción de
+Backend-Contracts.
+
+Esta cuarta ronda se limitó al delta; las correcciones posteriores a ella (techos
+globales de O1 y M1–M5) no fueron vistas por un revisor independiente.
 
 ## 6. Pendientes conocidos
 
@@ -207,6 +217,9 @@ verificados por las pruebas.
 - **B-6 (desvío)**: `createSession` deriva la identidad del actor y el hash de
   idempotencia del email normalizado (sin contraseña). Por eso «misma clave con
   otro payload → 409» ya no ocurre en el login y cada login escribe una fila.
+- Hallazgo propio al implementar O1: con techo global de renovación 60 y límite
+  por IP 60, una sola IP con cookies falsas agotaba el techo de todos. Se
+  rebalanceó (80 / 30 por IP) y una prueba de integración lo vigila.
 - Ronda 3, no corregido (decisión o trabajo posterior):
   - Telemetría de O6 (`route`/`reason` del logger y `rejectReason` de los guards)
     sin pruebas específicas.
@@ -233,13 +246,16 @@ verificados por las pruebas.
   key no salga del servidor y fijar el estado de signup en el proyecto cloud.
 - **O10 (declarado, aceptado por diseño)**: 10 intentos fallidos con el email de
   una víctima la bloquean 15 min (RNF-SEC-15); es un bloqueo dirigido.
-- **O1 (decisión tuya pendiente)**: Supabase limita `/auth/v1/token` por IP del
-  backend en un solo bucket (150 cada 5 min, login y renovación juntos). Un
-  ataque distribuido lo agota aunque el límite por IP del backend funcione.
-  Opciones: `Sb-Forwarded-For` (exige una clave `sb_secret_…` en el gateway de
-  sesión, lo que choca con ADR-006), subir los límites del proyecto y añadir un
-  techo global con alerta, o aceptar el riesgo documentado. Debe quedar en
-  ADR-004 antes de F9.
+- **O1 (decidido por ti el 2026-10-12: adaptarse al plan base)**: Supabase limita
+  `/auth/v1/token` por IP del backend en un solo bucket (150 cada 5 min) y el plan
+  no permite ampliarlo. Se implementaron techos globales propios por flujo (50
+  logins y 80 renovaciones cada 5 min, suma 130 < 150; el límite de renovación por
+  IP baja a 30 cada 15 min) en
+  `application/auth-quota.ts`, con motivo de alerta `auth_quota_login` /
+  `auth_quota_refresh` y 429 con `Retry-After`; quedó en ADR-004. Riesgo residual
+  aceptado: un ataque distribuido puede negar nuevos logins durante la ventana
+  (las sesiones abiertas siguen renovándose). Pendiente operativo: alerta sobre
+  esos motivos en el entorno real (F9).
 - O3 queda parcial: hay timeout, pero un token con `alg` HS* o `kid` ajeno aún
   provoca una llamada a Auth antes de cualquier límite (`getClaims` de auth-js).
   `SUPABASE_JWKS_URL` sigue sin usarse.
@@ -256,3 +272,4 @@ verificados por las pruebas.
 - 2026-10-12: primera ronda de revisión independiente (dos FAIL) y remediación.
 - 2026-10-12: segunda ronda (reviewer-back FAIL, seguridad PASS con observaciones) y remediación.
 - 2026-10-12: tercera ronda (reviewer-back FAIL, seguridad PASS con observaciones) y remediación.
+- 2026-10-12: cuarta ronda enfocada (reviewer-back PASS con observaciones), decisión O1 y aprobación de las excepciones de MFA y login.

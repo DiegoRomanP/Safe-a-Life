@@ -82,6 +82,28 @@ dejar por escrito cómo se compensa que `originGuard` deje pasar una mutación s
      borra las cookies** de la sesión; (c) la cuota de MFA (15 por minuto por
      IP) no es configurable y limita el login de admins concurrentes: se vigila
      en la demo.
+   - **Decisión O1 (2026-10-12, persona usuaria): adaptarse al plan base.** El
+     bucket de `/token` (150 peticiones cada 5 min por IP del backend, login y
+     renovación juntos) no se puede ampliar. Un ataque distribuido con IPs
+     distintas agotaría esa cuota aunque el límite por IP del backend funcione.
+     Para que el proveedor nunca llegue a su límite, el backend impone **techos
+     globales propios por flujo**: 50 logins y 80 renovaciones cada 5 min (suma
+     130, con 20 de margen; la renovación es el flujo de volumen). Un flujo
+     saturado no deja sin cupo al otro: una avalancha de logins no impide
+     renovar sesiones vivas. El límite de renovación por IP baja a 30 cada 15
+     min para que una sola IP no pueda agotar el techo de todos (hacen falta al
+     menos tres IPs); el costo es que una red compartida con más de 30
+     renovaciones en 15 min (unas 20 sesiones concurrentes tras una misma IP)
+     recibe 429. Los techos se consumen
+     después de los límites por IP y por email y antes de llamar a Auth. Al
+     agotarse responden 429 con `Retry-After` y registran el motivo
+     `auth_quota_login` o `auth_quota_refresh` en el log de seguridad, que es la
+     señal de alerta. **Riesgo residual aceptado**: un atacante distribuido puede
+     agotar el techo de login y negar nuevos inicios de sesión durante la
+     ventana; las sesiones ya abiertas siguen renovándose. Descartado
+     `Sb-Forwarded-For` (exige `sb_secret_…` en el gateway de sesión y choca con
+     ADR-006). Si la demanda real supera 60 logins por 5 min, el plan de Supabase
+     debe cambiarse; no hay otra palanca.
 7. **Cookies `__Host-` en local.** Requieren `Secure`. Verificado el 2026-10-12:
    Bruno CLI 4.2.0 y `fetch` de Node las aceptan sobre `http://127.0.0.1`, así
    que no hace falta la excepción `COOKIE_SECURE=false`. Si un navegador no las
