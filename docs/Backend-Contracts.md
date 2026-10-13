@@ -210,7 +210,11 @@ de HTTP.
 | `422` | JSON con shape correcto, pero valor fuera del dominio/límites; también sede inexistente, ajena o inactiva | `VALIDATION_FAILED` / `Uno o más valores no cumplen las reglas del campo.` | Los tres estados de sede usan idénticos status, código y mensaje; no enumerar existencia |
 | `500` | Fallo interno no clasificado | `INTERNAL_ERROR` / `No se pudo completar la solicitud.` | Rollback cuando aplique; nunca devolver diagnóstico interno |
 
-No añadir `404`, `429` u otros statuses al catálogo de este POST. El status `400`
+Además de ese catálogo, los middlewares globales de `/api` pueden responder `429`
+(límite de renovación de sesión, ADR-004) y `503` (base de datos o proveedor de Auth
+no disponible), como en todas las operaciones servidas; F3 los declara también aquí
+(`429` con `RATE_LIMITED` / `Intenta nuevamente más tarde.`, `503` con
+`SERVICE_UNAVAILABLE`). No se añade `404` ni ningún otro status. El status `400`
 se reserva a sintaxis/forma y `422` a semántica; ningún error incluye datos de
 paciente ni afirma elegibilidad clínica. Las respuestas de error llevan siempre
 un `correlationId` opaco.
@@ -317,3 +321,40 @@ cierre sujeto a las revisiones y a la aprobación registradas en
 - **Verificación**: pgTAP, integración contra Supabase local y Bruno contra el
   backend real (`npm run test:backend:db`, `test:backend:integration`,
   `test:bruno:backend`). Prism y el mock no cuentan como evidencia.
+
+---
+
+## Módulo implementado: need-records (F3)
+
+Estado: operaciones ratificadas e implementadas en `backend/src/modules/need-records`;
+cierre sujeto a las revisiones y a la aprobación registradas en
+[`plans/2026-10-13-need-records.md`](plans/2026-10-13-need-records.md).
+
+- **Operaciones**: `createHospitalNeed` (POST), `listOwnHospitalNeeds` (GET),
+  `getOwnHospitalNeed` (GET) y `transitionOwnHospitalNeed` (PATCH), todas bajo
+  `/api/v1/hospitals/me/needs`. Exigen admin hospitalario, AAL2, membresía activa y
+  hospital autorizado; el hospital sale siempre de la membresía en SQL.
+- **Tabla `app.needs`** con RLS forzada. Una clave foránea compuesta
+  `(site_id, hospital_id)` impide una sede ajena aunque falle una política.
+- **Creación** (`api.create_need_draft`, INVOKER): una sola RPC atómica que valida,
+  recalcula el hash canónico, consulta el replay, comprueba la sede, reclama la clave,
+  inserta la necesidad y escribe la auditoría. PostgreSQL fija `expires_at`. Sede
+  inexistente, ajena, inactiva o sin aprobar dan el mismo 422 y no dejan registro de
+  idempotencia. El replay devuelve el 201 original aunque el plazo ya haya pasado o la
+  sede se haya desactivado.
+- **Estado visible**: un estado no terminal cuyo `expires_at` ya pasó se proyecta como
+  `vencida` (también un borrador); el filtro `status` se aplica sobre ese estado.
+  `confirmedIntentCount` vale 0 hasta F6.
+- **Transición manual (C-8)**: `borrador → activa | cancelada`, `activa → cerrada |
+  cancelada`, `meta_alcanzada → cerrada | cancelada`; las terminales no se reabren y
+  `meta_alcanzada`/`vencida` no son destinos asignables (422). Cualquier otra
+  combinación, y un `borrador → activa` con el plazo vencido, es 409. La transición
+  bloquea la fila (`FOR UPDATE`), consulta el replay y solo entonces reclama la clave;
+  incrementa `version`. En F6 la RPC se reemplaza para añadir la cascada.
+- **Listado**: más recientes primero, cursor opaco firmado y ligado al actor y a la
+  operación (manipulado o ajeno = 400).
+- **IDOR**: una necesidad de otro hospital es 404 indistinguible de una inexistente.
+- **Estados globales**: además de los suyos, cada operación declara 429 y 503.
+- **Verificación**: pgTAP (`03_need_records.test.sql`), integración contra Supabase
+  local (`need-records.integration.ts`) y Bruno contra el backend real
+  (`bruno/backend/need-records/hospital`). Prism y el mock no cuentan como evidencia.
