@@ -1,0 +1,28 @@
+meta {
+  name: El mismo svix-id es un duplicado
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/email-delivery/webhooks/resend
+  body: text
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  svix-id: {{svixId}}
+  svix-timestamp: {{svixTimestamp}}
+  svix-signature: {{sigDelivered}}
+}
+
+body:text {
+  {"type":"email.delivered","created_at":"2026-10-13T12:00:00.000Z","data":{"email_id":"prov-bruno-0001"}}
+}
+
+tests {
+  test("el duplicado también responde 204", function () {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

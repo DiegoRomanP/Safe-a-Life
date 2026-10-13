@@ -1,0 +1,28 @@
+meta {
+  name: Un evento que no avanza la entrega se ignora
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/email-delivery/webhooks/resend
+  body: text
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  svix-id: {{svixIdOpened}}
+  svix-timestamp: {{svixTimestamp}}
+  svix-signature: {{sigOpened}}
+}
+
+body:text {
+  {"type":"email.opened","data":{"email_id":"prov-bruno-0001"}}
+}
+
+tests {
+  test("email.opened responde 204 y se ignora", function () {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

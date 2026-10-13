@@ -1,0 +1,29 @@
+meta {
+  name: Firma alterada
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/email-delivery/webhooks/resend
+  body: text
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  svix-id: {{svixIdBad}}
+  svix-timestamp: {{svixTimestamp}}
+  svix-signature: v1,AAAA
+}
+
+body:text {
+  {"type":"email.delivered","created_at":"2026-10-13T12:00:00.000Z","data":{"email_id":"prov-bruno-0001"}}
+}
+
+tests {
+  test("responde 401 AUTHENTICATION_REQUIRED sin detalle", function () {
+    expect(res.getStatus()).to.equal(401);
+    expect(res.getBody().error.code).to.equal("AUTHENTICATION_REQUIRED");
+  });
+}
