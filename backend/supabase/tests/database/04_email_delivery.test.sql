@@ -27,10 +27,10 @@ select is((select count(*)::int from (values ('app.email_outbox'), ('app.email_a
   (values ('select'), ('insert'), ('update'), ('delete')) p(priv), (values ('authenticated'), ('anon')) r(role)
   where has_table_privilege(r.role, t.name, p.priv)), 0, 'ni authenticated ni anon tienen privilegios sobre las tablas de correo');
 select is((select array_agg(p.proname::text order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-  where n.nspname = 'api' and p.prosecdef and p.proname like any (array['worker\_%', 'ingest\_%']) and p.proname <> 'worker_revoke_sessions'),
+  where n.nspname = 'api' and p.prosecdef and p.proname like any (array['worker\_%', 'ingest\_%']) and p.proname not in ('worker_revoke_sessions', 'worker_delete_inert_user')),
   array['ingest_email_event', 'worker_claim_due_outbox', 'worker_expire_outbox', 'worker_record_attempt'], 'las funciones del worker son SECURITY DEFINER');
 select is((select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-  where n.nspname = 'api' and p.prosecdef and pg_get_userbyid(p.proowner) <> 'app_privileged' and p.proname <> 'worker_revoke_sessions'), 0,
+  where n.nspname = 'api' and p.prosecdef and pg_get_userbyid(p.proowner) <> 'app_privileged' and p.proname not in ('worker_revoke_sessions', 'worker_delete_inert_user')), 0,
   'toda DEFINER de api pertenece a app_privileged salvo la de revocación de sesiones (ADR-006)');
 select is((select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'api' and p.prosecdef and not ('search_path=""' = any (p.proconfig) or 'search_path=' = any (p.proconfig))), 0, 'toda DEFINER fija search_path vacío');

@@ -20,7 +20,8 @@ revocar todas sus sesiones.
 1. `service_role` se usa **solo** en
    `backend/src/modules/identity-institutions/infrastructure/supabase-auth-admin.ts`
    (adaptador del puerto `AuthAdmin`), con exactamente cuatro métodos:
-   `updatePassword`, `updateEmail`, `deleteUser` y `revokeAllSessions`.
+   `updatePassword`, `updateEmail`, `deleteInertUser` (borrado condicional y atómico mediante
+   `api.worker_delete_inert_user`, ADR-003) y `revokeAllSessions`.
 2. La clave llega por `SUPABASE_SERVICE_ROLE_KEY` (requerida y distinta de la
    anon key) y solo la leen `config/env.ts`, `composition.ts` y el adaptador.
    Una prueba estática (`service-role-allowlist.test.ts`) recorre

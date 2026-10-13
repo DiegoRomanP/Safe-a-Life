@@ -14,7 +14,7 @@ const PREVIEW: AdminInvitationPreview = { hospitalName: 'Hospital Demo Uno', exp
 
 function harness(options: {
   signUp?: SignUpResult; preview?: AdminInvitationPreview | Error; linkError?: Error; allowed?: (bucket: string) => boolean;
-  hospitalError?: Error; updateError?: Error; consumeError?: Error; signUps?: SignUpResult[]; failRevokeAt?: number[];
+  hospitalError?: Error; updateError?: Error; consumeError?: Error; signUps?: SignUpResult[]; failRevokeAt?: number[]; deleteInert?: boolean;
 } = {}) {
   const calls: string[] = [];
   const sleeps: number[] = [];
@@ -42,7 +42,7 @@ function harness(options: {
     admin: {
       updatePassword: async () => { calls.push('updatePassword'); if (options.updateError) throw options.updateError; },
       updateEmail: async () => undefined,
-      deleteUser: async (id) => { calls.push(`deleteUser:${id}`); },
+      deleteInertUser: async (id) => { calls.push(`deleteUser:${id}`); return options.deleteInert ?? true; },
       revokeAllSessions: async () => { calls.push('revokeAllSessions'); revokes += 1; if (options.failRevokeAt?.includes(revokes)) throw new Error('canario-auth'); },
     },
     limiter: { consume: async (bucket, _subject, limit, window) => { seen.buckets.push([bucket, limit, window]); return { allowed: options.allowed?.(bucket) ?? true, retryAfterSeconds: 33 }; } },
@@ -131,6 +131,13 @@ describe('claimAdminInvitation', () => {
 
     expect(calls).toEqual(['preview', 'signUp', 'deleteUser:u-huerfano', 'signUp', 'link']);
     expect(view.mfaRequired).toBe(true);
+  });
+
+  it('si el borrado atómico del huérfano no procede (la cuenta ya tiene vida propia) es 409 y no se repite el registro', async () => {
+    const { service, calls } = harness({ preview: { ...PREVIEW, orphanUserId: 'u-huerfano' }, signUp: 'exists', deleteInert: false });
+
+    await expect(claim(service)).rejects.toMatchObject({ code: 'STATE_CONFLICT' });
+    expect(calls).toEqual(['preview', 'signUp', 'deleteUser:u-huerfano']);
   });
 
   it('si tras reemplazar al huérfano el correo sigue ocupado, es 409', async () => {
@@ -233,10 +240,18 @@ describe('completePasswordReset', () => {
     expect(calls).toEqual(['consume', 'revokeAllSessions']);
   });
 
-  it('un fallo de la segunda revocación se reintenta una vez y no convierte el reset en error', async () => {
+  it('un fallo de la segunda revocación se reintenta una vez y, si el reintento funciona, el reset termina', async () => {
     const { service, calls } = harness({ failRevokeAt: [2] });
 
     await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).resolves.toBeUndefined();
+
+    expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'revokeAllSessions', 'revokeAllSessions']);
+  });
+
+  it('si la segunda revocación falla también al reintentar no se responde éxito en silencio (503)', async () => {
+    const { service, calls } = harness({ failRevokeAt: [2, 3] });
+
+    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
 
     expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'revokeAllSessions', 'revokeAllSessions']);
   });

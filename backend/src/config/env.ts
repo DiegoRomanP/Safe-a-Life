@@ -100,6 +100,8 @@ export function parseEnv(source: Source): AppConfig {
     if (!appPublicUrl.startsWith('https://')) reject('APP_PUBLIC_URL');
     // El remitente falso descarta los correos con resultado «ok»: en producción sería una pérdida silenciosa.
     if (provider === 'fake') reject('EMAIL_PROVIDER');
+    // La credencial técnica equivale a operar el outbox y las recuperaciones: en producción, aleatoria y larga.
+    if (worker.password.length < 32) reject('WORKER_PASSWORD');
   }
 
   if (failed.length > 0) throw new ConfigError(failed);

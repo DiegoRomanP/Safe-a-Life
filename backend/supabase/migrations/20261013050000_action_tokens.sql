@@ -145,6 +145,7 @@ begin
   end if;
 
   -- Tope por superadmin (contado sobre invitaciones reales): un superadmin comprometido no puede invitar en masa.
+  perform pg_advisory_xact_lock(hashtextextended('invite-quota:' || app.jwt_sub()::text, 0));
   if (select count(*) from app.admin_invitations i where i.created_by = app.jwt_sub() and i.created_at > now() - interval '1 hour') >= 20 then
     return jsonb_build_object('kind', 'rate_limited');
   end if;
@@ -297,6 +298,12 @@ begin
   -- Cuentas de usuario final (donante, admin, superadmin); la identidad técnica `worker` no se recupera por correo.
   if v_user is not null and exists (select 1 from app.user_accounts ua where ua.user_id = v_user and ua.role <> 'worker') then
     perform pg_advisory_xact_lock(hashtextextended('recovery:' || v_user::text, 0));
+    -- Tope por cuenta (3 enlaces por hora): aunque se salten los límites del backend con la credencial técnica, no se
+    -- puede inundar a una víctima ni encadenar intentos. Superado, responde `ok` sin crear nada.
+    if (select count(*) from app.action_tokens t where t.kind = 'recuperacion' and t.subject_id = v_user and t.created_at > now() - interval '1 hour') >= 3 then
+      perform app.complete_idempotency(p_actor_ref, 'requestPasswordRecovery', p_key, v_reply);
+      return v_reply;
+    end if;
     update app.action_tokens set invalidated_at = now()
     where kind = 'recuperacion' and subject_id = v_user and consumed_at is null and invalidated_at is null;
     insert into app.action_tokens (token_hash, kind, subject_id, expires_at)
@@ -347,5 +354,50 @@ grant execute on function api.invite_hospital_admin(text, text, text, uuid, text
 -- Solo `authenticated` (la identidad técnica worker lo es); `anon` no ejecuta ninguna: el backend es la única vía.
 grant execute on function api.get_admin_invitation_preview(text), api.request_password_recovery(text, text, uuid, text, text, text, text),
   api.consume_password_reset(text) to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Usuarios de Auth inertes
+-- ---------------------------------------------------------------------------
+
+-- Elimina un usuario de Auth SOLO si, en una única sentencia, su correo coincide, no tiene cuenta de aplicación y tiene al
+-- menos `p_min_age` de antigüedad: sin carrera entre la comprobación y el borrado (una cuenta con vida propia nunca se
+-- borra). Cuarta excepción DEFINER propiedad de postgres (escribe en auth); solo service_role, desde el adaptador AuthAdmin.
+create function api.worker_delete_inert_user(p_user_id uuid, p_email text, p_min_age interval) returns boolean
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_deleted int;
+begin
+  delete from auth.users u
+  where u.id = p_user_id and lower(u.email) = lower(p_email)
+    and coalesce(u.created_at, '-infinity'::timestamptz) <= now() - p_min_age
+    and not exists (select 1 from app.user_accounts ua where ua.user_id = u.id);
+  get diagnostics v_deleted = row_count;
+  return v_deleted = 1;
+end;
+$$;
+revoke all on function api.worker_delete_inert_user(uuid, text, interval) from public, anon, authenticated;
+grant execute on function api.worker_delete_inert_user(uuid, text, interval) to service_role;
+
+-- La recuperación y el registro de donantes llevan su propia idempotencia dentro de la RPC técnica; la idempotencia pública
+-- previa a la sesión queda reducida al login (se conserva el propietario app_privileged y sus privilegios).
+create or replace function api.record_public_idempotency(p_actor_ref text, p_operation text, p_key text, p_hash text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_claim jsonb;
+begin
+  if p_actor_ref !~ '^(email|token):[0-9a-f]{64}$' or p_operation not in ('createSession') then
+    return jsonb_build_object('kind', 'invalid');
+  end if;
+  v_claim := app.claim_idempotency(p_actor_ref, p_operation, p_key, p_hash);
+  if v_claim is null then
+    perform app.complete_idempotency(p_actor_ref, p_operation, p_key, jsonb_build_object('kind', 'ok'));
+    return jsonb_build_object('kind', 'ok');
+  end if;
+  if v_claim ->> 'kind' = 'replayed' then
+    return jsonb_build_object('kind', 'ok');
+  end if;
+  return v_claim;
+end;
+$$;
 
 insert into app.schema_version (version) values ('20261013050000');

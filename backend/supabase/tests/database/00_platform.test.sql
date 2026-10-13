@@ -26,12 +26,12 @@ select ok(not has_table_privilege('authenticated', 'app.audit_events', 'DELETE')
 select ok(not has_table_privilege('authenticated', 'app.rate_limit_events', 'SELECT'), 'authenticated no lee rate_limit_events');
 select ok(not has_table_privilege('authenticated', 'app.schema_version', 'SELECT'), 'authenticated no lee schema_version');
 -- Excepciones documentadas (ADR-003 reglas 4 y 6, ADR-006): en Supabase `postgres` no puede conceder USAGE sobre el
--- esquema auth a app_privileged, así que app.user_email, app.user_id_by_email y api.worker_revoke_sessions (cada una hace
+-- esquema auth a app_privileged, así que app.user_email, app.user_id_by_email, api.worker_revoke_sessions y api.worker_delete_inert_user (cada una hace
 -- una sola cosa sobre auth y tiene EXECUTE restringido) son propiedad de postgres.
 select is(
   (select array_agg(p.proname::text order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname in ('api', 'app') and p.prosecdef and pg_get_userbyid(p.proowner) = 'postgres'),
-  array['user_email', 'user_id_by_email', 'worker_revoke_sessions'], 'las únicas DEFINER propiedad de postgres son las tres que acceden a auth');
+  array['user_email', 'user_id_by_email', 'worker_delete_inert_user', 'worker_revoke_sessions'], 'las únicas DEFINER propiedad de postgres son las cuatro que acceden a auth');
 select is(
   (select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'api' and p.prosecdef

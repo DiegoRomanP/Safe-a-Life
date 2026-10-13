@@ -5,7 +5,7 @@ alter table app.configuration disable trigger configuration_guard;
 update app.configuration set final_demo_at = null;
 alter table app.configuration enable trigger configuration_guard;
 
-select plan(28);
+select plan(29);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000000c1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-hard-super@example.test'),
@@ -41,7 +41,7 @@ select is((select array_agg(p.proname::text order by p.proname) from pg_proc p j
   'anon solo ejecuta las RPC públicas de la allowlist (las de tokens las ejecuta el backend con su sesión técnica)');
 select is((select array_agg(p.proname::text order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'api' and p.prosecdef),
-  array['consume_password_reset', 'consume_rate_limit', 'get_admin_invitation_preview', 'ingest_email_event', 'invite_hospital_admin', 'link_admin_account', 'readiness', 'record_public_idempotency', 'request_password_recovery', 'worker_claim_due_outbox', 'worker_expire_outbox', 'worker_record_attempt', 'worker_revoke_sessions'],
+  array['consume_password_reset', 'consume_rate_limit', 'get_admin_invitation_preview', 'ingest_email_event', 'invite_hospital_admin', 'link_admin_account', 'readiness', 'record_public_idempotency', 'request_password_recovery', 'worker_claim_due_outbox', 'worker_delete_inert_user', 'worker_expire_outbox', 'worker_record_attempt', 'worker_revoke_sessions'],
   'las únicas funciones SECURITY DEFINER de api son las de la allowlist');
 
 -- record_public_idempotency (DEFINER, anon) -------------------------------------------------------------
@@ -50,6 +50,8 @@ select is(api.record_public_idempotency('user:' || repeat('a', 64), 'createSessi
   'invalid', 'record_public_idempotency rechaza un actor que no es email: ni token:');
 select is(api.record_public_idempotency('email:' || repeat('a', 64), 'createHospital', 'clave-publica-0001', repeat('b', 64)) ->> 'kind',
   'invalid', 'record_public_idempotency rechaza operaciones fuera de la lista');
+select is(api.record_public_idempotency('email:' || repeat('a', 64), 'requestPasswordRecovery', 'clave-publica-0001', repeat('b', 64)) ->> 'kind',
+  'invalid', 'la recuperación y el registro de donantes ya no pasan por la idempotencia pública (llevan la propia)');
 select is(api.record_public_idempotency('email:' || repeat('a', 64), 'createSession', 'clave-publica-0001', repeat('b', 64)) ->> 'kind',
   'ok', 'record_public_idempotency registra una clave nueva');
 select is(api.record_public_idempotency('email:' || repeat('a', 64), 'createSession', 'clave-publica-0001', repeat('b', 64)) ->> 'kind',
