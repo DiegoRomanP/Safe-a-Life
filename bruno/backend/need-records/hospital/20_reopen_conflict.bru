@@ -1,0 +1,28 @@
+meta {
+  name: Una necesidad cerrada no se reabre
+  type: http
+  seq: 20
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{createdNeedId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-reopen
+}
+
+body:json {
+  { "status": "activa" }
+}
+
+tests {
+  test("responde 409 STATE_CONFLICT", function () {
+    expect(res.getStatus()).to.equal(409);
+    expect(res.getBody().error.code).to.equal("STATE_CONFLICT");
+  });
+}

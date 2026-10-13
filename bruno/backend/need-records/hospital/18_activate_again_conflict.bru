@@ -1,0 +1,27 @@
+meta {
+  name: Activar de nuevo con otra clave es 409
+  type: http
+  seq: 18
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{createdNeedId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-activate2
+}
+
+body:json {
+  { "status": "activa" }
+}
+
+tests {
+  test("activa → activa no está permitido", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+}

@@ -1,0 +1,36 @@
+meta {
+  name: Crea una necesidad con radio explícito
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-radius
+}
+
+body:json {
+  {
+    "component": "RBC",
+    "requiredBloodType": "A_POS",
+    "targetConfirmations": 3,
+    "radiusKm": 25,
+    "siteId": "{{demoSiteId}}",
+    "urgency": "Normal",
+    "expiresInHours": 12
+  }
+}
+
+tests {
+  test("respeta el radio pedido", function () {
+    expect(res.getStatus()).to.equal(201);
+    expect(res.getBody().data.radiusKm).to.equal(25);
+  });
+}

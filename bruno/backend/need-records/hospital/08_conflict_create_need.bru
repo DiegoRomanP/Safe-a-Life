@@ -1,0 +1,35 @@
+meta {
+  name: La misma clave con otra intención es 409
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-create
+}
+
+body:json {
+  {
+    "component": "RBC",
+    "requiredBloodType": "A_POS",
+    "targetConfirmations": 4,
+    "siteId": "{{demoSiteId}}",
+    "urgency": "Normal",
+    "expiresInHours": 12
+  }
+}
+
+tests {
+  test("responde 409 STATE_CONFLICT", function () {
+    expect(res.getStatus()).to.equal(409);
+    expect(res.getBody().error.code).to.equal("STATE_CONFLICT");
+  });
+}

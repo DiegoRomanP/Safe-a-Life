@@ -1,0 +1,29 @@
+meta {
+  name: Activa el borrador
+  type: http
+  seq: 16
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{createdNeedId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-activate
+}
+
+body:json {
+  { "status": "activa" }
+}
+
+tests {
+  test("borrador → activa conserva el plazo", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.status).to.equal("activa");
+    expect(res.getBody().data.expiresAt).to.equal(bru.getVar("createdNeedExpiresAt"));
+  });
+}

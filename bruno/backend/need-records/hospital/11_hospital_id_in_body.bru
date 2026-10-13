@@ -1,0 +1,35 @@
+meta {
+  name: hospitalId en el body es 400
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-hid
+}
+
+body:json {
+  {
+    "hospitalId": "11111111-1111-4111-8111-111111111102",
+    "component": "RBC",
+    "requiredBloodType": "A_POS",
+    "targetConfirmations": 3,
+    "siteId": "{{demoSiteId}}",
+    "urgency": "Normal",
+    "expiresInHours": 12
+  }
+}
+
+tests {
+  test("el cuerpo es cerrado: responde 400", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}

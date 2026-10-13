@@ -1,0 +1,18 @@
+meta {
+  name: Sin sesión no hay necesidades
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("sin cookie de sesión responde 401", function () {
+    expect(res.getStatus()).to.equal(401);
+    expect(res.getBody().error.code).to.equal("AUTHENTICATION_REQUIRED");
+  });
+}

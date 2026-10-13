@@ -1,0 +1,28 @@
+meta {
+  name: Replay de la activación
+  type: http
+  seq: 17
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{createdNeedId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-activate
+}
+
+body:json {
+  { "status": "activa" }
+}
+
+tests {
+  test("la misma clave devuelve el mismo 200", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.status).to.equal("activa");
+  });
+}

@@ -1,0 +1,19 @@
+meta {
+  name: Consulta una necesidad propia
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{createdNeedId}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("devuelve la necesidad creada", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.needId).to.equal(bru.getVar("createdNeedId"));
+    expect(res.getBody().data.status).to.equal("borrador");
+  });
+}

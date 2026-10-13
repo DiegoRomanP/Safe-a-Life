@@ -1,0 +1,20 @@
+meta {
+  name: Lista las necesidades propias
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("lista la necesidad creada con la misma proyección", function () {
+    expect(res.getStatus()).to.equal(200);
+    var ids = res.getBody().data.items.map(function (n) { return n.needId; });
+    expect(ids).to.include(bru.getVar("createdNeedId"));
+    expect(res.getBody().data.pagination).to.have.property("nextCursor");
+  });
+}
