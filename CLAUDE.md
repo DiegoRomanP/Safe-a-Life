@@ -74,7 +74,8 @@ The npm workspace has three members: `apps/web`, `apps/mock-api` and `backend`.
   `apps/mock-api/src/api/openapi.ts`. Never hand-edit these. Edit the JSON, then
   lint, run `openapi:types`, and rerun the contract/Bruno tests.
 - **Ratification status.** Ratified for implementation (`x-ratification` in
-  `docs/openapi.json`): `createHospitalNeed`, the health pair and the 21
+  `docs/openapi.json`): the four need operations of F3 (`createHospitalNeed`,
+  list, get and transition of own needs), the health pair and the 21
   identity-institutions operations of F2a (session, MFA, step-up, hospitals,
   sites, memberships, configuration, audit, task queue). The rest are drafts.
   Implementing any of them, or changing behavior around open AP items, needs
@@ -90,8 +91,8 @@ The npm workspace has three members: `apps/web`, `apps/mock-api` and `backend`.
   `src/composition.ts` wires the adapters, `src/app.ts` exposes
   `createApp({config, logger, mount})`, `src/config/env.ts` validates the
   environment and `src/shared/*` holds HTTP, auth, persistence and crypto pieces.
-  `src/modules/{platform,identity-institutions}` are implemented (F2a);
-  `src/modules/need-records/dto/` has the AJV 2020 validators. `supabase/` holds
+  `src/modules/{platform,identity-institutions,need-records}` are implemented
+  (F2a, F3); `need-records/dto/` has the AJV 2020 validators. `supabase/` holds
   the local project: migrations, `seed.sql` and pgTAP tests. Planned modules are
   listed in the capability map in
   `docs/plans/2026-10-12-api-backend-completo-incremental.md`; the execution
