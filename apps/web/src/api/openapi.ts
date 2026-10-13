@@ -3030,9 +3030,12 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getDonorEmailVerificationPreview: {
@@ -3058,8 +3061,13 @@ export interface operations {
                     "application/json": components["schemas"]["EmailActionPreviewEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             410: components["responses"]["Gone"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     verifyDonorEmail: {
@@ -3077,20 +3085,23 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Email verificado; inicia sesión de onboarding. */
+            /** @description Correo verificado. No inicia sesión (la operación no recibe contraseña): la persona inicia sesión con la que eligió y completa el perfil. */
             200: {
                 headers: {
-                    /** @description Cookie de sesión Secure/HttpOnly; el nombre definitivo se fija en Sprint 0. */
-                    "Set-Cookie"?: string;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["DonorOnboardingEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             410: components["responses"]["Gone"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getAssistedActivationPreview: {
@@ -3116,8 +3127,13 @@ export interface operations {
                     "application/json": components["schemas"]["EmailActionPreviewEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             410: components["responses"]["Gone"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     claimAssistedRegistration: {
@@ -3156,10 +3172,14 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             410: components["responses"]["Gone"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     completeDonorOnboarding: {
@@ -3198,9 +3218,15 @@ export interface operations {
                     "application/json": components["schemas"]["OwnDonorProfileEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getOwnDonorProfile: {
@@ -3235,10 +3261,13 @@ export interface operations {
                     "application/json": components["schemas"]["OwnDonorProfileEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     updateOwnDonorParticipation: {
@@ -3281,7 +3310,9 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listOwnInvitations: {
@@ -3527,8 +3558,13 @@ export interface operations {
                     "application/json": components["schemas"]["EmailActionPreviewEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             410: components["responses"]["Gone"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     verifyEmailChange: {
@@ -3555,9 +3591,14 @@ export interface operations {
                     "application/json": components["schemas"]["NeutralMessageEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             410: components["responses"]["Gone"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listPublishedRecognitionPolicies: {
@@ -4034,9 +4075,12 @@ export interface operations {
                     "application/json": components["schemas"]["AssistedSignupListEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createAssistedSignup: {
@@ -4087,6 +4131,8 @@ export interface operations {
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
             429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getOwnAssistedSignup: {
@@ -4109,9 +4155,13 @@ export interface operations {
                     "application/json": components["schemas"]["AssistedSignupCreatedEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     reissueAssistedActivationLink: {
@@ -4137,11 +4187,15 @@ export interface operations {
                     "application/json": components["schemas"]["NeutralMessageEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getOwnRecognitionPolicy: {

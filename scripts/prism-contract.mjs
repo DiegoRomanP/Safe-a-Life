@@ -22,8 +22,9 @@ const methods = new Set(['get', 'put', 'post', 'delete', 'options', 'head', 'pat
 // F2b (2026-10-13) declares 20 more errors on its five operations (incl. the 409 of the recovery idempotency): 391 / 497.
 // Third review round adds 4 more (403 of csrf-token and session, 400 of the health pair): 355 / 460.
 // F3 (2026-10-13) adds 10 more (400, 429 and 503 on the need list/get/transition and 429/503 on the create): 365 / 470.
+// F5 (2026-10-13) declares 56 more errors on its 14 donor and assisted-signup operations: 447 / 553.
 // Updating coverage requires explicit review; never derive it from the candidate.
-const expected = { operations: 72, json: 69, empty: 3, bodies: 27, variants: 34, variantCollections: 16, errors: 391 };
+const expected = { operations: 72, json: 69, empty: 3, bodies: 27, variants: 34, variantCollections: 16, errors: 447 };
 
 // Reviewed E2/E3 coverage fixture (method, path template, operationId), not a second
 // contract: NO payloads, schemas or behavior. Never derive/refresh it from the
