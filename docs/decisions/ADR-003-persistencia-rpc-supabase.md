@@ -126,6 +126,15 @@ otro driver ahora; su presencia no prueba que el scaffold legacy sea seguro.
 6. **Worker.** Conserva el límite aprobado: solo `EXECUTE` sobre las RPC
    `worker_*` y `ingest_email_event`, con una identidad técnica de Auth y rol
    interno `worker` (V13); sin tablas generales ni `service_role`.
+   Implementado en F4 (2026-10-13): estas DEFINER no llaman a `auth.uid()` (el rol
+   `app_privileged` no tiene `USAGE` sobre el esquema `auth` y `postgres` no puede
+   concedérselo en Supabase); leen el `sub` del JWT validado por PostgREST con
+   `app.jwt_sub()` y resuelven el rol `worker` en `app.user_accounts` con
+   `app.is_worker()`. Para el destinatario de una invitación existe **una única
+   excepción a la regla 4**: `app.user_email(uuid)`, DEFINER propiedad de `postgres`
+   (que sí tiene `USAGE` y `SELECT` sobre `auth.users`), solo ejecutable por
+   `app_privileged` y que devuelve únicamente el correo de un id. Una prueba pgTAP
+   fija que es la única DEFINER propiedad de `postgres`.
 
 ### Convención de respuesta de toda RPC con efectos
 

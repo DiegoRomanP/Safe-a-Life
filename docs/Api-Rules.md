@@ -376,7 +376,7 @@ cookies HttpOnly usa la web local con origen permitido.
 
 ### 11.1 Cobertura global y sincronización
 
-El inventario contractual tiene 56 paths/71 operaciones/99 schemas,
+El inventario contractual tiene 57 paths/72 operaciones/100 schemas,
 26 ejemplos media de entrada, 69 éxitos JSON y 2 vacíos 204 (F2a añadió
 `enrollMfaFactor`).
 `npm run test:contract` encadena la suite contractual (72 pruebas registradas)

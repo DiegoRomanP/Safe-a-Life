@@ -362,3 +362,26 @@ cierre sujeto a las revisiones y a la aprobación registradas en
 - **Verificación**: pgTAP (`03_need_records.test.sql`), integración contra Supabase
   local (`need-records.integration.ts`) y Bruno contra el backend real
   (`bruno/backend/need-records/hospital`). Prism y el mock no cuentan como evidencia.
+
+---
+
+## Módulo implementado: email-delivery (F4)
+
+Estado: implementado en `backend/src/modules/email-delivery`; revisiones y cierre registrados en
+[`plans/2026-10-13-email-delivery.md`](plans/2026-10-13-email-delivery.md).
+
+- **Webhook** `receiveResendWebhook` (`POST /api/v1/email-delivery/webhooks/resend`): público, sin cookie. Firma
+  estilo Svix (`base64(HMAC-SHA256(secreto, "<svix-id>.<svix-timestamp>.<cuerpo crudo>"))`, cualquiera de las
+  firmas `v1,<base64>`), antigüedad máxima 300 s (pasada o futura), JSON parseado solo después de verificar y
+  deduplicación por `svix-id`. Respuestas: 204 (aceptado, duplicado o ignorado), 400, 401 (firma o plazo, sin
+  detalle), 403 (guard de borde), 500 y 503. Mapeo: `email.sent → enviada`, `email.delivered → entregada`,
+  `email.bounced`/`email.failed → fallida`; otros eventos se ignoran.
+- **Outbox**: el payload (token y destinatario) se cifra en la aplicación con AES-256-GCM y el id del outbox como
+  AAD; en la base solo existe cifrado y se destruye (`NULL`) al llegar a un estado final o vencer.
+- **Reintentos**: máximo 6 llamadas, backoff 1/2/5/10/20 min con jitter ±20 %, nada se envía tras `not_after`,
+  y un resultado incierto se reconcilia a los 30 s durante 5 min con la misma clave de idempotencia.
+- **Worker**: proceso separado con identidad técnica y rol interno `worker`; solo llama a las RPC `worker_*` e
+  `ingest_email_event`. Sus registros contienen solo evento, código y duración.
+- **Plantillas**: enlaces con el token en el fragmento; sin grupo sanguíneo, ubicación ni datos de paciente.
+- **Allowlist de bandejas** (RF-EML-04): un destinatario no permitido no llega al proveedor.
+

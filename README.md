@@ -30,11 +30,11 @@ estático con Prism, no como flujos con estado.
 
 La [guía de entrega frontend](docs/Frontend-Handoff.md) reúne el setup humano,
 Swagger Editor 5, sincronización JSON→tipos→Bruno, matriz exacta y paquetes de
-trabajo siguientes. El inventario canónico OpenAPI tiene **56 paths, 71
-operaciones y 99 schemas**. Están ratificadas para implementación
-las cuatro de necesidades (F3: `createHospitalNeed` y listar, consultar y transicionar las
+trabajo siguientes. El inventario canónico OpenAPI tiene **57 paths, 72
+operaciones y 100 schemas**. Están ratificadas para implementación
+el webhook de Resend (F4), las cuatro de necesidades (F3: `createHospitalNeed` y listar, consultar y transicionar las
 propias), las dos de salud y las 21 de identidad (F2a), es decir
-**27**; las otras **44** siguen en borrador y se ratifican módulo por módulo. El inventario no representa
+**28**; las otras **44** siguen en borrador y se ratifican módulo por módulo. El inventario no representa
 cuántas operaciones están implementadas por el mock, cliente o backend. El mock
 Express, sus comprobaciones de readiness y auth siguen siendo demos, no un backend
 real. El paquete es habilitador; no declara
@@ -68,8 +68,9 @@ Java/Spring Boot fue evaluado y descartado para esta fase.
 - `backend/src/server.ts` es el punto de entrada del backend: valida el entorno
   (`backend/.env.example` lista los nombres) y compone `createApp` mediante
   `backend/src/composition.ts`. Hoy expone salud (`/health/live`, `/health/ready`)
-  y los módulos `identity-institutions` (sesión, MFA, instituciones; F2a) y
-  `need-records` (necesidades del hospital; F3). El resto
+  y los módulos `identity-institutions` (sesión, MFA, instituciones; F2a),
+  `need-records` (necesidades del hospital; F3) y `email-delivery` (outbox cifrado, worker y
+  webhook de Resend; F4, con `npm run dev:worker`). El resto
   de las operaciones se implementa por módulo tras su ratificación.
   `backend/supabase/` contiene el proyecto Supabase local (migraciones, siembra
   y pruebas pgTAP). `backend/index.js` y `backend/config/` fueron retirados por
