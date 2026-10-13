@@ -167,8 +167,8 @@ condicionado en la primera ronda y no se ha vuelto a ejecutar.
 ## 6. Pendientes conocidos
 
 - Carrera entre una creación y la desactivación simultánea de la sede (D-4).
-- Auditoría solo de éxitos: `site_unusable`, `conflict`, `forbidden` y `rate_limited` no dejan
-  evento (RNF-AUD-01); decidir si se auditan las denegaciones.
+- ~~Auditoría solo de éxitos~~ Resuelto el 2026-10-13 (decisión 6): las respuestas 403, 409 y 429 a un actor
+  autenticado dejan un evento `denegacion.*` (ver «Auditoría de denegaciones» en `Backend-Contracts.md`).
 - Retención de `idempotency_records` (su `response` conserva grupo, sede y plazo): purga con
   el worker, ya pendiente desde F2a.
 - Tope de necesidades abiertas por hospital (además del de creación por hora): decisión de

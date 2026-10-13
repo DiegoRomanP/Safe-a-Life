@@ -50,6 +50,8 @@ Verificación por módulo: `npm run typecheck`, `npm run test --workspace backen
 
 ### Bitácora
 
+- 2026-10-13: decisiones 1 y 2 (commit `cefd0db`), 10 (`1c2adae`), 7 (`8916096` a `d9adc79`), 5 (`27bd8e3` a `82d91ba`) y 6
+  (auditoría de denegaciones con `api.record_denial`, deduplicada) aplicadas y verificadas.
 - 2026-10-13: verificación de F5 tras el rework. `typecheck` verde, 703 pruebas unitarias del backend en verde y `openapi:api:check` sin deriva. Pendientes: integración y Bruno.
 
 ## 4. Lo que sigue sin decidir
