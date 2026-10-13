@@ -111,13 +111,15 @@ declare
   v_site uuid;
   v_need app.needs;
   v_reply jsonb;
+  v_rate jsonb;
 begin
   v_fail := app.require('{admin_hospitalario}', true, false);
   if v_fail is not null then return jsonb_build_object('kind', v_fail); end if;
   v_hospital := app.admin_hospital_id();
   if v_hospital is null then return jsonb_build_object('kind', 'forbidden'); end if;
 
-  if p_component is distinct from 'RBC'
+  if p_key is null or char_length(p_key) not between 16 and 255
+     or p_component is distinct from 'RBC'
      or p_required_blood_type is null or p_required_blood_type not in ('O_NEG', 'O_POS', 'A_NEG', 'A_POS', 'B_NEG', 'B_POS', 'AB_NEG', 'AB_POS')
      or p_target is null or p_target not between 1 and 50
      or p_radius_km is null or p_radius_km not between 1 and 50
@@ -132,14 +134,25 @@ begin
     return jsonb_build_object('kind', 'invalid');
   end if;
 
-  -- Replay o conflicto primero: un resultado ya guardado se devuelve aunque la sede cambie después.
+  -- Replay o conflicto primero: un resultado ya guardado se devuelve aunque la sede cambie después,
+  -- pero nunca a quien ya pertenece a otro hospital (el resultado guardado es de la institución anterior).
   v_claim := app.peek_idempotency('user:' || auth.uid()::text, 'createHospitalNeed', p_key, p_hash);
-  if v_claim is not null then return v_claim; end if;
+  if v_claim is not null then
+    if v_claim ->> 'kind' = 'replayed' and (v_claim #>> '{response,owner,hospitalId}') is distinct from v_hospital::text then
+      return jsonb_build_object('kind', 'forbidden');
+    end if;
+    return v_claim;
+  end if;
 
   -- Sede inexistente, ajena, inactiva o sin aprobar: una sola rama, sin rastro de cuál fue.
   select s.site_id into v_site from app.sites s
   where s.site_id = p_site_id::uuid and s.hospital_id = v_hospital and s.is_active and s.is_approved;
   if not found then return jsonb_build_object('kind', 'site_unusable'); end if;
+
+  -- Tope por actor (protege la base y, desde F6, a los donantes de convocatorias en masa). Va antes del claim
+  -- para no dejar una clave «en curso»; los replays ya salieron arriba y no consumen cupo.
+  v_rate := api.consume_rate_limit('need:create', encode(extensions.digest(auth.uid()::text, 'sha256'), 'hex'), 30, interval '1 hour');
+  if not coalesce((v_rate ->> 'allowed')::boolean, false) then return jsonb_build_object('kind', 'rate_limited'); end if;
 
   v_claim := app.claim_idempotency('user:' || auth.uid()::text, 'createHospitalNeed', p_key, p_hash);
   if v_claim is not null then return v_claim; end if;
@@ -220,7 +233,7 @@ begin
 end;
 $$;
 
--- Matriz manual C-8. Lo que ya venció es terminal: borrador → activa exige now() < expires_at.
+-- Matriz manual C-8. Lo que ya venció es terminal: borrador → activa exige now() < expires_at y una sede vigente.
 create function api.transition_own_need(p_key text, p_hash text, p_id uuid, p_status text) returns jsonb
 language plpgsql set search_path = '' as $$
 declare
@@ -230,12 +243,14 @@ declare
   v_need app.needs;
   v_visible text;
   v_reply jsonb;
+  v_rate jsonb;
 begin
   v_fail := app.require('{admin_hospitalario}', true, false);
   if v_fail is not null then return jsonb_build_object('kind', v_fail); end if;
   v_hospital := app.admin_hospital_id();
   if v_hospital is null then return jsonb_build_object('kind', 'forbidden'); end if;
-  if p_status is null or p_status not in ('activa', 'cerrada', 'cancelada')
+  if p_key is null or char_length(p_key) not between 16 and 255
+     or p_status is null or p_status not in ('activa', 'cerrada', 'cancelada')
      or p_hash is distinct from app.fingerprint(jsonb_build_array(
           jsonb_build_array('needId', p_id::text), jsonb_build_array('status', p_status))) then
     return jsonb_build_object('kind', 'invalid');
@@ -253,6 +268,15 @@ begin
           or (v_need.status in ('activa', 'meta_alcanzada') and p_status in ('cerrada', 'cancelada'))) then
     return jsonb_build_object('kind', 'conflict');
   end if;
+  -- Activar convoca al matching: la sede debe seguir activa y aprobada (pudo retirarse tras crear el borrador).
+  if p_status = 'activa' and not exists (
+       select 1 from app.sites s
+       where s.site_id = v_need.site_id and s.hospital_id = v_hospital and s.is_active and s.is_approved) then
+    return jsonb_build_object('kind', 'conflict');
+  end if;
+
+  v_rate := api.consume_rate_limit('need:transition', encode(extensions.digest(auth.uid()::text, 'sha256'), 'hex'), 60, interval '1 hour');
+  if not coalesce((v_rate ->> 'allowed')::boolean, false) then return jsonb_build_object('kind', 'rate_limited'); end if;
 
   v_claim := app.claim_idempotency('user:' || auth.uid()::text, 'transitionOwnHospitalNeed', p_key, p_hash);
   if v_claim is not null then return v_claim; end if;

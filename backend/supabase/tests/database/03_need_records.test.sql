@@ -2,7 +2,7 @@ begin;
 -- Aislamiento: la base puede estar sembrada. Todo se revierte con el rollback.
 truncate app.needs, app.sites, app.hospital_memberships, app.hospitals, app.user_accounts cascade;
 
-select plan(88);
+select plan(102);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000000d1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-need-admin-a@example.test'),
@@ -290,6 +290,80 @@ select is(api.transition_own_need('clave-trans-0000011', pg_temp.hash_transition
 reset role;
 select is((select count(*)::int from app.audit_events where event = 'necesidad.transicion' and actor_id = '00000000-0000-4000-8000-0000000000d1'), 2, 'cada transición aceptada escribe un evento de auditoría');
 set local role authenticated;
+
+-- Endurecimiento tras la revisión independiente ----------------------------------------------------------------
+select pg_temp.login('00000000-0000-4000-8000-0000000000d1', 'aal2');
+select is(api.create_need_draft('corta', pg_temp.hash_for('RBC', 'O_NEG', 5, '22222222-2222-4222-8222-2222222222a1', 10, 'Urgente', 12),
+  'RBC', 'O_NEG', 5, '22222222-2222-4222-8222-2222222222a1', 10, 'Urgente', 12) ->> 'kind', 'invalid', 'una clave de idempotencia de menos de 16 caracteres es invalid (no una excepción)');
+select is(api.transition_own_need('corta', pg_temp.hash_transition('50000000-0000-4000-8000-0000000000e1', 'cancelada'),
+  '50000000-0000-4000-8000-0000000000e1', 'cancelada') ->> 'kind', 'invalid', 'una clave de transición de menos de 16 caracteres es invalid');
+
+-- Activar exige que la sede siga activa y aprobada.
+create temp table fresh_draft as select api.create_need_draft('clave-need-00000020',
+  pg_temp.hash_for('RBC', 'AB_POS', 4, '22222222-2222-4222-8222-2222222222a1', 10, 'Normal', 24),
+  'RBC', 'AB_POS', 4, '22222222-2222-4222-8222-2222222222a1', 10, 'Normal', 24) as r;
+grant select on fresh_draft to authenticated;
+reset role;
+update app.sites set is_active = false where site_id = '22222222-2222-4222-8222-2222222222a1';
+set local role authenticated;
+select is(api.transition_own_need('clave-trans-0000020', pg_temp.hash_transition((select (r #>> '{need,needId}')::uuid from fresh_draft), 'activa'),
+  (select (r #>> '{need,needId}')::uuid from fresh_draft), 'activa') ->> 'kind', 'conflict',
+  'activar un borrador cuya sede se desactivó es conflict');
+reset role;
+update app.sites set is_active = true where site_id = '22222222-2222-4222-8222-2222222222a1';
+set local role authenticated;
+
+-- Un replay nunca se entrega a quien ya pertenece a otro hospital.
+reset role;
+update app.hospital_memberships set hospital_id = '10000000-0000-4000-8000-0000000000d2' where membership_id = '30000000-0000-4000-8000-0000000000d1';
+set local role authenticated;
+select is(api.create_need_draft('clave-need-00000020',
+  pg_temp.hash_for('RBC', 'AB_POS', 4, '22222222-2222-4222-8222-2222222222a1', 10, 'Normal', 24),
+  'RBC', 'AB_POS', 4, '22222222-2222-4222-8222-2222222222a1', 10, 'Normal', 24) ->> 'kind', 'forbidden',
+  'el replay de una creación del hospital anterior no se entrega tras cambiar de hospital');
+reset role;
+update app.hospital_memberships set hospital_id = '10000000-0000-4000-8000-0000000000d1' where membership_id = '30000000-0000-4000-8000-0000000000d1';
+set local role authenticated;
+select is(api.create_need_draft('clave-need-00000020',
+  pg_temp.hash_for('RBC', 'AB_POS', 4, '22222222-2222-4222-8222-2222222222a1', 10, 'Normal', 24),
+  'RBC', 'AB_POS', 4, '22222222-2222-4222-8222-2222222222a1', 10, 'Normal', 24) ->> 'kind', 'replayed', 'con el hospital original el replay vuelve a funcionar');
+
+-- Límites de tasa por actor: antes de reclamar la clave y sin consumirse en un replay.
+reset role;
+insert into app.rate_limit_events (bucket, subject)
+  select 'need:create', encode(extensions.digest('00000000-0000-4000-8000-0000000000d2', 'sha256'), 'hex') from generate_series(1, 30);
+insert into app.rate_limit_events (bucket, subject)
+  select 'need:transition', encode(extensions.digest('00000000-0000-4000-8000-0000000000d2', 'sha256'), 'hex') from generate_series(1, 60);
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000d2', 'aal2');
+select is(api.create_need_draft('clave-need-00000030', pg_temp.hash_for('RBC', 'A_POS', 2, '22222222-2222-4222-8222-2222222222b1', 10, 'Normal', 5),
+  'RBC', 'A_POS', 2, '22222222-2222-4222-8222-2222222222b1', 10, 'Normal', 5) ->> 'kind', 'rate_limited', 'agotado el cupo de creación, una creación nueva es rate_limited');
+select is(api.create_need_draft('clave-need-00000010', pg_temp.hash_for('RBC', 'A_POS', 3, '22222222-2222-4222-8222-2222222222b1', 25, 'Normal', 24),
+  'RBC', 'A_POS', 3, '22222222-2222-4222-8222-2222222222b1', 25, 'Normal', 24) ->> 'kind', 'replayed', 'el replay no consume ni exige cupo');
+select is((select count(*)::int from app.idempotency_records where idem_key = 'clave-need-00000030'), 0, 'rate_limited no deja registro de idempotencia');
+create temp table b_need as select (api.list_own_needs(10) #>> '{items,0,needId}')::uuid as id;
+grant select on b_need to authenticated;
+select is(api.transition_own_need('clave-trans-0000030', pg_temp.hash_transition((select id from b_need), 'cancelada'),
+  (select id from b_need), 'cancelada') ->> 'kind', 'rate_limited', 'agotado el cupo de transiciones, una transición nueva es rate_limited');
+
+-- Aislamiento por la propia base (sin pasar por las RPC).
+reset role;
+select throws_ok($$insert into app.needs (hospital_id, site_id, created_by, component, required_blood_type, target_confirmations, radius_km, urgency, expires_at)
+  values ('10000000-0000-4000-8000-0000000000d1', '22222222-2222-4222-8222-2222222222b1', '00000000-0000-4000-8000-0000000000d1', 'RBC', 'O_NEG', 1, 1, 'Normal', now() + interval '1 day')$$,
+  '23503', null, 'la clave foránea compuesta impide una sede de otro hospital incluso para el propietario de la base');
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000d1', 'aal2');
+select is(pg_temp.rows_changed($$insert into app.needs (hospital_id, site_id, created_by, component, required_blood_type, target_confirmations, radius_km, urgency, status, expires_at)
+  values ('10000000-0000-4000-8000-0000000000d1', '22222222-2222-4222-8222-2222222222a1', '00000000-0000-4000-8000-0000000000d1', 'RBC', 'O_NEG', 1, 1, 'Normal', 'activa', now() + interval '1 day')$$), -1,
+  'un admin no inserta una necesidad con estado distinto del inicial (status no es insertable)');
+select is(pg_temp.rows_changed($$insert into app.needs (hospital_id, site_id, created_by, component, required_blood_type, target_confirmations, radius_km, urgency, expires_at)
+  values ('10000000-0000-4000-8000-0000000000d1', '22222222-2222-4222-8222-2222222222a1', '00000000-0000-4000-8000-0000000000d2', 'RBC', 'O_NEG', 1, 1, 'Normal', now() + interval '1 day')$$), -1,
+  'un admin no inserta una necesidad atribuida a otro actor (created_by)');
+select is(pg_temp.rows_changed($$insert into app.needs (hospital_id, site_id, created_by, component, required_blood_type, target_confirmations, radius_km, urgency, expires_at)
+  values ('10000000-0000-4000-8000-0000000000d1', '22222222-2222-4222-8222-2222222222a2', '00000000-0000-4000-8000-0000000000d1', 'RBC', 'O_NEG', 1, 1, 'Normal', now() + interval '1 day')$$), -1,
+  'la política impide una necesidad sobre una sede inactiva');
+select is(pg_temp.rows_changed($$update app.needs set hospital_id = '10000000-0000-4000-8000-0000000000d2' where need_id = '50000000-0000-4000-8000-0000000000e1'$$), -1,
+  'hospital_id no es actualizable');
 
 -- Escrituras directas bajo RLS ----------------------------------------------------------------------------------
 select pg_temp.login('00000000-0000-4000-8000-0000000000d1', 'aal2');
