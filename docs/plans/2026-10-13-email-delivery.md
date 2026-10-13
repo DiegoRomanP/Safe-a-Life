@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | Implementado; revisiones independientes pendientes (ver §5) |
+| Estado | Cerrado el 2026-10-13 bajo la autonomía concedida (ver §8) |
 | Fecha | 2026-10-13 |
 | Rama | `feat/backend-developing` |
 | Especificación | `docs/plans/2026-10-12-especificacion-faltante-backend.md` §6 F4 y C-1; ADR-005 |
@@ -70,6 +70,17 @@
 - **D-11: Bruno** firma los cuerpos desde el runner (el sandbox de Bruno no calcula HMAC); un JSON inválido
   firmado no es comprobable en Bruno porque reescribe el cuerpo, así que allí se prueba una forma inválida.
   El JSON inválido firmado sí se prueba en las pruebas unitarias e integración.
+- **D-12 (hallazgos de la primera ronda).** (a) `worker_record_attempt` reaplica, en orden de llegada, los eventos
+  del proveedor ya guardados para el id que acaba de conocer: un `delivered` que llega antes de registrar el intento
+  ya no se pierde. (b) El claim devuelve `notAfter` y el procesador no envía pasado ese instante aunque el reclamo
+  fuera válido (queda para el barrido de vencimiento). (c) Lote por defecto de 5 y lease de 120 s (5 × 10 s caben).
+  (d) El webhook declara también 429 (la renovación de la sesión técnica puede topar con el límite de Auth).
+  (e) El gateway descarta la sesión técnica y reintenta una vez ante un 401. (f) `WORKER_PASSWORD` ≥ 12
+  caracteres; `redirect: 'error'` en la llamada a Resend; `svix-id` > 255 es 400; producción rechaza
+  `EMAIL_PROVIDER=fake`. (g) Tests: lease agotado, evento temprano, reparto real de 6 + 6 entre dos workers.
+- **Aislamiento de pruebas:** la prueba de revocación de membresía de F2a no restauraba el estado y vitest cambia el
+  orden de los archivos entre ejecuciones; ahora la restaura y `need-records` fija el suyo. Los códigos TOTP ya
+  usados se recuerdan entre archivos (`backend/.local/totp-windows.json`).
 - **Rendimiento de las pruebas:** `readLocalSupabase` se cachea por proceso; la suite de integración pasó de
   varios minutos a menos de 2.
 
@@ -78,20 +89,45 @@
 | Comando | Resultado |
 | --- | --- |
 | `npm run typecheck` | verde |
-| `npm test` | verde (594 pruebas del backend, más mock y web) |
-| `npm run test:backend:db` | 270 pruebas pgTAP en verde (69 de `04_email_delivery`) |
-| `npm run test:backend:integration` | 130 pruebas en verde (26 de `email-delivery`) |
+| `npm test` | verde (598 pruebas del backend, más mock y web) |
+| `npm run test:backend:db` | 277 pruebas pgTAP en verde (76 de `04_email_delivery`) |
+| `npm run test:backend:integration` | 131 pruebas en verde (27 de `email-delivery`) |
 | `npm run test:bruno:backend` | 6 solicitudes del webhook en verde, más platform, hospital, superadmin y need-records |
-| `npm run test:contract` | 72 pruebas en verde (370 errores y 476 casos) |
+| `npm run test:contract` | 72 pruebas en verde (371 errores y 477 casos) |
 | `openapi:api:check`, generador | verdes |
 
 ## 5. Revisiones independientes
 
-Pendientes. No se afirma ningún PASS hasta que ocurra.
+Primera ronda (2026-10-13), subagentes de contexto separado, solo lectura, sobre `3715c38..7e59e28`:
+
+- `reviewer-back`: **PASS condicionado** (sin bloqueantes). Mayores: 1) un evento del webhook anterior al registro
+  del id del proveedor se perdía; 2) el procesador no volvía a comprobar `not_after` antes de enviar. Menores: lease
+  de 60 s menor que el peor caso de un lote, 429 no declarado en el webhook, huecos de prueba (lease agotado,
+  reparto real entre workers, tope de 5 min del incierto), `invalidate()` sin uso.
+- `security-privacy-auditor`: **PASS con condiciones** (sin críticos ni altos). Medios: M-1 (igual que el mayor 1) y
+  M-2 (la API conserva `WORKER_PASSWORD` y un worker comprometido puede destruir el correo pendiente). Bajos: el
+  worker exige secretos que no usa, retención, click-tracking de Resend, calidad menor. Confirmó sin hallazgo:
+  el rol `worker` se resuelve de tabla protegida, `app.user_email` no permite enumerar, firma sobre cuerpo crudo
+  en tiempo constante, cifrado AES-256-GCM con AAD y ausencia de PII en logs.
+
+Correcciones: ver D-12. No existe una segunda revisión de estas correcciones: **no se afirma ningún PASS posterior**.
 
 ## 6. Pendientes conocidos
 
-- Purga de `email_webhook_events` y de `email_attempts` antiguos (con el worker de purgas, F7).
+- **M-2 (riesgo aceptado, mejora pendiente):** una identidad restringida solo a `ingest_email_event` para el
+  webhook (rol `webhook`) reduciría el radio de impacto de la credencial que la API conserva; exige un nuevo valor
+  del enum de roles, otro usuario técnico y su configuración. Hasta entonces la API y el worker comparten la
+  identidad `worker` (D-8). Quien obtenga esa credencial puede agotar o marcar correos del outbox.
+- **Configuración por proceso:** el worker exige `SUPABASE_SERVICE_ROLE_KEY` y los secretos de la API porque
+  comparten `parseEnv`; un `parseWorkerEnv` los dejaría fuera. La API recibe `RESEND_API_KEY` aunque solo usa el
+  secreto del webhook.
+- **Despliegue:** desactivar el seguimiento de clics y aperturas en el dominio de Resend (reescribiría el enlace y
+  expondría el token del fragmento); aprovisionar la fila `worker` de `app.user_accounts` en producción.
+- **Retención:** purga de `email_webhook_events` y `email_attempts` con el worker de purgas (F7), conservando
+  `event_id` más tiempo que la ventana de 300 s; considerar anular `recipient_user_id` al finalizar.
+- **Seis resultados «inciertos» seguidos** a 30 s (2,5 min) agotan el tope antes de la ventana de 5 min: la fila
+  queda `fallido` aunque el correo pueda haberse entregado y, sin `provider_message_id`, los eventos no la
+  correlacionan. Es inherente a la spec.
 - Producir y encolar correos reales: F2b, F5, F6, F7. El estado de entrega de la invitación y el reintento manual
   (`retryInvitationDelivery`) llegan con F6.
 - Verificar en staging: la URL del webhook en Resend detrás del rewrite de Vercel (cabecera de borde) y un envío
@@ -102,3 +138,10 @@ Pendientes. No se afirma ningún PASS hasta que ocurra.
 
 - 2026-10-13: contrato C-1, dominio, plantillas, remitentes, migración, pgTAP, aplicación, worker, webhook,
   integración y Bruno contra el backend real.
+- 2026-10-13: primera ronda de revisión (reviewer-back PASS condicionado, seguridad PASS con condiciones) y remediación.
+
+## 8. Cierre
+
+Cerrado el 2026-10-13 bajo la autonomía concedida por la persona usuaria (trabajar hasta completar el backend y dejar
+sin implementar lo que no corresponda decidir). Queda a su decisión: la excepción `app.user_email` (D-2), el riesgo
+M-2 y la identidad restringida del webhook.
