@@ -52,6 +52,8 @@ export function backendEnvFor(local: LocalSupabase, overrides: Record<string, st
     ALLOWED_ORIGINS: 'http://127.0.0.1:5173',
     WORKER_EMAIL: SEED_USERS.worker.email,
     WORKER_PASSWORD: DEMO_PASSWORD,
+    API_TECHNICAL_EMAIL: SEED_USERS.apiTechnical.email,
+    API_TECHNICAL_PASSWORD: DEMO_PASSWORD,
     TRUSTED_PROXIES: '',
     ...overrides,
   };
@@ -59,7 +61,7 @@ export function backendEnvFor(local: LocalSupabase, overrides: Record<string, st
 
 export const DEMO_PASSWORD = 'Demo-Password-Sintetica-2026';
 
-export type SeedRole = 'donante' | 'admin_hospitalario' | 'superadmin' | 'worker';
+export type SeedRole = 'donante' | 'admin_hospitalario' | 'superadmin' | 'worker' | 'api_technical';
 
 export interface SeedUser {
   readonly email: string;
@@ -90,4 +92,5 @@ export const SEED_USERS = Object.freeze({
   donor1: { email: 'donor1@example.test', role: 'donante', mfa: false },
   donor2: { email: 'donor2@example.test', role: 'donante', mfa: false },
   worker: { email: 'worker@example.test', role: 'worker', mfa: false },
+  apiTechnical: { email: 'api-technical@example.test', role: 'api_technical', mfa: false },
 } satisfies Record<string, SeedUser>);

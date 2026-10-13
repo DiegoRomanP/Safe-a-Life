@@ -7,7 +7,7 @@ import { startBackend, type RunningBackend } from '../support/app.js';
 import { ApiClient, observed } from '../support/client.js';
 import { undeclaredStatuses } from '../support/contract-statuses.js';
 import { resetAuthQuota, sql } from '../support/db.js';
-import { HOSPITAL_IDS, readLocalSupabase, SEED_USERS } from '../support/local-env.js';
+import { DEMO_PASSWORD, HOSPITAL_IDS, readLocalSupabase, SEED_USERS } from '../support/local-env.js';
 import { workerConfig } from '../support/worker.js';
 
 const REGISTER = '/api/v1/donor-registrations';
@@ -724,6 +724,27 @@ describe('las RPC con hash de token o id de usuario no son ejecutables por un cl
       if (response.status === 200) expect(((await response.json()) as { kind?: string }).kind, name).toBe('forbidden');
       else expect(response.status, name).toBeGreaterThanOrEqual(400);
     }
+  });
+});
+
+describe('identidades técnicas separadas (F4 M-2)', () => {
+  const kindOf = async (name: string, args: Record<string, unknown>, token: string) =>
+    ((await (await rpc(name, args, token)).json()) as { kind?: string }).kind;
+
+  it('la identidad de la API no opera el outbox y la del worker no emite tokens de acción', async () => {
+    const apiToken = await accessTokenFor(SEED_USERS.apiTechnical.email, DEMO_PASSWORD);
+    const workerToken = await accessTokenFor(SEED_USERS.worker.email, DEMO_PASSWORD);
+    const hash = 'a'.repeat(64);
+    const setup = { p_user_id: randomUUID(), p_token_hash: hash, p_outbox_id: randomUUID(), p_sealed: 'x'.repeat(40) };
+
+    expect(await kindOf('worker_claim_due_outbox', { p_limit: 5 }, apiToken)).toBe('forbidden');
+    expect(await kindOf('worker_expire_outbox', {}, apiToken)).toBe('forbidden');
+    expect(await kindOf('issue_password_setup', setup, workerToken)).toBe('forbidden');
+    expect(await kindOf('verify_donor_email', { p_token_hash: hash }, workerToken)).toBe('forbidden');
+    expect(await kindOf('ingest_email_event', { p_event_id: 'evt-sep', p_provider_message_id: 'prov-sep', p_type: 'email.sent', p_occurred_at: new Date().toISOString() }, workerToken)).toBe('forbidden');
+    // Controles: cada identidad sí ejecuta lo suyo.
+    expect(await kindOf('issue_password_setup', setup, apiToken)).toBe('conflict');
+    expect(await kindOf('worker_claim_due_outbox', { p_limit: 5 }, workerToken)).toBe('ok');
   });
 });
 
