@@ -19,10 +19,11 @@ const methods = new Set(['get', 'put', 'post', 'delete', 'options', 'head', 'pat
 // non-health operation, and the specific 403/409/422 that the backend really returns): 322 / 427.
 // Second review round adds 29 more (429, 500, the 403 of createSession and two 422): 351 / 456.
 // F4 (2026-10-13) adds receiveResendWebhook (1 empty 204, 1 body, 6 errors incl. the 429 of the technical session): 72 operations, 371 errors.
+// F2b (2026-10-13) declares 19 more errors on its five operations: 390 / 496.
 // Third review round adds 4 more (403 of csrf-token and session, 400 of the health pair): 355 / 460.
 // F3 (2026-10-13) adds 10 more (400, 429 and 503 on the need list/get/transition and 429/503 on the create): 365 / 470.
 // Updating coverage requires explicit review; never derive it from the candidate.
-const expected = { operations: 72, json: 69, empty: 3, bodies: 27, variants: 34, variantCollections: 16, errors: 371 };
+const expected = { operations: 72, json: 69, empty: 3, bodies: 27, variants: 34, variantCollections: 16, errors: 390 };
 
 // Reviewed E2/E3 coverage fixture (method, path template, operationId), not a second
 // contract: NO payloads, schemas or behavior. Never derive/refresh it from the

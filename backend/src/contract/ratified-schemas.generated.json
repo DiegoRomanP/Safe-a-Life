@@ -3,6 +3,52 @@
   "$id": "https://save-a-life.invalid/schemas/ratified-operations.json",
   "$comment": "Generated from docs/openapi.json for every operation with x-ratification.status = ratified-for-implementation.",
   "operations": {
+    "claimHospitalAdminInvitation": {
+      "method": "post",
+      "path": "/api/v1/hospital-admin-invitation-actions/{token}/claim",
+      "body": "ClaimHospitalAdminInvitationBody",
+      "query": "ClaimHospitalAdminInvitationQuery",
+      "params": "ClaimHospitalAdminInvitationPath",
+      "headers": null,
+      "success": {
+        "status": "201",
+        "def": "ClaimHospitalAdminInvitationSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "403",
+        "404",
+        "409",
+        "410",
+        "422",
+        "429",
+        "500",
+        "503"
+      ]
+    },
+    "completePasswordReset": {
+      "method": "post",
+      "path": "/api/v1/auth/password-reset-actions/{token}",
+      "body": "CompletePasswordResetBody",
+      "query": "CompletePasswordResetQuery",
+      "params": "CompletePasswordResetPath",
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "CompletePasswordResetSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "403",
+        "404",
+        "409",
+        "410",
+        "422",
+        "429",
+        "500",
+        "503"
+      ]
+    },
     "createHospital": {
       "method": "post",
       "path": "/api/v1/superadmin/hospitals",
@@ -193,6 +239,27 @@
         "503"
       ]
     },
+    "getHospitalAdminInvitationPreview": {
+      "method": "get",
+      "path": "/api/v1/hospital-admin-invitation-actions/{token}",
+      "body": null,
+      "query": "GetHospitalAdminInvitationPreviewQuery",
+      "params": "GetHospitalAdminInvitationPreviewPath",
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "GetHospitalAdminInvitationPreviewSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "403",
+        "404",
+        "410",
+        "429",
+        "500",
+        "503"
+      ]
+    },
     "getLiveness": {
       "method": "get",
       "path": "/health/live",
@@ -264,6 +331,28 @@
         "400",
         "401",
         "403",
+        "429",
+        "500",
+        "503"
+      ]
+    },
+    "inviteHospitalAdmin": {
+      "method": "post",
+      "path": "/api/v1/superadmin/hospital-admin-invitations",
+      "body": "InviteHospitalAdminBody",
+      "query": "InviteHospitalAdminQuery",
+      "params": null,
+      "headers": null,
+      "success": {
+        "status": "202",
+        "def": "InviteHospitalAdminSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "409",
+        "422",
         "429",
         "500",
         "503"
@@ -435,6 +524,25 @@
         "503"
       ]
     },
+    "requestPasswordRecovery": {
+      "method": "post",
+      "path": "/api/v1/auth/password-recovery-requests",
+      "body": "RequestPasswordRecoveryBody",
+      "query": "RequestPasswordRecoveryQuery",
+      "params": null,
+      "headers": null,
+      "success": {
+        "status": "202",
+        "def": "RequestPasswordRecoverySuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "403",
+        "429",
+        "500",
+        "503"
+      ]
+    },
     "revokeHospitalMembership": {
       "method": "patch",
       "path": "/api/v1/superadmin/memberships/{membershipId}",
@@ -599,6 +707,61 @@
         "donante",
         "admin_hospitalario",
         "superadmin"
+      ]
+    },
+    "AdminInvitationClaimRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "password"
+      ],
+      "properties": {
+        "password": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 128
+        }
+      }
+    },
+    "AdminInvitationPreviewEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "hospitalName",
+            "role",
+            "expiresAt"
+          ],
+          "properties": {
+            "hospitalName": {
+              "type": "string",
+              "maxLength": 160
+            },
+            "role": {
+              "type": "string",
+              "const": "admin_hospitalario"
+            },
+            "expiresAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      },
+      "examples": [
+        {
+          "data": {
+            "hospitalName": "Hospital Demo",
+            "role": "admin_hospitalario",
+            "expiresAt": "2026-10-02T18:00:00Z"
+          }
+        }
       ]
     },
     "AuditEvent": {
@@ -779,6 +942,58 @@
         "AB_NEG",
         "AB_POS"
       ]
+    },
+    "ClaimHospitalAdminInvitationBody": {
+      "$ref": "#/$defs/AdminInvitationClaimRequest"
+    },
+    "ClaimHospitalAdminInvitationPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "token": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 256,
+          "writeOnly": true
+        }
+      },
+      "required": [
+        "token"
+      ]
+    },
+    "ClaimHospitalAdminInvitationQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "ClaimHospitalAdminInvitationSuccess": {
+      "$ref": "#/$defs/AuthSessionEnvelope"
+    },
+    "CompletePasswordResetBody": {
+      "$ref": "#/$defs/PasswordResetRequest"
+    },
+    "CompletePasswordResetPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "token": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 256,
+          "writeOnly": true
+        }
+      },
+      "required": [
+        "token"
+      ]
+    },
+    "CompletePasswordResetQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "CompletePasswordResetSuccess": {
+      "$ref": "#/$defs/NeutralMessageEnvelope"
     },
     "ConfigurationEnvelope": {
       "type": "object",
@@ -1074,6 +1289,29 @@
     "GetCurrentSessionSuccess": {
       "$ref": "#/$defs/AuthSessionEnvelope"
     },
+    "GetHospitalAdminInvitationPreviewPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "token": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 256,
+          "writeOnly": true
+        }
+      },
+      "required": [
+        "token"
+      ]
+    },
+    "GetHospitalAdminInvitationPreviewQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "GetHospitalAdminInvitationPreviewSuccess": {
+      "$ref": "#/$defs/AdminInvitationPreviewEnvelope"
+    },
     "GetHospitalPath": {
       "type": "object",
       "additionalProperties": false,
@@ -1265,6 +1503,36 @@
           }
         }
       ]
+    },
+    "InviteHospitalAdminBody": {
+      "$ref": "#/$defs/InviteHospitalAdminRequest"
+    },
+    "InviteHospitalAdminQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "InviteHospitalAdminRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "email",
+        "hospitalId"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 254
+        },
+        "hospitalId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "InviteHospitalAdminSuccess": {
+      "$ref": "#/$defs/NeutralMessageEnvelope"
     },
     "ListAuditEventsQuery": {
       "type": "object",
@@ -1741,6 +2009,35 @@
         }
       }
     },
+    "NeutralMessageEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "message"
+          ],
+          "properties": {
+            "message": {
+              "type": "string",
+              "maxLength": 240
+            }
+          }
+        }
+      },
+      "examples": [
+        {
+          "data": {
+            "message": "Si la solicitud puede procesarse, recibirás instrucciones."
+          }
+        }
+      ]
+    },
     "OwnHospitalSite": {
       "type": "object",
       "additionalProperties": false,
@@ -1806,6 +2103,34 @@
         }
       }
     },
+    "PasswordRecoveryRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "email"
+      ],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 254
+        }
+      }
+    },
+    "PasswordResetRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "newPassword"
+      ],
+      "properties": {
+        "newPassword": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 128
+        }
+      }
+    },
     "ReceiveResendWebhookBody": {
       "$ref": "#/$defs/ResendWebhookEvent"
     },
@@ -1841,6 +2166,17 @@
     },
     "ReceiveResendWebhookSuccess": {
       "const": null
+    },
+    "RequestPasswordRecoveryBody": {
+      "$ref": "#/$defs/PasswordRecoveryRequest"
+    },
+    "RequestPasswordRecoveryQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "RequestPasswordRecoverySuccess": {
+      "$ref": "#/$defs/NeutralMessageEnvelope"
     },
     "ResendWebhookEvent": {
       "type": "object",
