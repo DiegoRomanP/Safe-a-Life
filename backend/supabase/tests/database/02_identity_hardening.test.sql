@@ -41,7 +41,7 @@ select is((select array_agg(p.proname::text order by p.proname) from pg_proc p j
   'anon solo ejecuta las RPC públicas de la allowlist (las de tokens las ejecuta el backend con su sesión técnica)');
 select is((select array_agg(p.proname::text order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'api' and p.prosecdef),
-  array['consume_password_reset', 'consume_rate_limit', 'get_admin_invitation_preview', 'ingest_email_event', 'invite_hospital_admin', 'link_admin_account', 'readiness', 'record_public_idempotency', 'request_password_recovery', 'worker_claim_due_outbox', 'worker_delete_inert_user', 'worker_expire_outbox', 'worker_record_attempt', 'worker_revoke_sessions'],
+  array['consume_email_change', 'consume_password_reset', 'consume_rate_limit', 'create_assisted_signup', 'get_admin_invitation_preview', 'get_assisted_activation_preview', 'get_assisted_signup_recipient', 'get_donor_verification_preview', 'get_email_change_preview', 'ingest_email_event', 'invite_hospital_admin', 'issue_assisted_activation', 'link_admin_account', 'link_assisted_account', 'link_donor_account', 'readiness', 'record_public_idempotency', 'reissue_assisted_link', 'reissue_donor_verification', 'request_password_recovery', 'sync_assisted_signup_status', 'verify_donor_email', 'worker_claim_due_outbox', 'worker_delete_inert_user', 'worker_expire_outbox', 'worker_record_attempt', 'worker_revoke_sessions'],
   'las únicas funciones SECURITY DEFINER de api son las de la allowlist');
 
 -- record_public_idempotency (DEFINER, anon) -------------------------------------------------------------
