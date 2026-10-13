@@ -20,6 +20,7 @@ import { registerNeedsRoutes } from './modules/need-records/http/needs.router.js
 import { createWebhookIngester } from './modules/email-delivery/application/ingest-webhook.js';
 import { createOutboxRpcGateway } from './modules/email-delivery/infrastructure/outbox-rpc-gateway.js';
 import { registerResendWebhookRoutes } from './modules/email-delivery/http/resend-webhook.router.js';
+import { createTechnicalInvoker } from './shared/persistence/technical-rpc.js';
 import { createTechnicalSession } from './shared/auth/technical-session.js';
 import { createReadinessRpcGateway } from './modules/platform/infrastructure/readiness-rpc-gateway.js';
 import { registerHealthRoutes } from './modules/platform/http/health.router.js';
@@ -67,12 +68,25 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
     keys: hmacKeys,
     loginFailureFloorMs: 400,
   });
+  // Sesión técnica (rol `worker`, V13): la usan el webhook firmado y las RPC públicas de tokens de acción, que el cliente
+  // anónimo no puede ejecutar.
+  const technicalSession = createTechnicalSession({
+    signIn: () => sessions.signIn(config.worker.email, config.worker.password),
+    refresh: (refreshToken) => sessions.refresh(refreshToken),
+  });
+  const technicalRpc = createTechnicalInvoker(rpc, () => technicalSession.accessToken(), () => technicalSession.invalidate());
+  const webhookIngester = config.email.resendWebhookSecret === undefined
+    ? undefined
+    : createWebhookIngester({
+      gateway: createOutboxRpcGateway(rpc, () => technicalSession.accessToken(), () => technicalSession.invalidate()),
+      secret: config.email.resendWebhookSecret,
+    });
+
   const actionTokens = createActionTokensService({
-    repository: createActionTokensRpcGateway(rpc),
+    repository: createActionTokensRpcGateway(rpc, technicalRpc),
     sessions,
     admin: createSupabaseAuthAdmin(config),
     limiter: identity.limiter,
-    publicKeys: identity.publicKeys,
     keys: hmacKeys,
     seal: (outboxId, payload) => sealEmailPayload(config.secrets.outboxKeyring, outboxId, payload),
     hospitalName: async (accessToken, hospitalId) => (await institutionsRepository.getHospital(accessToken, hospitalId)).publicName,
@@ -82,18 +96,6 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
     cursor: config.secrets.cursor,
     allowedOrigins: config.allowedOrigins,
   };
-
-  // El webhook firmado necesita la sesión técnica (rol `worker`) para llamar a ingest_email_event (V13).
-  const technicalSession = createTechnicalSession({
-    signIn: () => sessions.signIn(config.worker.email, config.worker.password),
-    refresh: (refreshToken) => sessions.refresh(refreshToken),
-  });
-  const webhookIngester = config.email.resendWebhookSecret === undefined
-    ? undefined
-    : createWebhookIngester({
-      gateway: createOutboxRpcGateway(rpc, () => technicalSession.accessToken(), () => technicalSession.invalidate()),
-      secret: config.email.resendWebhookSecret,
-    });
 
   return Object.freeze({
     // Rutas con cuerpo crudo (webhook firmado): van antes de `express.json`.

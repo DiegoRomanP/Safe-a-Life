@@ -1,9 +1,12 @@
-import { asString, closedRecord } from '../../../shared/persistence/guards.js';
+import { asNullableString, asString, closedRecord } from '../../../shared/persistence/guards.js';
 import type { RpcInvoker } from '../../../shared/persistence/rpc-invoker.js';
 import type { ActionTokensRepository } from '../application/action-tokens.ports.js';
 
-/** Adaptador RPC de tokens de acción: nombres de función SQL y argumentos `p_*` viven solo aquí. */
-export function createActionTokensRpcGateway(rpc: RpcInvoker): ActionTokensRepository {
+/**
+ * Adaptador RPC de tokens de acción: nombres de función SQL y argumentos `p_*` viven solo aquí. `rpc` llama con el
+ * JWT del usuario (invitar, vincular); `technical` con el de la sesión técnica (vista previa, recuperación, reset).
+ */
+export function createActionTokensRpcGateway(rpc: RpcInvoker, technical: RpcInvoker): ActionTokensRepository {
   return {
     async inviteAdmin(accessToken, { key, hash }, command) {
       await rpc({
@@ -16,9 +19,12 @@ export function createActionTokensRpcGateway(rpc: RpcInvoker): ActionTokensRepos
     },
 
     async adminInvitationPreview(tokenHash) {
-      const reply = await rpc({ accessToken: null, name: 'get_admin_invitation_preview', okKinds: ['ok'], args: { p_token_hash: tokenHash } });
-      const row = closedRecord(reply, ['kind', 'hospitalName', 'expiresAt', 'email']);
-      return Object.freeze({ hospitalName: asString(row.hospitalName), expiresAt: asString(row.expiresAt), email: asString(row.email) });
+      const reply = await technical({ accessToken: null, name: 'get_admin_invitation_preview', okKinds: ['ok'], args: { p_token_hash: tokenHash } });
+      const row = closedRecord(reply, ['kind', 'hospitalName', 'expiresAt', 'email', 'orphanUserId']);
+      return Object.freeze({
+        hospitalName: asString(row.hospitalName), expiresAt: asString(row.expiresAt), email: asString(row.email),
+        orphanUserId: asNullableString(row.orphanUserId),
+      });
     },
 
     async linkAdminAccount(accessToken, { key, hash }, tokenHash) {
@@ -31,14 +37,17 @@ export function createActionTokensRpcGateway(rpc: RpcInvoker): ActionTokensRepos
     },
 
     async requestRecovery(command) {
-      await rpc({
+      await technical({
         accessToken: null, name: 'request_password_recovery', okKinds: ['ok'],
-        args: { p_email: command.email, p_token_hash: command.tokenHash, p_outbox_id: command.outboxId, p_sealed: command.sealed },
+        args: {
+          p_email: command.email, p_token_hash: command.tokenHash, p_outbox_id: command.outboxId, p_sealed: command.sealed,
+          p_actor_ref: command.actorRef, p_key: command.key, p_hash: command.hash,
+        },
       });
     },
 
     async consumePasswordReset(tokenHash) {
-      const reply = await rpc({ accessToken: null, name: 'consume_password_reset', okKinds: ['ok'], args: { p_token_hash: tokenHash } });
+      const reply = await technical({ accessToken: null, name: 'consume_password_reset', okKinds: ['ok'], args: { p_token_hash: tokenHash } });
       const row = closedRecord(reply, ['kind', 'userId']);
       return Object.freeze({ userId: asString(row.userId) });
     },

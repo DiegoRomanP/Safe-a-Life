@@ -5,21 +5,22 @@ import { ApiError } from '../../../shared/http/errors.js';
 import type { SignUpResult, TokenPair } from '../../../shared/auth/session-ports.js';
 import type { ActionTokensRepository, AdminInvitationPreview } from './action-tokens.ports.js';
 import { createActionTokensService } from './action-tokens-service.js';
-import type { KeyOutcome } from './identity.ports.js';
 
 const TOKEN = 'tok_canario_abcdefghijklmnop0123456789ABCDE';
 const HOSPITAL = '11111111-1111-4111-8111-111111111101';
 const OUTBOX = '70000000-0000-4000-8000-000000000001';
 const PAIR: TokenPair = { accessToken: 'at-nuevo', refreshToken: 'rt-nuevo', expiresIn: 600 };
-const PREVIEW: AdminInvitationPreview = { hospitalName: 'Hospital Demo Uno', expiresAt: '2026-10-16T12:00:00.000000Z', email: 'invitado@example.test' };
+const PREVIEW: AdminInvitationPreview = { hospitalName: 'Hospital Demo Uno', expiresAt: '2026-10-16T12:00:00.000000Z', email: 'invitado@example.test', orphanUserId: null };
 
 function harness(options: {
   signUp?: SignUpResult; preview?: AdminInvitationPreview | Error; linkError?: Error; allowed?: (bucket: string) => boolean;
-  keyOutcome?: KeyOutcome; hospitalError?: Error; updateError?: Error; consumeError?: Error;
+  hospitalError?: Error; updateError?: Error; consumeError?: Error; signUps?: SignUpResult[]; failRevokeAt?: number[];
 } = {}) {
   const calls: string[] = [];
   const sleeps: number[] = [];
-  const seen = { invite: [] as unknown[], recovery: [] as unknown[], sealed: [] as unknown[], signUp: [] as unknown[], buckets: [] as string[] };
+  const seen = { invite: [] as unknown[], recovery: [] as unknown[], sealed: [] as unknown[], signUp: [] as unknown[], buckets: [] as Array<[string, number, number]> };
+  let revokes = 0;
+  let signUpCalls = 0;
   const repository: ActionTokensRepository = {
     inviteAdmin: async (...args) => { calls.push('inviteAdmin'); seen.invite.push(args); },
     adminInvitationPreview: async () => { calls.push('preview'); if (options.preview instanceof Error) throw options.preview; return options.preview ?? PREVIEW; },
@@ -30,7 +31,11 @@ function harness(options: {
   const service = createActionTokensService({
     repository,
     sessions: {
-      signUp: async (email, password) => { calls.push('signUp'); seen.signUp.push([email, password]); return options.signUp === undefined ? PAIR : options.signUp; },
+      signUp: async (email, password) => {
+        calls.push('signUp'); seen.signUp.push([email, password]);
+        if (options.signUps) return options.signUps[signUpCalls++] ?? PAIR;
+        return options.signUp === undefined ? PAIR : options.signUp;
+      },
       signOut: async (_token, scope) => { calls.push(`signOut:${scope}`); },
       verifyAccessToken: async () => ({ userId: 'u-nuevo', sessionId: 's', aal: 'aal1', amr: [] }),
     },
@@ -38,10 +43,9 @@ function harness(options: {
       updatePassword: async () => { calls.push('updatePassword'); if (options.updateError) throw options.updateError; },
       updateEmail: async () => undefined,
       deleteUser: async (id) => { calls.push(`deleteUser:${id}`); },
-      revokeAllSessions: async () => { calls.push('revokeAllSessions'); },
+      revokeAllSessions: async () => { calls.push('revokeAllSessions'); revokes += 1; if (options.failRevokeAt?.includes(revokes)) throw new Error('canario-auth'); },
     },
-    limiter: { consume: async (bucket) => { seen.buckets.push(bucket); return { allowed: options.allowed?.(bucket) ?? true, retryAfterSeconds: 33 }; } },
-    publicKeys: { record: async () => { calls.push('record'); return options.keyOutcome ?? 'ok'; } },
+    limiter: { consume: async (bucket, _subject, limit, window) => { seen.buckets.push([bucket, limit, window]); return { allowed: options.allowed?.(bucket) ?? true, retryAfterSeconds: 33 }; } },
     keys: deriveHmacKeyring('integration-email-hmac-sintetico-02'),
     seal: (outboxId, payload) => { seen.sealed.push([outboxId, payload]); return 'v1.k1.cifrado'; },
     hospitalName: async () => { if (options.hospitalError) throw options.hospitalError; return 'Hospital Demo Uno'; },
@@ -120,6 +124,28 @@ describe('claimAdminInvitation', () => {
     expect(calls).toEqual(['preview', 'signUp', 'link', 'deleteUser:u-nuevo', 'signOut:local']);
   });
 
+  it('un usuario inerte de Auth que ocupa el correo se reemplaza: se elimina y se repite el registro', async () => {
+    const { service, calls } = harness({ preview: { ...PREVIEW, orphanUserId: 'u-huerfano' }, signUps: ['exists', PAIR] });
+
+    const { view } = await claim(service);
+
+    expect(calls).toEqual(['preview', 'signUp', 'deleteUser:u-huerfano', 'signUp', 'link']);
+    expect(view.mfaRequired).toBe(true);
+  });
+
+  it('si tras reemplazar al huérfano el correo sigue ocupado, es 409', async () => {
+    const { service } = harness({ preview: { ...PREVIEW, orphanUserId: 'u-huerfano' }, signUps: ['exists', 'exists'] });
+
+    await expect(claim(service)).rejects.toMatchObject({ code: 'STATE_CONFLICT' });
+  });
+
+  it('un correo ocupado por una cuenta con vida propia (sin huérfano) nunca se elimina', async () => {
+    const { service, calls } = harness({ signUp: 'exists' });
+
+    await expect(claim(service)).rejects.toMatchObject({ code: 'STATE_CONFLICT' });
+    expect(calls.some((call) => call.startsWith('deleteUser'))).toBe(false);
+  });
+
   it('el límite por IP responde 429 con Retry-After antes de tocar nada', async () => {
     const { service, calls } = harness({ allowed: () => false });
 
@@ -139,9 +165,25 @@ describe('requestPasswordRecovery', () => {
     await request(missing.service, 'no-existe@example.test');
 
     expect(existing.calls).toEqual(missing.calls);
-    expect(existing.calls).toEqual(['record', 'requestRecovery']);
-    expect(existing.seen.recovery[0]).toEqual({ email: 'existe@example.test', tokenHash: hashToken(TOKEN), outboxId: OUTBOX, sealed: 'v1.k1.cifrado' });
+    expect(existing.calls).toEqual(['requestRecovery']);
+    const [command] = existing.seen.recovery as Array<Record<string, string>>;
+    expect(command).toMatchObject({ email: 'existe@example.test', tokenHash: hashToken(TOKEN), outboxId: OUTBOX, sealed: 'v1.k1.cifrado', key: 'clave-de-prueba-0001' });
+    expect(command.actorRef).toMatch(/^email:[0-9a-f]{64}$/);
+    expect(command.hash).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify(existing.seen.recovery)).not.toContain(TOKEN);
+  });
+
+  it('el hash de idempotencia depende del correo normalizado: la misma clave con otro correo no coincide', async () => {
+    const a = harness();
+    const b = harness();
+
+    await request(a.service, 'uno@example.test');
+    await request(b.service, 'otro@example.test');
+
+    const [first] = a.seen.recovery as Array<{ hash: string; actorRef: string }>;
+    const [second] = b.seen.recovery as Array<{ hash: string; actorRef: string }>;
+    expect(first.hash).not.toBe(second.hash);
+    expect(first.actorRef).not.toBe(second.actorRef);
   });
 
   it('iguala el tiempo con un piso de 150 ms', async () => {
@@ -152,29 +194,22 @@ describe('requestPasswordRecovery', () => {
     expect(sleeps).toEqual([150]);
   });
 
-  it('aplica límites por IP y por correo (HMAC) y responde 429 sin llamar a la RPC', async () => {
+  it('aplica 10 por IP cada 15 min y 3 por correo (HMAC) por hora, y responde 429 sin llamar a la RPC', async () => {
     const limited = harness({ allowed: (bucket) => bucket !== 'recovery:email' });
 
     await expect(request(limited.service)).rejects.toMatchObject({ code: 'RATE_LIMITED', retryAfterSeconds: 33 });
-    expect(limited.seen.buckets).toEqual(['recovery:ip', 'recovery:email']);
+    expect(limited.seen.buckets).toEqual([['recovery:ip', 10, 900], ['recovery:email', 3, 3600]]);
     expect(limited.calls).toEqual([]);
-  });
-
-  it('la misma clave con otra intención es 409', async () => {
-    const { service, calls } = harness({ keyOutcome: 'payload_conflict' });
-
-    await expect(request(service)).rejects.toMatchObject({ code: 'STATE_CONFLICT' });
-    expect(calls).toEqual(['record']);
   });
 });
 
 describe('completePasswordReset', () => {
-  it('consume el token, cambia la contraseña y revoca las sesiones, en ese orden', async () => {
+  it('consume el token, revoca las sesiones ANTES de cambiar la contraseña y revoca otra vez después', async () => {
     const { service, calls } = harness();
 
     await service.completePasswordReset(TOKEN, 'otra-contrasena-larga');
 
-    expect(calls).toEqual(['consume', 'updatePassword', 'revokeAllSessions']);
+    expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'revokeAllSessions']);
   });
 
   it('un token inválido no toca Auth', async () => {
@@ -184,10 +219,25 @@ describe('completePasswordReset', () => {
     expect(calls).toEqual(['consume']);
   });
 
-  it('si Auth rechaza la contraseña no se revocan las sesiones y el error se propaga', async () => {
+  it('si Auth rechaza la contraseña las sesiones ya estaban revocadas y el error se propaga', async () => {
     const { service, calls } = harness({ updateError: new ApiError('VALIDATION_FAILED') });
 
     await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
-    expect(calls).toEqual(['consume', 'updatePassword']);
+    expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword']);
+  });
+
+  it('si la primera revocación falla no se cambia la contraseña (falla cerrado)', async () => {
+    const { service, calls } = harness({ failRevokeAt: [1] });
+
+    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).rejects.toThrow();
+    expect(calls).toEqual(['consume', 'revokeAllSessions']);
+  });
+
+  it('un fallo de la segunda revocación se reintenta una vez y no convierte el reset en error', async () => {
+    const { service, calls } = harness({ failRevokeAt: [2] });
+
+    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).resolves.toBeUndefined();
+
+    expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'revokeAllSessions', 'revokeAllSessions']);
   });
 });

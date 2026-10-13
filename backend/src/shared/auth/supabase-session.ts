@@ -1,5 +1,6 @@
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
 import type { AppConfig } from '../../config/env.js';
+import { ApiError } from '../http/errors.js';
 import { PersistenceUnavailableError, UpstreamRateLimitedError } from '../persistence/errors.js';
 import { parseClaims } from './claims.js';
 import type { MfaFactorSummary, SessionGateway, TokenPair, TotpEnrollment, VerifiedClaims } from './session-ports.js';
@@ -99,6 +100,8 @@ export function createSupabaseSessionGateway(
       const { data, error } = await newClient().auth.signUp({ email, password });
       assertNotRateLimited(error);
       if (error?.code === 'user_already_exists' || error?.code === 'email_exists') return 'exists';
+      // La política de contraseñas de Auth es un error de validación del valor, no una caída del servicio.
+      if (error?.code === 'weak_password') throw new ApiError('VALIDATION_FAILED');
       return unavailableOr(error, error ? null : toPair(data.session));
     },
 
