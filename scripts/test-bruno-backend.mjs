@@ -141,6 +141,11 @@ async function donorVars() {
   // Cuenta distinta para el registro con un correo existente: reemitir la verificación invalida el token anterior.
   const existingEmail = await createDonorAccount(donorPassword);
 
+  // Cuenta con el correo verificado y la contraseña ya fijada: es la que completa el onboarding (la anterior queda con la
+  // contraseña pendiente, como tras verificar un autorregistro).
+  const onboardEmail = await createDonorAccount(donorPassword);
+  sql(`insert into app.donor_profiles (donor_id, status, email_verified_at) select id, 'incompleto', now() from auth.users where email = '${onboardEmail}'`);
+
   const claimEmail = `bruno-alta-${suffix}@example.test`;
   const signupId = sql(`insert into app.assisted_signups (hospital_id, email, name, activation_expires_at, purge_at)
     values ('11111111-1111-4111-8111-111111111101', '${claimEmail}', 'Persona Reclamada', now() + interval '24 hours', now() + interval '30 days') returning signup_id`).split('\n')[0];
@@ -153,7 +158,7 @@ async function donorVars() {
     select '${hash(changeToken)}', 'cambio_email', id, '${JSON.stringify({ sealedEmail })}'::jsonb, now() + interval '24 hours' from auth.users where email = '${changeEmail}'`);
 
   return {
-    donorPassword, verifyEmail, existingEmail, verifyToken, claimToken, changeToken, changeNewEmail,
+    donorPassword, verifyEmail, onboardEmail, existingEmail, verifyToken, claimToken, changeToken, changeNewEmail,
     regEmail: `bruno-registro-${suffix}@example.test`, unknownToken: randomBytes(32).toString('base64url'),
   };
 }

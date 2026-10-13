@@ -19,6 +19,8 @@ const SIGNUPS = '/api/v1/hospitals/me/assisted-signups';
 const PROFILE = '/api/v1/donors/me/profile';
 const ONBOARDING = '/api/v1/donors/me/onboarding-profile';
 const PASSWORD = 'contrasena-donante-2026';
+const NEW_PASSWORD = 'contrasena-fijada-2026';
+const RESET = (token: string) => `/api/v1/auth/password-reset-actions/${token}`;
 const LIMA = { latitude: -12.046, longitude: -77.043 };
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
 
@@ -49,14 +51,19 @@ const register = (email: string, password = PASSWORD, key?: string, client: ApiC
 const createSignup = (email: string, name?: string, client: ApiClient = admin1, key?: string) =>
   client.send('POST', SIGNUPS, { body: { email, ...(name ? { name } : {}) }, ...(key ? { key } : {}) });
 
-/** Autorregistro completo hasta tener la sesión de un donante con el correo verificado (perfil incompleto). */
+/**
+ * Autorregistro completo hasta tener la sesión de un donante con el correo verificado (perfil incompleto): tras verificar,
+ * el dueño del buzón fija su contraseña con el enlace de recuperación y entra con la nueva.
+ */
 async function verifiedDonor(): Promise<{ email: string; client: ApiClient }> {
   const email = emailFor('donante');
   expect((await register(email)).status).toBe(202);
   const { token } = latestSealed('verificacion_email', email);
   expect((await anonymous().send('POST', VERIFY(token))).status).toBe(200);
+  const setup = latestSealed('recuperacion', email);
+  expect((await anonymous().send('POST', RESET(setup.token), { body: { newPassword: NEW_PASSWORD } })).status).toBe(200);
   const client = anonymous();
-  const login = await client.login(email, { password: PASSWORD });
+  const login = await client.login(email, { password: NEW_PASSWORD });
   expect(login.status).toBe(200);
   return { email, client };
 }
@@ -81,7 +88,7 @@ async function rpc(name: string, args: Record<string, unknown>, token?: string):
 
 
 /** Token de acceso de un usuario del Auth local (para llamar a PostgREST sin pasar por el backend). */
-async function accessTokenFor(email: string, password = PASSWORD): Promise<string> {
+async function accessTokenFor(email: string, password = NEW_PASSWORD): Promise<string> {
   const local = readLocalSupabase();
   const body = await fetch(`${local.apiUrl}/auth/v1/token?grant_type=password`, {
     method: 'POST', headers: { apikey: local.publishableKey, 'content-type': 'application/json' }, body: JSON.stringify({ email, password }),
@@ -118,6 +125,41 @@ describe('autorregistro y verificación de correo', () => {
     expect(second.text).toBe(reference.text);
     expect(sql("select count(*) from app.email_outbox where kind = 'verificacion_email'")).toBe(String(Number(before) + 1));
     expect((await anonymous().login(email, { password: 'otra-contrasena-2026' })).status).toBe(401);
+  });
+
+  it('quien registró el correo de otra persona no completa el perfil: al verificar se cierran sus sesiones y el dueño fija otra contraseña', async () => {
+    const email = emailFor('ajeno');
+    expect((await register(email)).status).toBe(202);
+    const attacker = anonymous();
+    expect((await attacker.login(email, { password: PASSWORD })).status).toBe(200);
+    expect(Number(sql(`select count(*) from auth.sessions where user_id = (select id from auth.users where email = '${email}')`))).toBeGreaterThan(0);
+
+    const verified = await anonymous().send('POST', VERIFY(latestSealed('verificacion_email', email).token));
+
+    expect(verified.status).toBe(200);
+    expect(verified.text).not.toContain(email);
+    expect(sql(`select count(*) from auth.sessions where user_id = (select id from auth.users where email = '${email}')`)).toBe('0');
+    expect(sql(`select password_setup_required from app.donor_profiles where donor_id = (select id from auth.users where email = '${email}')`)).toBe('t');
+    const setup = latestSealed('recuperacion', email);
+
+    // Con la contraseña que conoce, quien registró puede entrar, pero no completar el perfil, ni por la API ni por la base.
+    const again = anonymous();
+    expect((await again.login(email, { password: PASSWORD })).status).toBe(200);
+    expect((await onboard(again)).status).toBe(409);
+    const attackerToken = await accessTokenFor(email, PASSWORD);
+    const direct = await rpc('complete_own_onboarding', {
+      p_key: randomUUID(), p_hash: 'x', p_name: 'Intruso', p_blood_type: 'O_POS', p_available: true, p_latitude: -12.046, p_longitude: -77.043, p_polygon_version: 'DEMO_ONLY-1',
+    }, attackerToken);
+    expect(JSON.stringify(await direct.json())).not.toContain('"activo"');
+    expect(sql(`select status from app.donor_profiles where donor_id = (select id from auth.users where email = '${email}')`)).toBe('incompleto');
+
+    // El dueño del buzón fija su contraseña: la anterior deja de valer y el bloqueo se levanta.
+    expect((await anonymous().send('POST', RESET(setup.token), { body: { newPassword: NEW_PASSWORD } })).status).toBe(200);
+    expect((await anonymous().login(email, { password: PASSWORD })).status).toBe(401);
+    const owner = anonymous();
+    expect((await owner.login(email, { password: NEW_PASSWORD })).status).toBe(200);
+    expect(sql(`select password_setup_required from app.donor_profiles where donor_id = (select id from auth.users where email = '${email}')`)).toBe('f');
+    expect((await onboard(owner)).status).toBe(200);
   });
 
   it('registrarse de nuevo con un correo sin verificar reenvía el enlace al buzón (el anterior deja de valer) con la misma respuesta', async () => {
@@ -319,7 +361,7 @@ describe('perfil propio del donante', () => {
     await onboard(client);
     const local = readLocalSupabase();
     const login = await fetch(`${local.apiUrl}/auth/v1/token?grant_type=password`, {
-      method: 'POST', headers: { apikey: local.publishableKey, 'content-type': 'application/json' }, body: JSON.stringify({ email, password: PASSWORD }),
+      method: 'POST', headers: { apikey: local.publishableKey, 'content-type': 'application/json' }, body: JSON.stringify({ email, password: NEW_PASSWORD }),
     }).then((response) => response.json() as Promise<{ access_token: string }>);
 
     const patch = await fetch(`${local.apiUrl}/rest/v1/donor_profiles`, {
@@ -610,8 +652,8 @@ describe('cambio de correo', () => {
     // Las sesiones se eliminan; el access token ya emitido vale hasta su vencimiento (≤ 600 s, ADR-004), pero no se puede renovar.
     expect(sql(`select count(*) from auth.sessions where user_id = '${userId}'`)).toBe('0');
     expect(client.cookies.size).toBeGreaterThan(0);
-    expect((await anonymous().login(email, { password: PASSWORD })).status).toBe(401);
-    expect((await anonymous().login(newEmail, { password: PASSWORD })).status).toBe(200);
+    expect((await anonymous().login(email, { password: NEW_PASSWORD })).status).toBe(401);
+    expect((await anonymous().login(newEmail, { password: NEW_PASSWORD })).status).toBe(200);
   });
 
   it('un correo nuevo que ya tiene cuenta es 409 y la cuenta no cambia', async () => {
@@ -662,7 +704,7 @@ describe('las RPC con hash de token o id de usuario no son ejecutables por un cl
     const { email } = await verifiedDonor();
     const local = readLocalSupabase();
     const token = (await fetch(`${local.apiUrl}/auth/v1/token?grant_type=password`, {
-      method: 'POST', headers: { apikey: local.publishableKey, 'content-type': 'application/json' }, body: JSON.stringify({ email, password: PASSWORD }),
+      method: 'POST', headers: { apikey: local.publishableKey, 'content-type': 'application/json' }, body: JSON.stringify({ email, password: NEW_PASSWORD }),
     }).then((response) => response.json()) as { access_token: string }).access_token;
     const hash = 'a'.repeat(64);
     const calls: Array<[string, Record<string, unknown>]> = [
