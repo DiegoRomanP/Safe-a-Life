@@ -41,7 +41,7 @@ select is((select array_agg(p.proname::text order by p.proname) from pg_proc p j
   'anon solo ejecuta consume_rate_limit, readiness y record_public_idempotency');
 select is((select array_agg(p.proname::text order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'api' and p.prosecdef),
-  array['consume_rate_limit', 'readiness', 'record_public_idempotency'],
+  array['consume_rate_limit', 'ingest_email_event', 'readiness', 'record_public_idempotency', 'worker_claim_due_outbox', 'worker_expire_outbox', 'worker_record_attempt'],
   'las únicas funciones SECURITY DEFINER de api son las de la allowlist');
 
 -- record_public_idempotency (DEFINER, anon) -------------------------------------------------------------
