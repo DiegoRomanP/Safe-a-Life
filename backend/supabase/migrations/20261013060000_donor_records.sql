@@ -43,6 +43,9 @@ create table app.donor_profiles (
   location_polygon_version text check (location_polygon_version is null or char_length(location_polygon_version) <= 40),
   status text not null default 'pendiente_verificacion' check (status in ('pendiente_verificacion', 'incompleto', 'activo')),
   email_verified_at timestamptz,
+  -- Verdadero tras verificar un autorregistro: quien registró el correo conoce la contraseña, no necesariamente el dueño del
+  -- buzón. Hasta que el dueño fije una contraseña nueva por el enlace de recuperación no se puede completar el perfil.
+  password_setup_required boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz,
   check ((latitude is null) = (longitude is null)),
@@ -122,6 +125,9 @@ begin
   if current_user <> 'authenticated' then return new; end if;
   if new.donor_id <> old.donor_id or new.created_at <> old.created_at or new.email_verified_at is distinct from old.email_verified_at then
     raise exception 'donor_profile_immutable' using errcode = '42501';
+  end if;
+  if old.password_setup_required then
+    raise exception 'donor_profile_password_pending' using errcode = '42501';
   end if;
   if old.status = 'pendiente_verificacion' then
     raise exception 'donor_profile_unverified' using errcode = '42501';
@@ -250,11 +256,16 @@ begin
   update app.donor_profiles
   set email_verified_at = coalesce(email_verified_at, now()),
       status = case when status = 'pendiente_verificacion' then 'incompleto' else status end,
+      password_setup_required = password_setup_required or email_verified_at is null,
       updated_at = now()
   where donor_id = v_token.subject_id
   returning * into v_profile;
   perform app.d_audit('donante.correo_verificado', 'user', v_token.subject_id, 'sistema');
-  return jsonb_build_object('kind', 'ok', 'status', v_profile.status, 'emailVerified', true);
+  -- El backend usa `userId` y `email` (nunca van por HTTP) para cerrar las sesiones anteriores y enviar el enlace con el que
+  -- el dueño del buzón fija su contraseña.
+  return jsonb_build_object('kind', 'ok', 'status', v_profile.status, 'emailVerified', true,
+    'userId', v_token.subject_id, 'email', lower(coalesce(app.user_email(v_token.subject_id), '')),
+    'passwordSetupRequired', v_profile.password_setup_required);
 end;
 $$;
 
@@ -626,7 +637,7 @@ begin
   v_claim := app.peek_idempotency('user:' || auth.uid()::text, 'completeDonorOnboarding', p_key, p_hash);
   if v_claim is not null then return v_claim; end if;
   -- Ya activo, o sin correo verificado: no se completa el onboarding.
-  if v_profile.status <> 'incompleto' then return jsonb_build_object('kind', 'conflict'); end if;
+  if v_profile.status <> 'incompleto' or v_profile.password_setup_required then return jsonb_build_object('kind', 'conflict'); end if;
 
   v_claim := app.claim_idempotency('user:' || auth.uid()::text, 'completeDonorOnboarding', p_key, p_hash);
   if v_claim is not null then return v_claim; end if;
@@ -734,6 +745,52 @@ begin
 end;
 $$;
 
+
+-- ---------------------------------------------------------------------------
+-- Fijar la contraseña tras verificar un autorregistro (solo la sesión técnica del backend)
+-- ---------------------------------------------------------------------------
+
+-- Emite el enlace de recuperación que verifica el dueño del buzón. Solo vale mientras el perfil exige fijar la contraseña.
+create function api.issue_password_setup(p_user_id uuid, p_token_hash text, p_outbox_id uuid, p_sealed text) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_profile app.donor_profiles;
+begin
+  if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
+  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if p_user_id is null or p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' or p_outbox_id is null
+     or p_sealed is null or char_length(p_sealed) not between 20 and 4000 then
+    return jsonb_build_object('kind', 'invalid');
+  end if;
+  select * into v_profile from app.donor_profiles where donor_id = p_user_id for update;
+  if not found or not v_profile.password_setup_required then return jsonb_build_object('kind', 'conflict'); end if;
+
+  -- Misma serialización que la recuperación de contraseña: un solo enlace vigente por cuenta.
+  perform pg_advisory_xact_lock(hashtextextended('recovery:' || p_user_id::text, 0));
+  update app.action_tokens set invalidated_at = now()
+  where kind = 'recuperacion' and subject_id = p_user_id and consumed_at is null and invalidated_at is null;
+  insert into app.action_tokens (token_hash, kind, subject_id, expires_at)
+  values (p_token_hash, 'recuperacion', p_user_id, now() + interval '1 hour');
+  perform app.enqueue_email(p_outbox_id, 'recuperacion', null, null, p_sealed, now() + interval '1 hour');
+  perform app.d_audit('donante.contrasena_pendiente', 'user', p_user_id, 'sistema');
+  return jsonb_build_object('kind', 'ok');
+end;
+$$;
+
+-- Lo llama el backend DESPUÉS de cambiar la contraseña en Auth con éxito; levanta el bloqueo del perfil.
+create function api.confirm_password_setup(p_user_id uuid) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+begin
+  if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
+  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
+  if p_user_id is null then return jsonb_build_object('kind', 'invalid'); end if;
+  update app.donor_profiles set password_setup_required = false, updated_at = now()
+  where donor_id = p_user_id and password_setup_required;
+  if found then perform app.d_audit('donante.contrasena_fijada', 'user', p_user_id, 'sistema'); end if;
+  return jsonb_build_object('kind', 'ok');
+end;
+$$;
+
 -- ---------------------------------------------------------------------------
 -- Propiedad y privilegios
 -- ---------------------------------------------------------------------------
@@ -752,6 +809,8 @@ alter function api.get_assisted_signup_recipient(uuid, uuid) owner to app_privil
 alter function api.link_assisted_account(uuid, text) owner to app_privileged;
 alter function api.get_email_change_preview(text) owner to app_privileged;
 alter function api.consume_email_change(text) owner to app_privileged;
+alter function api.issue_password_setup(uuid, text, uuid, text) owner to app_privileged;
+alter function api.confirm_password_setup(uuid) owner to app_privileged;
 
 grant execute on function app.in_lima_demo_1(numeric, numeric) to app_privileged, authenticated;
 grant execute on function app.d_admin_hospital_id(), app.d_token_state(text, text), app.signup_json(uuid, text, timestamptz, timestamptz, timestamptz),
@@ -761,7 +820,8 @@ grant execute on function
   api.link_donor_account(uuid, text, uuid, text, text, text, text), api.get_donor_verification_preview(text), api.verify_donor_email(text),
   api.get_assisted_activation_preview(text), api.get_assisted_signup_recipient(uuid, uuid), api.link_assisted_account(uuid, text),
   api.issue_assisted_activation(uuid, uuid, int, text, uuid, text), api.reissue_donor_verification(text, text, uuid, text, text, text, text),
-  api.get_email_change_preview(text), api.consume_email_change(text)
+  api.get_email_change_preview(text), api.consume_email_change(text), api.issue_password_setup(uuid, text, uuid, text),
+  api.confirm_password_setup(uuid)
 to authenticated;
 grant execute on function
   api.create_assisted_signup(text, text, text, text), api.list_own_assisted_signups(int, timestamptz, uuid),

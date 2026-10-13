@@ -2,7 +2,7 @@ begin;
 -- Aislamiento: la base puede estar sembrada. Todo se revierte con el rollback.
 truncate app.assisted_signups, app.donor_profiles, app.action_tokens, app.email_outbox, app.hospital_memberships, app.hospitals, app.user_accounts cascade;
 
-select plan(164);
+select plan(182);
 
 insert into auth.users (id, instance_id, aud, role, email, created_at) values
   ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin-a@example.test', now() - interval '1 day'),
@@ -121,7 +121,8 @@ select pg_temp.login('00000000-0000-4000-8000-0000000000c1', 'aal1');
 select is(api.get_donor_verification_preview(repeat('1', 64)) ->> 'kind', 'ok', 'la técnica ve la vista previa');
 select is(api.get_donor_verification_preview(repeat('9', 64)) ->> 'kind', 'not_found', 'un token desconocido es not_found');
 select is(api.get_donor_verification_preview('no-hex') ->> 'kind', 'invalid', 'un token con formato inválido es invalid');
-select is(api.verify_donor_email(repeat('1', 64)), '{"kind": "ok", "status": "incompleto", "emailVerified": true}'::jsonb, 'verificar deja el perfil incompleto con el correo verificado');
+select is(api.verify_donor_email(repeat('1', 64)), '{"kind": "ok", "status": "incompleto", "emailVerified": true, "userId": "00000000-0000-4000-8000-0000000000d1", "email": "recien-registrado@example.test", "passwordSetupRequired": true}'::jsonb,
+  'verificar deja el perfil incompleto con el correo verificado y exige fijar la contraseña (devuelve usuario y correo solo a la sesión técnica)');
 select is(api.verify_donor_email(repeat('1', 64)) ->> 'kind', 'gone', 'el segundo consumo es gone');
 select is(api.get_donor_verification_preview(repeat('1', 64)) ->> 'kind', 'gone', 'y la vista previa también');
 reset role;
@@ -433,7 +434,47 @@ select is(api.consume_email_change((md5('c1') || md5('c1'))), '{"kind": "ok", "u
 select is(api.consume_email_change((md5('c1') || md5('c1'))) ->> 'kind', 'gone', 'el segundo consumo es gone');
 select is(api.consume_email_change(repeat('9', 64)) ->> 'kind', 'not_found', 'un token desconocido es not_found');
 reset role;
+select is((select password_setup_required from app.donor_profiles where donor_id = '00000000-0000-4000-8000-0000000000d1'), true, 'tras verificar un autorregistro el perfil exige fijar la contraseña');
 select is((select count(*)::int from app.audit_events where event = 'donante.cambio_correo' and resource_id = '00000000-0000-4000-8000-0000000000b3'), 1, 'se audita el cambio de correo');
+
+-- Contraseña pendiente tras verificar un autorregistro ----------------------------------------------------------------
+insert into auth.users (id, instance_id, aud, role, email, created_at) values
+  ('00000000-0000-4000-8000-0000000000e1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'password-pendiente@example.test', now() - interval '1 day');
+insert into app.user_accounts (user_id, role, display_name) values ('00000000-0000-4000-8000-0000000000e1', 'donante', null);
+insert into app.donor_profiles (donor_id, status, email_verified_at, password_setup_required) values ('00000000-0000-4000-8000-0000000000e1', 'incompleto', now(), true);
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000e1', 'aal1', 'password-pendiente@example.test');
+select is(api.complete_own_onboarding('clave-onb-e1-0001', pg_temp.onboarding_hash('Ana Prueba', 'O_POS', true, -12.046, -77.043), 'Ana Prueba', 'O_POS', true, -12.046, -77.043, 'DEMO_ONLY-1') ->> 'kind',
+  'conflict', 'con la contraseña pendiente no se completa el perfil');
+select throws_ok($$update app.donor_profiles set status = 'activo', name = 'Ana Prueba', declared_blood_type = 'O_POS', is_available = true, latitude = -12.046, longitude = -77.043, location_polygon_version = 'DEMO_ONLY-1' where donor_id = '00000000-0000-4000-8000-0000000000e1'$$,
+  '42501', 'donor_profile_password_pending', 'ni saltándose la RPC con un UPDATE directo');
+select is(api.issue_password_setup('00000000-0000-4000-8000-0000000000e1', (md5('p1') || md5('p1')), '70000000-0000-4000-8000-0000000000e1', repeat('s', 40)) ->> 'kind', 'forbidden', 'emitir el enlace no es para un usuario cualquiera');
+select is(api.confirm_password_setup('00000000-0000-4000-8000-0000000000e1') ->> 'kind', 'forbidden', 'ni levantar el bloqueo');
+select pg_temp.login('00000000-0000-4000-8000-0000000000c1', 'aal1');
+select is(api.issue_password_setup('00000000-0000-4000-8000-0000000000e1', (md5('p1') || md5('p1')), '70000000-0000-4000-8000-0000000000e1', repeat('s', 40)) ->> 'kind', 'ok', 'la técnica emite el enlace de recuperación');
+reset role;
+select is((select count(*)::int from app.action_tokens where kind = 'recuperacion' and subject_id = '00000000-0000-4000-8000-0000000000e1' and invalidated_at is null), 1, 'queda un token de recuperación vigente');
+select is((select count(*)::int from app.email_outbox where outbox_id = '70000000-0000-4000-8000-0000000000e1'), 1, 'y un correo en la cola');
+select is((select count(*)::int from app.audit_events where event = 'donante.contrasena_pendiente' and resource_id = '00000000-0000-4000-8000-0000000000e1'), 1, 'se audita la emisión');
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000c1', 'aal1');
+select is(api.issue_password_setup('00000000-0000-4000-8000-0000000000e1', (md5('p2') || md5('p2')), '70000000-0000-4000-8000-0000000000e2', repeat('s', 40)) ->> 'kind', 'ok', 'emitir otra vez es válido');
+reset role;
+select is((select count(*)::int from app.action_tokens where kind = 'recuperacion' and subject_id = '00000000-0000-4000-8000-0000000000e1' and invalidated_at is null), 1, 'y deja solo el último enlace vigente');
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000c1', 'aal1');
+select is(api.issue_password_setup('00000000-0000-4000-8000-0000000000e1', 'no-hex', '70000000-0000-4000-8000-0000000000e3', repeat('s', 40)) ->> 'kind', 'invalid', 'un hash con formato inválido es invalid');
+select is(api.issue_password_setup('00000000-0000-4000-8000-0000000000b3', (md5('p3') || md5('p3')), '70000000-0000-4000-8000-0000000000e4', repeat('s', 40)) ->> 'kind', 'conflict', 'a un perfil que no exige contraseña no se le emite');
+select is(api.confirm_password_setup('00000000-0000-4000-8000-0000000000e1') ->> 'kind', 'ok', 'tras cambiar la contraseña la técnica levanta el bloqueo');
+reset role;
+select is((select password_setup_required from app.donor_profiles where donor_id = '00000000-0000-4000-8000-0000000000e1'), false, 'el perfil ya no exige la contraseña');
+select is((select count(*)::int from app.audit_events where event = 'donante.contrasena_fijada' and resource_id = '00000000-0000-4000-8000-0000000000e1'), 1, 'se audita el desbloqueo');
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000e1', 'aal1', 'password-pendiente@example.test');
+select is(api.complete_own_onboarding('clave-onb-e1-0001', pg_temp.onboarding_hash('Ana Prueba', 'O_POS', true, -12.046, -77.043), 'Ana Prueba', 'O_POS', true, -12.046, -77.043, 'DEMO_ONLY-1') ->> 'kind',
+  'ok', 'ya se puede completar el perfil');
+reset role;
+select is((select status from app.donor_profiles where donor_id = '00000000-0000-4000-8000-0000000000e1'), 'activo', 'y queda activo');
 
 select * from finish();
 rollback;
