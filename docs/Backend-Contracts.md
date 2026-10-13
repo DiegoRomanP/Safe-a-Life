@@ -457,3 +457,13 @@ Estado: implementado en `backend/src/modules/donor-records`; revisiones y cierre
 Todo 429 del backend lleva `Retry-After` (decisión de la persona usuaria, 2026-10-13). Los límites que conocen la espera
 (login, MFA, registro, tokens) la envían; los que llegan de una RPC (`rate_limited`) usan el valor por defecto de 60 s del
 manejador central de errores (`DEFAULT_RETRY_AFTER_SECONDS`).
+
+## Auditoría de denegaciones (RNF-AUD-01)
+
+Además de los éxitos, cada respuesta 403 (acceso), 409 (conflicto) o 429 (límite) a un actor **autenticado** deja un evento
+`denegacion.acceso`, `denegacion.conflicto` o `denegacion.limite` con `result = 'denegado'`. El backend lo registra después de
+responder, sin esperar y sin alterar la respuesta, con la identidad técnica de la API (`api.record_denial`). El evento guarda el
+actor y la ruta con sus parámetros sin sustituir (`GET /api/v1/hospitals/me/assisted-signups`), nunca valores de la petición. Para
+que un actor no llene la tabla se deduplica por actor, evento y ruta: una fila cada 10 segundos y una por minuto para los límites
+de tasa. Las peticiones sin sesión no tienen actor y solo quedan en el registro técnico (`seguridad.rechazo`).
+

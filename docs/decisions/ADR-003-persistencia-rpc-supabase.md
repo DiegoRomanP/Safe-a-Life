@@ -159,7 +159,9 @@ otro driver ahora; su presencia no prueba que el scaffold legacy sea seguro.
    `get_assisted_activation_preview`, `issue_assisted_activation`,
    `get_assisted_signup_recipient`, `link_assisted_account`,
    `get_email_change_preview`, `consume_email_change`, y las dos de la
-   contraseña pendiente `issue_password_setup` y `confirm_password_setup`). Con la sesión del admin
+   contraseña pendiente `issue_password_setup` y `confirm_password_setup`).
+   También solo la sesión técnica de la API: `record_denial` (auditoría de
+   denegaciones). Con la sesión del admin
    (`create_assisted_signup`, `reissue_assisted_link`) el hospital solo
    registra el alta: no elige el hash del token, que emite la sesión técnica
    (el primer diseño lo permitía y un admin podía reclamar cuentas con correos
