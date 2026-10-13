@@ -107,8 +107,9 @@ bloqueantes nuevos). Condiciones y respuesta:
 - **M1** (la credencial técnica `WORKER_*` permite pedir recuperaciones saltándose los límites del backend): se añadió un
   tope por cuenta dentro de la RPC (3 enlaces por hora, sobre filas reales, con bloqueo asesor por cuenta; superado,
   responde `ok` sin crear nada) y la contraseña técnica debe tener al menos 32 caracteres en producción. **Riesgo
-  residual aceptado bajo la autonomía concedida:** quien robe `WORKER_EMAIL`/`WORKER_PASSWORD` puede, además de operar el
-  outbox, emitir hasta 3 enlaces por hora y cuenta; la mitigación operativa es guardar la credencial solo en el secreto
+  residual aceptado bajo la autonomía concedida:** quien robe `API_TECHNICAL_EMAIL`/`API_TECHNICAL_PASSWORD` (desde el
+  2026-10-13 la API usa su propio rol `api_technical` y ya no puede operar el outbox) puede emitir hasta 3 enlaces por hora
+  y cuenta; la mitigación operativa es guardar la credencial solo en el secreto
   del servicio y rotarla (ver runbook de F9). Queda a decisión de la persona usuaria si quiere más barreras.
 - **M2** (reintento de la segunda revocación): si falla también el reintento, `completePasswordReset` responde 503 en vez
   de éxito silencioso (prueba unitaria nueva); el token ya está consumido y se puede pedir otro enlace.
