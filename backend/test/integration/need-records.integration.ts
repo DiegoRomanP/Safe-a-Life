@@ -320,7 +320,7 @@ describe('createHospitalNeed', () => {
     expect((await client.send('POST', NEEDS, { body, key })).status).toBe(201);
     sql(`insert into app.needs (hospital_id, site_id, created_by, component, required_blood_type, target_confirmations, radius_km, urgency, expires_at)
       select '${HOSPITAL_IDS[1]}', '${SITE_IDS.hospital2Active}', id, 'RBC', 'O_POS', 2, 1, 'Normal', now() + interval '1 day'
-      from auth.users, generate_series(1, 30) where email = '${SEED_USERS.admin2.email}'`);
+      from auth.users, generate_series(1, 60) where email = '${SEED_USERS.admin2.email}'`);
     try {
       const replay = await client.send('POST', NEEDS, { body, key });
       const limited = await client.send('POST', NEEDS, { body: { ...body, targetConfirmations: 19 }, key: randomUUID() });

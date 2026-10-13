@@ -151,7 +151,7 @@ begin
   -- Tope por actor (protege la base y, desde F6, a los donantes de convocatorias en masa). Se cuenta sobre las
   -- necesidades realmente creadas, no en un contador externo que un tercero pudiera llenar; un replay no crea
   -- filas y por tanto no consume cupo. Va antes del claim para no dejar una clave «en curso».
-  if (select count(*) from app.needs n where n.created_by = auth.uid() and n.created_at > now() - interval '1 hour') >= 30 then
+  if (select count(*) from app.needs n where n.created_by = auth.uid() and n.created_at > now() - interval '1 hour') >= 60 then
     return jsonb_build_object('kind', 'rate_limited');
   end if;
 

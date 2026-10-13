@@ -332,11 +332,11 @@ select is(api.create_need_draft('clave-need-00000020',
 reset role;
 insert into app.needs (hospital_id, site_id, created_by, component, required_blood_type, target_confirmations, radius_km, urgency, expires_at)
   select '10000000-0000-4000-8000-0000000000d2', '22222222-2222-4222-8222-2222222222b1', '00000000-0000-4000-8000-0000000000d2',
-         'RBC', 'O_POS', 1, 1, 'Normal', now() + interval '1 day' from generate_series(1, 30);
+         'RBC', 'O_POS', 1, 1, 'Normal', now() + interval '1 day' from generate_series(1, 60);
 set local role authenticated;
 select pg_temp.login('00000000-0000-4000-8000-0000000000d2', 'aal2');
 select is(api.create_need_draft('clave-need-00000030', pg_temp.hash_for('RBC', 'A_POS', 2, '22222222-2222-4222-8222-2222222222b1', 10, 'Normal', 5),
-  'RBC', 'A_POS', 2, '22222222-2222-4222-8222-2222222222b1', 10, 'Normal', 5) ->> 'kind', 'rate_limited', 'con 30 creaciones en la última hora, una creación nueva es rate_limited');
+  'RBC', 'A_POS', 2, '22222222-2222-4222-8222-2222222222b1', 10, 'Normal', 5) ->> 'kind', 'rate_limited', 'con 60 creaciones en la última hora, una creación nueva es rate_limited');
 select is(api.create_need_draft('clave-need-00000010', pg_temp.hash_for('RBC', 'A_POS', 3, '22222222-2222-4222-8222-2222222222b1', 25, 'Normal', 24),
   'RBC', 'A_POS', 3, '22222222-2222-4222-8222-2222222222b1', 25, 'Normal', 24) ->> 'kind', 'replayed', 'el replay no crea filas, así que no consume ni exige cupo');
 select is((select count(*)::int from app.idempotency_records where idem_key = 'clave-need-00000030'), 0, 'rate_limited no deja registro de idempotencia');

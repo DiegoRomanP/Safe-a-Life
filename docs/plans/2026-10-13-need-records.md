@@ -44,7 +44,7 @@ autorizado. Las dos mutaciones exigen además `Origin`, CSRF e `Idempotency-Key`
 
 ## 3. Decisiones y desviaciones a documentar
 
-- **D-1 (necesita tu aprobación): catálogo de errores de `createHospitalNeed`.** La spec y
+- **D-1 (ratificado el 2026-10-13): catálogo de errores de `createHospitalNeed`.** La spec y
   `Backend-Contracts.md` fijaban «400/401/403/409/422/500, sin 404 ni 429». Pero los
   middlewares globales de `/api` pueden responder 429 (límite de renovación de sesión) y
   503 (base o Auth no disponibles) en cualquier ruta, incluida esta, y la prueba de
@@ -88,7 +88,7 @@ autorizado. Las dos mutaciones exigen además `Origin`, CSRF e `Idempotency-Key`
 - **D-10: `confirmedIntentCount` vale 0** hasta F6; entonces se reemplaza `app.need_json`.
 - **D-12 (hallazgos de la primera ronda): endurecimiento.** (a) Activar un borrador exige
   sede activa y aprobada (409 si no). (b) El replay de la creación no se entrega si el
-  hospital guardado difiere del actual (`forbidden`). (c) Tope de creación por actor: 30 por hora, contado sobre las necesidades realmente creadas
+  hospital guardado difiere del actual (`forbidden`). (c) Tope de creación por actor: 60 por hora (la persona usuaria lo fijó en 60 el 2026-10-13; antes 30), contado sobre las necesidades realmente creadas
   (`created_by` y `created_at` en la última hora) dentro de la RPC, que cubre al llamador
   directo de PostgREST. Se evaluó primero un contador con `api.consume_rate_limit`, pero un
   tercero que conozca el UUID de un admin podría llenar su cupo (el sujeto es un hash sin
@@ -188,8 +188,8 @@ condicionado en la primera ronda y no se ha vuelto a ejecutar.
 
 El 2026-10-13 la persona usuaria pidió trabajar de forma autónoma hasta completar el backend,
 dejando sin implementar lo que no me corresponda decidir. Con esa instrucción se cierra F3 sin
-una aprobación explícita del módulo. Quedan abiertas, y se le presentarán al final del trabajo,
-las decisiones que sí le pertenecen: D-1 (429 y 503 en el catálogo de `createHospitalNeed`), el
-número del tope de creación (30 por hora) y los pendientes de §6. Revisiones: `reviewer-back`
+una aprobación explícita del módulo. La persona usuaria ratificó después D-1 (429 y 503 declarados en
+`createHospitalNeed`) y fijó el tope de creación en 60 por hora; ver `2026-10-13-decisiones-backend.md`. Siguen abiertos
+los pendientes de §6. Revisiones: `reviewer-back`
 FAIL → PASS acotado (dos rondas) y `security-privacy-auditor` PASS condicionado (una ronda);
 las correcciones posteriores a la segunda ronda no las ha visto un revisor independiente.
