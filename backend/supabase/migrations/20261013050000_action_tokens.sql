@@ -82,12 +82,16 @@ $$;
 -- app_privileged no puede acceder. Cada una hace una sola cosa y tiene EXECUTE restringido.
 -- ---------------------------------------------------------------------------
 
-create function app.user_id_by_email(p_email text) returns uuid
+-- `p_min_age`: solo cuentas creadas hace más de ese tiempo (una cuenta recién creada puede ser el registro en curso del
+-- propio invitado y no debe tratarse como huérfana).
+create function app.user_id_by_email(p_email text, p_min_age interval default interval '0') returns uuid
 language sql stable security definer set search_path = '' as $$
-  select u.id from auth.users u where lower(u.email) = lower(p_email) limit 1
+  select u.id from auth.users u
+  where lower(u.email) = lower(p_email) and u.deleted_at is null and coalesce(u.created_at, '-infinity'::timestamptz) <= now() - p_min_age
+  limit 1
 $$;
-revoke all on function app.user_id_by_email(text) from public, anon, authenticated;
-grant execute on function app.user_id_by_email(text) to app_privileged;
+revoke all on function app.user_id_by_email(text, interval) from public, anon, authenticated;
+grant execute on function app.user_id_by_email(text, interval) to app_privileged;
 
 -- Revocación de todas las sesiones de un usuario (GoTrue no ofrece un endpoint por usuario). Solo service_role, desde
 -- el adaptador AuthAdmin (ADR-006 punto 3); los refresh tokens caen en cascada.
@@ -126,12 +130,13 @@ begin
     return jsonb_build_object('kind', 'invalid');
   end if;
 
+  -- Replay o conflicto primero (orden peek → estado → claim): un resultado guardado se devuelve aunque el hospital cambie.
+  v_claim := app.peek_idempotency('user:' || app.jwt_sub()::text, 'inviteHospitalAdmin', p_key, p_hash);
+  if v_claim is not null then return v_claim; end if;
+
   select h.is_authorized into v_authorized from app.hospitals h where h.hospital_id = p_hospital_id;
   if not found then return jsonb_build_object('kind', 'invalid'); end if;
   if not v_authorized then return jsonb_build_object('kind', 'conflict'); end if;
-
-  v_claim := app.peek_idempotency('user:' || app.jwt_sub()::text, 'inviteHospitalAdmin', p_key, p_hash);
-  if v_claim is not null then return v_claim; end if;
 
   -- Quien ya tiene cuenta de la aplicación (donante o admin) no se puede invitar como admin.
   v_user := app.user_id_by_email(p_email);
@@ -139,8 +144,16 @@ begin
     return jsonb_build_object('kind', 'conflict');
   end if;
 
+  -- Tope por superadmin (contado sobre invitaciones reales): un superadmin comprometido no puede invitar en masa.
+  if (select count(*) from app.admin_invitations i where i.created_by = app.jwt_sub() and i.created_at > now() - interval '1 hour') >= 20 then
+    return jsonb_build_object('kind', 'rate_limited');
+  end if;
+
   v_claim := app.claim_idempotency('user:' || app.jwt_sub()::text, 'inviteHospitalAdmin', p_key, p_hash);
   if v_claim is not null then return v_claim; end if;
+
+  -- Serializa invitaciones simultáneas al mismo correo para que solo quede un token vigente.
+  perform pg_advisory_xact_lock(hashtextextended('invite:' || p_email, 0));
 
   -- Una invitación nueva anula las anteriores sin consumir del mismo correo.
   update app.action_tokens t set invalidated_at = now()
@@ -167,7 +180,11 @@ declare
   v_token app.action_tokens;
   v_hospital text;
   v_email text;
+  v_user uuid;
 begin
+  -- Solo la identidad técnica del backend: quien conozca el hash de un token no debe poder consultarlo desde fuera.
+  if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
+  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
   if p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' then return jsonb_build_object('kind', 'invalid'); end if;
   select * into v_token from app.action_tokens where token_hash = p_token_hash and kind = 'invitacion_admin';
   if not found then return jsonb_build_object('kind', 'not_found'); end if;
@@ -178,8 +195,13 @@ begin
   from app.admin_invitations i join app.hospitals h on h.hospital_id = i.hospital_id
   where i.invitation_id = v_token.subject_id;
   if v_hospital is null then return jsonb_build_object('kind', 'not_found'); end if;
+  -- Un usuario de Auth con ese correo, sin cuenta de aplicación y de más de un minuto es inerte (alguien se registró antes,
+  -- o un registro a medias): quien tiene el token demostró ser dueño del buzón, así que la aplicación puede reemplazarlo.
+  -- El minuto evita borrar el registro en curso de un reclamo simultáneo del mismo invitado.
+  v_user := app.user_id_by_email(v_email, interval '1 minute');
+  if v_user is not null and exists (select 1 from app.user_accounts ua where ua.user_id = v_user) then v_user := null; end if;
   -- El correo es solo para que la aplicación cree la cuenta del invitado; la vista previa HTTP no lo muestra.
-  return jsonb_build_object('kind', 'ok', 'hospitalName', v_hospital, 'expiresAt', app.iso(v_token.expires_at), 'email', v_email);
+  return jsonb_build_object('kind', 'ok', 'hospitalName', v_hospital, 'expiresAt', app.iso(v_token.expires_at), 'email', v_email, 'orphanUserId', v_user);
 end;
 $$;
 
@@ -241,22 +263,40 @@ $$;
 -- Recuperación de contraseña
 -- ---------------------------------------------------------------------------
 
--- Pública. Responde `ok` exista o no la cuenta (la aplicación iguala además el tiempo); solo si el correo pertenece a
--- una cuenta de la aplicación se crea el token (1 h) y se encola el correo.
-create function api.request_password_recovery(p_email text, p_token_hash text, p_outbox_id uuid, p_sealed text) returns jsonb
-language plpgsql security definer set search_path = '' as $$
+-- Solo la identidad técnica del backend (el token_hash lo genera el servidor: si lo eligiera quien llama, podría
+-- apuntar a una víctima y restablecer su contraseña). Responde `ok` exista o no la cuenta (la aplicación iguala además
+-- el tiempo); solo si el correo pertenece a una cuenta de usuario final se crea el token (1 h) y se encola el correo.
+-- La idempotencia es propia: un reintento con la misma clave no genera otro token ni otro correo.
+create function api.request_password_recovery(
+  p_email text, p_token_hash text, p_outbox_id uuid, p_sealed text, p_actor_ref text, p_key text, p_hash text
+) returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
   v_email text := lower(btrim(coalesce(p_email, '')));
   v_user uuid;
+  v_claim jsonb;
+  v_reply jsonb := jsonb_build_object('kind', 'ok');
 begin
+  if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
+  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
   if char_length(v_email) > 254 or v_email !~ '^[^[:space:]@]{1,64}@[^[:space:]@]{1,190}$'
      or p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' or p_outbox_id is null
-     or p_sealed is null or char_length(p_sealed) not between 20 and 4000 then
+     or p_sealed is null or char_length(p_sealed) not between 20 and 4000
+     or p_actor_ref is null or p_actor_ref !~ '^email:[0-9a-f]{64}$'
+     or p_key is null or char_length(p_key) not between 16 and 256 or p_hash is null or p_hash !~ '^[0-9a-f]{64}$' then
     return jsonb_build_object('kind', 'invalid');
   end if;
 
+  v_claim := app.claim_idempotency(p_actor_ref, 'requestPasswordRecovery', p_key, p_hash);
+  if v_claim is not null then
+    -- Replay: la misma respuesta neutra, sin crear nada.
+    if v_claim ->> 'kind' = 'replayed' then return v_reply; end if;
+    return v_claim;
+  end if;
+
   v_user := app.user_id_by_email(v_email);
-  if v_user is not null and exists (select 1 from app.user_accounts ua where ua.user_id = v_user) then
+  -- Cuentas de usuario final (donante, admin, superadmin); la identidad técnica `worker` no se recupera por correo.
+  if v_user is not null and exists (select 1 from app.user_accounts ua where ua.user_id = v_user and ua.role <> 'worker') then
+    perform pg_advisory_xact_lock(hashtextextended('recovery:' || v_user::text, 0));
     update app.action_tokens set invalidated_at = now()
     where kind = 'recuperacion' and subject_id = v_user and consumed_at is null and invalidated_at is null;
     insert into app.action_tokens (token_hash, kind, subject_id, expires_at)
@@ -264,17 +304,21 @@ begin
     perform app.enqueue_email(p_outbox_id, 'recuperacion', null, null, p_sealed, now() + interval '1 hour');
     perform app.d_audit('recuperacion.solicitada', 'user', v_user, 'sistema');
   end if;
-  return jsonb_build_object('kind', 'ok');
+  perform app.complete_idempotency(p_actor_ref, 'requestPasswordRecovery', p_key, v_reply);
+  return v_reply;
 end;
 $$;
 
--- Consume el token de recuperación (un solo uso) y devuelve el usuario al que cambiar la contraseña. Nunca se repite:
+-- Consume el token de recuperación (un solo uso; solo la identidad técnica) y devuelve el usuario al que cambiar la
+-- contraseña. Nunca se repite:
 -- un segundo consumo es `gone` aunque la clave de idempotencia coincida (el cuerpo lleva la contraseña nueva).
 create function api.consume_password_reset(p_token_hash text) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
   v_token app.action_tokens;
 begin
+  if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
+  if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
   if p_token_hash is null or p_token_hash !~ '^[0-9a-f]{64}$' then return jsonb_build_object('kind', 'invalid'); end if;
   select * into v_token from app.action_tokens where token_hash = p_token_hash and kind = 'recuperacion' for update;
   if not found then return jsonb_build_object('kind', 'not_found'); end if;
@@ -294,13 +338,14 @@ $$;
 alter function api.invite_hospital_admin(text, text, text, uuid, text, uuid, text) owner to app_privileged;
 alter function api.get_admin_invitation_preview(text) owner to app_privileged;
 alter function api.link_admin_account(text, text, text) owner to app_privileged;
-alter function api.request_password_recovery(text, text, uuid, text) owner to app_privileged;
+alter function api.request_password_recovery(text, text, uuid, text, text, text, text) owner to app_privileged;
 alter function api.consume_password_reset(text) owner to app_privileged;
 
 grant execute on function app.jwt_claims(), app.d_step_up_fresh(interval), app.d_require(app.actor_role[], boolean, boolean),
   app.d_audit(text, text, uuid, text) to app_privileged;
 grant execute on function api.invite_hospital_admin(text, text, text, uuid, text, uuid, text), api.link_admin_account(text, text, text) to authenticated;
-grant execute on function api.get_admin_invitation_preview(text), api.request_password_recovery(text, text, uuid, text),
-  api.consume_password_reset(text) to anon, authenticated;
+-- Solo `authenticated` (la identidad técnica worker lo es); `anon` no ejecuta ninguna: el backend es la única vía.
+grant execute on function api.get_admin_invitation_preview(text), api.request_password_recovery(text, text, uuid, text, text, text, text),
+  api.consume_password_reset(text) to authenticated;
 
 insert into app.schema_version (version) values ('20261013050000');
