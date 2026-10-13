@@ -1,0 +1,19 @@
+meta {
+  name: Vista previa de la invitación
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospital-admin-invitation-actions/{{adminToken}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("muestra hospital, rol y vencimiento, nunca el correo", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(Object.keys(res.getBody().data).sort()).to.deep.equal(["expiresAt", "hospitalName", "role"]);
+    expect(JSON.stringify(res.getBody())).to.not.contain("@");
+  });
+}

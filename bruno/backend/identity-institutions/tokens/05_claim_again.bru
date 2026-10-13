@@ -1,0 +1,25 @@
+meta {
+  name: Un segundo reclamo es 410
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospital-admin-invitation-actions/{{adminToken}}/claim
+  body: json
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-claim-2
+}
+
+body:json {
+  { "password": "{{newPassword}}" }
+}
+
+tests {
+  test("el token ya consumido responde 410", function () {
+    expect(res.getStatus()).to.equal(410);
+  });
+}

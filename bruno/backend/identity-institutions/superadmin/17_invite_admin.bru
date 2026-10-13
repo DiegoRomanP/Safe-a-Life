@@ -1,0 +1,34 @@
+meta {
+  name: Invitar a un admin hospitalario
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/v1/superadmin/hospital-admin-invitations
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-invite
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {
+    "email": "bruno-invitado@example.test",
+    "hospitalId": "{{demoHospitalId}}"
+  }
+}
+
+tests {
+  test("la invitación con step-up responde 202 con un mensaje neutro", function () {
+    expect(res.getStatus()).to.equal(202);
+    expect(Object.keys(res.getBody().data)).to.deep.equal(["message"]);
+  });
+  test("el cuerpo no expone el token ni el correo", function () {
+    expect(JSON.stringify(res.getBody())).to.not.match(/bruno-invitado|token/i);
+  });
+}

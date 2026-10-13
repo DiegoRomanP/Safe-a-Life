@@ -1,0 +1,17 @@
+meta {
+  name: Un token desconocido es 404
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospital-admin-invitation-actions/{{unknownToken}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("responde 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

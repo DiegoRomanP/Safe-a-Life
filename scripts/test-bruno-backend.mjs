@@ -10,6 +10,9 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { backendEnvFor, readLocalSupabase, SEED_USERS } from '../backend/test/support/local-env.ts';
 import { totpCode } from '../backend/test/support/totp.ts';
+import { createHash } from 'node:crypto';
+import { createDonorAccount } from '../backend/test/support/accounts.ts';
+import { sql } from '../backend/test/support/db.ts';
 import { signWebhook } from '../backend/src/modules/email-delivery/application/webhook-signature.ts';
 import { WEBHOOK_SECRET, WEBHOOK_SECRET_ENV } from '../backend/test/support/worker.ts';
 
@@ -22,6 +25,7 @@ const SCENARIOS = [
   { folder: 'backend/identity-institutions/superadmin', user: SEED_USERS.superadmin.email },
   { folder: 'backend/need-records/hospital', user: SEED_USERS.admin1.email },
   { folder: 'backend/email-delivery/webhook', webhook: true },
+  { folder: 'backend/identity-institutions/tokens', tokens: true },
 ];
 
 function run(command, args) {
@@ -94,7 +98,27 @@ function webhookVars() {
   };
 }
 
-function runScenario(scenario, baseUrl, mfaCode) {
+/**
+ * El runner hace de «bandeja de entrada»: crea una invitación y un token de recuperación válidos con tokens que
+ * solo él conoce (en la base solo existe el hash) y se los pasa a Bruno, que no puede leer el outbox cifrado.
+ */
+async function tokenVars() {
+  const hash = (token) => createHash('sha256').update(token, 'utf8').digest('hex');
+  const adminToken = randomBytes(32).toString('base64url');
+  const resetToken = randomBytes(32).toString('base64url');
+  const email = `bruno-admin-${randomBytes(4).toString('hex')}@example.test`;
+  const invitationId = sql(`insert into app.admin_invitations (hospital_id, email, created_by)
+    select '11111111-1111-4111-8111-111111111101', '${email}', id from auth.users where email = 'superadmin@example.test' returning invitation_id`).split('\n')[0];
+  sql(`insert into app.action_tokens (token_hash, kind, subject_id, expires_at) values ('${hash(adminToken)}', 'invitacion_admin', '${invitationId}', now() + interval '72 hours')`);
+  const donorEmail = await createDonorAccount('Contrasena-Original-Bruno-2026');
+  // Otra cuenta para las solicitudes de recuperación: una solicitud nueva anula el token de reset ya emitido.
+  const recoveryEmail = await createDonorAccount('Contrasena-Original-Bruno-2026');
+  sql(`insert into app.action_tokens (token_hash, kind, subject_id, expires_at)
+    select '${hash(resetToken)}', 'recuperacion', id, now() + interval '1 hour' from auth.users where email = '${donorEmail}'`);
+  return { adminToken, resetToken, donorEmail, recoveryEmail, unknownToken: randomBytes(32).toString('base64url'), newPassword: 'Contrasena-Nueva-Bruno-2026' };
+}
+
+async function runScenario(scenario, baseUrl, mfaCode) {
   const key = `${path.basename(scenario.folder)}-${randomBytes(12).toString('hex')}`;
   const result = spawnSync('bru', [
     'run', scenario.folder, '-r',
@@ -103,6 +127,7 @@ function runScenario(scenario, baseUrl, mfaCode) {
     '--env-var', `idempotencyKey=${key}`,
     '--env-var', `mfaCode=${mfaCode}`,
     ...(scenario.webhook ? Object.entries(webhookVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
+    ...(scenario.tokens ? Object.entries(await tokenVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
     '--tests-only',
     '--reporter-skip-all-headers',
     '--reporter-skip-body',
@@ -134,7 +159,7 @@ try {
   await waitForServer(server, baseUrl);
 
   for (const scenario of SCENARIOS) {
-    runScenario(scenario, baseUrl, scenario.user ? await freshCode(scenario.user, secrets[scenario.user]) : '000000');
+    await runScenario(scenario, baseUrl, scenario.user ? await freshCode(scenario.user, secrets[scenario.user]) : '000000');
   }
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : 'Falló el runner Bruno del backend.'}\n`);

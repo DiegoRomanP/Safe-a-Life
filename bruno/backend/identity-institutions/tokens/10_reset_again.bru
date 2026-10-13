@@ -1,0 +1,25 @@
+meta {
+  name: El token de reset no se reutiliza
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/password-reset-actions/{{resetToken}}
+  body: json
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-reset-2
+}
+
+body:json {
+  { "newPassword": "{{newPassword}}" }
+}
+
+tests {
+  test("responde 410", function () {
+    expect(res.getStatus()).to.equal(410);
+  });
+}

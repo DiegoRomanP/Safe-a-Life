@@ -1,0 +1,26 @@
+meta {
+  name: Recuperación de una cuenta existente
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/password-recovery-requests
+  body: json
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-rec-1
+}
+
+body:json {
+  { "email": "{{recoveryEmail}}" }
+}
+
+tests {
+  test("responde 202 con el mensaje neutro", function () {
+    expect(res.getStatus()).to.equal(202);
+    bru.setVar("neutralMessage", res.getBody().data.message);
+  });
+}
