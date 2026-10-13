@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | Implementado; primera ronda de revisión corregida; cierre sin aprobar |
+| Estado | Cerrado el 2026-10-13 bajo la autonomía concedida por la persona usuaria (ver §8) |
 | Fecha | 2026-10-13 |
 | Rama | `feat/backend-developing` |
 | Especificación | `docs/plans/2026-10-12-especificacion-faltante-backend.md` §6 F3 y `docs/Need-Draft-Application-Spec.md` (V1) |
@@ -183,3 +183,13 @@ condicionado en la primera ronda y no se ha vuelto a ejecutar.
 - 2026-10-13: primera ronda de revisión (reviewer-back FAIL, seguridad PASS condicionado) y remediación.
 - 2026-10-13: ratificación de las tres operaciones, dominio, aplicación, migración,
   pgTAP, gateway, router, integración y Bruno contra el backend real.
+
+## 8. Cierre
+
+El 2026-10-13 la persona usuaria pidió trabajar de forma autónoma hasta completar el backend,
+dejando sin implementar lo que no me corresponda decidir. Con esa instrucción se cierra F3 sin
+una aprobación explícita del módulo. Quedan abiertas, y se le presentarán al final del trabajo,
+las decisiones que sí le pertenecen: D-1 (429 y 503 en el catálogo de `createHospitalNeed`), el
+número del tope de creación (30 por hora) y los pendientes de §6. Revisiones: `reviewer-back`
+FAIL → PASS acotado (dos rondas) y `security-privacy-auditor` PASS condicionado (una ronda);
+las correcciones posteriores a la segunda ronda no las ha visto un revisor independiente.
