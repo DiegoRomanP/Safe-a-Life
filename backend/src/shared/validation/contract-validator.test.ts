@@ -122,6 +122,9 @@ describe('validador genérico por operación', () => {
     expect(categoryOf(() => put.parseBody({ 'na\u0000me': 'ok' }))).toBe('shape');
     expect(categoryOf(() => compile('listThings').parseQuery({ cursor: 'a\u0000' }))).toBe('shape');
     expect(categoryOf(() => put.parseBody({ name: 'a\ud800b' }))).toBe('shape');
+    expect(categoryOf(() => put.parseBody({ name: 'a\udc00' }))).toBe('shape');
+    // Control positivo: un par sustituto válido (emoji) NO es un sustituto suelto.
+    expect(categoryOf(() => put.parseBody({ name: 'a🩸b' }))).not.toBe('shape');
     expect(categoryOf(() => put.parseParams({ thingId: '\u0000' }))).toBe('shape');
   });
 

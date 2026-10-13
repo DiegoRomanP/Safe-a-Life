@@ -1,10 +1,10 @@
 import type { Request, RequestHandler } from 'express';
-import { PersistenceError } from '../persistence/errors.js';
+import { PersistenceError, UpstreamRateLimitedError } from '../persistence/errors.js';
 import { ApiError } from '../http/errors.js';
 import { ACCESS_COOKIE, REFRESH_COOKIE, parseCookies } from '../http/cookies.js';
 import { setPrincipal, setSessionTokens } from './principal.js';
 import { clearSessionCookies, setSessionCookies } from './session-cookies.js';
-import type { ActorResolver, SessionVerifier, VerifiedClaims } from './session-ports.js';
+import type { ActorResolver, SessionVerifier, TokenPair, VerifiedClaims } from './session-ports.js';
 
 export interface AuthenticateDependencies {
   readonly verifier: SessionVerifier;
@@ -15,11 +15,15 @@ export interface AuthenticateDependencies {
    */
   readonly refreshGate?: (req: Request) => Promise<number | null>;
   /**
-   * Rutas que nunca renuevan la sesión (login y logout): un límite de renovaciones agotado no debe
-   * impedir iniciar ni cerrar sesión. Sin renovación se tratan como sin sesión y no se tocan cookies.
+   * Política de renovación por ruta (por defecto `normal`):
+   * - `skip` (login): nunca renueva; se trata como sin sesión y no se tocan cookies.
+   * - `lenient` (logout): intenta renovar para poder revocar la sesión, pero un límite agotado o un 429
+   *   del proveedor equivalen a «sin sesión» en vez de abortar: salir nunca debe quedar bloqueado.
    */
-  readonly skipRenewal?: (req: Request) => boolean;
+  readonly renewalPolicy?: (req: Request) => RenewalPolicy;
 }
+
+export type RenewalPolicy = 'normal' | 'skip' | 'lenient';
 
 /** Los refresh tokens de Supabase son cadenas opacas cortas; descartar formas imposibles sin llamar al proveedor. */
 const REFRESH_TOKEN_SHAPE = /^[A-Za-z0-9._-]{4,200}$/;
@@ -34,7 +38,7 @@ const REFRESH_TOKEN_SHAPE = /^[A-Za-z0-9._-]{4,200}$/;
  *    ambas cookies; si el refresh falla, expira las dos cookies.
  * 3. Resuelve el actor con el JWT del usuario.
  */
-export function authenticate({ verifier, actors, refreshGate, skipRenewal }: AuthenticateDependencies): RequestHandler {
+export function authenticate({ verifier, actors, refreshGate, renewalPolicy }: AuthenticateDependencies): RequestHandler {
   return async (req, res, next) => {
     try {
       const cookies = parseCookies(req.get('cookie'));
@@ -42,7 +46,8 @@ export function authenticate({ verifier, actors, refreshGate, skipRenewal }: Aut
       let refreshToken: string | undefined = cookies[REFRESH_COOKIE];
       let claims: VerifiedClaims | null = accessToken ? await verifier.verifyAccessToken(accessToken) : null;
 
-      if (!claims && skipRenewal?.(req)) {
+      const policy = renewalPolicy?.(req) ?? 'normal';
+      if (!claims && policy === 'skip') {
         next();
         return;
       }
@@ -54,8 +59,23 @@ export function authenticate({ verifier, actors, refreshGate, skipRenewal }: Aut
 
       if (!claims && refreshToken) {
         const wait = await refreshGate?.(req);
-        if (wait !== null && wait !== undefined) throw new ApiError('RATE_LIMITED', undefined, { retryAfterSeconds: wait });
-        const renewed = await verifier.refresh(refreshToken);
+        if (wait !== null && wait !== undefined) {
+          if (policy === 'lenient') {
+            next();
+            return;
+          }
+          throw new ApiError('RATE_LIMITED', undefined, { retryAfterSeconds: wait });
+        }
+        let renewed: TokenPair | null;
+        try {
+          renewed = await verifier.refresh(refreshToken);
+        } catch (error) {
+          if (policy === 'lenient' && error instanceof UpstreamRateLimitedError) {
+            next();
+            return;
+          }
+          throw error;
+        }
         claims = renewed ? await verifier.verifyAccessToken(renewed.accessToken) : null;
         if (renewed && claims) {
           accessToken = renewed.accessToken;

@@ -57,4 +57,16 @@ describe('adaptador de Supabase Auth', () => {
 
     expect(signal).toBeInstanceOf(AbortSignal);
   });
+
+  it('un Auth que no contesta dentro del plazo se aborta y se trata como no disponible (503), no como credenciales inválidas', async () => {
+    const hanging = ((_input: unknown, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init?.signal?.addEventListener('abort', () => reject(init.signal?.reason ?? new Error('abortado')));
+    })) as typeof fetch;
+    const gateway = createSupabaseSessionGateway(CONFIG, { fetch: hanging, timeoutMs: 40 });
+    const started = Date.now();
+
+    await expect(gateway.signIn('a@example.test', 'x')).rejects.toBeInstanceOf(PersistenceUnavailableError);
+
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
 });

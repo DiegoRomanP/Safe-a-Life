@@ -5,6 +5,7 @@ import { createInstitutionsService } from './modules/identity-institutions/appli
 import { createInstitutionsRpcGateway } from './modules/identity-institutions/infrastructure/institutions-rpc-gateway.js';
 import { createIdentityGateways } from './modules/identity-institutions/infrastructure/identity-rpc-gateway.js';
 import { registerAuthRoutes } from './modules/identity-institutions/http/auth.router.js';
+import { authRenewalPolicy } from './modules/identity-institutions/http/renewal-policy.js';
 import { registerInstitutionsRoutes } from './modules/identity-institutions/http/institutions.router.js';
 import { createReadinessRpcGateway } from './modules/platform/infrastructure/readiness-rpc-gateway.js';
 import { registerHealthRoutes } from './modules/platform/http/health.router.js';
@@ -62,9 +63,8 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
       app.use('/api', authenticate({
         verifier: sessions,
         actors: identity.actors,
-        // Login y logout no renuevan: un límite agotado no debe impedir entrar ni salir.
-        skipRenewal: (req) => (req.method === 'POST' && req.path === '/v1/auth/sessions')
-          || (req.method === 'DELETE' && req.path === '/v1/auth/sessions/current'),
+        // Login no renueva; logout renueva si puede (para revocar) sin que un límite lo bloquee.
+        renewalPolicy: authRenewalPolicy,
         refreshGate: async (req) => {
           const decision = await identity.limiter.consume('refresh:ip', clientIpSubject(req, ipHmac), REFRESH_LIMIT, REFRESH_WINDOW_SECONDS);
           return decision.allowed ? null : decision.retryAfterSeconds;

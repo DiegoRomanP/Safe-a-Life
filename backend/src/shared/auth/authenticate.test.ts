@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { correlationIdMiddleware } from '../http/correlation-id.js';
 import { createErrorHandler } from '../http/errors.js';
 import { PersistenceError, PersistenceUnavailableError, UpstreamRateLimitedError } from '../persistence/errors.js';
-import { authenticate } from './authenticate.js';
+import { authenticate, type RenewalPolicy } from './authenticate.js';
 import { requireSession } from './guards.js';
 import { findPrincipal } from './principal.js';
 import type { ActorInfo, ActorResolver, SessionVerifier, TokenPair, VerifiedClaims } from './session-ports.js';
@@ -24,7 +24,7 @@ function fakes(options: {
   refresh?: TokenPair | null | Error;
   actor?: ActorInfo | null | Error;
   refreshGate?: () => Promise<number | null>;
-  skipRenewal?: boolean;
+  renewal?: RenewalPolicy;
 } = {}) {
   const calls = { refresh: 0, actor: [] as string[] };
   const verifier: SessionVerifier = {
@@ -42,7 +42,7 @@ function fakes(options: {
       return options.actor === undefined ? ACTOR : options.actor;
     },
   };
-  return { calls, verifier, actors, refreshGate: options.refreshGate, skipRenewal: options.skipRenewal ? () => true : undefined };
+  return { calls, verifier, actors, refreshGate: options.refreshGate, renewalPolicy: options.renewal ? () => options.renewal as RenewalPolicy : undefined };
 }
 
 async function start(deps: ReturnType<typeof fakes>): Promise<string> {
@@ -169,10 +169,10 @@ describe('authenticate', () => {
     expect(response.status).toBe(401);
   });
 
-  it('una ruta sin renovación (login/logout) no consulta el límite ni renueva ni toca las cookies', async () => {
+  it('una ruta que no renueva (login) no consulta el límite ni renueva ni toca las cookies', async () => {
     let consulted = 0;
     const deps = fakes({
-      refresh: { accessToken: 'at-nuevo', refreshToken: 'rt-nuevo', expiresIn: 600 }, skipRenewal: true,
+      refresh: { accessToken: 'at-nuevo', refreshToken: 'rt-nuevo', expiresIn: 600 }, renewal: 'skip',
       refreshGate: async () => { consulted += 1; return 30; },
     });
 
@@ -182,5 +182,44 @@ describe('authenticate', () => {
     expect(deps.calls.refresh).toBe(0);
     expect(consulted).toBe(0);
     expect(response.headers.getSetCookie()).toHaveLength(0);
+  });
+
+  it('en una ruta lenient (logout) renueva para poder revocar cuando el límite lo permite', async () => {
+    const deps = fakes({
+      valid: new Set(['at-nuevo']), refresh: { accessToken: 'at-nuevo', refreshToken: 'rt-nuevo', expiresIn: 600 }, renewal: 'lenient',
+      refreshGate: async () => null,
+    });
+
+    const response = await fetch(await start(deps), { headers: { cookie: '__Host-sal_at=vencido; __Host-sal_rt=rt-viejo-1' } });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ token: 'at-nuevo' });
+    expect(deps.calls.refresh).toBe(1);
+  });
+
+  it('en una ruta lenient un límite agotado equivale a sin sesión, no a 429, y no llama al proveedor', async () => {
+    const deps = fakes({ refresh: { accessToken: 'x', refreshToken: 'y', expiresIn: 600 }, renewal: 'lenient', refreshGate: async () => 30 });
+
+    const response = await fetch(await start(deps), { headers: { cookie: '__Host-sal_at=vencido; __Host-sal_rt=rt-viejo-1' } });
+
+    expect(response.status).toBe(401);
+    expect(deps.calls.refresh).toBe(0);
+  });
+
+  it('en una ruta lenient un 429 del proveedor equivale a sin sesión, no a 429', async () => {
+    const deps = fakes({ refresh: new UpstreamRateLimitedError(), renewal: 'lenient' });
+
+    const response = await fetch(await start(deps), { headers: { cookie: '__Host-sal_at=vencido; __Host-sal_rt=rt-viejo-1' } });
+
+    expect(response.status).toBe(401);
+    expect(deps.calls.refresh).toBe(1);
+  });
+
+  it('en una ruta lenient un fallo no recuperable del proveedor sigue siendo 503', async () => {
+    const deps = fakes({ refresh: new PersistenceUnavailableError(), renewal: 'lenient' });
+
+    const response = await fetch(await start(deps), { headers: { cookie: '__Host-sal_at=vencido; __Host-sal_rt=rt-viejo-1' } });
+
+    expect(response.status).toBe(503);
   });
 });

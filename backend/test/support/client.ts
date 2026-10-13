@@ -7,6 +7,13 @@ import { freshTotpCode } from './totp.js';
 /** Todas las respuestas recibidas por cualquier ApiClient del proceso (para comprobar el contrato). */
 export const observed: Array<{ method: string; path: string; status: number }> = [];
 
+/** `fetch` que también registra el estado observado (para pruebas que no usan ApiClient). */
+export async function observedFetch(baseUrl: string, path: string, init: RequestInit = {}): Promise<Response> {
+  const response = await fetch(`${baseUrl}${path}`, init);
+  observed.push({ method: (init.method ?? 'GET').toUpperCase(), path: path.split('?')[0], status: response.status });
+  return response;
+}
+
 export const APP_ORIGIN = 'http://127.0.0.1:5173';
 
 export interface ApiResponse {

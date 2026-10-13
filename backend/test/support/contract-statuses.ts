@@ -29,10 +29,10 @@ function loadOperations(): readonly Operation[] {
  * Respuestas observadas durante la prueba cuyo estado HTTP la operación NO declara en
  * docs/openapi.json (el contrato debe listar todo lo que el backend puede devolver).
  */
-export function undeclaredStatuses(): string[] {
+export function undeclaredStatuses(entries: ReadonlyArray<{ method: string; path: string; status: number }> = observed): string[] {
   const operations = loadOperations();
   const problems = new Set<string>();
-  for (const { method, path, status } of observed) {
+  for (const { method, path, status } of entries) {
     const operation = operations.find((candidate) => candidate.method === method && candidate.pattern.test(path));
     if (!operation) problems.add(`${method} ${path} → ruta no declarada (${status})`);
     else if (!operation.statuses.has(String(status))) problems.add(`${method} ${operation.template} → ${status}`);
