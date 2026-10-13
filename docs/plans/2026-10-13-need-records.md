@@ -88,21 +88,27 @@ autorizado. Las dos mutaciones exigen además `Origin`, CSRF e `Idempotency-Key`
 - **D-10: `confirmedIntentCount` vale 0** hasta F6; entonces se reemplaza `app.need_json`.
 - **D-12 (hallazgos de la primera ronda): endurecimiento.** (a) Activar un borrador exige
   sede activa y aprobada (409 si no). (b) El replay de la creación no se entrega si el
-  hospital guardado difiere del actual (`forbidden`). (c) Tope por actor: 30 creaciones y 60
-  transiciones por hora, con `api.consume_rate_limit` en SQL (cubre al llamador directo de
-  PostgREST), después de `peek` y antes de `claim`, de modo que los replays no consumen cupo
-  y una respuesta `rate_limited` no deja la clave «en curso»; responde 429 `RATE_LIMITED`
-  (sin `Retry-After`: el servicio privado de la spec A2 solo devuelve un código). Se añadió
-  `RATE_LIMITED` a `NeedDraftFailureCode` y `rate_limited` a los fallos comunes de RPC. Los
-  números son una decisión mía; ajústalos si prefieres otros. (d) Las RPC validan la
+  hospital guardado difiere del actual (`forbidden`). (c) Tope de creación por actor: 30 por hora, contado sobre las necesidades realmente creadas
+  (`created_by` y `created_at` en la última hora) dentro de la RPC, que cubre al llamador
+  directo de PostgREST. Se evaluó primero un contador con `api.consume_rate_limit`, pero un
+  tercero que conozca el UUID de un admin podría llenar su cupo (el sujeto es un hash sin
+  secreto y el límite lo elige el llamador) y las ráfagas concurrentes con la misma clave
+  gastaban cupo de más (segunda revisión, M1 y M2); contar filas reales evita ambos. Va después
+  de `peek` y antes de `claim`, de modo que los replays no consumen cupo y una respuesta
+  `rate_limited` no deja la clave «en curso»; responde 429 `RATE_LIMITED` (sin `Retry-After`).
+  Las transiciones no necesitan tope propio: cada necesidad admite como máximo dos. Se añadió
+  `RATE_LIMITED` a `NeedDraftFailureCode` y `rate_limited` a los fallos comunes de RPC. El 30
+  es una decisión mía; ajústalo si prefieres otro. (d) Las RPC validan la
   longitud de `p_key` (16–255) y responden `invalid`, no una excepción.
 - **D-13: formas de UUID.** `format: uuid` admite `urn:uuid:…`, que la base rechaza (500).
-  Se rechaza en el borde con 400 (sede del POST y `needId` del GET/PATCH). El casing: la
+  El validador genérico de contrato ahora solo acepta la forma canónica (también beneficia a
+  las rutas con UUID de F2a, que tenían el mismo defecto) y el POST valida la sede en el servicio. El casing: la
   base devuelve el UUID en minúsculas aunque el cliente lo haya enviado en mayúsculas; el
   servicio compara sin distinguir mayúsculas y el hash sigue usando el literal, de modo que
   otro casing con la misma clave es un conflicto (409), no una necesidad nueva.
-- **D-14: dependencias.** `fingerprint` pasó a `shared/crypto` (la aplicación ya no importa
-  de `shared/http`). `domain/need-state.ts` es un oráculo del comportamiento de SQL: la
+- **D-14: dependencias.** `fingerprint` pasó a `shared/crypto` y la comprobación de UUID canónico a
+  `shared/validation/uuid.ts`; la aplicación solo importa de `shared/http` el parser puro de la clave
+  de idempotencia. `domain/need-state.ts` es un oráculo del comportamiento de SQL: la
   lógica real vive en la RPC y la deriva se detecta en la prueba de integración de la matriz
   (que ahora compara con una tabla literal independiente y con el dominio).
 - **D-11: la transición no tiene cascada** (invitaciones y outbox): llega en F6 con un
@@ -114,8 +120,8 @@ autorizado. Las dos mutaciones exigen además `Origin`, CSRF e `Idempotency-Key`
 | --- | --- |
 | `npm run typecheck` | verde |
 | `npm test` | verde (451 pruebas del backend, más mock y web) |
-| `npm run test:backend:db` | 202 pruebas pgTAP en verde (102 de `03_need_records`) |
-| `npm run test:backend:integration` | 104 pruebas en verde (62 de `need-records`: rol × AAL × hospital, IDOR, 20 concurrentes, rollback, matriz C-8 con tabla literal y dimensión vencido, límites de tasa, canarios) |
+| `npm run test:backend:db` | 201 pruebas pgTAP en verde (101 de `03_need_records`) |
+| `npm run test:backend:integration` | 104 pruebas en verde (62 de `need-records`: rol × AAL × hospital, IDOR, 20 concurrentes, rollback, matriz C-8 con tabla literal y dimensión vencido, tope de creación, canarios) |
 | `npm run test:bruno:backend` | 21 solicitudes y 23 pruebas de `need-records` en verde, más platform, hospital y superadmin de F2a |
 | `npm run test:bruno` (mock) | verde tras C-10 |
 | `npm run test:contract` | 72 pruebas en verde (365 errores y 470 casos) |
@@ -143,8 +149,20 @@ Correcciones: ver D-12, D-13 y D-14, más 14 pruebas pgTAP nuevas, 7 de integrac
 creación y de transición, desempate por `created_at` idéntico, dimensión «vencido» y tabla
 literal en la matriz C-8, activación con sede desactivada) y pruebas unitarias.
 
-**Estado:** no existe una segunda revisión independiente de estas correcciones. No se afirma
-ningún PASS de `reviewer-back`.
+Segunda ronda (2026-10-13), `reviewer-back` nuevo, enfocada en las correcciones
+(`423df7b..HEAD`): **PASS (acotado)**, sin bloqueantes ni mayores nuevos. Confirmó resueltos
+los dos mayores y el orden `peek → sede → tope → claim`; no ejecutó pgTAP, integración ni
+Bruno (esos resultados son míos). Observaciones: M1 contadores envenenables y M2 sobreconsumo
+concurrente (corregidos al contar filas reales, ver D-12), M3 sin `Retry-After` (pendiente), M4
+pruebas de revocación y de tasa mejorables (el replay entre hospitales solo lo cubre pgTAP;
+ahora hay una prueba concurrente de cupo), M5 documentación y `PLAIN_UUID` duplicado
+(corregidos), M6 la spec y `Backend-Contracts.md:213` dicen «sin 429» (actualizado el segundo;
+la spec es documento de la persona usuaria y se ajusta si apruebas D-1), M7 las rutas de F2a
+con UUID tenían el mismo defecto `urn:uuid:` (corregido en el validador genérico).
+
+Las correcciones posteriores a esa segunda ronda (tope por filas reales y UUID estricto en el
+validador) no las ha visto un revisor independiente. El `security-privacy-auditor` dio PASS
+condicionado en la primera ronda y no se ha vuelto a ejecutar.
 
 ## 6. Pendientes conocidos
 

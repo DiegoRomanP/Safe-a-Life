@@ -213,8 +213,8 @@ de HTTP.
 Además de ese catálogo, los middlewares globales de `/api` pueden responder `429`
 (límite de renovación de sesión, ADR-004) y `503` (base de datos o proveedor de Auth
 no disponible), como en todas las operaciones servidas; F3 los declara también aquí
-(`429` con `RATE_LIMITED` / `Intenta nuevamente más tarde.`, `503` con
-`SERVICE_UNAVAILABLE`). No se añade `404` ni ningún otro status. El status `400`
+(`429` con `RATE_LIMITED` / `Intenta nuevamente más tarde.`, que además emite el propio
+módulo al superar el tope de creaciones por hora, y `503` con `SERVICE_UNAVAILABLE`). No se añade `404` ni ningún otro status. El status `400`
 se reserva a sintaxis/forma y `422` a semántica; ningún error incluye datos de
 paciente ni afirma elegibilidad clínica. Las respuestas de error llevan siempre
 un `correlationId` opaco.
@@ -351,8 +351,8 @@ cierre sujeto a las revisiones y a la aprobación registradas en
   combinación, y un `borrador → activa` con el plazo vencido, es 409. La transición
   bloquea la fila (`FOR UPDATE`), consulta el replay y solo entonces reclama la clave;
   incrementa `version`. En F6 la RPC se reemplaza para añadir la cascada.
-- **Límites por actor**: 30 creaciones y 60 transiciones por hora (429 `RATE_LIMITED`),
-  aplicados en SQL; los replays no consumen cupo. Activar un borrador exige que su sede
+- **Límite por actor**: 30 creaciones por hora (429 `RATE_LIMITED`), contadas en SQL sobre
+  las necesidades realmente creadas; los replays no consumen cupo. Activar un borrador exige que su sede
   siga activa y aprobada (409). El replay de la creación no se entrega a quien ya
   pertenece a otro hospital (403).
 - **Listado**: más recientes primero, cursor opaco firmado y ligado al actor y a la
