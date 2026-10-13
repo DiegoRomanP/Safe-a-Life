@@ -8,12 +8,17 @@ import { registerAuthRoutes } from './modules/identity-institutions/http/auth.ro
 import { consumeAuthQuota } from './modules/identity-institutions/application/auth-quota.js';
 import { authRenewalPolicy } from './modules/identity-institutions/http/renewal-policy.js';
 import { registerInstitutionsRoutes } from './modules/identity-institutions/http/institutions.router.js';
+import { createNeedDraftService } from './modules/need-records/application/create-need-draft.js';
+import { createNeedsService } from './modules/need-records/application/needs-service.js';
+import { createNeedsRpcGateway } from './modules/need-records/infrastructure/needs-rpc-gateway.js';
+import { registerNeedsRoutes } from './modules/need-records/http/needs.router.js';
 import { createReadinessRpcGateway } from './modules/platform/infrastructure/readiness-rpc-gateway.js';
 import { registerHealthRoutes } from './modules/platform/http/health.router.js';
 import { authenticate } from './shared/auth/authenticate.js';
 import { deriveHmacKeyring } from './shared/crypto/hmac.js';
 import { clientIpSubject } from './shared/http/client-ip.js';
 import { createSupabaseSessionGateway } from './shared/auth/supabase-session.js';
+import { callRpc } from './shared/persistence/rpc.js';
 import { createRpcInvoker } from './shared/persistence/rpc-invoker.js';
 import { EXPECTED_SCHEMA_VERSION } from './shared/persistence/schema-version.js';
 import { createSupabaseFactory } from './shared/persistence/supabase-client.js';
@@ -40,6 +45,11 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
   const sessions = createSupabaseSessionGateway(config);
   const rpc = createRpcInvoker(supabase);
   const identity = createIdentityGateways(supabase);
+  const needsGateway = createNeedsRpcGateway({
+    rpc,
+    raw: (accessToken, name, args) => callRpc(supabase.forUser(accessToken), name, args),
+  });
+  const needs = createNeedsService(needsGateway.repository);
   const institutions = createInstitutionsService(createInstitutionsRpcGateway(rpc));
   const hmacKeys = deriveHmacKeyring(config.secrets.emailHmac);
   const ipHmac = hmacKeys.ip;
@@ -78,6 +88,11 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
       }));
       registerAuthRoutes(app, { auth, secrets: { ...httpSecrets, ipHmac } });
       registerInstitutionsRoutes(app, { institutions, secrets: httpSecrets });
+      registerNeedsRoutes(app, {
+        needs,
+        createDraft: (accessToken) => createNeedDraftService(needsGateway.draftGatewayFor(accessToken)),
+        secrets: httpSecrets,
+      });
     },
   });
 }
