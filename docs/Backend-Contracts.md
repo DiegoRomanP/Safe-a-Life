@@ -404,9 +404,12 @@ Estado: implementado en `backend/src/modules/identity-institutions`; revisiones 
   `mfaRequired: true`. Si el correo ya existe en Auth responde 409 sin consumir el token; si el vínculo falla se
   elimina la cuenta recién creada.
 - **Recuperación**: responde siempre 202 con el mismo mensaje, exista o no la cuenta, con un piso de 150 ms. Límites
-  de 10 por IP y 10 por correo (HMAC) cada 15 min.
-- **Reset**: consume el token, cambia la contraseña con `service_role` (único adaptador, ADR-006) y borra todas las
-  sesiones del usuario; los access tokens ya emitidos valen hasta 600 s.
+  de 10 por IP cada 15 min y 3 por correo (HMAC) por hora; un reintento con la misma clave no repite el correo. La cuenta
+  técnica no se recupera por correo.
+- **RPC de tokens**: la vista previa, la solicitud de recuperación y el consumo del reset las ejecuta solo la sesión
+  técnica del backend; un cliente directo de PostgREST (anon key) no puede elegir hashes de token.
+- **Reset**: consume el token, revoca las sesiones, cambia la contraseña con `service_role` (único adaptador, ADR-006)
+  y revoca otra vez; los access tokens ya emitidos valen hasta 600 s.
 - Una invitación a un correo que ya tiene cuenta (donante, admin o worker) es 409; a un hospital inexistente, 422; a
   uno sin autorizar, 409.
 
