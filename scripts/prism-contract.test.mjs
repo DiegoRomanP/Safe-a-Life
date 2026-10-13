@@ -143,10 +143,10 @@ test('TYPE_DRIFT rejects either changed type source and missing coverage without
 // Moderation replaces its singular response example; it adds no media variant.
 const finalReviewedPreflight = Object.freeze({
   operations: 72, json: 69, empty: 3, bodies: 27, variants: 34,
-  variantCollections: 16, errors: 391, cases: 497,
+  variantCollections: 16, errors: 447, cases: 553,
 });
 
-test('preflight covers reviewed final 72 operations, 69 JSON, 3 empty, 27 bodies, 34 variants, 16 collections, 391 errors and 497 cases', () => {
+test('preflight covers reviewed final 72 operations, 69 JSON, 3 empty, 27 bodies, 34 variants, 16 collections, 447 errors and 553 cases', () => {
   const plan = buildPlan(contract());
   for (const [field, expected] of Object.entries(finalReviewedPreflight)) {
     assert.equal(field === 'cases' ? plan.cases.length : plan.stats[field], expected, `reviewed final inventory: ${field}`);

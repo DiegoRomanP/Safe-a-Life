@@ -359,6 +359,7 @@
       "post": {
         "tags": ["Donor"],
         "operationId": "createDonorRegistration",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (createDonorRegistration)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Inicia autorregistro y verificación de email",
         "description": "La cuenta no participa en matching hasta verificar email y completar el perfil. No se solicita fecha/historial de donación.",
         "security": [],
@@ -367,9 +368,12 @@
         "responses": {
           "202": { "description": "Registro pendiente con respuesta no enumerable.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NeutralMessageEnvelope" }, "example": { "data": { "message": "Si el registro puede continuar, recibirás instrucciones para verificar tu email." } } } } },
           "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
           "429": { "$ref": "#/components/responses/TooManyRequests" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -377,27 +381,39 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "getDonorEmailVerificationPreview",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (getDonorEmailVerificationPreview)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Consulta enlace de verificación sin mutar",
         "security": [],
         "parameters": [{ "$ref": "#/components/parameters/ActionToken" }],
         "responses": {
           "200": { "description": "Información mínima y headers no-store/no-referrer.", "headers": { "Cache-Control": { "schema": { "type": "string", "const": "no-store" } }, "Referrer-Policy": { "schema": { "type": "string", "const": "no-referrer" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmailActionPreviewEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "410": { "$ref": "#/components/responses/Gone" }
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "post": {
         "tags": ["Donor"],
         "operationId": "verifyDonorEmail",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (verifyDonorEmail)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Consume token de verificación y habilita completar perfil",
         "description": "El token es de un uso. La cuenta sigue inactiva hasta completar los campos obligatorios.",
         "security": [],
         "parameters": [{ "$ref": "#/components/parameters/ActionToken" }, { "$ref": "#/components/parameters/IdempotencyKey" }],
         "responses": {
-          "200": { "description": "Email verificado; inicia sesión de onboarding.", "headers": { "Set-Cookie": { "description": "Cookie de sesión Secure/HttpOnly; el nombre definitivo se fija en Sprint 0.", "schema": { "type": "string" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DonorOnboardingEnvelope" } } } },
+          "200": { "description": "Correo verificado. No inicia sesión (la operación no recibe contraseña): la persona inicia sesión con la que eligió y completa el perfil.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DonorOnboardingEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "410": { "$ref": "#/components/responses/Gone" }
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -405,13 +421,19 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "getAssistedActivationPreview",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (getAssistedActivationPreview)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Consulta invitación asistida sin consumir token",
         "security": [],
         "parameters": [{ "$ref": "#/components/parameters/ActionToken" }],
         "responses": {
           "200": { "description": "Vista previa mínima con política no-store/no-referrer.", "headers": { "Cache-Control": { "schema": { "type": "string", "const": "no-store" } }, "Referrer-Policy": { "schema": { "type": "string", "const": "no-referrer" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmailActionPreviewEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "410": { "$ref": "#/components/responses/Gone" }
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -419,6 +441,7 @@
       "post": {
         "tags": ["Donor"],
         "operationId": "claimAssistedRegistration",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (claimAssistedRegistration)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Reclama alta asistida y crea perfil incompleto propio",
         "description": "El token dura 24 h y es de un uso. El hospital no completa perfil ni contraseña por el donante.",
         "security": [],
@@ -427,10 +450,14 @@
         "responses": {
           "201": { "description": "Alta reclamada; el donante completa perfil autenticado.", "headers": { "Set-Cookie": { "description": "Cookie de sesión Secure/HttpOnly; el nombre definitivo se fija en Sprint 0.", "schema": { "type": "string" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DonorOnboardingEnvelope" } } } },
           "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "410": { "$ref": "#/components/responses/Gone" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -438,6 +465,7 @@
       "put": {
         "tags": ["Donor"],
         "operationId": "completeDonorOnboarding",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (completeDonorOnboarding)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Completa el perfil obligatorio inicial",
         "description": "Solo disponible para cuenta verificada/incompleta. En perfiles activos, nombre y grupo se cambian mediante solicitud; no aceptar historial de donación.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
@@ -445,9 +473,15 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DonorOnboardingRequest" }, "example": { "name": "Donante Demo", "declaredBloodType": "O_POS", "isAvailable": true, "approximateLocation": { "latitude": -12.046, "longitude": -77.043 } } } } },
         "responses": {
           "200": { "description": "Perfil completo y cuenta activa.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OwnDonorProfileEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -455,6 +489,7 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "getOwnDonorProfile",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (getOwnDonorProfile)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Consulta el perfil propio",
         "description": "Solo devuelve el perfil del donante de la sesión validada; no permite consultar perfiles ajenos.",
         "responses": {
@@ -475,15 +510,19 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "patch": {
         "tags": ["Donor"],
         "operationId": "updateOwnDonorParticipation",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (updateOwnDonorParticipation)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Actualiza disponibilidad y ubicación aproximada propias",
         "description": "Únicamente admite disponibilidad y ubicación sintética aproximada dentro del polígono versionado de Lima, con hasta tres decimales. Nombre, email y grupo declarado siguen un flujo de solicitud. No aceptar fecha ni historial de donación (RF-PRO-01, RF-PRO-05).",
         "security": [
@@ -522,7 +561,9 @@
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -734,26 +775,38 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "getEmailChangePreview",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (getEmailChangePreview)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Consulta enlace de verificación de email sin mutar",
         "security": [],
         "parameters": [{ "$ref": "#/components/parameters/ActionToken" }],
         "responses": {
           "200": { "description": "Vista previa mínima con headers no-store/no-referrer.", "headers": { "Cache-Control": { "schema": { "type": "string", "const": "no-store" } }, "Referrer-Policy": { "schema": { "type": "string", "const": "no-referrer" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmailActionPreviewEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "410": { "$ref": "#/components/responses/Gone" }
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "post": {
         "tags": ["Donor"],
         "operationId": "verifyEmailChange",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (verifyEmailChange)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Verifica email nuevo con token de un uso de 24 horas",
         "security": [],
         "parameters": [{ "$ref": "#/components/parameters/ActionToken" }, { "$ref": "#/components/parameters/IdempotencyKey" }],
         "responses": {
           "200": { "description": "Email actualizado tras verificar la dirección nueva.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NeutralMessageEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "410": { "$ref": "#/components/responses/Gone" }
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1322,6 +1375,7 @@
       "get": {
         "tags": ["Hospital"],
         "operationId": "listOwnAssistedSignups",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (listOwnAssistedSignups)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Lista altas asistidas iniciadas por el hospital actual",
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
         "responses": {
@@ -1354,14 +1408,18 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "post": {
         "tags": ["Hospital"],
         "operationId": "createAssistedSignup",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (createAssistedSignup)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Inicia alta asistida mínima",
         "description": "Solo email y nombre opcional. La respuesta es neutra aunque el email ya exista; el hospital nunca crea contraseña, grupo ni ubicación por el donante.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
@@ -1374,7 +1432,9 @@
           "403": { "$ref": "#/components/responses/Forbidden" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "429": { "$ref": "#/components/responses/TooManyRequests" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1382,13 +1442,18 @@
       "get": {
         "tags": ["Hospital"],
         "operationId": "getOwnAssistedSignup",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (getOwnAssistedSignup)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Consulta estado mínimo de un alta iniciada por la institución",
         "parameters": [{ "$ref": "#/components/parameters/SignupId" }],
         "responses": {
           "200": { "description": "Estado/fechas mínimas de la solicitud propia.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AssistedSignupCreatedEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1397,17 +1462,22 @@
       "post": {
         "tags": ["Hospital"],
         "operationId": "reissueAssistedActivationLink",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (reissueAssistedActivationLink)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Reemite enlace antes de la purga original",
         "description": "Token de 24 h; reemitir invalida tokens anteriores, retorna estado a pendiente y no reinicia createdAt/purgeAt (AP-01). Respuesta no enumerable.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
         "responses": {
           "202": { "description": "Solicitud de reemisión aceptada de forma neutra.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NeutralMessageEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
