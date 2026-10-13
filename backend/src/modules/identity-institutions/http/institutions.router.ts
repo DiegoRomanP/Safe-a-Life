@@ -1,18 +1,15 @@
 import type { Express, Response } from 'express';
 import { sendData } from '../../../shared/http/respond.js';
-import { compileOperation, type OperationValidator } from '../../../shared/validation/contract-validator.js';
+import { compileOperation } from '../../../shared/validation/contract-validator.js';
 import type { InstitutionsService } from '../application/institutions-service.js';
-import type { Page } from '../application/institutions.ports.js';
 import {
-  guardsFor, nextCursor, pageLimit, parse, readCursor, requireIdempotencyKey, requirePrincipal, type HttpSecrets,
+  guardsFor, noQuery, ok, pageLimit, parse, readCursor, requireIdempotencyKey, requirePrincipal, respondPage, type HttpSecrets,
 } from './identity-http.js';
 
 export interface InstitutionsRouterDependencies {
   readonly institutions: InstitutionsService;
   readonly secrets: HttpSecrets;
 }
-
-const ok = (validator: OperationValidator, data: unknown): unknown => (validator.assertSuccess({ data }) as { data: unknown }).data;
 
 type PageQueryParams = { limit?: number; cursor?: string };
 
@@ -40,21 +37,10 @@ export function registerInstitutionsRoutes(app: Express, { institutions, secrets
   const listOwnSites = op('listOwnHospitalSites');
   const token = (res: Response) => requirePrincipal(res).accessToken;
 
-  // Query vacía: el contrato es cerrado, un parámetro desconocido es 400.
-  const noQuery = (validator: OperationValidator, req: { query: unknown }) =>
-    validator.parseQuery(req.query as Record<string, unknown>);
-
-  // Paginación común: items + cursor opaco firmado y ligado al actor y la operación.
-  const respondPage = <T>(validator: OperationValidator, operation: string, result: Page<T>, res: Response) =>
-    sendData(res, 200, ok(validator, {
-      items: result.items,
-      pagination: { nextCursor: nextCursor(res, operation, result.next, secrets.cursor) },
-    }));
-
   app.get('/api/v1/superadmin/hospitals', ...guards.superadminRead, async (req, res) => {
     const query = parse<PageQueryParams>(listHospitals, 'query', req);
     const cursor = readCursor(res, 'listHospitals', query, secrets.cursor);
-    respondPage(listHospitals, 'listHospitals', await institutions.listHospitals(token(res), { limit: pageLimit(query), cursor }), res);
+    respondPage(listHospitals, 'listHospitals', await institutions.listHospitals(token(res), { limit: pageLimit(query), cursor }), res, secrets.cursor);
   });
 
   app.post('/api/v1/superadmin/hospitals', ...guards.superadminWrite, async (req, res) => {
@@ -103,7 +89,7 @@ export function registerInstitutionsRoutes(app: Express, { institutions, secrets
   app.get('/api/v1/superadmin/memberships', ...guards.superadminRead, async (req, res) => {
     const query = parse<PageQueryParams>(listMemberships, 'query', req);
     const cursor = readCursor(res, 'listHospitalMemberships', query, secrets.cursor);
-    respondPage(listMemberships, 'listHospitalMemberships', await institutions.listMemberships(token(res), { limit: pageLimit(query), cursor }), res);
+    respondPage(listMemberships, 'listHospitalMemberships', await institutions.listMemberships(token(res), { limit: pageLimit(query), cursor }), res, secrets.cursor);
   });
 
   // RNF-SEC-05: cambiar membresías exige step-up.
@@ -130,7 +116,7 @@ export function registerInstitutionsRoutes(app: Express, { institutions, secrets
   app.get('/api/v1/superadmin/audit-events', ...guards.superadminRead, async (req, res) => {
     const query = parse<PageQueryParams>(listAuditEvents, 'query', req);
     const cursor = readCursor(res, 'listAuditEvents', query, secrets.cursor);
-    respondPage(listAuditEvents, 'listAuditEvents', await institutions.listAuditEvents(token(res), { limit: pageLimit(query), cursor }), res);
+    respondPage(listAuditEvents, 'listAuditEvents', await institutions.listAuditEvents(token(res), { limit: pageLimit(query), cursor }), res, secrets.cursor);
   });
 
   app.get('/api/v1/superadmin/task-queue', ...guards.superadminRead, async (req, res) => {
@@ -142,6 +128,6 @@ export function registerInstitutionsRoutes(app: Express, { institutions, secrets
     const query = parse<PageQueryParams>(listOwnSites, 'query', req);
     const cursor = readCursor(res, 'listOwnHospitalSites', query, secrets.cursor);
     respondPage(listOwnSites, 'listOwnHospitalSites',
-      await institutions.listOwnSites(token(res), { limit: pageLimit(query), afterSiteId: cursor?.id ?? null }), res);
+      await institutions.listOwnSites(token(res), { limit: pageLimit(query), afterSiteId: cursor?.id ?? null }), res, secrets.cursor);
   });
 }
