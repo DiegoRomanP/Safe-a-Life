@@ -413,3 +413,39 @@ Estado: implementado en `backend/src/modules/identity-institutions`; revisiones 
 - Una invitación a un correo que ya tiene cuenta (donante, admin o worker) es 409; a un hospital inexistente, 422; a
   uno sin autorizar, 409.
 
+---
+
+## Módulo implementado: donantes y altas asistidas (F5)
+
+Estado: implementado en `backend/src/modules/donor-records`; revisiones y cierre en
+[`plans/2026-10-13-donor-records.md`](plans/2026-10-13-donor-records.md).
+
+- **Operaciones (14)**: `createDonorRegistration`, `getDonorEmailVerificationPreview`, `verifyDonorEmail`,
+  `getAssistedActivationPreview`, `claimAssistedRegistration`, `getEmailChangePreview`, `verifyEmailChange` (públicas, por
+  token), `completeDonorOnboarding`, `getOwnDonorProfile`, `updateOwnDonorParticipation` (donante con sesión),
+  `listOwnAssistedSignups`, `createAssistedSignup`, `getOwnAssistedSignup` y `reissueAssistedActivationLink` (admin
+  hospitalario con AAL2 y membresía vigente).
+- **Autorregistro**: crea la cuenta de Auth con la contraseña elegida, la vincula (cuenta `donante`, perfil
+  `pendiente_verificacion`, token de verificación de 24 h y correo cifrado) y descarta la sesión. Responde 202 con el mismo
+  mensaje exista o no la cuenta, con un piso de 700 ms. Con una cuenta ya existente se reenvía la verificación si sigue
+  pendiente (reemitir invalida el enlace anterior). Límites de 10 por IP cada 15 min y 3 por correo (HMAC) por hora.
+- **Verificación de correo** (C-12): el consumo deja el perfil `incompleto`, **no abre sesión** (la operación no recibe
+  la contraseña; la persona inicia sesión después) y el estado se informa como `reclamada_incompleta`.
+- **Altas asistidas**: el hospital escribe solo el correo y un nombre opcional; nunca fija contraseña, grupo ni ubicación.
+  El admin no puede leer el correo ni el nombre (privilegios por columna): ve estado y fechas. La respuesta es idéntica
+  exista o no ya una cuenta con ese correo (si existe no se crea token ni correo). El enlace vale 24 h; la alta se purga a
+  los 30 días (la purga la ejecutará el worker de F7; hasta entonces `purgeAt` solo se registra) y reemitir el enlace no
+  cambia `createdAt` ni `purgeAt` (AP-01). La emisión va en dos pasos: el admin registra o reemite la alta (RPC sin hash
+  de token) y la sesión técnica emite el enlace, una vez por `(alta, secuencia)`. Tope de 20 altas por hospital y hora,
+  contado sobre filas reales, y de 3 enlaces por alta y hora. Una alta de otro hospital es indistinguible de una inexistente (404).
+- **Reclamo**: la persona elige su contraseña; la cuenta nace `incompleto` con el correo verificado y el nombre inicial. Un
+  usuario de Auth inerte (sin cuenta, de más de un minuto) que ocupe el correo se reemplaza con
+  `api.worker_delete_inert_user`; una cuenta con vida propia nunca se elimina (409).
+- **Perfil**: `complete_own_onboarding` y `update_own_participation` son INVOKER (RLS); el correo del perfil sale del
+  claim `email` del JWT. La ubicación aproximada se valida en el dominio (rango, hasta tres decimales y polígono de Lima
+  `DEMO_ONLY-1`, SHA-256 fijado por prueba) y se guarda con la versión del polígono. El nombre y el grupo no se cambian por
+  `PATCH` (400); un trigger impide cambiarlos por `UPDATE` directo en un perfil activo.
+- **Cambio de correo**: consume el token `cambio_email` (lo crea F7), abre el correo nuevo sellado (contexto = hash del
+  token), lo aplica con `service_role` (único adaptador) y cierra todas las sesiones. Un correo ya ocupado es 409.
+- **RPC técnicas**: toda RPC que recibe un hash de token o un id de usuario solo la ejecuta la sesión técnica del backend.
+
