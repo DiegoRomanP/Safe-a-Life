@@ -10,6 +10,7 @@ export type LogEvent =
   | 'peticion.finalizada'
   | 'peticion.fallida'
   | 'seguridad.rechazo'
+  | 'auditoria.denegacion_no_registrada'
   | 'proceso.error_no_controlado'
   | 'servidor.iniciado'
   | 'worker.iniciado'

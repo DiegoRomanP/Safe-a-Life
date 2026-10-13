@@ -5,6 +5,8 @@ import { createErrorHandler, notFoundHandler } from './shared/http/errors.js';
 import { edgeGuard } from './shared/http/edge-guard.js';
 import { originGuard } from './shared/http/origin-guard.js';
 import { securityHeaders } from './shared/http/security-headers.js';
+import { denialKindFor, type DenialAuditor } from './shared/audit/denial-audit.js';
+import { findPrincipal } from './shared/auth/principal.js';
 import type { Logger } from './shared/observability/logger.js';
 
 export interface AppDependencies {
@@ -14,11 +16,13 @@ export interface AppDependencies {
   readonly mountBeforeJson?: (app: express.Express) => void;
   /** Los módulos montan aquí sus routers; corren antes del 404 genérico. */
   readonly mount?: (app: express.Express) => void;
+  /** Audita las denegaciones (403, 409, 429) a un actor autenticado. Se llama tras responder y nunca rompe la petición. */
+  readonly auditDenial?: DenialAuditor;
 }
 
 const JSON_BODY_LIMIT = '16kb';
 
-function requestLogger(logger: Logger): express.RequestHandler {
+function requestLogger(logger: Logger, auditDenial: DenialAuditor | undefined): express.RequestHandler {
   return (req, res, next) => {
     const started = performance.now();
     res.on('finish', () => {
@@ -33,6 +37,16 @@ function requestLogger(logger: Logger): express.RequestHandler {
         ...(typeof res.locals.rejectReason === 'string' ? { reason: res.locals.rejectReason } : {}),
         ...(typeof res.locals.errorCode === 'string' ? { code: res.locals.errorCode } : {}),
       });
+
+      const kind = denialKindFor(res.statusCode);
+      const principal = findPrincipal(res);
+      if (auditDenial && kind && principal) {
+        const operation = `${req.method} ${typeof req.route?.path === 'string' ? `${req.baseUrl}${req.route.path}` : '/api'}`;
+        // Después de responder y sin esperar: un fallo de la auditoría no cambia la respuesta (queda en el log técnico).
+        void auditDenial({ userId: principal.userId, kind, operation }).catch(() => {
+          logger.log('warn', { event: 'auditoria.denegacion_no_registrada', correlationId: res.locals.correlationId });
+        });
+      }
     });
     next();
   };
@@ -42,7 +56,7 @@ function requestLogger(logger: Logger): express.RequestHandler {
  * Compone middlewares comunes y routers de módulos. No abre puertos ni lee el
  * entorno; eso lo hace server.ts.
  */
-export function createApp({ config, logger, mountBeforeJson, mount }: AppDependencies): express.Express {
+export function createApp({ config, logger, mountBeforeJson, mount, auditDenial }: AppDependencies): express.Express {
   const app = express();
   app.disable('x-powered-by');
   app.set('etag', false);
@@ -52,7 +66,7 @@ export function createApp({ config, logger, mountBeforeJson, mount }: AppDepende
 
   app.use(securityHeaders);
   app.use(correlationIdMiddleware);
-  app.use(requestLogger(logger));
+  app.use(requestLogger(logger, auditDenial));
   app.use(edgeGuard(config.edgeSecret ?? ''));
   app.use(originGuard(config.allowedOrigins));
   mountBeforeJson?.(app);

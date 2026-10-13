@@ -25,6 +25,7 @@ import { createWebhookIngester } from './modules/email-delivery/application/inge
 import { createOutboxRpcGateway } from './modules/email-delivery/infrastructure/outbox-rpc-gateway.js';
 import { registerResendWebhookRoutes } from './modules/email-delivery/http/resend-webhook.router.js';
 import { createTechnicalInvoker } from './shared/persistence/technical-rpc.js';
+import { createDenialAuditor, type DenialAuditor } from './shared/audit/denial-audit.js';
 import { createTechnicalSession } from './shared/auth/technical-session.js';
 import { createReadinessRpcGateway } from './modules/platform/infrastructure/readiness-rpc-gateway.js';
 import { registerHealthRoutes } from './modules/platform/http/health.router.js';
@@ -46,6 +47,7 @@ const REFRESH_WINDOW_SECONDS = 15 * 60;
 export interface Application {
   /** Rutas que necesitan el body crudo (webhook firmado); van antes de `express.json`. */
   readonly mountBeforeJson: (app: Express) => void;
+  readonly auditDenial: DenialAuditor;
   readonly mount: (app: Express) => void;
 }
 
@@ -114,6 +116,8 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
   };
 
   return Object.freeze({
+    // Auditoría de denegaciones (RNF-AUD-01) con la identidad técnica de la API.
+    auditDenial: createDenialAuditor(technicalRpc),
     // Rutas con cuerpo crudo (webhook firmado): van antes de `express.json`.
     mountBeforeJson: (app: Express) => {
       if (webhookIngester) registerResendWebhookRoutes(app, { ingester: webhookIngester });
