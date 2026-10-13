@@ -1,0 +1,33 @@
+meta {
+  name: Reclamar la invitación
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospital-admin-invitation-actions/{{adminToken}}/claim
+  body: json
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-claim
+}
+
+body:json {
+  { "password": "{{newPassword}}" }
+}
+
+tests {
+  test("crea la sesión AAL1 pendiente de MFA", function () {
+    expect(res.getStatus()).to.equal(201);
+    var data = res.getBody().data;
+    expect(data.aal).to.equal(1);
+    expect(data.mfaRequired).to.equal(true);
+    expect(data.actor.role).to.equal("admin_hospitalario");
+  });
+  test("emite las cookies de sesión sin exponer tokens en el cuerpo", function () {
+    expect(res.getHeader("set-cookie").join("\n")).to.match(/__Host-sal_at=/);
+    expect(JSON.stringify(res.getBody())).to.not.match(/access_token|refresh_token|eyJ/);
+  });
+}

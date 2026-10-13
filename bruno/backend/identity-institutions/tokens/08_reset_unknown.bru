@@ -1,0 +1,25 @@
+meta {
+  name: Reset con token desconocido
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/password-reset-actions/{{unknownToken}}
+  body: json
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-reset-0
+}
+
+body:json {
+  { "newPassword": "{{newPassword}}" }
+}
+
+tests {
+  test("responde 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

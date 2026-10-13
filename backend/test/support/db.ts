@@ -9,6 +9,6 @@ export function sql(statement: string): string {
 
 /** Vacía los techos globales de /token: son estado compartido entre pruebas (no pertenecen a ningún usuario). */
 export function resetAuthQuota(): void {
-  sql("delete from app.rate_limit_events where bucket like 'authquota:%'");
+  sql("delete from app.rate_limit_events where bucket like 'authquota:%' or bucket like 'recovery:%' or bucket like 'claim:%'");
 }
 
