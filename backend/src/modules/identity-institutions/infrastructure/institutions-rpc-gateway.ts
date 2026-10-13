@@ -1,10 +1,10 @@
-import type { CursorPosition } from '../../../shared/persistence/cursor.js';
+import { pageOf } from '../../../shared/persistence/page.js';
 import {
   asArray, asBoolean, asNullableString, asNumber, asString, closedRecord, oneOf,
 } from '../../../shared/persistence/guards.js';
 import type { RpcInvoker } from '../../../shared/persistence/rpc-invoker.js';
 import type {
-  AuditEventView, ConfigurationView, HospitalView, InstitutionsRepository, MembershipView, OwnSiteView, Page, SiteView, TaskView,
+  AuditEventView, ConfigurationView, HospitalView, InstitutionsRepository, MembershipView, OwnSiteView, SiteView, TaskView,
 } from '../application/institutions.ports.js';
 
 export function parseHospital(value: unknown): HospitalView {
@@ -61,17 +61,6 @@ function parseOwnSite(value: unknown): OwnSiteView {
 
 function parseConfiguration(reply: Record<string, unknown>): ConfigurationView {
   return Object.freeze({ finalDemoAt: asNullableString(reply.finalDemoAt), isImmutable: asBoolean(reply.isImmutable) });
-}
-
-/** `{createdAt, id}` de la última fila de la página, o null si no hay más. */
-function parseNext(value: unknown): CursorPosition | null {
-  if (value === null || value === undefined) return null;
-  const row = closedRecord(value, ['id'], ['createdAt']);
-  return Object.freeze({ createdAt: row.createdAt === undefined ? '-' : asString(row.createdAt), id: asString(row.id) });
-}
-
-function pageOf<T>(reply: Record<string, unknown>, parse: (value: unknown) => T): Page<T> {
-  return Object.freeze({ items: Object.freeze(asArray(reply.items).map(parse)), next: parseNext(reply.next) });
 }
 
 /** Adaptador RPC de instituciones: nombres de función SQL, argumentos `p_*` y guards cerrados viven solo aquí. */

@@ -1,7 +1,5 @@
-import type { CursorPosition } from '../../../shared/persistence/cursor.js';
-
-export type PageQuery = Readonly<{ limit: number; cursor: CursorPosition | null }>;
-export type Page<T> = Readonly<{ items: readonly T[]; next: CursorPosition | null }>;
+export type { Page, PageQuery } from '../../../shared/persistence/page.js';
+import type { Page, PageQuery } from '../../../shared/persistence/page.js';
 
 /** Clave de idempotencia y hash canónico que la RPC recalcula y compara. */
 export type Envelope = Readonly<{ key: string; hash: string }>;
