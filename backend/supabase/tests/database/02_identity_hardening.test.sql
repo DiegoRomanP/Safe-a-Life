@@ -37,11 +37,11 @@ select is((select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.
   0, 'ninguna función de api ni app tiene EXECUTE para PUBLIC');
 select is((select array_agg(p.proname::text order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'api' and has_function_privilege('anon', p.oid, 'EXECUTE')),
-  array['consume_rate_limit', 'readiness', 'record_public_idempotency'],
-  'anon solo ejecuta consume_rate_limit, readiness y record_public_idempotency');
+  array['consume_password_reset', 'consume_rate_limit', 'get_admin_invitation_preview', 'readiness', 'record_public_idempotency', 'request_password_recovery'],
+  'anon solo ejecuta las RPC públicas de la allowlist');
 select is((select array_agg(p.proname::text order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'api' and p.prosecdef),
-  array['consume_rate_limit', 'ingest_email_event', 'readiness', 'record_public_idempotency', 'worker_claim_due_outbox', 'worker_expire_outbox', 'worker_record_attempt'],
+  array['consume_password_reset', 'consume_rate_limit', 'get_admin_invitation_preview', 'ingest_email_event', 'invite_hospital_admin', 'link_admin_account', 'readiness', 'record_public_idempotency', 'request_password_recovery', 'worker_claim_due_outbox', 'worker_expire_outbox', 'worker_record_attempt', 'worker_revoke_sessions'],
   'las únicas funciones SECURITY DEFINER de api son las de la allowlist');
 
 -- record_public_idempotency (DEFINER, anon) -------------------------------------------------------------
