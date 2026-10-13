@@ -148,6 +148,62 @@ describe('createApp', () => {
   });
 });
 
+describe('createApp: auditoría de denegaciones', () => {
+  const principal = { userId: '5e5abebf-64ab-4ac4-a276-d91ca386886f' };
+
+  function audited(failing = false) {
+    const denials: Array<{ userId: string; kind: string; operation: string }> = [];
+    const { entries, logger } = fakeLogger();
+    const app = createApp({
+      config, logger,
+      auditDenial: async (denial) => {
+        denials.push(denial);
+        if (failing) throw new Error('canario-secreto');
+      },
+      mount: (target) => {
+        const asUser: express.RequestHandler = (_req, res, next) => { res.locals.principal = principal; next(); };
+        target.get('/api/v1/cosas/:id', asUser, (_req, res) => { res.status(403).json({}); });
+        target.post('/api/v1/cosas/:id', asUser, (_req, res) => { res.status(409).json({}); });
+        target.put('/api/v1/cosas/:id', asUser, (_req, res) => { res.status(429).json({}); });
+        target.delete('/api/v1/cosas/:id', asUser, (_req, res) => { res.status(204).end(); });
+        target.get('/api/v1/anonimo', (_req, res) => { res.status(403).json({}); });
+      },
+    });
+    return { app, denials, entries };
+  }
+
+  it('audita 403, 409 y 429 de un actor autenticado con la ruta sin sustituir, y nada más', async () => {
+    const { app, denials } = audited();
+    const base = await serve(app);
+
+    await fetch(`${base}/api/v1/cosas/abc`);
+    await fetch(`${base}/api/v1/cosas/abc`, { method: 'POST', headers: { origin: 'https://app.example.test' } });
+    await fetch(`${base}/api/v1/cosas/abc`, { method: 'PUT', headers: { origin: 'https://app.example.test' } });
+    await fetch(`${base}/api/v1/cosas/abc`, { method: 'DELETE', headers: { origin: 'https://app.example.test' } });
+    await fetch(`${base}/api/v1/anonimo`);
+    await fetch(`${base}/no-existe`);
+
+    expect(denials).toEqual([
+      { userId: principal.userId, kind: 'acceso', operation: 'GET /api/v1/cosas/:id' },
+      { userId: principal.userId, kind: 'conflicto', operation: 'POST /api/v1/cosas/:id' },
+      { userId: principal.userId, kind: 'limite', operation: 'PUT /api/v1/cosas/:id' },
+    ]);
+    expect(JSON.stringify(denials)).not.toContain('abc');
+  });
+
+  it('un fallo de la auditoría no cambia la respuesta y se registra sin el mensaje del error', async () => {
+    const { app, entries } = audited(true);
+    const base = await serve(app);
+
+    const response = await fetch(`${base}/api/v1/cosas/abc`);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(response.status).toBe(403);
+    expect(entries.map(({ entry }) => entry.event)).toContain('auditoria.denegacion_no_registrada');
+    expect(JSON.stringify(entries)).not.toContain('canario-secreto');
+  });
+});
+
 describe('createApp con proxies de confianza', () => {
   it('toma la IP del cliente de X-Forwarded-For solo con un salto de confianza', async () => {
     const trusted = parseEnv({ ...envBase(), TRUSTED_PROXIES: '1' });
