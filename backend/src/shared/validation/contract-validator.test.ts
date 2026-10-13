@@ -143,6 +143,8 @@ describe('validador genérico por operación', () => {
 
     expect(put.parseParams({ thingId: id })).toEqual({ thingId: id });
     expect(categoryOf(() => put.parseParams({ thingId: 'no-uuid' }))).toBe('shape');
+    // ajv-formats admite urn:uuid:…, que PostgreSQL rechaza: el validador solo acepta la forma canónica.
+    expect(categoryOf(() => put.parseParams({ thingId: `urn:uuid:${id}` }))).toBe('shape');
     expect(put.parseHeaders({ 'x-contextual-grant': 'g1', host: 'ignorada' })).toEqual({ 'X-Contextual-Grant': 'g1' });
     expect(categoryOf(() => put.parseHeaders({ host: 'solo-ajena' }))).toBe('shape');
   });

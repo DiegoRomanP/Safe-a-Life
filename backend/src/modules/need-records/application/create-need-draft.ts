@@ -1,4 +1,5 @@
 import { fingerprint } from '../../../shared/crypto/fingerprint.js';
+import { isCanonicalUuid } from '../../../shared/validation/uuid.js';
 import { parseIdempotencyKey } from '../../../shared/http/idempotency-key.js';
 import { PersistenceUnavailableError } from '../../../shared/persistence/errors.js';
 import { NeedDtoError, parseCreateNeedInput, parseCreatedNeedEnvelope } from '../dto/validators.js';
@@ -13,8 +14,6 @@ export type CreateNeedDraft = (
   context: CreateNeedDraftContext,
   idempotency: CreateNeedDraftIdempotency,
 ) => Promise<CreateNeedDraftResult>;
-
-const PLAIN_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const fail = (code: NeedDraftFailureCode): CreateNeedDraftResult => Object.freeze({ ok: false, code });
 
@@ -112,7 +111,7 @@ export function createNeedDraftService(gateway: AtomicNeedDraftGateway): CreateN
     try {
       const parsed = parseCreateNeedInput(body);
       // `format: uuid` también admite `urn:uuid:…`, que la base no acepta: se rechaza en el borde como forma inválida.
-      if (!PLAIN_UUID.test(parsed.siteId)) return fail('BAD_REQUEST');
+      if (!isCanonicalUuid(parsed.siteId)) return fail('BAD_REQUEST');
       input = Object.freeze({
         component: parsed.component,
         requiredBloodType: parsed.requiredBloodType,

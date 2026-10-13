@@ -111,7 +111,6 @@ declare
   v_site uuid;
   v_need app.needs;
   v_reply jsonb;
-  v_rate jsonb;
 begin
   v_fail := app.require('{admin_hospitalario}', true, false);
   if v_fail is not null then return jsonb_build_object('kind', v_fail); end if;
@@ -149,10 +148,12 @@ begin
   where s.site_id = p_site_id::uuid and s.hospital_id = v_hospital and s.is_active and s.is_approved;
   if not found then return jsonb_build_object('kind', 'site_unusable'); end if;
 
-  -- Tope por actor (protege la base y, desde F6, a los donantes de convocatorias en masa). Va antes del claim
-  -- para no dejar una clave «en curso»; los replays ya salieron arriba y no consumen cupo.
-  v_rate := api.consume_rate_limit('need:create', encode(extensions.digest(auth.uid()::text, 'sha256'), 'hex'), 30, interval '1 hour');
-  if not coalesce((v_rate ->> 'allowed')::boolean, false) then return jsonb_build_object('kind', 'rate_limited'); end if;
+  -- Tope por actor (protege la base y, desde F6, a los donantes de convocatorias en masa). Se cuenta sobre las
+  -- necesidades realmente creadas, no en un contador externo que un tercero pudiera llenar; un replay no crea
+  -- filas y por tanto no consume cupo. Va antes del claim para no dejar una clave «en curso».
+  if (select count(*) from app.needs n where n.created_by = auth.uid() and n.created_at > now() - interval '1 hour') >= 30 then
+    return jsonb_build_object('kind', 'rate_limited');
+  end if;
 
   v_claim := app.claim_idempotency('user:' || auth.uid()::text, 'createHospitalNeed', p_key, p_hash);
   if v_claim is not null then return v_claim; end if;
@@ -243,7 +244,6 @@ declare
   v_need app.needs;
   v_visible text;
   v_reply jsonb;
-  v_rate jsonb;
 begin
   v_fail := app.require('{admin_hospitalario}', true, false);
   if v_fail is not null then return jsonb_build_object('kind', v_fail); end if;
@@ -274,9 +274,6 @@ begin
        where s.site_id = v_need.site_id and s.hospital_id = v_hospital and s.is_active and s.is_approved) then
     return jsonb_build_object('kind', 'conflict');
   end if;
-
-  v_rate := api.consume_rate_limit('need:transition', encode(extensions.digest(auth.uid()::text, 'sha256'), 'hex'), 60, interval '1 hour');
-  if not coalesce((v_rate ->> 'allowed')::boolean, false) then return jsonb_build_object('kind', 'rate_limited'); end if;
 
   v_claim := app.claim_idempotency('user:' || auth.uid()::text, 'transitionOwnHospitalNeed', p_key, p_hash);
   if v_claim is not null then return v_claim; end if;

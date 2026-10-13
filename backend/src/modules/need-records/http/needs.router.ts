@@ -5,17 +5,16 @@ import {
   guardsFor, noQuery, ok, pageLimit, parse, readCursor, requireIdempotencyKey, requirePrincipal, respondPage, type HttpSecrets,
 } from '../../../shared/http/route-helpers.js';
 import { sendData } from '../../../shared/http/respond.js';
+import { isCanonicalUuid } from '../../../shared/validation/uuid.js';
 import { compileOperation } from '../../../shared/validation/contract-validator.js';
 import type { CreateNeedDraft } from '../application/create-need-draft.js';
 import type { CreateNeedDraftContext } from '../application/create-need-draft.ports.js';
 import type { NeedsService } from '../application/needs-service.js';
 import type { ManualNeedStatus, NeedStatus } from '../domain/need-state.js';
 
-const PLAIN_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 /** `format: uuid` admite `urn:uuid:…`; la base solo acepta la forma canónica, así que se rechaza aquí como 400. */
 function plainNeedId(needId: string): string {
-  if (!PLAIN_UUID.test(needId)) throw new ApiError('BAD_REQUEST');
+  if (!isCanonicalUuid(needId)) throw new ApiError('BAD_REQUEST');
   return needId;
 }
 

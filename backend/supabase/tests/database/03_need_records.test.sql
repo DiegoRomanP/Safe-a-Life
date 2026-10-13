@@ -2,7 +2,7 @@ begin;
 -- Aislamiento: la base puede estar sembrada. Todo se revierte con el rollback.
 truncate app.needs, app.sites, app.hospital_memberships, app.hospitals, app.user_accounts cascade;
 
-select plan(102);
+select plan(101);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000000d1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-need-admin-a@example.test'),
@@ -328,23 +328,18 @@ select is(api.create_need_draft('clave-need-00000020',
   pg_temp.hash_for('RBC', 'AB_POS', 4, '22222222-2222-4222-8222-2222222222a1', 10, 'Normal', 24),
   'RBC', 'AB_POS', 4, '22222222-2222-4222-8222-2222222222a1', 10, 'Normal', 24) ->> 'kind', 'replayed', 'con el hospital original el replay vuelve a funcionar');
 
--- Límites de tasa por actor: antes de reclamar la clave y sin consumirse en un replay.
+-- Tope de creación por actor: se cuenta sobre las necesidades realmente creadas (no un contador externo).
 reset role;
-insert into app.rate_limit_events (bucket, subject)
-  select 'need:create', encode(extensions.digest('00000000-0000-4000-8000-0000000000d2', 'sha256'), 'hex') from generate_series(1, 30);
-insert into app.rate_limit_events (bucket, subject)
-  select 'need:transition', encode(extensions.digest('00000000-0000-4000-8000-0000000000d2', 'sha256'), 'hex') from generate_series(1, 60);
+insert into app.needs (hospital_id, site_id, created_by, component, required_blood_type, target_confirmations, radius_km, urgency, expires_at)
+  select '10000000-0000-4000-8000-0000000000d2', '22222222-2222-4222-8222-2222222222b1', '00000000-0000-4000-8000-0000000000d2',
+         'RBC', 'O_POS', 1, 1, 'Normal', now() + interval '1 day' from generate_series(1, 30);
 set local role authenticated;
 select pg_temp.login('00000000-0000-4000-8000-0000000000d2', 'aal2');
 select is(api.create_need_draft('clave-need-00000030', pg_temp.hash_for('RBC', 'A_POS', 2, '22222222-2222-4222-8222-2222222222b1', 10, 'Normal', 5),
-  'RBC', 'A_POS', 2, '22222222-2222-4222-8222-2222222222b1', 10, 'Normal', 5) ->> 'kind', 'rate_limited', 'agotado el cupo de creación, una creación nueva es rate_limited');
+  'RBC', 'A_POS', 2, '22222222-2222-4222-8222-2222222222b1', 10, 'Normal', 5) ->> 'kind', 'rate_limited', 'con 30 creaciones en la última hora, una creación nueva es rate_limited');
 select is(api.create_need_draft('clave-need-00000010', pg_temp.hash_for('RBC', 'A_POS', 3, '22222222-2222-4222-8222-2222222222b1', 25, 'Normal', 24),
-  'RBC', 'A_POS', 3, '22222222-2222-4222-8222-2222222222b1', 25, 'Normal', 24) ->> 'kind', 'replayed', 'el replay no consume ni exige cupo');
+  'RBC', 'A_POS', 3, '22222222-2222-4222-8222-2222222222b1', 25, 'Normal', 24) ->> 'kind', 'replayed', 'el replay no crea filas, así que no consume ni exige cupo');
 select is((select count(*)::int from app.idempotency_records where idem_key = 'clave-need-00000030'), 0, 'rate_limited no deja registro de idempotencia');
-create temp table b_need as select (api.list_own_needs(10) #>> '{items,0,needId}')::uuid as id;
-grant select on b_need to authenticated;
-select is(api.transition_own_need('clave-trans-0000030', pg_temp.hash_transition((select id from b_need), 'cancelada'),
-  (select id from b_need), 'cancelada') ->> 'kind', 'rate_limited', 'agotado el cupo de transiciones, una transición nueva es rate_limited');
 
 -- Aislamiento por la propia base (sin pasar por las RPC).
 reset role;
