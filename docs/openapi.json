@@ -91,7 +91,7 @@
       "post": {
         "tags": ["Email delivery"],
         "operationId": "receiveResendWebhook",
-        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo email-delivery F4 (C-1): recepción del webhook firmado de Resend con firma estilo Svix (HMAC-SHA256 sobre svix-id, svix-timestamp y el cuerpo crudo), antigüedad máxima de 300 s, deduplicación por svix-id y avance monótono del estado de entrega. Ratifica solo esta operación","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F4 y C-1; ADR-005; votos V5, V7 y V13 aceptados por la persona usuaria (2026-10-12)"]},
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo email-delivery F4 (C-1): recepción del webhook firmado de Resend con firma estilo Svix (HMAC-SHA256 sobre svix-id, svix-timestamp y el cuerpo crudo), antigüedad máxima de 300 s, deduplicación por svix-id y avance monótono del estado de entrega. Ratifica solo esta operación. Puede responder 429 si Auth limita la renovación de la sesión técnica","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F4 y C-1; ADR-005; votos V5, V7 y V13 aceptados por la persona usuaria (2026-10-12)"]},
         "summary": "Recibe un evento firmado del proveedor de correo",
         "description": "Pública y sin cookie: la autenticidad la da la firma. El cuerpo se verifica crudo antes de interpretarlo. Una firma inválida o con más de 300 s de diferencia responde 401 sin detalle. El mismo svix-id no vuelve a tener efecto. Los eventos email.sent, email.delivered, email.bounced y email.failed avanzan el estado sin retroceder; los demás se aceptan y se ignoran. No guarda ni devuelve destinatarios.",
         "security": [],
@@ -106,6 +106,7 @@
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
           "500": { "$ref": "#/components/responses/InternalServerError" },
           "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }

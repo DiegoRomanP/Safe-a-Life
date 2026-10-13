@@ -6,6 +6,8 @@ export type ClaimedMessage = Readonly<{
   sealedPayload: string;
   attemptNo: number;
   idempotencyKey: string;
+  /** Instante (ISO) después del cual nunca se envía (ADR-005 §3). */
+  notAfter: string;
   /** Correo de `auth.users` cuando el outbox tiene `recipient_user_id`; si no, el destinatario va en el payload. */
   recipient: string | null;
 }>;
