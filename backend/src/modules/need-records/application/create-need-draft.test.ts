@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fingerprint } from '../../../shared/http/idempotency.js';
+import { fingerprint } from '../../../shared/crypto/fingerprint.js';
 import { PersistenceUnavailableError } from '../../../shared/persistence/errors.js';
 import type { NormalizedNeedDraftInput } from '../domain/need-draft.js';
 import { createNeedDraftService, fingerprintNeedDraftInput } from './create-need-draft.js';
@@ -186,6 +186,23 @@ describe('comando atómico', () => {
   });
 });
 
+describe('UUID de la sede', () => {
+  it('un UUID con letras en mayúsculas se acepta aunque la base lo devuelva en minúsculas', async () => {
+    const lower = 'abcdefab-cdef-4abc-8def-abcdefabcdef';
+    const { result, commands } = await run({ ...BODY, siteId: lower.toUpperCase() }, CONTEXT, KEY, { kind: 'created', owner: OWNER, need: { ...NEED, siteId: lower } });
+
+    expect(result.ok).toBe(true);
+    expect(commands[0].input.siteId).toBe(lower.toUpperCase());
+  });
+
+  it('la forma urn:uuid: (admitida por el formato del contrato, rechazada por la base) es BAD_REQUEST sin gateway', async () => {
+    const { result, commands } = await run({ ...BODY, siteId: `urn:uuid:${SITE}` });
+
+    expect(result).toEqual({ ok: false, code: 'BAD_REQUEST' });
+    expect(commands).toHaveLength(0);
+  });
+});
+
 describe('fingerprintNeedDraftInput', () => {
   const INPUT: NormalizedNeedDraftInput = { component: 'RBC', requiredBloodType: 'O_NEG', targetConfirmations: 5, siteId: SITE, radiusKm: 10, urgency: 'Urgente', expiresInHours: 12 };
 
@@ -221,6 +238,7 @@ describe('respuestas del gateway', () => {
   it.each([
     ['payload_conflict', 'STATE_CONFLICT'], ['in_progress', 'STATE_CONFLICT'], ['site_unusable', 'VALIDATION_FAILED'],
     ['forbidden', 'ACCESS_DENIED'], ['unauthenticated', 'AUTHENTICATION_REQUIRED'], ['failed', 'INTERNAL_ERROR'],
+    ['rate_limited', 'RATE_LIMITED'],
   ])('el reply %s se traduce a %s', async (kind, code) => {
     expect((await run(BODY, CONTEXT, KEY, { kind })).result).toEqual({ ok: false, code });
   });

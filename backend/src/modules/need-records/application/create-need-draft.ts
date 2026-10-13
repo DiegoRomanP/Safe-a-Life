@@ -1,4 +1,4 @@
-import { fingerprint } from '../../../shared/http/idempotency.js';
+import { fingerprint } from '../../../shared/crypto/fingerprint.js';
 import { parseIdempotencyKey } from '../../../shared/http/idempotency-key.js';
 import { PersistenceUnavailableError } from '../../../shared/persistence/errors.js';
 import { NeedDtoError, parseCreateNeedInput, parseCreatedNeedEnvelope } from '../dto/validators.js';
@@ -13,6 +13,8 @@ export type CreateNeedDraft = (
   context: CreateNeedDraftContext,
   idempotency: CreateNeedDraftIdempotency,
 ) => Promise<CreateNeedDraftResult>;
+
+const PLAIN_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const fail = (code: NeedDraftFailureCode): CreateNeedDraftResult => Object.freeze({ ok: false, code });
 
@@ -44,6 +46,7 @@ const FAILURE_KINDS: Readonly<Record<string, NeedDraftFailureCode>> = Object.fre
   site_unusable: 'VALIDATION_FAILED',
   payload_conflict: 'STATE_CONFLICT',
   in_progress: 'STATE_CONFLICT',
+  rate_limited: 'RATE_LIMITED',
   failed: 'INTERNAL_ERROR',
 });
 
@@ -52,7 +55,8 @@ function matchesIntent(need: NeedDraftProjection, input: NormalizedNeedDraftInpu
   return need.component === input.component
     && need.requiredBloodType === input.requiredBloodType
     && need.targetConfirmations === input.targetConfirmations
-    && need.siteId === input.siteId
+    // PostgreSQL devuelve el uuid en minúsculas aunque el cliente lo haya enviado en mayúsculas.
+    && need.siteId.toLowerCase() === input.siteId.toLowerCase()
     && need.radiusKm === input.radiusKm
     && need.urgency === input.urgency;
 }
@@ -107,6 +111,8 @@ export function createNeedDraftService(gateway: AtomicNeedDraftGateway): CreateN
     let input: NormalizedNeedDraftInput;
     try {
       const parsed = parseCreateNeedInput(body);
+      // `format: uuid` también admite `urn:uuid:…`, que la base no acepta: se rechaza en el borde como forma inválida.
+      if (!PLAIN_UUID.test(parsed.siteId)) return fail('BAD_REQUEST');
       input = Object.freeze({
         component: parsed.component,
         requiredBloodType: parsed.requiredBloodType,

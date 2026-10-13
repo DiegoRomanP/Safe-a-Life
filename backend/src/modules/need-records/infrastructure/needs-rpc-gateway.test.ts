@@ -114,7 +114,7 @@ describe('toDraftReply', () => {
 
   it.each([
     ['unauthenticated', 'unauthenticated'], ['forbidden', 'forbidden'], ['mfa_required', 'forbidden'], ['site_unusable', 'site_unusable'],
-    ['payload_conflict', 'payload_conflict'], ['in_progress', 'in_progress'],
+    ['payload_conflict', 'payload_conflict'], ['in_progress', 'in_progress'], ['rate_limited', 'rate_limited'],
     ['invalid', 'failed'], ['conflict', 'failed'], ['not_found', 'failed'], ['gone', 'failed'], ['step_up_required', 'failed'],
   ])('el kind %s se traduce a %s', (kind, expected) => {
     expect(toDraftReply({ kind })).toEqual({ kind: expected });

@@ -11,6 +11,14 @@ import type { CreateNeedDraftContext } from '../application/create-need-draft.po
 import type { NeedsService } from '../application/needs-service.js';
 import type { ManualNeedStatus, NeedStatus } from '../domain/need-state.js';
 
+const PLAIN_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** `format: uuid` admite `urn:uuid:…`; la base solo acepta la forma canónica, así que se rechaza aquí como 400. */
+function plainNeedId(needId: string): string {
+  if (!PLAIN_UUID.test(needId)) throw new ApiError('BAD_REQUEST');
+  return needId;
+}
+
 export interface NeedsRouterDependencies {
   readonly needs: NeedsService;
   /** Servicio de creación ligado al JWT del actor de la petición (nunca un cliente global). */
@@ -62,12 +70,13 @@ export function registerNeedsRoutes(app: Express, { needs, createDraft, secrets 
   app.get('/api/v1/hospitals/me/needs/:needId', ...guards.adminRead, async (req, res) => {
     noQuery(getNeed, req);
     const { needId } = parse<{ needId: string }>(getNeed, 'params', req);
-    sendData(res, 200, ok(getNeed, await needs.get(token(res), needId)));
+    sendData(res, 200, ok(getNeed, await needs.get(token(res), plainNeedId(needId))));
   });
 
   app.patch('/api/v1/hospitals/me/needs/:needId', ...guards.adminWrite, async (req, res) => {
     noQuery(transitionNeed, req);
     const { needId } = parse<{ needId: string }>(transitionNeed, 'params', req);
+    plainNeedId(needId);
     const key = requireIdempotencyKey(req);
     const body = parse<{ status: ManualNeedStatus }>(transitionNeed, 'body', req);
     sendData(res, 200, ok(transitionNeed, await needs.transition(token(res), key, needId, body.status)));

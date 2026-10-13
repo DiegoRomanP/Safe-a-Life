@@ -28,6 +28,7 @@ describe('mapFailureToApiError', () => {
       ['in_progress', 'STATE_CONFLICT', 409],
       ['gone', 'ACTION_UNAVAILABLE', 410],
       ['invalid', 'VALIDATION_FAILED', 422],
+      ['rate_limited', 'RATE_LIMITED', 429],
     ];
     for (const [kind, code] of table) expect(mapFailureToApiError(kind).code).toBe(code);
   });

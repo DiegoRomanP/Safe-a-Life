@@ -37,7 +37,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 /** Fallos de la RPC que el servicio trata como 500 (el hash lo calcula este backend: un `invalid` es un defecto). */
 const AS_FAILED = new Set(['invalid', 'conflict', 'not_found', 'gone', 'step_up_required']);
-const PASSTHROUGH = new Set(['unauthenticated', 'forbidden', 'site_unusable', 'payload_conflict', 'in_progress']);
+const PASSTHROUGH = new Set(['unauthenticated', 'forbidden', 'site_unusable', 'payload_conflict', 'in_progress', 'rate_limited']);
 
 /**
  * Traduce la respuesta de `create_need_draft` al protocolo `AtomicNeedDraftReply`. Un replay se desenvuelve

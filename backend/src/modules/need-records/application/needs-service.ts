@@ -1,4 +1,4 @@
-import { fingerprint } from '../../../shared/http/idempotency.js';
+import { fingerprint } from '../../../shared/crypto/fingerprint.js';
 import type { ManualNeedStatus } from '../domain/need-state.js';
 import type { ListNeedsQuery, NeedsRepository } from './needs.ports.js';
 
