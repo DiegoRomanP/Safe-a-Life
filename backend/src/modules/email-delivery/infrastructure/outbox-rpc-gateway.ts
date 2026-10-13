@@ -1,4 +1,5 @@
 import { ApiError } from '../../../shared/http/errors.js';
+import { createTechnicalInvoker } from '../../../shared/persistence/technical-rpc.js';
 import { asArray, asBoolean, asNullableString, asNumber, asString, closedRecord, oneOf } from '../../../shared/persistence/guards.js';
 import type { RpcInvoker } from '../../../shared/persistence/rpc-invoker.js';
 import type { AttemptRecord, ClaimedMessage, OutboxGateway, ProviderEvent } from '../application/outbox.ports.js';
@@ -22,27 +23,18 @@ export function parseClaimed(value: unknown): ClaimedMessage {
  * de la sesión técnica (identidad `worker`); nunca `service_role`.
  */
 export function createOutboxRpcGateway(rpc: RpcInvoker, accessToken: () => Promise<string>, invalidate: () => void = () => undefined): OutboxGateway {
-  /** Si el JWT técnico fue revocado o venció, se descarta la sesión y se reintenta UNA vez con una nueva. */
-  const call: RpcInvoker = async (request) => {
-    try {
-      return await rpc(request);
-    } catch (error) {
-      if (!(error instanceof ApiError) || error.code !== 'AUTHENTICATION_REQUIRED') throw error;
-      invalidate();
-      return rpc({ ...request, accessToken: await accessToken() });
-    }
-  };
+  const call = createTechnicalInvoker(rpc, accessToken, invalidate);
 
   return {
     async claim(limit) {
-      const reply = await call({ accessToken: await accessToken(), name: 'worker_claim_due_outbox', okKinds: ['ok'], args: { p_limit: limit } });
+      const reply = await call({ accessToken: null, name: 'worker_claim_due_outbox', okKinds: ['ok'], args: { p_limit: limit } });
       return Object.freeze(asArray(reply.items).map(parseClaimed));
     },
 
     async recordAttempt(record: AttemptRecord) {
       try {
         await call({
-          accessToken: await accessToken(), name: 'worker_record_attempt', okKinds: ['ok'],
+          accessToken: null, name: 'worker_record_attempt', okKinds: ['ok'],
           args: {
             p_outbox_id: record.outboxId, p_attempt_no: record.attemptNo, p_outcome: record.outcome, p_http_status: record.httpStatus,
             p_provider_message_id: record.providerMessageId, p_next_attempt_at: record.nextAttemptAt?.toISOString() ?? null,
@@ -57,13 +49,13 @@ export function createOutboxRpcGateway(rpc: RpcInvoker, accessToken: () => Promi
     },
 
     async expire() {
-      const reply = await call({ accessToken: await accessToken(), name: 'worker_expire_outbox', okKinds: ['ok'], args: {} });
+      const reply = await call({ accessToken: null, name: 'worker_expire_outbox', okKinds: ['ok'], args: {} });
       return Object.freeze({ expired: asNumber(reply.expired), exhausted: asNumber(reply.exhausted) });
     },
 
     async ingestEvent(event: ProviderEvent) {
       const reply = await call({
-        accessToken: await accessToken(), name: 'ingest_email_event', okKinds: ['ok'],
+        accessToken: null, name: 'ingest_email_event', okKinds: ['ok'],
         args: { p_event_id: event.eventId, p_provider_message_id: event.providerMessageId, p_type: event.type, p_occurred_at: event.occurredAt.toISOString() },
       });
       return Object.freeze({ duplicate: asBoolean(reply.duplicate), matched: reply.matched === undefined ? false : asBoolean(reply.matched) });
