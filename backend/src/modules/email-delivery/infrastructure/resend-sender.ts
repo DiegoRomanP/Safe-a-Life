@@ -70,6 +70,7 @@ export function createResendSender({ apiKey, from, fetch: fetchImpl = fetch, tim
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ from, to: [to], subject, text, html }),
+          redirect: 'error',
           signal: AbortSignal.timeout(timeoutMs),
         });
       } catch (error) {

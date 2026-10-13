@@ -14,8 +14,7 @@ export type LogEvent =
   | 'servidor.iniciado'
   | 'worker.iniciado'
   | 'worker.ciclo'
-  | 'worker.error'
-  | 'webhook.recibido';
+  | 'worker.error';
 
 export interface LogEntry {
   readonly event: LogEvent;

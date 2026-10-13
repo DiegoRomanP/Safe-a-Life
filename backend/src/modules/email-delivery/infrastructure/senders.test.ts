@@ -26,6 +26,8 @@ describe('ResendEmailSender', () => {
       from: 'no-responder@example.test', to: ['donante@example.test'], subject: 'Asunto canario', text: 'Texto canario', html: '<p>Html canario</p>',
     });
     expect(calls[0].init.signal).toBeInstanceOf(AbortSignal);
+    // Una redirección nunca se sigue: la clave de API no debe viajar a otro destino.
+    expect(calls[0].init.redirect).toBe('error');
   });
 
   it('un 2xx sin id legible sigue siendo ok', async () => {

@@ -159,8 +159,11 @@ describe('worker: concurrencia', () => {
     const a = new ScriptedSender();
     const b = new ScriptedSender();
 
-    await Promise.all([startWorker(a).processor.runOnce(50), startWorker(b).processor.runOnce(50)]);
+    // Seis cada uno: sin solaparse, SKIP LOCKED reparte las 12 filas; con otro reparto habría duplicados o faltantes.
+    await Promise.all([startWorker(a).processor.runOnce(6), startWorker(b).processor.runOnce(6)]);
 
+    expect(a.sent).toHaveLength(6);
+    expect(b.sent).toHaveLength(6);
     const keys = [...a.sent, ...b.sent].map((call) => call.idempotencyKey);
     expect(keys).toHaveLength(12);
     expect(new Set(keys).size).toBe(12);
@@ -276,6 +279,19 @@ describe('webhook de Resend contra el backend real', () => {
     expect((await post(event('email.opened'))).status).toBe(204);
 
     expect(Number(sql('select count(*) from app.email_webhook_events'))).toBe(before);
+  });
+
+  it('un evento que llega ANTES de que el worker conozca el id del proveedor se reaplica al registrarlo', async () => {
+    const early = `prov-antes-${randomUUID()}`;
+    const id = enqueue();
+    sql(`update app.email_outbox set status = 'en_curso', attempt_count = 1, lease_until = now() + interval '60 seconds' where outbox_id = '${id}'`);
+
+    expect((await post(event('email.delivered', early))).status).toBe(204);
+    expect(row(id).delivery).toBe('pendiente');
+    const worker = startWorker(new ScriptedSender());
+    await worker.gateway.recordAttempt({ outboxId: id, attemptNo: 1, outcome: 'ok', httpStatus: 200, providerMessageId: early, nextAttemptAt: null });
+
+    expect(row(id)).toMatchObject({ status: 'enviado', delivery: 'entregada', provider: early });
   });
 
   it('un evento de un mensaje desconocido se acepta sin efecto sobre ningún outbox', async () => {

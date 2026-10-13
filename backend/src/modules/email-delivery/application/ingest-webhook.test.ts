@@ -61,6 +61,13 @@ describe('ingestión del webhook de Resend', () => {
     expect(events).toHaveLength(0);
   });
 
+  it('un svix-id firmado pero de más de 255 caracteres es bad_request (no cabe en la deduplicación)', async () => {
+    const { events, send } = harness();
+
+    expect(await send(EVENT('email.sent'), { id: 'm'.repeat(256) })).toBe('bad_request');
+    expect(events).toHaveLength(0);
+  });
+
   it('un created_at inválido usa la hora actual', async () => {
     const { events, send } = harness();
 

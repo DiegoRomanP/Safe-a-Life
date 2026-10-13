@@ -14,7 +14,7 @@ function message(overrides: Partial<ClaimedMessage> & { payload?: EmailPayload }
   const outboxId = overrides.outboxId ?? '60000000-0000-4000-8000-000000000001';
   const payload: EmailPayload = overrides.payload ?? { recipient: 'donante@example.test', token: TOKEN };
   return {
-    outboxId, kind: 'recuperacion', attemptNo: 1, idempotencyKey: `outbox-${outboxId}`, recipient: null,
+    outboxId, kind: 'recuperacion', attemptNo: 1, idempotencyKey: `outbox-${outboxId}`, recipient: null, notAfter: new Date(NOW + 3_600_000).toISOString(),
     sealedPayload: sealEmailPayload(KEYRING, outboxId, payload), ...overrides,
   };
 }
@@ -162,6 +162,28 @@ describe('procesamiento del outbox', () => {
 
     expect(sent?.text).toContain(`https://app.example.test/restablecer-contrasena#${TOKEN}`);
     expect(sent?.subject).not.toContain(TOKEN);
+  });
+
+  it('nunca envía pasado not_after, aunque el reclamo fuera válido: no llama al proveedor ni registra el intento', async () => {
+    const late = message({ notAfter: new Date(NOW - 1).toISOString() });
+    const edge = message({ outboxId: '60000000-0000-4000-8000-000000000002', notAfter: new Date(NOW).toISOString() });
+    const { processor, recorded, sender } = harness([late, edge]);
+
+    const summary = await processor.runOnce();
+
+    expect(sender.records).toHaveLength(0);
+    expect(recorded).toHaveLength(0);
+    expect(summary).toMatchObject({ claimed: 2, sent: 0, skipped: 2 });
+  });
+
+  it('un lote por defecto es de 5 mensajes (cabe en el lease de 120 s con 10 s por envío)', async () => {
+    let requested = 0;
+    const gateway = { claim: async (limit: number) => { requested = limit; return []; }, recordAttempt: async () => true, expire: async () => ({ expired: 0, exhausted: 0 }), ingestEvent: async () => ({ duplicate: false, matched: false }) };
+    const processor = createOutboxProcessor({ gateway, sender: new FakeEmailSender(), keyring: KEYRING, appPublicUrl: 'https://app.example.test', inboxAllowlist: null });
+
+    await processor.runOnce();
+
+    expect(requested).toBe(5);
   });
 
   it('un intento obsoleto (otro worker reclamó la fila) cuenta como omitido, no como error', async () => {

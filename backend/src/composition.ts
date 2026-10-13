@@ -75,7 +75,7 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
   const webhookIngester = config.email.resendWebhookSecret === undefined
     ? undefined
     : createWebhookIngester({
-      gateway: createOutboxRpcGateway(rpc, () => technicalSession.accessToken()),
+      gateway: createOutboxRpcGateway(rpc, () => technicalSession.accessToken(), () => technicalSession.invalidate()),
       secret: config.email.resendWebhookSecret,
     });
 

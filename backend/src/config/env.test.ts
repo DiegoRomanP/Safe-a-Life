@@ -177,6 +177,9 @@ describe('parseEnv: variables de F1', () => {
     expect(errorVariables(validEnv({ APP_PUBLIC_URL: 'http://app.example.test' }))).toEqual(['APP_PUBLIC_URL']);
     expect(parseEnv(validEnv({ APP_PUBLIC_URL: 'http://localhost:5173/' })).appPublicUrl).toBe('http://localhost:5173');
     expect(errorVariables(validEnv({ WORKER_EMAIL: undefined, WORKER_PASSWORD: undefined }))).toEqual(['WORKER_EMAIL', 'WORKER_PASSWORD']);
+    // La sesión técnica protege el outbox: una contraseña corta se rechaza.
+    expect(errorVariables(validEnv({ WORKER_PASSWORD: 'corta' }))).toEqual(['WORKER_PASSWORD']);
+    expect(parseEnv(validEnv({ WORKER_PASSWORD: 'doce-caracteres' })).worker.password).toBe('doce-caracteres');
   });
 
   it('acota WORKER_POLL_MS entre 1000 y 60000 con 5000 por defecto', () => {
@@ -214,7 +217,10 @@ describe('parseEnv: secreto de borde y producción', () => {
   });
 
   it('en producción exige proxies, orígenes https, secreto de borde y URLs https', () => {
-    const production = { NODE_ENV: 'production', TRUSTED_PROXIES: '1', ALLOWED_ORIGINS: 'https://app.example.test', EDGE_SHARED_SECRET: EDGE };
+    const production = {
+      NODE_ENV: 'production', TRUSTED_PROXIES: '1', ALLOWED_ORIGINS: 'https://app.example.test', EDGE_SHARED_SECRET: EDGE,
+      EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test_key', RESEND_WEBHOOK_SECRET: `whsec_${Buffer.alloc(24, 1).toString('base64')}`,
+    };
     expect(parseEnv(validEnvSource(production)).production).toBe(true);
 
     const cases: Array<[string, Record<string, string | undefined>]> = [
@@ -224,6 +230,8 @@ describe('parseEnv: secreto de borde y producción', () => {
       ['EDGE_SHARED_SECRET', { EDGE_SHARED_SECRET: undefined }],
       ['SUPABASE_URL', { SUPABASE_URL: 'http://127.0.0.1:54321' }],
       ['APP_PUBLIC_URL', { APP_PUBLIC_URL: 'http://localhost:5173' }],
+      // El remitente falso descartaría los correos en silencio.
+      ['EMAIL_PROVIDER', { EMAIL_PROVIDER: 'fake' }],
     ];
     for (const [variable, override] of cases) {
       expect(() => parseEnv(validEnvSource({ ...production, ...override }))).toThrowError(new RegExp(variable));
@@ -238,6 +246,7 @@ describe('parseEnv: secreto de borde y producción', () => {
     expect(() => parseEnv(validEnvSource({ RENDER: 'true' }))).toThrowError(/TRUSTED_PROXIES/);
     expect(parseEnv(validEnvSource({
       RENDER: 'true', TRUSTED_PROXIES: '1', ALLOWED_ORIGINS: 'https://app.example.test', EDGE_SHARED_SECRET: 'b'.repeat(40),
+      EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test_key', RESEND_WEBHOOK_SECRET: `whsec_${Buffer.alloc(24, 1).toString('base64')}`,
     })).production).toBe(true);
   });
 });

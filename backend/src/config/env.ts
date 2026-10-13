@@ -85,7 +85,7 @@ export function parseEnv(source: Source): AppConfig {
   const appPublicUrl = parseHttpUrl('APP_PUBLIC_URL', required(source, 'APP_PUBLIC_URL', reject), reject).replace(/\/$/, '');
   const worker = Object.freeze({
     email: parseEmail('WORKER_EMAIL', required(source, 'WORKER_EMAIL', reject), reject),
-    password: required(source, 'WORKER_PASSWORD', reject),
+    password: parseWorkerPassword(required(source, 'WORKER_PASSWORD', reject), reject),
     pollMs: parseBoundedInt('WORKER_POLL_MS', read(source, 'WORKER_POLL_MS'), 1000, 60000, DEFAULT_WORKER_POLL_MS, reject),
   });
 
@@ -98,6 +98,8 @@ export function parseEnv(source: Source): AppConfig {
     if (edgeSecret === '') reject('EDGE_SHARED_SECRET');
     if (!supabaseUrl.startsWith('https://')) reject('SUPABASE_URL');
     if (!appPublicUrl.startsWith('https://')) reject('APP_PUBLIC_URL');
+    // El remitente falso descarta los correos con resultado «ok»: en producción sería una pérdida silenciosa.
+    if (provider === 'fake') reject('EMAIL_PROVIDER');
   }
 
   if (failed.length > 0) throw new ConfigError(failed);
@@ -202,6 +204,12 @@ function parseEmail(name: string, raw: string, reject: Reject): string {
     reject(name);
     return '';
   }
+  return raw;
+}
+
+/** La sesión técnica protege el outbox: una contraseña corta no es aceptable (mínimo 12 caracteres). */
+function parseWorkerPassword(raw: string, reject: Reject): string {
+  if (raw !== '' && raw.length < 12) reject('WORKER_PASSWORD');
   return raw;
 }
 

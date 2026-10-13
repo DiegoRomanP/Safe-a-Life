@@ -20,6 +20,8 @@ export function createWebhookIngester({ gateway, secret, now = Date.now }: Webho
   return Object.freeze({
     async handle(headers: SvixHeaders, rawBody: Buffer): Promise<WebhookResult> {
       if (!verifyWebhook(secret, headers, rawBody, Math.floor(now() / 1000))) return 'invalid_signature';
+      // Ya autenticado: un id más largo que el contrato (255) no cabe en la deduplicación.
+      if ((headers.id as string).length > 255) return 'bad_request';
 
       let body: { type: string; created_at?: string; data: { email_id: string } };
       try {

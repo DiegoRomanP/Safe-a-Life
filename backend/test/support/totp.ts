@@ -1,4 +1,6 @@
 import { createHmac } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
 
@@ -26,7 +28,29 @@ export function totpCode(base32Secret: string, atMs: number = Date.now(), digits
   return String(binary % 10 ** digits).padStart(digits, '0');
 }
 
-const lastWindowBySecret = new Map<string, number>();
+// Cada archivo de prueba es un módulo distinto en vitest: la última ventana usada por secreto se comparte por
+// archivo para que dos archivos que inician sesión con el mismo usuario no reutilicen el código (Auth lo rechaza).
+const WINDOWS_FILE = resolve(import.meta.dirname, '../../.local/totp-windows.json');
+
+function lastWindow(secret: string): number | undefined {
+  try {
+    return (JSON.parse(readFileSync(WINDOWS_FILE, 'utf8')) as Record<string, number>)[secret];
+  } catch {
+    return undefined;
+  }
+}
+
+function rememberWindow(secret: string, window: number): void {
+  let windows: Record<string, number> = {};
+  try {
+    windows = JSON.parse(readFileSync(WINDOWS_FILE, 'utf8')) as Record<string, number>;
+  } catch {
+    // Sin archivo previo o ilegible: se empieza de cero.
+  }
+  windows[secret] = window;
+  if (!existsSync(resolve(WINDOWS_FILE, '..'))) mkdirSync(resolve(WINDOWS_FILE, '..'), { recursive: true });
+  writeFileSync(WINDOWS_FILE, JSON.stringify(windows));
+}
 
 /**
  * Código TOTP que no repite la ventana ya usada con ese secreto (los servidores rechazan reutilizar
@@ -36,10 +60,10 @@ export async function freshTotpCode(base32Secret: string, minRemainingMs = 4000,
   const windowMs = stepSeconds * 1000;
   const currentWindow = () => Math.floor(Date.now() / windowMs);
   const remaining = () => windowMs - (Date.now() % windowMs);
-  if (lastWindowBySecret.get(base32Secret) === currentWindow() || remaining() < minRemainingMs) {
-    await new Promise((resolve) => setTimeout(resolve, remaining() + 50));
+  if (lastWindow(base32Secret) === currentWindow() || remaining() < minRemainingMs) {
+    await new Promise((resolveWait) => setTimeout(resolveWait, remaining() + 50));
   }
-  lastWindowBySecret.set(base32Secret, currentWindow());
+  rememberWindow(base32Secret, currentWindow());
   return totpCode(base32Secret);
 }
 
