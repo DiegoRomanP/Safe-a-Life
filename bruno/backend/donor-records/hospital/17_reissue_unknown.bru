@@ -1,0 +1,23 @@
+meta {
+  name: Reemitir un alta inexistente
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/assisted-signups/00000000-0000-4000-8000-000000000999/activation-links
+  body: none
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-reissue-unknown
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+tests {
+  test("es 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

@@ -1,0 +1,17 @@
+meta {
+  name: Un alta inexistente
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/assisted-signups/00000000-0000-4000-8000-000000000999
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("es 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

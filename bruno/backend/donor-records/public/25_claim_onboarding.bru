@@ -1,0 +1,28 @@
+meta {
+  name: Onboarding tras el reclamo
+  type: http
+  seq: 25
+}
+
+put {
+  url: {{baseUrl}}/api/v1/donors/me/onboarding-profile
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-claim-onb
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  { "name": "Persona Reclamada", "declaredBloodType": "A_NEG", "isAvailable": true, "approximateLocation": { "latitude": -12.05, "longitude": -77.04 } }
+}
+
+tests {
+  test("la cuenta reclamada completa su perfil con la sesión recién emitida", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.name).to.equal("Persona Reclamada");
+  });
+}

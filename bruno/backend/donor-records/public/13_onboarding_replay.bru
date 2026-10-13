@@ -1,0 +1,28 @@
+meta {
+  name: Reintento idempotente
+  type: http
+  seq: 13
+}
+
+put {
+  url: {{baseUrl}}/api/v1/donors/me/onboarding-profile
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-onb
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  { "name": "Donante Bruno", "declaredBloodType": "O_POS", "isAvailable": true, "approximateLocation": { "latitude": -12.046, "longitude": -77.043 } }
+}
+
+tests {
+  test("la misma clave devuelve la misma respuesta", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(JSON.stringify(res.getBody().data)).to.equal(bru.getVar("onboardingBody"));
+  });
+}

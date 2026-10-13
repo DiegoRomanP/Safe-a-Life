@@ -1,0 +1,17 @@
+meta {
+  name: Sin perfil activo
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors/me/profile
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("el perfil incompleto aún no se muestra (404)", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

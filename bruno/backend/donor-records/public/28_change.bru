@@ -1,0 +1,22 @@
+meta {
+  name: Verificar el correo nuevo
+  type: http
+  seq: 28
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donor-email-change-actions/{{changeToken}}
+  body: none
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-change
+}
+
+tests {
+  test("actualiza el correo y responde con un mensaje", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(Object.keys(res.getBody().data)).to.deep.equal(["message"]);
+  });
+}

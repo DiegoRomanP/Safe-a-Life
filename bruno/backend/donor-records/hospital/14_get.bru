@@ -1,0 +1,19 @@
+meta {
+  name: Consultar un alta propia
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/assisted-signups/{{signupId}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("devuelve el estado mínimo", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.signupId).to.equal(bru.getVar("signupId"));
+    expect(res.getBody().data.status).to.equal("pendiente");
+  });
+}

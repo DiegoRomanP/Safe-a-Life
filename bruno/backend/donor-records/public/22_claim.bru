@@ -1,0 +1,28 @@
+meta {
+  name: Reclamar el alta asistida
+  type: http
+  seq: 22
+}
+
+post {
+  url: {{baseUrl}}/api/v1/assisted-activation-actions/{{claimToken}}/claim
+  body: json
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-claim
+}
+
+body:json {
+  { "password": "{{donorPassword}}" }
+}
+
+tests {
+  test("crea la cuenta incompleta y verificada con sesión propia", function () {
+    expect(res.getStatus()).to.equal(201);
+    expect(res.getBody().data).to.deep.equal({ status: "reclamada_incompleta", emailVerified: true });
+    expect(res.getHeader("set-cookie").join("\n")).to.match(/__Host-sal_at=/);
+    expect(JSON.stringify(res.getBody())).to.not.match(/access_token|refresh_token|eyJ/);
+  });
+}

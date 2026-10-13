@@ -1,0 +1,27 @@
+meta {
+  name: La misma clave con otro payload
+  type: http
+  seq: 14
+}
+
+put {
+  url: {{baseUrl}}/api/v1/donors/me/onboarding-profile
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-onb
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  { "name": "Otro Nombre", "declaredBloodType": "O_POS", "isAvailable": true, "approximateLocation": { "latitude": -12.046, "longitude": -77.043 } }
+}
+
+tests {
+  test("otro payload con la misma clave es 409", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+}

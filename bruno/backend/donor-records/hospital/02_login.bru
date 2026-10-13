@@ -1,0 +1,27 @@
+meta {
+  name: Login hospital
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/sessions
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{$guid}}
+}
+
+body:json {
+  { "email": "{{hospitalEmail}}", "password": "{{demoPassword}}" }
+}
+
+tests {
+  test("el login exige MFA y entrega un reto", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.mfaRequired).to.equal(true);
+    bru.setVar("mfaChallengeId", res.getBody().data.mfaChallengeId);
+  });
+}

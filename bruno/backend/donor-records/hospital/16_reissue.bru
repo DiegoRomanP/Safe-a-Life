@@ -1,0 +1,24 @@
+meta {
+  name: Reemitir el enlace
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/assisted-signups/{{signupId}}/activation-links
+  body: none
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-reissue
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+tests {
+  test("responde 202 neutro", function () {
+    expect(res.getStatus()).to.equal(202);
+    expect(Object.keys(res.getBody().data)).to.deep.equal(["message"]);
+  });
+}

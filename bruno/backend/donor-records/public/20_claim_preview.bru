@@ -1,0 +1,20 @@
+meta {
+  name: Vista previa del alta asistida
+  type: http
+  seq: 20
+}
+
+get {
+  url: {{baseUrl}}/api/v1/assisted-activation-actions/{{claimToken}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("muestra el hospital y nunca el correo", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.action).to.equal("reclamar_alta");
+    expect(res.getBody().data.hospitalName).to.equal("Hospital Demo Uno");
+    expect(JSON.stringify(res.getBody())).to.not.contain("@");
+  });
+}

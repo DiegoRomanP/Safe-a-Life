@@ -1,0 +1,27 @@
+meta {
+  name: Correo inválido
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/assisted-signups
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-signup-bad
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  { "email": "no-es-correo" }
+}
+
+tests {
+  test("un correo inválido es 400", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}

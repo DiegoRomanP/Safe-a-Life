@@ -1,0 +1,27 @@
+meta {
+  name: La misma clave con otro correo
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/assisted-signups
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-signup
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  { "email": "otro-{{signupEmail}}" }
+}
+
+tests {
+  test("otro payload con la misma clave es 409", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+}

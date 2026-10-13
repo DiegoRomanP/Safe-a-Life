@@ -1,0 +1,21 @@
+meta {
+  name: Token desconocido
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donor-email-verification-actions/{{unknownToken}}
+  body: none
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-verify-unknown
+}
+
+tests {
+  test("un token desconocido es 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

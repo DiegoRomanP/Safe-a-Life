@@ -1,0 +1,23 @@
+meta {
+  name: Verificar el correo
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donor-email-verification-actions/{{verifyToken}}
+  body: none
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-verify
+}
+
+tests {
+  test("deja el perfil incompleto sin abrir sesión", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data).to.deep.equal({ status: "reclamada_incompleta", emailVerified: true });
+    expect(res.getHeader("set-cookie")).to.equal(undefined);
+  });
+}

@@ -1,0 +1,27 @@
+meta {
+  name: Ubicación fuera de Lima
+  type: http
+  seq: 11
+}
+
+put {
+  url: {{baseUrl}}/api/v1/donors/me/onboarding-profile
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-onb-bad
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  { "name": "Donante Bruno", "declaredBloodType": "O_POS", "isAvailable": true, "approximateLocation": { "latitude": 40.416, "longitude": -3.703 } }
+}
+
+tests {
+  test("una ubicación fuera del polígono es 422", function () {
+    expect(res.getStatus()).to.equal(422);
+  });
+}

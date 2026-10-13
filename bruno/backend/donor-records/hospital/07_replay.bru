@@ -1,0 +1,28 @@
+meta {
+  name: Reintento idempotente
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/assisted-signups
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-signup
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  { "email": "{{signupEmail}}", "name": "Persona de Alta Bruno" }
+}
+
+tests {
+  test("la misma clave devuelve la misma alta", function () {
+    expect(res.getStatus()).to.equal(202);
+    expect(JSON.stringify(res.getBody().data)).to.equal(bru.getVar("signupBody"));
+  });
+}

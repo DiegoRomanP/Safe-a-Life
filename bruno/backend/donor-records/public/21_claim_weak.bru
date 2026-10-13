@@ -1,0 +1,25 @@
+meta {
+  name: Reclamo con contraseña corta
+  type: http
+  seq: 21
+}
+
+post {
+  url: {{baseUrl}}/api/v1/assisted-activation-actions/{{claimToken}}/claim
+  body: json
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-claim-weak
+}
+
+body:json {
+  { "password": "corta" }
+}
+
+tests {
+  test("una contraseña corta es 400 y el token sigue vigente", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}

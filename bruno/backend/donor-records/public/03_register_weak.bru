@@ -1,0 +1,26 @@
+meta {
+  name: Contraseña corta
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donor-registrations
+  body: json
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-reg-weak
+}
+
+body:json {
+  { "email": "x{{regEmail}}", "password": "corta" }
+}
+
+tests {
+  test("responde 400 y no crea la cuenta", function () {
+    expect(res.getStatus()).to.equal(400);
+    expect(res.getBody().error.code).to.equal("BAD_REQUEST");
+  });
+}

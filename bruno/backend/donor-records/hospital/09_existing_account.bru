@@ -1,0 +1,28 @@
+meta {
+  name: Un correo con cuenta recibe la misma forma
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/assisted-signups
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-signup-existing
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  { "email": "{{existingAccountEmail}}" }
+}
+
+tests {
+  test("responde 202 con la misma forma que un alta nueva", function () {
+    expect(res.getStatus()).to.equal(202);
+    expect(Object.keys(res.getBody().data).sort()).to.deep.equal(['activationExpiresAt', 'createdAt', 'purgeAt', 'signupId', 'status']);
+  });
+}

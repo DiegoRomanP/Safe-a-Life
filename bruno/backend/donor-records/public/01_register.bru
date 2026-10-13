@@ -1,0 +1,29 @@
+meta {
+  name: Autorregistro responde neutro
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donor-registrations
+  body: json
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-reg
+}
+
+body:json {
+  { "email": "{{regEmail}}", "password": "{{donorPassword}}" }
+}
+
+tests {
+  test("responde 202 con solo el mensaje neutro", function () {
+    expect(res.getStatus()).to.equal(202);
+    expect(Object.keys(res.getBody())).to.deep.equal(["data"]);
+    expect(Object.keys(res.getBody().data)).to.deep.equal(["message"]);
+    expect(JSON.stringify(res.getBody())).to.not.contain("@");
+    bru.setVar("neutralMessage", res.getBody().data.message);
+  });
+}

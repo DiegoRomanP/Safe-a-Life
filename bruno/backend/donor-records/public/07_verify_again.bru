@@ -1,0 +1,21 @@
+meta {
+  name: El token no se reutiliza
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donor-email-verification-actions/{{verifyToken}}
+  body: none
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-verify-again
+}
+
+tests {
+  test("el segundo consumo es 410", function () {
+    expect(res.getStatus()).to.equal(410);
+  });
+}

@@ -1,0 +1,25 @@
+meta {
+  name: Login con el correo nuevo
+  type: http
+  seq: 30
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/sessions
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{$guid}}
+}
+
+body:json {
+  { "email": "{{changeNewEmail}}", "password": "{{donorPassword}}" }
+}
+
+tests {
+  test("el correo nuevo ya inicia sesión con la misma contraseña", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}
