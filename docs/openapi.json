@@ -202,6 +202,7 @@
       "post": {
         "tags": ["Authentication"],
         "operationId": "requestPasswordRecovery",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo identity-institutions F2b: invitación de admins hospitalarios y recuperación de contraseña por token de un solo uso. Ratifica solo esta operación (requestPasswordRecovery)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2b; ADR-004 y ADR-006; votos F4 y V18 aceptados por la persona usuaria (2026-10-12)"]},
         "summary": "Solicita recuperación de contraseña sin enumerar cuentas",
         "security": [],
         "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
@@ -209,8 +210,10 @@
         "responses": {
           "202": { "description": "Respuesta neutra exista o no la cuenta.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NeutralMessageEnvelope" }, "example": { "data": { "message": "Si la solicitud puede procesarse, recibirás instrucciones." } } } } },
           "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "429": { "$ref": "#/components/responses/TooManyRequests" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -218,17 +221,22 @@
       "post": {
         "tags": ["Authentication"],
         "operationId": "completePasswordReset",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo identity-institutions F2b: invitación de admins hospitalarios y recuperación de contraseña por token de un solo uso. Ratifica solo esta operación (completePasswordReset)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2b; ADR-004 y ADR-006; votos F4 y V18 aceptados por la persona usuaria (2026-10-12)"]},
         "summary": "Completa recuperación con token de un solo uso",
         "security": [],
         "parameters": [{ "$ref": "#/components/parameters/RecoveryToken" }, { "$ref": "#/components/parameters/IdempotencyKey" }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PasswordResetRequest" }, "example": { "newPassword": "synthetic-password-placeholder" } } } },
         "responses": {
           "200": { "description": "Contraseña cambiada; sesiones anteriores revocadas.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NeutralMessageEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "410": { "$ref": "#/components/responses/Gone" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1458,13 +1466,19 @@
       "get": {
         "tags": ["Authentication"],
         "operationId": "getHospitalAdminInvitationPreview",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo identity-institutions F2b: invitación de admins hospitalarios y recuperación de contraseña por token de un solo uso. Ratifica solo esta operación (getHospitalAdminInvitationPreview)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2b; ADR-004 y ADR-006; votos F4 y V18 aceptados por la persona usuaria (2026-10-12)"]},
         "summary": "Consulta invitación administrativa sin mutar estado",
         "security": [],
         "parameters": [{ "$ref": "#/components/parameters/ActionToken" }],
         "responses": {
           "200": { "description": "Información institucional mínima del enlace.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminInvitationPreviewEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "410": { "$ref": "#/components/responses/Gone" }
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1472,6 +1486,7 @@
       "post": {
         "tags": ["Authentication"],
         "operationId": "claimHospitalAdminInvitation",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo identity-institutions F2b: invitación de admins hospitalarios y recuperación de contraseña por token de un solo uso. Ratifica solo esta operación (claimHospitalAdminInvitation)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2b; ADR-004 y ADR-006; votos F4 y V18 aceptados por la persona usuaria (2026-10-12)"]},
         "summary": "Acepta una invitación de admin hospitalario",
         "description": "Hospital/rol vienen de la invitación protegida. La nueva cuenta administrativa requiere MFA/AAL2 antes de operar.",
         "security": [],
@@ -1480,10 +1495,14 @@
         "responses": {
           "201": { "description": "Invitación reclamada; sesión administrativa queda pendiente de MFA.", "headers": { "Set-Cookie": { "description": "Cookie de sesión Secure/HttpOnly; nombre definitivo pendiente de Sprint 0.", "schema": { "type": "string" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthSessionEnvelope" }, "example": { "data": { "actor": { "role": "admin_hospitalario", "displayName": "Admin Demo", "hospitalName": "Hospital Demo" }, "aal": 1, "mfaRequired": true, "mfaChallengeId": "cb6ad07d-04d3-4e94-9534-4c0b4d1530f8" } } } } },
           "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "410": { "$ref": "#/components/responses/Gone" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1797,6 +1816,7 @@
       "post": {
         "tags": ["Superadmin"],
         "operationId": "inviteHospitalAdmin",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo identity-institutions F2b: invitación de admins hospitalarios y recuperación de contraseña por token de un solo uso. Ratifica solo esta operación (inviteHospitalAdmin)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2b; ADR-004 y ADR-006; votos F4 y V18 aceptados por la persona usuaria (2026-10-12)"]},
         "summary": "Invita admin y asigna un hospital",
         "description": "AAL2 + step-up de máximo 5 min. Una persona admin pertenece exactamente a un hospital; nunca acepta rol propio.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
@@ -1804,10 +1824,14 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InviteHospitalAdminRequest" }, "example": { "email": "admin.demo@example.test", "hospitalId": "a8b51767-5c30-41fb-bf7a-f90250f9649c" } } } },
         "responses": {
           "202": { "description": "Invitación administrativa iniciada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NeutralMessageEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
