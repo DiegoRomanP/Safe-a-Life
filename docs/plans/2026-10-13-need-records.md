@@ -173,7 +173,7 @@ condicionado en la primera ronda y no se ha vuelto a ejecutar.
   el worker, ya pendiente desde F2a.
 - Tope de necesidades abiertas por hospital (además del de creación por hora): decisión de
   producto para F6.
-- `Retry-After` en el 429 de estas rutas.
+- ~~`Retry-After` en el 429 de estas rutas.~~ Resuelto el 2026-10-13: el manejador central lo añade a todo 429.
 - La cascada de la transición (invitaciones y outbox) y `confirmedIntentCount` real: F6.
 - El barrido que marca como `vencida` en la tabla (hoy solo se proyecta): worker, F6/F7.
 - `listOwnNeedResponses` sigue en borrador (F6).
