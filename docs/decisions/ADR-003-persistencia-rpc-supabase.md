@@ -136,7 +136,7 @@ otro driver ahora; su presencia no prueba que el scaffold legacy sea seguro.
    `app_privileged` y que devuelve únicamente el correo de un id. Una prueba pgTAP
    fija que es la única DEFINER propiedad de `postgres`.
 
-   Ampliado en F2b (2026-10-13), con el mismo motivo: `app.user_id_by_email(text)`
+   Ampliado en F2b (2026-10-13), con el mismo motivo: `app.user_id_by_email(text, interval)`
    (buscar el usuario de un correo para invitar o recuperar la contraseña) y
    `api.worker_revoke_sessions(uuid)` (borra las filas de `auth.sessions` de un
    usuario; GoTrue no ofrece revocación por usuario, ADR-006 punto 3) también son
