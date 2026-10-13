@@ -75,6 +75,24 @@ describe('createSession', () => {
     expect(calls).not.toContain('signIn');
   });
 
+  it('techo global de /token: se consume después de los límites por IP y email y, si se agota, no se toca Auth', async () => {
+    const { service, calls } = harness({ allowed: (bucket) => ({ allowed: bucket !== 'authquota:login', retryAfterSeconds: bucket === 'authquota:login' ? 40 : 0 }) });
+
+    const error = await service.createSession({ email: 'a@example.test', password: 'x' }, META).catch((e) => e);
+
+    expect(error).toMatchObject({ code: 'RATE_LIMITED', retryAfterSeconds: 40, reason: 'auth_quota_login' });
+    expect(calls.filter((call) => call.startsWith('limit:'))).toEqual(['limit:login:ip', 'limit:login:email', 'limit:authquota:login']);
+    expect(calls).not.toContain('signIn');
+  });
+
+  it('un atacante ya bloqueado por IP no consume cupo del techo global', async () => {
+    const { service, calls } = harness({ allowed: (bucket) => ({ allowed: bucket !== 'login:ip', retryAfterSeconds: bucket === 'login:ip' ? 5 : 0 }) });
+
+    await service.createSession({ email: 'a@example.test', password: 'x' }, META).catch(() => undefined);
+
+    expect(calls).not.toContain('limit:authquota:login');
+  });
+
   it('credenciales inválidas y usuario sin cuenta de aplicación dan el mismo 401', async () => {
     const wrong = harness({ signIn: null });
     const noAccount = harness({ actor: null });

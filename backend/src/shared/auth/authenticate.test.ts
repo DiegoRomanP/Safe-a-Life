@@ -23,7 +23,7 @@ function fakes(options: {
   valid?: Set<string>;
   refresh?: TokenPair | null | Error;
   actor?: ActorInfo | null | Error;
-  refreshGate?: () => Promise<number | null>;
+  refreshGate?: () => Promise<{ retryAfterSeconds: number; reason?: string } | null>;
   renewal?: RenewalPolicy;
 } = {}) {
   const calls = { refresh: 0, actor: [] as string[] };
@@ -122,7 +122,7 @@ describe('authenticate', () => {
   });
 
   it('limita las renovaciones por IP ANTES de llamar a Supabase Auth', async () => {
-    const deps = fakes({ refresh: null, refreshGate: async () => 42 });
+    const deps = fakes({ refresh: null, refreshGate: async () => ({ retryAfterSeconds: 42 }) });
 
     const response = await fetch(await start(deps), { headers: { cookie: '__Host-sal_at=vencido; __Host-sal_rt=rt-viejo-1' } });
 
@@ -173,7 +173,7 @@ describe('authenticate', () => {
     let consulted = 0;
     const deps = fakes({
       refresh: { accessToken: 'at-nuevo', refreshToken: 'rt-nuevo', expiresIn: 600 }, renewal: 'skip',
-      refreshGate: async () => { consulted += 1; return 30; },
+      refreshGate: async () => { consulted += 1; return { retryAfterSeconds: 30 }; },
     });
 
     const response = await fetch(await start(deps), { headers: { cookie: '__Host-sal_at=vencido; __Host-sal_rt=rt-viejo-1' } });
@@ -198,7 +198,7 @@ describe('authenticate', () => {
   });
 
   it('en una ruta lenient un límite agotado equivale a sin sesión, no a 429, y no llama al proveedor', async () => {
-    const deps = fakes({ refresh: { accessToken: 'x', refreshToken: 'y', expiresIn: 600 }, renewal: 'lenient', refreshGate: async () => 30 });
+    const deps = fakes({ refresh: { accessToken: 'x', refreshToken: 'y', expiresIn: 600 }, renewal: 'lenient', refreshGate: async () => ({ retryAfterSeconds: 30 }) });
 
     const response = await fetch(await start(deps), { headers: { cookie: '__Host-sal_at=vencido; __Host-sal_rt=rt-viejo-1' } });
 
@@ -215,11 +215,40 @@ describe('authenticate', () => {
     expect(deps.calls.refresh).toBe(1);
   });
 
-  it('en una ruta lenient un fallo no recuperable del proveedor sigue siendo 503', async () => {
-    const deps = fakes({ refresh: new PersistenceUnavailableError(), renewal: 'lenient' });
+  it('en una ruta lenient un proveedor o un limitador caídos equivalen a sin sesión (salir no se bloquea)', async () => {
+    const providerDown = fakes({ refresh: new PersistenceUnavailableError(), renewal: 'lenient' });
+    const limiterDown = fakes({ renewal: 'lenient', refreshGate: async () => { throw new PersistenceUnavailableError(); } });
+    const cookie = { headers: { cookie: '__Host-sal_at=vencido; __Host-sal_rt=rt-viejo-1' } };
+
+    expect((await fetch(await start(providerDown), cookie)).status).toBe(401);
+    expect((await fetch(await start(limiterDown), cookie)).status).toBe(401);
+  });
+
+  it('en una ruta normal un proveedor caído sigue siendo 503', async () => {
+    const deps = fakes({ refresh: new PersistenceUnavailableError() });
 
     const response = await fetch(await start(deps), { headers: { cookie: '__Host-sal_at=vencido; __Host-sal_rt=rt-viejo-1' } });
 
     expect(response.status).toBe(503);
+  });
+
+  it('en una ruta lenient un refresh con forma imposible se descarta, expira las cookies y no llama al proveedor', async () => {
+    const deps = fakes({ refresh: { accessToken: 'x', refreshToken: 'y', expiresIn: 600 }, renewal: 'lenient' });
+
+    const response = await fetch(await start(deps), { headers: { cookie: '__Host-sal_at=vencido; __Host-sal_rt=' + 'a'.repeat(300) } });
+
+    expect(response.status).toBe(401);
+    expect(deps.calls.refresh).toBe(0);
+    expect(response.headers.getSetCookie().every((cookie) => cookie.includes('Max-Age=0'))).toBe(true);
+  });
+
+  it('en una ruta lenient la renovación reescribe ambas cookies con los tokens nuevos', async () => {
+    const deps = fakes({ valid: new Set(['at-nuevo']), refresh: { accessToken: 'at-nuevo', refreshToken: 'rt-nuevo', expiresIn: 600 }, renewal: 'lenient' });
+
+    const response = await fetch(await start(deps), { headers: { cookie: '__Host-sal_at=vencido; __Host-sal_rt=rt-viejo-1' } });
+
+    const cookies = response.headers.getSetCookie().join('\n');
+    expect(cookies).toContain('__Host-sal_at=at-nuevo');
+    expect(cookies).toContain('__Host-sal_rt=rt-nuevo');
   });
 });

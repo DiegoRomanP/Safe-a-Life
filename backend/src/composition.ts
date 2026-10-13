@@ -5,6 +5,7 @@ import { createInstitutionsService } from './modules/identity-institutions/appli
 import { createInstitutionsRpcGateway } from './modules/identity-institutions/infrastructure/institutions-rpc-gateway.js';
 import { createIdentityGateways } from './modules/identity-institutions/infrastructure/identity-rpc-gateway.js';
 import { registerAuthRoutes } from './modules/identity-institutions/http/auth.router.js';
+import { consumeAuthQuota } from './modules/identity-institutions/application/auth-quota.js';
 import { authRenewalPolicy } from './modules/identity-institutions/http/renewal-policy.js';
 import { registerInstitutionsRoutes } from './modules/identity-institutions/http/institutions.router.js';
 import { createReadinessRpcGateway } from './modules/platform/infrastructure/readiness-rpc-gateway.js';
@@ -18,7 +19,9 @@ import { EXPECTED_SCHEMA_VERSION } from './shared/persistence/schema-version.js'
 import { createSupabaseFactory } from './shared/persistence/supabase-client.js';
 import type { Logger } from './shared/observability/logger.js';
 
-const REFRESH_LIMIT = 60;
+// Por IP y cada 15 min. Debe quedar muy por debajo del techo global de renovación (AUTH_QUOTA.refresh):
+// con 30, al menos tres IPs deben cooperar para saturarlo (O1).
+const REFRESH_LIMIT = 30;
 const REFRESH_WINDOW_SECONDS = 15 * 60;
 
 export interface Application {
@@ -67,7 +70,10 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
         renewalPolicy: authRenewalPolicy,
         refreshGate: async (req) => {
           const decision = await identity.limiter.consume('refresh:ip', clientIpSubject(req, ipHmac), REFRESH_LIMIT, REFRESH_WINDOW_SECONDS);
-          return decision.allowed ? null : decision.retryAfterSeconds;
+          if (!decision.allowed) return { retryAfterSeconds: decision.retryAfterSeconds };
+          // Techo global de /token (O1): se consume solo si el límite por IP lo permitió.
+          const wait = await consumeAuthQuota(identity.limiter, 'refresh');
+          return wait === null ? null : { retryAfterSeconds: wait, reason: 'auth_quota_refresh' };
         },
       }));
       registerAuthRoutes(app, { auth, secrets: { ...httpSecrets, ipHmac } });

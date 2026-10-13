@@ -1,8 +1,8 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startBackend, type RunningBackend } from '../support/app.js';
-import { ApiClient } from '../support/client.js';
-import { undeclaredStatuses } from '../support/contract-statuses.js';
-import { sql } from '../support/db.js';
+import { ApiClient, observed } from '../support/client.js';
+import { MIN_OBSERVED, undeclaredStatuses } from '../support/contract-statuses.js';
+import { resetAuthQuota, sql } from '../support/db.js';
 import { DEMO_PASSWORD, HOSPITAL_IDS, SEED_USERS, SITE_IDS } from '../support/local-env.js';
 
 let backend: RunningBackend;
@@ -10,6 +10,10 @@ let superadmin: ApiClient;
 let admin1: ApiClient;
 let admin2: ApiClient;
 let donor: ApiClient;
+
+beforeEach(() => {
+  resetAuthQuota();
+});
 
 beforeAll(async () => {
   backend = await startBackend();
@@ -330,6 +334,8 @@ describe('rollback', () => {
 
 describe('contrato', () => {
   it('todo estado HTTP devuelto por el backend está declarado para su operación en docs/openapi.json', () => {
+    // Sin un mínimo, ejecutar solo esta prueba (-t) dejaría `observed` vacío y pasaría sin comprobar nada.
+    expect(observed.length).toBeGreaterThan(MIN_OBSERVED);
     expect(undeclaredStatuses()).toEqual([]);
   });
 });
