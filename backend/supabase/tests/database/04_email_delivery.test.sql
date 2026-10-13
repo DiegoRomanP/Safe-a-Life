@@ -2,7 +2,7 @@ begin;
 -- Aislamiento: la base puede estar sembrada. Todo se revierte con el rollback.
 truncate app.email_outbox, app.email_webhook_events, app.user_accounts cascade;
 
-select plan(69);
+select plan(76);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000000e1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-mail-worker@example.test'),
@@ -90,10 +90,10 @@ select is((select i -> 'recipient' from claim1, jsonb_array_elements(r -> 'items
   'null'::jsonb, 'sin recipient_user_id el destinatario va dentro del payload (recipient nulo)');
 select is((select (i ->> 'attemptNo')::int from claim1, jsonb_array_elements(r -> 'items') i limit 1), 1, 'la primera llamada es la 1');
 select is((select array_agg(k order by k) from claim1, jsonb_object_keys((select r -> 'items' -> 0 from claim1)) k),
-  array['attemptNo', 'idempotencyKey', 'kind', 'outboxId', 'recipient', 'sealedPayload'], 'cada elemento lleva exactamente los seis campos');
+  array['attemptNo', 'idempotencyKey', 'kind', 'notAfter', 'outboxId', 'recipient', 'sealedPayload'], 'cada elemento lleva exactamente los siete campos');
 reset role;
-select is((select count(*)::int from app.email_outbox where status = 'en_curso' and lease_until > now() + interval '55 seconds' and attempt_count = 1), 2,
-  'las reclamadas quedan en curso con un lease de 60 s');
+select is((select count(*)::int from app.email_outbox where status = 'en_curso' and lease_until > now() + interval '115 seconds' and attempt_count = 1), 2,
+  'las reclamadas quedan en curso con un lease de 120 s');
 set local role authenticated;
 select pg_temp.login('00000000-0000-4000-8000-0000000000e1');
 select is((select count(*)::int from jsonb_array_elements(api.worker_claim_due_outbox(10) -> 'items') i
@@ -206,6 +206,38 @@ set local role authenticated;
 select pg_temp.login('00000000-0000-4000-8000-0000000000e1');
 select is(api.ingest_email_event('evt-x1', 'prov-desconocido', 'email.delivered', now()) -> 'matched', 'false'::jsonb, 'un evento de un mensaje desconocido se registra sin efecto');
 select is(api.ingest_email_event('evt-f1', 'prov-007', 'email.failed', now()) ->> 'kind', 'ok', 'un failed de un id desconocido es ok');
+
+-- Un evento que llega antes de conocer el id del proveedor no se pierde ------------------------------------
+reset role;
+insert into app.email_outbox (outbox_id, kind, idempotency_key, sealed_payload, status, attempt_count, lease_until, not_after) values
+  ('60000000-0000-4000-8000-00000000000b', 'invitacion', 'outbox-60000000-0000-4000-8000-00000000000b', 'v1.k1.a.b.c', 'en_curso', 1, now() + interval '60 seconds', now() + interval '1 day');
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000e1');
+select is(api.ingest_email_event('evt-early', 'prov-early', 'email.delivered', now()) -> 'matched', 'false'::jsonb, 'un delivered cuyo mensaje aún no tiene id del proveedor no coincide todavía');
+select is(api.worker_record_attempt('60000000-0000-4000-8000-00000000000b', 1, 'ok', 200, 'prov-early', null) ->> 'status', 'enviado', 'el intento posterior se registra');
+reset role;
+select is((select delivery_state from app.email_outbox where outbox_id = '60000000-0000-4000-8000-00000000000b'), 'entregada',
+  'al conocer el id se reaplican los eventos ya guardados (entregada)');
+
+-- Lease vencido con las 6 llamadas gastadas: no se reintenta -----------------------------------------------------
+insert into app.email_outbox (outbox_id, kind, idempotency_key, sealed_payload, status, attempt_count, lease_until, not_after) values
+  ('60000000-0000-4000-8000-00000000000c', 'recuperacion', 'outbox-60000000-0000-4000-8000-00000000000c', 'v1.k1.a.b.c', 'en_curso', 6, now() - interval '1 second', now() + interval '1 day');
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000e1');
+select is((api.worker_expire_outbox() ->> 'exhausted')::int >= 1, true, 'expire cierra los leases agotados (contador exhausted)');
+reset role;
+select is((select status || '|' || (sealed_payload is null)::text || '|' || delivery_state from app.email_outbox where outbox_id = '60000000-0000-4000-8000-00000000000c'), 'fallido|true|fallida',
+  'un lease vencido con 6 llamadas gastadas queda fallido, sin payload');
+insert into app.email_outbox (outbox_id, kind, idempotency_key, sealed_payload, status, attempt_count, lease_until, not_after) values
+  ('60000000-0000-4000-8000-00000000000d', 'recuperacion', 'outbox-60000000-0000-4000-8000-00000000000d', 'v1.k1.a.b.c', 'en_curso', 6, now() - interval '1 second', now() + interval '1 day');
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000e1');
+select is((select count(*)::int from jsonb_array_elements(api.worker_claim_due_outbox(50) -> 'items') i where i ->> 'outboxId' = '60000000-0000-4000-8000-00000000000d'), 0,
+  'el claim no reclama un lease agotado y lo deja fallido');
+reset role;
+select is((select status from app.email_outbox where outbox_id = '60000000-0000-4000-8000-00000000000d'), 'fallido', 'el propio claim cierra el lease agotado');
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000e1');
 
 -- Un worker no accede a las tablas ni a otras RPC ----------------------------------------------------------
 select throws_ok($$select * from app.email_outbox$$, '42501', null, 'el worker no lee la tabla del outbox directamente');

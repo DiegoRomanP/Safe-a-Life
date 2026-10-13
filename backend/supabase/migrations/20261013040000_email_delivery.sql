@@ -115,7 +115,8 @@ $$;
 -- ---------------------------------------------------------------------------
 
 -- Reclama filas vencidas con SKIP LOCKED; también recupera las de lease vencido. Cada reclamo cuenta como
--- una llamada (si el worker cae después de enviar, el límite de 6 sigue valiendo).
+-- una llamada (si el worker cae después de enviar, el límite de 6 sigue valiendo). El lease de 120 s cubre un lote
+-- de 5 envíos de hasta 10 s cada uno; devuelve `notAfter` para que el worker no envíe pasado el plazo.
 create function api.worker_claim_due_outbox(p_limit int default 10) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -140,13 +141,13 @@ begin
     for update skip locked
   ), claimed as (
     update app.email_outbox o
-    set status = 'en_curso', lease_until = now() + interval '60 seconds', attempt_count = o.attempt_count + 1
+    set status = 'en_curso', lease_until = now() + interval '120 seconds', attempt_count = o.attempt_count + 1
     from due where o.outbox_id = due.outbox_id
     returning o.*
   )
   select coalesce(jsonb_agg(jsonb_build_object(
            'outboxId', c.outbox_id, 'kind', c.kind, 'sealedPayload', c.sealed_payload, 'attemptNo', c.attempt_count,
-           'idempotencyKey', c.idempotency_key,
+           'idempotencyKey', c.idempotency_key, 'notAfter', app.iso(c.not_after),
            'recipient', app.user_email(c.recipient_user_id)
          ) order by c.next_attempt_at, c.outbox_id), '[]'::jsonb)
     into v_items
@@ -163,6 +164,7 @@ declare
   v_row app.email_outbox;
   v_retry_at timestamptz;
   v_status text;
+  v_event text;
 begin
   if app.jwt_sub() is null then return jsonb_build_object('kind', 'unauthenticated'); end if;
   if not app.is_worker() then return jsonb_build_object('kind', 'forbidden'); end if;
@@ -212,6 +214,16 @@ begin
         provider_message_id = case when v_status = 'enviado' then p_provider_message_id else provider_message_id end,
         delivery_state = app.advance_delivery(delivery_state, case when v_status = 'enviado' then 'enviada' else 'fallida' end)
     where outbox_id = p_outbox_id;
+    -- Un evento del proveedor puede haber llegado ANTES de conocer su id: se reaplica en orden de llegada.
+    if v_status = 'enviado' and p_provider_message_id is not null then
+      for v_event in
+        select e.type from app.email_webhook_events e where e.provider_message_id = p_provider_message_id order by e.received_at, e.event_id
+      loop
+        update app.email_outbox
+        set delivery_state = app.advance_delivery(delivery_state, case v_event when 'email.sent' then 'enviada' when 'email.delivered' then 'entregada' else 'fallida' end)
+        where outbox_id = p_outbox_id;
+      end loop;
+    end if;
   end if;
   return jsonb_build_object('kind', 'ok', 'status', v_status);
 end;
