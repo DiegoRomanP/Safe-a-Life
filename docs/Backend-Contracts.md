@@ -298,6 +298,14 @@ cierre sujeto a las revisiones y a la aprobación registradas en
   con la misma clave y el mismo payload aunque el estado ya haya cambiado.
 - **Step-up**: `updateHospital`, `revokeHospitalMembership` y `setFinalDemoAt`
   exigen un TOTP verificado en los últimos 300 s (403 `STEP_UP_REQUIRED`).
+- **Login y logout**: el login nunca renueva la sesión. El logout renueva con el
+  refresh token si el access venció, para revocar la sesión en Auth; si el límite
+  de renovación está agotado o el proveedor responde 429, responde 401, expira las
+  cookies y la revocación queda diferida hasta que caduque el refresh token. Toda
+  llamada a Auth tiene un plazo de 8 s (503 si no contesta).
+- **Estados globales**: toda operación de `/api` declara 400, 401, 403 (también el
+  guard de borde `X-Edge-Secret`), 429, 500 y 503; la pareja de salud declara 400 y
+  500. Lo verifica una prueba estructural y las pruebas de integración.
 - **Cuota de Supabase Auth**: login y renovación comparten la cuota por IP del
   backend; la renovación tiene límite propio (`refresh:ip`) y un 429 del
   proveedor responde 429 sin cerrar la sesión (ADR-004).

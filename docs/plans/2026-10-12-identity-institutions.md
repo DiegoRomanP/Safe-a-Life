@@ -53,7 +53,7 @@ Quedan para F2b: `requestPasswordRecovery`, `completePasswordReset`,
   `InstitutionsRepository` y su gateway RPC con guards cerrados
   (`shared/persistence/guards.ts`); routers `auth` e `institutions` que solo
   parsean, aplican guards y serializan.
-- **Pruebas**: 288 unitarias del backend (`npm test`), 37 de integración contra
+- **Pruebas**: 302 unitarias del backend (`npm test`), 40 de integración contra
   Supabase local (`npm run test:backend:integration`) y Bruno contra el backend
   real (`npm run test:bruno:backend`).
 
@@ -68,8 +68,19 @@ Quedan para F2b: `requestPasswordRecovery`, `completePasswordReset`,
 - **Contrato**: tras la revisión se declararon en `docs/openapi.json` los errores
   que el backend realmente devuelve (400 en entradas tipadas, 503 en toda
   operación salvo salud, 403 en `verifyMfaChallenge`, 409 en `verifyStepUp`, 422
-  en `listHospitalMemberships`). El inventario congelado de Prism pasó a 322
-  errores y 427 casos.
+  en `listHospitalMemberships`). La segunda ronda añadió 429, 500 y otros 403/422
+  y la tercera 403 en `getCsrfToken`/`getCurrentSession` (guard de borde) y 400 en
+  la pareja de salud. El inventario congelado de Prism terminó en 355 errores y
+  460 casos. Una prueba estructural (`backend/src/contract/declared-statuses.test.ts`)
+  exige que toda operación de `/api` que el backend sirve declare 400, 401, 403,
+  429, 500 y 503, sin depender de qué rutas recorran las pruebas de integración.
+- **Sesión en logout/login**: el login nunca renueva sesión (política `skip`). El
+  logout renueva con el refresh token si el access venció, para poder revocar
+  la sesión en Auth (política `lenient`); si el límite de renovación está agotado
+  o el proveedor responde 429, se trata como sin sesión: responde 401 y expira las
+  cookies, y **la revocación queda diferida** hasta que el refresh token caduque
+  (hasta 12 h de inactividad). Las rutas se comparan sin distinguir mayúsculas ni
+  barra final, igual que Express.
 - **ADR-003**: allowlist ampliada con `api.record_public_idempotency` (decisión
   tuya); `api.consume_idempotency_key` es INVOKER.
 - **ADR-004**: secreto de borde (`EDGE_SHARED_SECRET`), cuota de Supabase Auth y
@@ -92,9 +103,9 @@ Quedan para F2b: `requestPasswordRecovery`, `completePasswordReset`,
 | Comando | Resultado |
 | --- | --- |
 | `npm run typecheck` | verde |
-| `npm test` | verde (288 pruebas del backend, más mock y web) |
-| `npm run test:backend:db` | 99 pruebas pgTAP en verde |
-| `npm run test:backend:integration` | 37 pruebas en verde (incluye que todo estado HTTP devuelto esté declarado en el contrato) |
+| `npm test` | verde (302 pruebas del backend, más mock y web) |
+| `npm run test:backend:db` | 100 pruebas pgTAP en verde |
+| `npm run test:backend:integration` | 40 pruebas en verde (incluye que todo estado HTTP observado esté declarado, con control negativo, y el logout con access vencido contra `auth.sessions`) |
 | `npm run test:bruno:backend` | 28 solicitudes y 30 pruebas en verde (plataforma, hospital, superadmin) |
 | `npm run openapi:lint`, `openapi:api:check`, `test:api:generator` | verdes |
 | `npm run test:contract`, `npm run test:api` | verdes |
@@ -137,8 +148,41 @@ normalizado; fallar cerrado en Render; readiness con caché de 5 s; log con ruta
 y motivo; llavero HMAC derivado una sola vez en la raíz de composición; B-1 a
 B-5 y B-7 corregidos.
 
-**Tercera ronda: pendiente.** El único PASS registrado hasta ahora es el de
-seguridad de la segunda ronda, y es anterior a estas correcciones.
+Tercera ronda (2026-10-12), subagentes nuevos de contexto separado, solo lectura
+sobre el delta `c43114e..ccab19e`:
+
+- `reviewer-back`: **FAIL** (un bloqueante). 1) El contrato no declaraba el 403
+  del guard de borde en `getCsrfToken` y `getCurrentSession`, ni el 400 de la
+  pareja de salud, y la prueba de integración no lo detectaba (solo comprobaba
+  «observado ⊆ declarado» y no registraba los `fetch` crudos). 2) Mayor: el
+  logout no revocaba la sesión en Auth si el access token había vencido. Menores:
+  3) `skipRenewal` comparaba la ruta de forma exacta, 4) telemetría de O6 sin
+  pruebas, 5) pruebas débiles, 6) readiness sin single-flight, 7) las claves de
+  idempotencia de MFA quedan consumidas si Auth falla después, 8) cifras y
+  documentación desactualizadas.
+- `security-privacy-auditor`: **PASS con observaciones** (todas menores, sin
+  críticos ni altos; el cierre lo decide la persona usuaria). 1 y 2 coinciden con
+  los hallazgos 2 y 3 del otro revisor; 3) `consume_rate_limit` y
+  `record_public_idempotency` son invocables por `anon` con parámetros del
+  llamador, 4) una prueba pgTAP no probaba lo que decía, 5) O9/O10 sin estado en
+  el plan, 6) readiness sin single-flight, 7) `TRUSTED_PROXIES` admite prefijos
+  desde /8.
+
+Correcciones de la tercera ronda: 403/400 declarados y contadores de Prism
+(355/460); prueba estructural de estados globales; `observedFetch` para registrar
+los `fetch` crudos y control negativo del verificador; política de renovación
+(`skip`/`lenient`/`normal`) con ruta normalizada, pruebas unitarias y dos de
+integración (logout con access vencido revoca en `auth.sessions`; con el límite
+agotado responde 401 y expira cookies); readiness con single-flight y pruebas de
+expiración a los 5 s; timeout de Auth inyectable con prueba real de aborto (503);
+control positivo de pares sustitutos; el rechazo de `23:59:60` se afirma antes de
+tocar el repositorio; prueba pgTAP reescrita (ahora 100).
+
+**Estado de la revisión:** `reviewer-back` FAIL (ronda 3) y seguridad PASS con
+observaciones (ronda 3). No existe una nueva revisión de las correcciones de la
+tercera ronda: **no se afirma un PASS de `reviewer-back`**. Queda a tu criterio
+pedir una cuarta revisión o aprobar el cierre con los FAIL corregidos y
+verificados por las pruebas.
 
 ## 6. Pendientes conocidos
 
@@ -163,6 +207,32 @@ seguridad de la segunda ronda, y es anterior a estas correcciones.
 - **B-6 (desvío)**: `createSession` deriva la identidad del actor y el hash de
   idempotencia del email normalizado (sin contraseña). Por eso «misma clave con
   otro payload → 409» ya no ocurre en el login y cada login escribe una fila.
+- Ronda 3, no corregido (decisión o trabajo posterior):
+  - Telemetría de O6 (`route`/`reason` del logger y `rejectReason` de los guards)
+    sin pruebas específicas.
+  - Las operaciones MFA consumen la clave de idempotencia antes de llamar a Auth:
+    si Auth falla después (503/timeout) o el enrolamiento termina en 409, un
+    reintento con la misma clave da 409 y no el error original. El frontend debe
+    generar una clave nueva por intento. `mfa:user` es un bucket compartido por
+    enrolar, verificar y step-up.
+  - `consume_rate_limit` y `record_public_idempotency` son invocables con la anon
+    key directamente en PostgREST: pueden crear filas sin tope y `consume_rate_limit`
+    acepta límite y ventana elegidos por el llamador. Propuesta: tabla de políticas
+    por bucket con allowlist en el servidor y purga ligada (con F4/F7).
+  - La política `audit_events_own_insert` permite a un usuario auditar sus propios
+    actos con `actor_kind = 'usuario'`; no puede atribuir a otro actor (pgTAP).
+    Decidir si `write_audit` pasa a DEFINER.
+  - `TRUSTED_PROXIES` admite prefijos IPv4 desde /8; conviene un mínimo /16 o
+    saltos enumerados (se fija con la topología real en F9).
+  - Backend-Contracts.md prohíbe 429 en `createHospitalNeed`, pero `authenticate`
+    es global en `/api` y puede emitir 429 y 503: se reconcilia en F3.
+- **O9 (declarado)**: los límites de intento del backend (login, MFA, CSRF) solo
+  protegen el camino por Express. Quien tenga la anon key puede llamar a GoTrue
+  directamente (`enable_signup = true` en local y F2b usa `signUp`), de modo que
+  solo aplican los límites por IP de Supabase. La mitigación real es que la anon
+  key no salga del servidor y fijar el estado de signup en el proyecto cloud.
+- **O10 (declarado, aceptado por diseño)**: 10 intentos fallidos con el email de
+  una víctima la bloquean 15 min (RNF-SEC-15); es un bloqueo dirigido.
 - **O1 (decisión tuya pendiente)**: Supabase limita `/auth/v1/token` por IP del
   backend en un solo bucket (150 cada 5 min, login y renovación juntos). Un
   ataque distribuido lo agota aunque el límite por IP del backend funcione.
@@ -185,3 +255,4 @@ seguridad de la segunda ronda, y es anterior a estas correcciones.
   el backend real.
 - 2026-10-12: primera ronda de revisión independiente (dos FAIL) y remediación.
 - 2026-10-12: segunda ronda (reviewer-back FAIL, seguridad PASS con observaciones) y remediación.
+- 2026-10-12: tercera ronda (reviewer-back FAIL, seguridad PASS con observaciones) y remediación.
