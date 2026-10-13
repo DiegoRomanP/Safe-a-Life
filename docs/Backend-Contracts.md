@@ -374,11 +374,12 @@ Estado: implementado en `backend/src/modules/email-delivery`; revisiones y cierr
   estilo Svix (`base64(HMAC-SHA256(secreto, "<svix-id>.<svix-timestamp>.<cuerpo crudo>"))`, cualquiera de las
   firmas `v1,<base64>`), antigüedad máxima 300 s (pasada o futura), JSON parseado solo después de verificar y
   deduplicación por `svix-id`. Respuestas: 204 (aceptado, duplicado o ignorado), 400, 401 (firma o plazo, sin
-  detalle), 403 (guard de borde), 500 y 503. Mapeo: `email.sent → enviada`, `email.delivered → entregada`,
+  detalle), 403 (guard de borde), 429 (límite de Auth al renovar la sesión técnica), 500 y 503. Mapeo: `email.sent → enviada`, `email.delivered → entregada`,
   `email.bounced`/`email.failed → fallida`; otros eventos se ignoran.
 - **Outbox**: el payload (token y destinatario) se cifra en la aplicación con AES-256-GCM y el id del outbox como
   AAD; en la base solo existe cifrado y se destruye (`NULL`) al llegar a un estado final o vencer.
-- **Reintentos**: máximo 6 llamadas, backoff 1/2/5/10/20 min con jitter ±20 %, nada se envía tras `not_after`,
+- **Reintentos**: máximo 6 llamadas, backoff 1/2/5/10/20 min con jitter ±20 %, nada se envía tras `not_after` (se
+  comprueba otra vez justo antes de llamar al proveedor),
   y un resultado incierto se reconcilia a los 30 s durante 5 min con la misma clave de idempotencia.
 - **Worker**: proceso separado con identidad técnica y rol interno `worker`; solo llama a las RPC `worker_*` e
   `ingest_email_event`. Sus registros contienen solo evento, código y duración.
