@@ -68,8 +68,10 @@ describe('hash canónico de las escrituras (paridad con app.fingerprint de SQL)'
   });
 
   it('una fecha date-time válida para el esquema pero inexistente para Date (segundo intercalar) es 422, no 500', async () => {
-    const { service } = recorder();
+    const { seen, service } = recorder();
 
     await expect(service.setFinalDemoAt('t', 'clave-de-prueba-0001', '2027-06-30T23:59:60Z')).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    // El rechazo ocurre antes de tocar el repositorio (y por tanto antes de reclamar la clave de idempotencia).
+    expect(seen).toEqual([]);
   });
 });

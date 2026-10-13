@@ -5,7 +5,7 @@ alter table app.configuration disable trigger configuration_guard;
 update app.configuration set final_demo_at = null;
 alter table app.configuration enable trigger configuration_guard;
 
-select plan(27);
+select plan(28);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000000c1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-hard-super@example.test'),
@@ -92,8 +92,12 @@ select is(pg_temp.rows_changed($$update app.hospitals set public_name = 'Intruso
   'un admin no actualiza hospitales directamente');
 select is(pg_temp.rows_changed($$update app.hospital_memberships set status = 'activa' where true$$), 0,
   'un admin no actualiza membresías directamente');
-select throws_ok($$insert into app.audit_events (actor_kind, actor_id, event, result) values ('user', '00000000-0000-4000-8000-0000000000c1', 'x', 'ok')$$,
-  '42501', null, 'un usuario no inserta auditoría a mano');
+-- La política permite a un usuario auditar SUS PROPIOS actos (write_audit es INVOKER); lo que no puede es
+-- atribuir un evento a otro actor ni usar otro tipo de actor.
+select throws_ok($$insert into app.audit_events (actor_kind, actor_id, event, result) values ('usuario', '00000000-0000-4000-8000-0000000000ff', 'x', 'ok')$$,
+  '42501', null, 'un usuario no inserta auditoría a nombre de otro actor');
+select throws_ok($$insert into app.audit_events (actor_kind, actor_id, event, result) values ('sistema', '00000000-0000-4000-8000-0000000000c1', 'x', 'ok')$$,
+  '42501', null, 'un usuario no inserta auditoría con otro tipo de actor');
 
 -- Revocación: step-up, replay y conflicto ------------------------------------------------------------------
 select pg_temp.login('00000000-0000-4000-8000-0000000000c1', 'aal2');

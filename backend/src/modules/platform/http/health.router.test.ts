@@ -12,10 +12,10 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
 });
 
-async function start(readiness: ReadinessGateway, timeoutMs = 2_000): Promise<string> {
+async function start(readiness: ReadinessGateway, timeoutMs = 2_000, now?: () => number): Promise<string> {
   const app = express();
   app.use(correlationIdMiddleware);
-  registerHealthRoutes(app, { readiness, expectedSchemaVersion: '20261013010000', timeoutMs });
+  registerHealthRoutes(app, { readiness, expectedSchemaVersion: '20261013010000', timeoutMs, ...(now ? { now } : {}) });
   app.use(createErrorHandler());
   const server = app.listen(0, '127.0.0.1');
   servers.push(server);
@@ -80,5 +80,43 @@ describe('GET /health/ready', () => {
     for (let i = 0; i < 5; i += 1) expect((await fetch(`${base}/health/ready`)).status).toBe(200);
 
     expect(calls).toBe(1);
+  });
+
+  it('peticiones concurrentes comparten una sola consulta en curso (single-flight)', async () => {
+    let calls = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const base = await start({ schemaVersion: async () => { calls += 1; await gate; return '20261013010000'; } });
+
+    const pending = Array.from({ length: 6 }, () => fetch(`${base}/health/ready`));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    release();
+    const statuses = (await Promise.all(pending)).map((response) => response.status);
+
+    expect(statuses).toEqual([200, 200, 200, 200, 200, 200]);
+    expect(calls).toBe(1);
+  });
+
+  it('el resultado vence a los 5 s y se vuelve a consultar; el fallo también se reutiliza durante ese plazo', async () => {
+    let clock = 1_000;
+    let calls = 0;
+    let healthy = false;
+    const base = await start({ schemaVersion: async () => { calls += 1; return healthy ? '20261013010000' : null; } }, 2_000, () => clock);
+
+    expect((await fetch(`${base}/health/ready`)).status).toBe(503);
+    healthy = true;
+    clock += 4_999;
+    expect((await fetch(`${base}/health/ready`)).status).toBe(503);
+    expect(calls).toBe(1);
+
+    clock += 2;
+    expect((await fetch(`${base}/health/ready`)).status).toBe(200);
+    expect(calls).toBe(2);
+  });
+
+  it('rechaza parámetros de query desconocidos en readiness con 400', async () => {
+    const base = await start({ schemaVersion: async () => '20261013010000' });
+
+    expect((await fetch(`${base}/health/ready?x=1`)).status).toBe(400);
   });
 });

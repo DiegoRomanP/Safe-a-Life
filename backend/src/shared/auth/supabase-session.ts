@@ -8,6 +8,8 @@ const AUTH_TIMEOUT_MS = 8_000;
 
 export interface SupabaseSessionOptions {
   readonly fetch?: typeof fetch;
+  /** Plazo por llamada a Auth (por defecto 8 s); inyectable para probar el aborto. */
+  readonly timeoutMs?: number;
 }
 
 /** Lanza ante 429 del proveedor (cuota por IP del backend); no es un fallo de credenciales. */
@@ -45,8 +47,9 @@ export function createSupabaseSessionGateway(
   const issuer = `${new URL(url).origin}/auth/v1`;
   // Ninguna llamada a Auth queda sin límite de tiempo: un Auth lento no debe retener los handlers.
   const baseFetch = options.fetch ?? fetch;
+  const timeoutMs = options.timeoutMs ?? AUTH_TIMEOUT_MS;
   const boundedFetch: typeof fetch = (input, init) =>
-    baseFetch(input, { ...init, signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(AUTH_TIMEOUT_MS)]) : AbortSignal.timeout(AUTH_TIMEOUT_MS) });
+    baseFetch(input, { ...init, signal: init?.signal ? AbortSignal.any([init.signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs) });
   const newClient = (): SupabaseClient =>
     createClient(url, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },

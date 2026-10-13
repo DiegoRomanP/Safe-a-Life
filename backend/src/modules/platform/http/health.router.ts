@@ -37,6 +37,21 @@ export function registerHealthRoutes(app: Express, { readiness, expectedSchemaVe
   const live = compileOperation('getLiveness');
   const ready = compileOperation('getReadiness');
   let cached: { ok: boolean; until: number } | undefined;
+  /** Comprobación en curso: las peticiones concurrentes la comparten en vez de lanzar una RPC cada una. */
+  let inflight: Promise<boolean> | undefined;
+
+  const check = (): Promise<boolean> => {
+    inflight ??= (async () => {
+      try {
+        return (await withTimeout(readiness.schemaVersion(), timeoutMs)) === expectedSchemaVersion;
+      } catch {
+        return false;
+      } finally {
+        inflight = undefined;
+      }
+    })();
+    return inflight;
+  };
 
   app.get('/health/live', (req, res, next) => {
     try {
@@ -51,12 +66,7 @@ export function registerHealthRoutes(app: Express, { readiness, expectedSchemaVe
     try {
       ready.parseQuery(req.query);
       if (!cached || cached.until <= now()) {
-        let ok = false;
-        try {
-          ok = (await withTimeout(readiness.schemaVersion(), timeoutMs)) === expectedSchemaVersion;
-        } catch {
-          ok = false;
-        }
+        const ok = await check();
         cached = { ok, until: now() + READY_CACHE_MS };
       }
       if (!cached.ok) throw new ApiError('SERVICE_UNAVAILABLE');

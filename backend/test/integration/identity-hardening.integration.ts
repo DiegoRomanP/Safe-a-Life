@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startBackend, type RunningBackend } from '../support/app.js';
-import { ApiClient, totpSecretFor } from '../support/client.js';
+import { ApiClient, observedFetch, totpSecretFor } from '../support/client.js';
 import { undeclaredStatuses } from '../support/contract-statuses.js';
 import { sql } from '../support/db.js';
 import { HOSPITAL_IDS, SEED_USERS } from '../support/local-env.js';
@@ -140,18 +140,53 @@ describe('CSRF, nombres largos y tiempo de respuesta', () => {
   });
 });
 
+describe('cierre de sesión con el access token vencido', () => {
+  const activeSessions = (email: string) =>
+    Number(sql(`select count(*) from auth.sessions s join auth.users u on u.id = s.user_id where u.email = '${email}'`));
+
+  it('renueva con el refresh token y revoca la sesión en Auth (no queda viva hasta que expire el refresh)', async () => {
+    sql("delete from app.rate_limit_events where bucket = 'refresh:ip'");
+    const client = new ApiClient(backend.baseUrl, '10.99.11.1');
+    await client.login(SEED_USERS.donor1.email);
+    expect(activeSessions(SEED_USERS.donor1.email)).toBeGreaterThan(0);
+    client.cookies.set('__Host-sal_at', 'access-vencido');
+
+    const out = await client.send('DELETE', '/api/v1/auth/sessions/current');
+
+    expect(out.status).toBe(204);
+    expect(client.cookies.size).toBe(0);
+    expect(activeSessions(SEED_USERS.donor1.email)).toBe(0);
+  });
+
+  it('con el límite de renovación agotado no se bloquea: responde 401, expira las cookies y no llama a Auth', async () => {
+    sql("delete from app.rate_limit_events where bucket = 'refresh:ip'");
+    const attacker = new ApiClient(backend.baseUrl, '10.99.11.2');
+    for (let i = 0; i < 70; i += 1) {
+      attacker.cookies.set('__Host-sal_rt', `refresh-falso-${String(i).padStart(4, '0')}`);
+      await attacker.send('GET', '/api/v1/auth/session');
+    }
+    attacker.cookies.set('__Host-sal_at', 'access-vencido');
+    attacker.cookies.set('__Host-sal_rt', 'refresh-falso-final');
+
+    const out = await attacker.send('DELETE', '/api/v1/auth/sessions/current', { csrf: false, origin: 'http://127.0.0.1:5173' });
+
+    expect(out.status).toBe(401);
+    expect(attacker.cookies.size).toBe(0);
+  });
+});
+
 describe('salud y guard de borde', () => {
   it('readiness responde 200 contra la base real con la versión de migraciones esperada', async () => {
-    const response = await fetch(`${backend.baseUrl}/health/ready`);
+    const response = await observedFetch(backend.baseUrl, '/health/ready');
     expect(response.status).toBe(200);
   });
 
   it('con EDGE_SHARED_SECRET las peticiones directas son 403 salvo /health y el borde pasa', async () => {
     const edge = await startBackend({ EDGE_SHARED_SECRET: 'e'.repeat(48) });
     try {
-      const direct = await fetch(`${edge.baseUrl}/api/v1/auth/session`);
-      const health = await fetch(`${edge.baseUrl}/health/live`);
-      const through = await fetch(`${edge.baseUrl}/api/v1/auth/session`, { headers: { 'x-edge-secret': 'e'.repeat(48) } });
+      const direct = await observedFetch(edge.baseUrl, '/api/v1/auth/session');
+      const health = await observedFetch(edge.baseUrl, '/health/live');
+      const through = await observedFetch(edge.baseUrl, '/api/v1/auth/session', { headers: { 'x-edge-secret': 'e'.repeat(48) } });
 
       expect(direct.status).toBe(403);
       expect(health.status).toBe(200);
@@ -167,5 +202,10 @@ describe('salud y guard de borde', () => {
 describe('contrato', () => {
   it('todo estado HTTP devuelto por el backend está declarado para su operación en docs/openapi.json', () => {
     expect(undeclaredStatuses()).toEqual([]);
+  });
+
+  it('el verificador detecta un estado no declarado y una ruta desconocida (control negativo)', () => {
+    expect(undeclaredStatuses([{ method: 'GET', path: '/health/live', status: 418 }, { method: 'GET', path: '/api/v1/no-existe', status: 200 }]))
+      .toEqual(['GET /api/v1/no-existe → ruta no declarada (200)', 'GET /health/live → 418']);
   });
 });
