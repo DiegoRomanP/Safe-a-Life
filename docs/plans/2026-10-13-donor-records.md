@@ -24,10 +24,11 @@ Admin hospitalario (AAL2 y membresía vigente): `listOwnAssistedSignups`, `creat
   (rango, tres decimales por comparación entera, punto en el polígono o sobre el borde), `donor-profile` (estados).
 - **Migración** `20261013060000_donor_records.sql`: tablas `app.donor_profiles` y `app.assisted_signups` (RLS forzada, con
   CHECK de validación), trigger de guarda `app.guard_donor_profile`, trigger `donor_profiles_sync_signup` (función
-  `api.sync_assisted_signup_status`) y 17 RPC:
-  - 10 de la sesión técnica: `link_donor_account`, `reissue_donor_verification`, `get_donor_verification_preview`,
+  `api.sync_assisted_signup_status`) y 19 RPC:
+  - 12 de la sesión técnica: `link_donor_account`, `reissue_donor_verification`, `get_donor_verification_preview`,
     `verify_donor_email`, `get_assisted_activation_preview`, `issue_assisted_activation`, `get_assisted_signup_recipient`,
-    `link_assisted_account`, `get_email_change_preview` y `consume_email_change`;
+    `link_assisted_account`, `get_email_change_preview`, `consume_email_change`, `issue_password_setup` y
+    `confirm_password_setup`;
   - 2 DEFINER del admin, sin argumentos de token, outbox ni sellado: `create_assisted_signup` y `reissue_assisted_link`;
   - 2 INVOKER del admin: `list_own_assisted_signups` y `get_own_assisted_signup`;
   - 3 INVOKER del donante: `get_own_donor_profile`, `complete_own_onboarding` y `update_own_participation`.
@@ -71,16 +72,24 @@ Admin hospitalario (AAL2 y membresía vigente): `listOwnAssistedSignups`, `creat
   hash del token), lo aplica, y cierra todas las sesiones (con un reintento; si falla otra vez, 503). El token ya está
   consumido, así que la persona pide otro enlace.
 - **D-11: la alta pasa a `activa` con un trigger** al completar el perfil, para no depender del backend.
+- **D-13: contraseña pendiente tras verificar un autorregistro (decisión 7 de la persona usuaria).** Quien registra un
+  correo ajeno conoce la contraseña, no el buzón. Al verificar, `verify_donor_email` marca el perfil con
+  `password_setup_required` y devuelve al backend (nunca por HTTP) el usuario y el correo; el servicio cierra todas las
+  sesiones (un reintento; si falla, 503 y no envía el enlace) y emite un enlace de recuperación al correo verificado con
+  `issue_password_setup`. Mientras la marca siga activa `complete_own_onboarding` responde 409 y el trigger de guarda
+  rechaza cualquier `UPDATE` del donante. Cuando `completePasswordReset` cambia la contraseña con éxito, el backend llama a
+  `confirm_password_setup` (gancho `onPasswordChanged` del servicio de tokens) y se levanta el bloqueo. El contrato no cambia
+  (C-12): la respuesta de `verifyDonorEmail` sigue sin sesión ni contraseña; el frontend debe indicar que se ha enviado un
+  enlace para fijar la contraseña. Si el envío falla el token ya está consumido: la persona usa «olvidé mi contraseña».
 - **D-12: validación en SQL.** Las reglas de ubicación, grupo y nombre se repiten como CHECK y en las RPC, porque el
   perfil lo escribe el propio donante con INVOKER.
 
 ## 4. Riesgos residuales aceptados o pendientes
 
-- **Pre-secuestro del correo en el autorregistro**: quien registra el correo de otra persona con su propia contraseña
-  puede iniciar sesión tras la verificación de la víctima hasta que esta restablezca la contraseña. Mitigan el reenvío
-  de verificación y que la recuperación revoca todas las sesiones. **La decisión 7 de la persona usuaria cierra este
-  riesgo** (revocar sesiones al verificar, enlace de contraseña y bloqueo del onboarding hasta fijarla); se entrega
-  como unidad aparte después de este commit.
+- **Pre-secuestro del correo en el autorregistro**: cerrado el 2026-10-13 con la decisión 7 de la persona usuaria (D-13):
+  al verificar se cierran las sesiones, se envía un enlace de contraseña y el perfil no se completa hasta fijarla. Queda
+  como residual que un atacante con la contraseña original puede iniciar sesión (sin poder completar el perfil) hasta que
+  el dueño fije la suya.
 - **Retención de PII**: `app.idempotency_records` guarda la respuesta sin purga y el `record_public_idempotency`
   anónimo crece sin límite hasta que el worker de F7 los purgue (72 h tras el estado terminal). Lo mismo con
   `assisted_signups` a 30 días, las cuentas sin verificar y el `sealedEmail` de los tokens.
@@ -111,7 +120,7 @@ ellas. La decisión 13 de la persona usuaria programa una ronda final consolidad
 | Comando | Resultado |
 | --- | --- |
 | `npm run typecheck` | verde |
-| `npm run test --workspace backend` | 703 pruebas en verde |
+| `npm run test --workspace backend` | 703 pruebas en verde (antes de D-13; ver la bitácora) |
 | `npm run openapi:api:check` | sin deriva |
 | `npm run test:backend:db` | 7 archivos, 542 pruebas (164 en `06_donor_records`) en verde |
 | `npm run test:backend:integration` | 6 archivos, 197 pruebas (38 de `donor-records`) en verde |
@@ -130,6 +139,10 @@ fallo intermitente del arranque de Auth tras el reinicio de la base y se anota p
 - 2026-10-13: verificación completa tras el rework. El único cambio necesario fue de pruebas: el Bruno
   `02_register_existing` usa ahora una cuenta propia (`existingEmail`), porque reemitir la verificación invalida el
   enlace que el runner había preparado para `verifyEmail`.
+- 2026-10-13: decisión 7 (D-13). Migración con `password_setup_required`, `issue_password_setup` y
+  `confirm_password_setup`; servicio, gateway y gancho del servicio de tokens; pgTAP `06_donor_records` pasa a 182 pruebas
+  (560 en total); integración de `donor-records` a 39 (con el caso de quien registra un correo ajeno); Bruno
+  `donor-records/public` a 34 solicitudes (cuenta con contraseña pendiente que recibe 409).
 
 ## 8. Cierre
 

@@ -430,7 +430,10 @@ Estado: implementado en `backend/src/modules/donor-records`; revisiones y cierre
   mensaje exista o no la cuenta, con un piso de 700 ms. Con una cuenta ya existente se reenvía la verificación si sigue
   pendiente (reemitir invalida el enlace anterior). Límites de 10 por IP cada 15 min y 3 por correo (HMAC) por hora.
 - **Verificación de correo** (C-12): el consumo deja el perfil `incompleto`, **no abre sesión** (la operación no recibe
-  la contraseña; la persona inicia sesión después) y el estado se informa como `reclamada_incompleta`.
+  la contraseña; la persona inicia sesión después) y el estado se informa como `reclamada_incompleta`. Como quien
+  registra un correo ajeno conoce la contraseña, al verificar se cierran todas las sesiones de la cuenta, se envía un
+  enlace de contraseña (el de recuperación) al correo verificado y el perfil no se completa (409) hasta que el dueño la
+  fije; la respuesta no cambia, así que el frontend debe avisar de que se ha enviado ese enlace.
 - **Altas asistidas**: el hospital escribe solo el correo y un nombre opcional; nunca fija contraseña, grupo ni ubicación.
   El admin no puede leer el correo ni el nombre (privilegios por columna): ve estado y fechas. La respuesta es idéntica
   exista o no ya una cuenta con ese correo (si existe no se crea token ni correo). El enlace vale 24 h; la alta se purga a
