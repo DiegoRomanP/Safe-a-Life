@@ -351,6 +351,10 @@ cierre sujeto a las revisiones y a la aprobación registradas en
   combinación, y un `borrador → activa` con el plazo vencido, es 409. La transición
   bloquea la fila (`FOR UPDATE`), consulta el replay y solo entonces reclama la clave;
   incrementa `version`. En F6 la RPC se reemplaza para añadir la cascada.
+- **Límites por actor**: 30 creaciones y 60 transiciones por hora (429 `RATE_LIMITED`),
+  aplicados en SQL; los replays no consumen cupo. Activar un borrador exige que su sede
+  siga activa y aprobada (409). El replay de la creación no se entrega a quien ya
+  pertenece a otro hospital (403).
 - **Listado**: más recientes primero, cursor opaco firmado y ligado al actor y a la
   operación (manipulado o ajeno = 400).
 - **IDOR**: una necesidad de otro hospital es 404 indistinguible de una inexistente.
