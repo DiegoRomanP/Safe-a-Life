@@ -136,6 +136,17 @@ otro driver ahora; su presencia no prueba que el scaffold legacy sea seguro.
    `app_privileged` y que devuelve únicamente el correo de un id. Una prueba pgTAP
    fija que es la única DEFINER propiedad de `postgres`.
 
+   Ampliado en F2b (2026-10-13), con el mismo motivo: `app.user_id_by_email(text)`
+   (buscar el usuario de un correo para invitar o recuperar la contraseña) y
+   `api.worker_revoke_sessions(uuid)` (borra las filas de `auth.sessions` de un
+   usuario; GoTrue no ofrece revocación por usuario, ADR-006 punto 3) también son
+   DEFINER propiedad de `postgres`, con `EXECUTE` solo para `app_privileged` y
+   `service_role` respectivamente. La prueba pgTAP fija las tres como únicas. Las
+   DEFINER de tokens (`invite_hospital_admin`, `get_admin_invitation_preview`,
+   `link_admin_account`, `request_password_recovery`, `consume_password_reset`)
+   pertenecen a `app_privileged` (ítems 3 y 4) y leen el `sub`, el AAL y el `amr`
+   del GUC que PostgREST valida (`app.jwt_claims`), nunca `auth.uid()`.
+
 ### Convención de respuesta de toda RPC con efectos
 
 - Devuelve `jsonb` con `{"kind":"created"|"replayed"|"ok", …proyección}` o

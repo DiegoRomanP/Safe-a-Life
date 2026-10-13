@@ -386,3 +386,27 @@ Estado: implementado en `backend/src/modules/email-delivery`; revisiones y cierr
 - **Plantillas**: enlaces con el token en el fragmento; sin grupo sanguíneo, ubicación ni datos de paciente.
 - **Allowlist de bandejas** (RF-EML-04): un destinatario no permitido no llega al proveedor.
 
+---
+
+## Módulo implementado: invitación de admins y recuperación de contraseña (F2b)
+
+Estado: implementado en `backend/src/modules/identity-institutions`; revisiones y cierre en
+[`plans/2026-10-13-identity-tokens.md`](plans/2026-10-13-identity-tokens.md).
+
+- **Operaciones**: `inviteHospitalAdmin` (superadmin, AAL2 y step-up), `getHospitalAdminInvitationPreview`,
+  `claimHospitalAdminInvitation`, `requestPasswordRecovery` y `completePasswordReset`. Las cuatro últimas son
+  públicas: la autorización es el secreto del enlace.
+- **Tokens**: se generan en la aplicación (256 bits), viajan solo dentro del correo cifrado (fragmento `#token`) y
+  en la base solo existe su SHA-256. Un solo uso; la invitación vale 72 h y la recuperación 1 h. Inexistente = 404,
+  vencido, consumido o anulado = 410. Una reinvitación o una nueva solicitud anula el enlace anterior.
+- **Reclamo**: comprueba la invitación, crea la cuenta de Auth con la contraseña elegida (`signUp` con la anon key),
+  la vincula con la invitación (cuenta de aplicación y membresía activa) y devuelve una sesión AAL1 con
+  `mfaRequired: true`. Si el correo ya existe en Auth responde 409 sin consumir el token; si el vínculo falla se
+  elimina la cuenta recién creada.
+- **Recuperación**: responde siempre 202 con el mismo mensaje, exista o no la cuenta, con un piso de 150 ms. Límites
+  de 10 por IP y 10 por correo (HMAC) cada 15 min.
+- **Reset**: consume el token, cambia la contraseña con `service_role` (único adaptador, ADR-006) y borra todas las
+  sesiones del usuario; los access tokens ya emitidos valen hasta 600 s.
+- Una invitación a un correo que ya tiene cuenta (donante, admin o worker) es 409; a un hospital inexistente, 422; a
+  uno sin autorizar, 409.
+
