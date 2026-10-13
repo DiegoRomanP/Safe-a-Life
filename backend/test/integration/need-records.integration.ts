@@ -6,7 +6,7 @@ import {
 import { startBackend, type RunningBackend } from '../support/app.js';
 import { ApiClient, observed } from '../support/client.js';
 import { MIN_OBSERVED, undeclaredStatuses } from '../support/contract-statuses.js';
-import { resetAuthQuota, sql } from '../support/db.js';
+import { resetAuthQuota, resetNeedLimits, sql } from '../support/db.js';
 import { HOSPITAL_IDS, SEED_USERS, SITE_IDS } from '../support/local-env.js';
 
 const NEEDS = '/api/v1/hospitals/me/needs';
@@ -19,6 +19,7 @@ let donor: ApiClient;
 
 beforeEach(() => {
   resetAuthQuota();
+  resetNeedLimits();
 });
 
 beforeAll(async () => {
@@ -146,14 +147,33 @@ describe('createHospitalNeed', () => {
     }
   });
 
-  it('el UUID de la sede en mayúsculas se acepta y se devuelve tal cual lo pidió (casing literal)', async () => {
-    const upper = SITE_IDS.hospital1Active.toUpperCase();
+  it('un UUID de sede con letras en mayúsculas se acepta y la respuesta lo devuelve canónico (minúsculas)', async () => {
+    const lower = 'abcdefab-cdef-4abc-8def-abcdefabcdef';
+    sql(`insert into app.sites (site_id, hospital_id, public_name, public_address, latitude, longitude, is_active, is_approved)
+      values ('${lower}', '${HOSPITAL_IDS[0]}', 'Sede con letras', 'Cercado de Lima', -12.04, -77.04, true, true)`);
+    try {
+      const key = randomUUID();
+      const body = { ...BODY, siteId: lower.toUpperCase() };
 
-    const response = await admin1.send('POST', NEEDS, { body: { ...BODY, siteId: upper } });
+      const first = await admin1.send('POST', NEEDS, { body, key });
+      const replay = await admin1.send('POST', NEEDS, { body, key });
+      const otherCasing = await admin1.send('POST', NEEDS, { body: { ...BODY, siteId: lower }, key });
 
-    // Sin letras en el UUID de siembra la comparación es trivial: se comprueba que no falla el hash.
-    expect(response.status).toBe(201);
-    expect(response.json.data.siteId.toLowerCase()).toBe(SITE_IDS.hospital1Active);
+      expect(first.status).toBe(201);
+      expect(first.json.data.siteId).toBe(lower);
+      expect(replay.status).toBe(201);
+      expect(replay.json).toEqual(first.json);
+      // Otro casing es otra intención literal (spec A2 §7): la misma clave es un conflicto, no una necesidad nueva.
+      expect(otherCasing.status).toBe(409);
+    } finally {
+      sql(`delete from app.needs where site_id = '${lower}'; delete from app.sites where site_id = '${lower}'`);
+    }
+  });
+
+  it('la forma urn:uuid: se rechaza con 400 en el POST, el GET y el PATCH', async () => {
+    expect((await admin1.send('POST', NEEDS, { body: { ...BODY, siteId: `urn:uuid:${SITE_IDS.hospital1Active}` } })).status).toBe(400);
+    expect((await admin1.send('GET', `${NEEDS}/urn:uuid:${randomUUID()}`)).status).toBe(400);
+    expect((await admin1.send('PATCH', `${NEEDS}/urn:uuid:${randomUUID()}`, { body: { status: 'activa' } })).status).toBe(400);
   });
 
   it('sede inexistente, ajena, inactiva o sin aprobar dan el mismo 422 (código y mensaje)', async () => {
@@ -276,6 +296,40 @@ describe('createHospitalNeed', () => {
     expect(b.json.data.needId).not.toBe(a.json.data.needId);
   });
 
+  it('tras revocar la membresía, ni siquiera el replay de una creación previa se entrega (403)', async () => {
+    const revoked = new ApiClient(backend.baseUrl);
+    await revoked.login(SEED_USERS.admin3.email);
+    const key = randomUUID();
+    const body = { ...BODY, siteId: SITE_IDS.hospital3Active, targetConfirmations: 17 };
+    expect((await revoked.send('POST', NEEDS, { body, key })).status).toBe(201);
+    const email = SEED_USERS.admin3.email;
+    sql(`update app.hospital_memberships set status = 'revocada', revoked_at = now() where user_id = (select id from auth.users where email = '${email}')`);
+    try {
+      expect((await revoked.send('POST', NEEDS, { body, key })).status).toBe(403);
+    } finally {
+      sql(`update app.hospital_memberships set status = 'activa', revoked_at = null where user_id = (select id from auth.users where email = '${email}')`);
+    }
+  });
+
+  it('el tope por actor responde 429 a una creación nueva, no consume cupo en un replay y no deja la clave en curso', async () => {
+    const client = new ApiClient(backend.baseUrl);
+    await client.login(SEED_USERS.admin2.email);
+    const key = randomUUID();
+    const body = { ...BODY, siteId: SITE_IDS.hospital2Active, targetConfirmations: 18 };
+    expect((await client.send('POST', NEEDS, { body, key })).status).toBe(201);
+    sql(`insert into app.rate_limit_events (bucket, subject)
+      select 'need:create', encode(extensions.digest(id::text, 'sha256'), 'hex')
+      from auth.users, generate_series(1, 30) where email = '${SEED_USERS.admin2.email}'`);
+
+    const replay = await client.send('POST', NEEDS, { body, key });
+    const limited = await client.send('POST', NEEDS, { body: { ...body, targetConfirmations: 19 }, key: randomUUID() });
+
+    expect(replay.status).toBe(201);
+    expect(limited.status).toBe(429);
+    expect(limited.json.error.code).toBe('RATE_LIMITED');
+    expect(sql(`select count(*) from app.needs where target_confirmations = 19 and hospital_id = '${HOSPITAL_IDS[1]}'`)).toBe('0');
+  });
+
   it('la creación solo escribe necesidad, idempotencia y auditoría (sin invitaciones, outbox ni correo)', async () => {
     const before = sql(`select count(*) from app.audit_events where event = 'necesidad.creada'`);
 
@@ -319,6 +373,25 @@ describe('listOwnHospitalNeeds y getOwnHospitalNeed', () => {
     }
 
     expect(seen).toEqual([...ids].reverse());
+  });
+
+  it('con created_at idéntico, el desempate por need_id no repite ni omite elementos', async () => {
+    sql('delete from app.needs');
+    const tie = "'2026-10-13 10:00:00.123456+00'";
+    const expected: string[] = [];
+    for (let i = 0; i < 5; i += 1) expected.push(insertNeed('activa', { createdAt: tie, expiresAt: "now() + interval '3 days'" }));
+    expected.sort().reverse();
+
+    const seen: string[] = [];
+    let cursor: string | null = null;
+    for (let page = 0; page < 6; page += 1) {
+      const response: Awaited<ReturnType<ApiClient['send']>> = await admin1.send('GET', `${NEEDS}?limit=2${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+      seen.push(...response.json.data.items.map((item: { needId: string }) => item.needId));
+      cursor = response.json.data.pagination.nextCursor;
+      if (cursor === null) break;
+    }
+
+    expect(seen).toEqual(expected);
   });
 
   it('un cursor manipulado o de otro actor es 400 (como en el resto de listados)', async () => {
@@ -387,23 +460,73 @@ describe('listOwnHospitalNeeds y getOwnHospitalNeed', () => {
 describe('transitionOwnHospitalNeed', () => {
   const TARGETS = ['activa', 'cerrada', 'cancelada'] as const;
 
-  it('toda la matriz estado × destino coincide con el dominio (C-8): 6 × 3 combinaciones', async () => {
+  // Tabla literal e independiente del dominio (C-8): el único conjunto de pares aceptados.
+  const ALLOWED = new Set(['borrador>activa', 'borrador>cancelada', 'activa>cerrada', 'activa>cancelada', 'meta_alcanzada>cerrada', 'meta_alcanzada>cancelada']);
+
+  it('toda la matriz estado × destino coincide con la tabla C-8 literal y con el dominio: 6 × 3 combinaciones', async () => {
     sql('delete from app.needs');
     const failures: string[] = [];
     for (const stored of NEED_STATUSES) {
       for (const target of TARGETS) {
         const id = insertNeed(stored);
         const response = await admin1.send('PATCH', `${NEEDS}/${id}`, { body: { status: target } });
-        const expected = evaluateManualTransition(stored, '2999-01-01T00:00:00Z', new Date(), target).ok;
-        const actual = response.status === 200;
-        if (actual !== expected) failures.push(`${stored} → ${target}: esperado ${expected ? 200 : 409}, recibido ${response.status}`);
-        if (!actual && response.status !== 409) failures.push(`${stored} → ${target}: un rechazo debe ser 409 y fue ${response.status}`);
-        if (actual) expect(response.json.data.status).toBe(target);
+        const expected = ALLOWED.has(`${stored}>${target}`);
+        if ((response.status === 200) !== expected) failures.push(`${stored} → ${target}: esperado ${expected ? 200 : 409}, recibido ${response.status}`);
+        if (!expected && response.status !== 409) failures.push(`${stored} → ${target}: un rechazo debe ser 409 y fue ${response.status}`);
+        if (expected) expect(response.json.data.status).toBe(target);
+        // El dominio debe coincidir con la tabla (deriva detectada aquí y no solo en sus pruebas).
         expect(canTransitionManually(stored, target)).toBe(expected);
+        expect(evaluateManualTransition(stored, '2999-01-01T00:00:00Z', new Date(), target).ok).toBe(expected);
       }
     }
 
     expect(failures).toEqual([]);
+  });
+
+  it('con el plazo vencido toda transición es 409, sea cual sea el estado almacenado', async () => {
+    sql('delete from app.needs');
+    const failures: string[] = [];
+    for (const stored of ['borrador', 'activa', 'meta_alcanzada'] as const) {
+      for (const target of TARGETS) {
+        const id = insertNeed(stored, { createdAt: "now() - interval '2 days'", expiresAt: "now() - interval '1 hour'" });
+        const response = await admin1.send('PATCH', `${NEEDS}/${id}`, { body: { status: target } });
+        if (response.status !== 409) failures.push(`${stored} vencido → ${target}: esperado 409, recibido ${response.status}`);
+        expect(sql(`select status || '|' || version from app.needs where need_id = '${id}'`)).toBe(`${stored}|0`);
+      }
+    }
+
+    expect(failures).toEqual([]);
+  });
+
+  it('activar un borrador cuya sede se desactivó después es 409', async () => {
+    const site = 'abcdefab-0000-4abc-8def-abcdefabcdef';
+    sql(`insert into app.sites (site_id, hospital_id, public_name, public_address, latitude, longitude, is_active, is_approved)
+      values ('${site}', '${HOSPITAL_IDS[0]}', 'Sede temporal', 'Cercado de Lima', -12.04, -77.04, true, true)`);
+    try {
+      const created = await admin1.send('POST', NEEDS, { body: { ...BODY, siteId: site } });
+      expect(created.status).toBe(201);
+      sql(`update app.sites set is_active = false where site_id = '${site}'`);
+
+      const response = await admin1.send('PATCH', `${NEEDS}/${created.json.data.needId}`, { body: { status: 'activa' } });
+
+      expect(response.status).toBe(409);
+      expect(sql(`select status from app.needs where need_id = '${created.json.data.needId}'`)).toBe('borrador');
+    } finally {
+      sql(`delete from app.needs where site_id = '${site}'; delete from app.sites where site_id = '${site}'`);
+    }
+  });
+
+  it('el tope de transiciones por actor responde 429 sin consumir la clave', async () => {
+    const id = insertNeed('borrador');
+    sql(`insert into app.rate_limit_events (bucket, subject)
+      select 'need:transition', encode(extensions.digest(id::text, 'sha256'), 'hex')
+      from auth.users, generate_series(1, 60) where email = '${SEED_USERS.admin1.email}'`);
+
+    const limited = await admin1.send('PATCH', `${NEEDS}/${id}`, { body: { status: 'activa' } });
+
+    expect(limited.status).toBe(429);
+    expect(limited.json.error.code).toBe('RATE_LIMITED');
+    expect(sql(`select status from app.needs where need_id = '${id}'`)).toBe('borrador');
   });
 
   it('borrador → activa con el plazo vencido es 409 y no cambia la fila', async () => {

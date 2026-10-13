@@ -23,7 +23,7 @@ export type CreateNeedDraftIdempotency = Readonly<{ key: unknown }>;
 
 export type NeedDraftFailureCode =
   | 'BAD_REQUEST' | 'AUTHENTICATION_REQUIRED' | 'ACCESS_DENIED'
-  | 'STATE_CONFLICT' | 'VALIDATION_FAILED' | 'INTERNAL_ERROR';
+  | 'STATE_CONFLICT' | 'VALIDATION_FAILED' | 'RATE_LIMITED' | 'INTERNAL_ERROR';
 
 export type CreateNeedDraftResult =
   | Readonly<{ ok: true; outcome: 'created' | 'replayed'; need: NeedDraftProjection }>
@@ -41,7 +41,7 @@ export type AtomicNeedDraftCommand = Readonly<{
 
 export type AtomicNeedDraftReply =
   | Readonly<{ kind: 'created' | 'replayed'; owner: NeedDraftOwner; need: NeedDraftProjection }>
-  | Readonly<{ kind: 'unauthenticated' | 'forbidden' | 'site_unusable' | 'payload_conflict' | 'in_progress' | 'failed' }>;
+  | Readonly<{ kind: 'unauthenticated' | 'forbidden' | 'site_unusable' | 'payload_conflict' | 'in_progress' | 'rate_limited' | 'failed' }>;
 
 /**
  * Una sola operación atómica: revalida identidad y membresía, reclama la clave y confirma necesidad,

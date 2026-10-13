@@ -4,7 +4,7 @@ import { PersistenceError } from './errors.js';
 /** Fallos comunes de toda RPC con efectos (ADR-003). */
 export const COMMON_FAILURE_KINDS = Object.freeze([
   'unauthenticated', 'forbidden', 'mfa_required', 'step_up_required', 'not_found', 'conflict',
-  'payload_conflict', 'in_progress', 'gone', 'invalid',
+  'payload_conflict', 'in_progress', 'gone', 'invalid', 'rate_limited',
 ] as const);
 
 export type RpcReply<K extends string = string> = Readonly<{ kind: K } & Record<string, unknown>>;
@@ -37,6 +37,7 @@ const FAILURE_TO_ERROR: Readonly<Record<string, ConstructorParameters<typeof Api
   in_progress: 'STATE_CONFLICT',
   gone: 'ACTION_UNAVAILABLE',
   invalid: 'VALIDATION_FAILED',
+  rate_limited: 'RATE_LIMITED',
 });
 
 /** Traduce un `kind` de fallo; cualquier otro valor (incluidos fallos propios sin mapear) es un 500. */

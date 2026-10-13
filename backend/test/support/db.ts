@@ -11,3 +11,8 @@ export function sql(statement: string): string {
 export function resetAuthQuota(): void {
   sql("delete from app.rate_limit_events where bucket like 'authquota:%'");
 }
+
+/** Vacía los límites por actor de las mutaciones de necesidades (estado compartido entre pruebas). */
+export function resetNeedLimits(): void {
+  sql("delete from app.rate_limit_events where bucket like 'need:%'");
+}
