@@ -40,7 +40,12 @@ export type MfaFactorSummary = Readonly<{ factorId: string; verified: boolean }>
  * Operaciones de Supabase Auth con la anon key. `null` = credenciales, código o
  * reto inválidos; un fallo de red o 5xx lanza PersistenceUnavailableError.
  */
+/** Resultado de `signUp`: tokens, `exists` si el correo ya tiene cuenta de Auth, o `null` si no se creó sesión. */
+export type SignUpResult = TokenPair | 'exists' | null;
+
 export interface SessionGateway extends SessionVerifier {
+  /** Crea una cuenta de Auth con la anon key (reclamo de invitaciones); con confirmación de correo desactivada devuelve sesión. */
+  signUp(email: string, password: string): Promise<SignUpResult>;
   signIn(email: string, password: string): Promise<TokenPair | null>;
   /**
    * Revoca sesiones: `global` = todas las del usuario (V4: logout y recuperación); `local` = solo la

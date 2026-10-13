@@ -30,11 +30,11 @@ describe('allowlist de service_role (ADR-006)', () => {
   });
 
   it('ninguna ruta de código de petición usa la API de administración con clave elevada', () => {
-    // Hoy no existe supabase-auth-admin.ts (F2b); mientras tanto nadie puede crear clientes con service_role.
+    // El adaptador AuthAdmin es el único lugar donde se crea un cliente con la clave elevada.
     const adminClients = productionFiles(SRC)
       .filter((file) => /createClient\([^)]*(serviceRole|secretKey)/.test(readFileSync(file, 'utf8')))
-      .map((file) => relative(SRC, file));
+      .map((file) => relative(SRC, file).split('\\').join('/'));
 
-    expect(adminClients).toEqual([]);
+    expect(adminClients).toEqual(['modules/identity-institutions/infrastructure/supabase-auth-admin.ts']);
   });
 });
