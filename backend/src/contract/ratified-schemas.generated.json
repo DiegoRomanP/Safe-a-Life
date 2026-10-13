@@ -415,6 +415,25 @@
         "503"
       ]
     },
+    "receiveResendWebhook": {
+      "method": "post",
+      "path": "/api/v1/email-delivery/webhooks/resend",
+      "body": "ReceiveResendWebhookBody",
+      "query": "ReceiveResendWebhookQuery",
+      "params": null,
+      "headers": "ReceiveResendWebhookHeaders",
+      "success": {
+        "status": "204",
+        "def": "ReceiveResendWebhookSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "500",
+        "503"
+      ]
+    },
     "revokeHospitalMembership": {
       "method": "patch",
       "path": "/api/v1/superadmin/memberships/{membershipId}",
@@ -1783,6 +1802,76 @@
             "null"
           ],
           "maxLength": 512
+        }
+      }
+    },
+    "ReceiveResendWebhookBody": {
+      "$ref": "#/$defs/ResendWebhookEvent"
+    },
+    "ReceiveResendWebhookHeaders": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "svix-id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "svix-timestamp": {
+          "type": "string",
+          "pattern": "^[0-9]{1,12}$"
+        },
+        "svix-signature": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "required": [
+        "svix-id",
+        "svix-timestamp",
+        "svix-signature"
+      ]
+    },
+    "ReceiveResendWebhookQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "ReceiveResendWebhookSuccess": {
+      "const": null
+    },
+    "ResendWebhookEvent": {
+      "type": "object",
+      "description": "Evento del proveedor de correo. Objeto abierto: solo se leen type, created_at y data.email_id.",
+      "required": [
+        "type",
+        "data"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "created_at": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "data": {
+          "type": "object",
+          "required": [
+            "email_id"
+          ],
+          "additionalProperties": true,
+          "properties": {
+            "email_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255
+            }
+          }
         }
       }
     },

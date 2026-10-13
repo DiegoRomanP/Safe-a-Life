@@ -44,6 +44,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/email-delivery/webhooks/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recibe un evento firmado del proveedor de correo
+         * @description Pública y sin cookie: la autenticidad la da la firma. El cuerpo se verifica crudo antes de interpretarlo. Una firma inválida o con más de 300 s de diferencia responde 401 sin detalle. El mismo svix-id no vuelve a tener efecto. Los eventos email.sent, email.delivered, email.bounced y email.failed avanzan el estado sin retroceder; los demás se aceptan y se ignoran. No guarda ni devuelve destinatarios.
+         */
+        post: operations["receiveResendWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/csrf-token": {
         parameters: {
             query?: never;
@@ -1121,6 +1141,18 @@ export interface components {
         };
         /** @enum {string} */
         BloodType: "O_NEG" | "O_POS" | "A_NEG" | "A_POS" | "B_NEG" | "B_POS" | "AB_NEG" | "AB_POS";
+        /** @description Evento del proveedor de correo. Objeto abierto: solo se leen type, created_at y data.email_id. */
+        ResendWebhookEvent: {
+            type: string;
+            created_at?: string;
+            data: {
+                email_id: string;
+            } & {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * @description meta_alcanzada y vencida son estados calculados por el sistema; cerrada/cancelada/vencida son terminales.
          * @enum {string}
@@ -2545,6 +2577,58 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    receiveResendWebhook: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Identificador único del evento; sirve para deduplicar.
+                 * @example msg_sintetico_0001
+                 */
+                "svix-id": string;
+                /**
+                 * @description Segundos desde la época en que el proveedor firmó el evento.
+                 * @example 1760356800
+                 */
+                "svix-timestamp": string;
+                /**
+                 * @description Lista de firmas `v1,<base64>` separadas por espacios; basta con que una coincida.
+                 * @example v1,c2ludGV0aWNvc2ludGV0aWNvc2ludGV0aWNvc2ludGV0aWNv
+                 */
+                "svix-signature": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "type": "email.delivered",
+                 *       "created_at": "2026-10-13T12:00:00.000Z",
+                 *       "data": {
+                 *         "email_id": "00000000-0000-4000-8000-000000000001"
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["ResendWebhookEvent"];
+            };
+        };
+        responses: {
+            /** @description Evento aceptado, duplicado o ignorado. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalServerError"];
             503: components["responses"]["ServiceUnavailable"];
         };

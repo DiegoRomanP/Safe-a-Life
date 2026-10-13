@@ -34,10 +34,19 @@ function missing(statuses: readonly string[], list: ReturnType<typeof implemente
  * Esta prueba es estructural: no depende de qué rutas recorran las pruebas de integración.
  */
 describe('estados globales declarados en docs/openapi.json', () => {
+  // El webhook firmado se monta antes de `authenticate`: no tiene sesión ni límite de renovación, así que no emite 429.
+  const WITHOUT_SESSION = new Set(['receiveResendWebhook']);
+
   it('toda operación ratificada de /api que el backend sirve declara 400, 401, 403, 429, 500 y 503', () => {
-    const list = implemented((path) => path.startsWith('/api/'));
+    const list = implemented((path) => path.startsWith('/api/')).filter(({ operation }) => !WITHOUT_SESSION.has(operation.operationId ?? ''));
     expect(list.length).toBeGreaterThan(15);
     expect(missing(['400', '401', '403', '429', '500', '503'], list)).toEqual([]);
+  });
+
+  it('las operaciones sin sesión declaran 400, 401, 403, 500 y 503 (el guard de borde y la base pueden responder)', () => {
+    const list = implemented((path) => path.startsWith('/api/')).filter(({ operation }) => WITHOUT_SESSION.has(operation.operationId ?? ''));
+    expect(list).toHaveLength(1);
+    expect(missing(['400', '401', '403', '500', '503'], list)).toEqual([]);
   });
 
   it('las rutas de /health declaran 400 (query desconocida o JSON inválido) y 500', () => {

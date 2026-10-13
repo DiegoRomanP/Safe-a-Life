@@ -25,6 +25,7 @@
   ],
   "tags": [
     { "name": "Health", "description": "Comprobaciones operativas sin datos sensibles." },
+    { "name": "Email delivery", "description": "Eventos firmados del proveedor de correo; sin sesión ni datos personales." },
     { "name": "Authentication", "description": "Sesiones mediadas por Express y autenticación Supabase." },
     { "name": "Donor", "description": "Recursos propios del donante autenticado." },
     { "name": "Invitation action", "description": "Consulta informativa y primera respuesta con token de acción de un solo uso." },
@@ -81,6 +82,30 @@
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/api/v1/email-delivery/webhooks/resend": {
+      "post": {
+        "tags": ["Email delivery"],
+        "operationId": "receiveResendWebhook",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo email-delivery F4 (C-1): recepción del webhook firmado de Resend con firma estilo Svix (HMAC-SHA256 sobre svix-id, svix-timestamp y el cuerpo crudo), antigüedad máxima de 300 s, deduplicación por svix-id y avance monótono del estado de entrega. Ratifica solo esta operación","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F4 y C-1; ADR-005; votos V5, V7 y V13 aceptados por la persona usuaria (2026-10-12)"]},
+        "summary": "Recibe un evento firmado del proveedor de correo",
+        "description": "Pública y sin cookie: la autenticidad la da la firma. El cuerpo se verifica crudo antes de interpretarlo. Una firma inválida o con más de 300 s de diferencia responde 401 sin detalle. El mismo svix-id no vuelve a tener efecto. Los eventos email.sent, email.delivered, email.bounced y email.failed avanzan el estado sin retroceder; los demás se aceptan y se ignoran. No guarda ni devuelve destinatarios.",
+        "security": [],
+        "parameters": [
+          { "name": "svix-id", "in": "header", "required": true, "description": "Identificador único del evento; sirve para deduplicar.", "example": "msg_sintetico_0001", "schema": { "type": "string", "minLength": 1, "maxLength": 255 } },
+          { "name": "svix-timestamp", "in": "header", "required": true, "description": "Segundos desde la época en que el proveedor firmó el evento.", "example": "1760356800", "schema": { "type": "string", "pattern": "^[0-9]{1,12}$" } },
+          { "name": "svix-signature", "in": "header", "required": true, "description": "Lista de firmas `v1,<base64>` separadas por espacios; basta con que una coincida.", "example": "v1,c2ludGV0aWNvc2ludGV0aWNvc2ludGV0aWNvc2ludGV0aWNv", "schema": { "type": "string", "minLength": 1, "maxLength": 1024 } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ResendWebhookEvent" }, "example": { "type": "email.delivered", "created_at": "2026-10-13T12:00:00.000Z", "data": { "email_id": "00000000-0000-4000-8000-000000000001" } } } } },
+        "responses": {
+          "204": { "description": "Evento aceptado, duplicado o ignorado." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "500": { "$ref": "#/components/responses/InternalServerError" },
           "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
@@ -2241,6 +2266,22 @@
       "BloodType": {
         "type": "string",
         "enum": ["O_NEG", "O_POS", "A_NEG", "A_POS", "B_NEG", "B_POS", "AB_NEG", "AB_POS"]
+      },
+      "ResendWebhookEvent": {
+        "type": "object",
+        "description": "Evento del proveedor de correo. Objeto abierto: solo se leen type, created_at y data.email_id.",
+        "required": ["type", "data"],
+        "additionalProperties": true,
+        "properties": {
+          "type": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "created_at": { "type": "string", "maxLength": 64 },
+          "data": {
+            "type": "object",
+            "required": ["email_id"],
+            "additionalProperties": true,
+            "properties": { "email_id": { "type": "string", "minLength": 1, "maxLength": 255 } }
+          }
+        }
       },
       "NeedStatus": {
         "type": "string",
