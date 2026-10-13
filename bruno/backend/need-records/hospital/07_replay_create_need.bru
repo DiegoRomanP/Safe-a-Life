@@ -1,0 +1,36 @@
+meta {
+  name: Replay de la creación con la misma clave
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-create
+}
+
+body:json {
+  {
+    "component": "RBC",
+    "requiredBloodType": "A_POS",
+    "targetConfirmations": 3,
+    "siteId": "{{demoSiteId}}",
+    "urgency": "Normal",
+    "expiresInHours": 12
+  }
+}
+
+tests {
+  test("la misma clave e intención devuelve el mismo 201 original", function () {
+    expect(res.getStatus()).to.equal(201);
+    expect(res.getBody().data.needId).to.equal(bru.getVar("createdNeedId"));
+    expect(res.getBody().data.expiresAt).to.equal(bru.getVar("createdNeedExpiresAt"));
+  });
+}

@@ -1,0 +1,36 @@
+meta {
+  name: Una sede ajena da 422 uniforme
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-site
+}
+
+body:json {
+  {
+    "component": "RBC",
+    "requiredBloodType": "A_POS",
+    "targetConfirmations": 3,
+    "siteId": "22222222-2222-4222-8222-222222222203",
+    "urgency": "Normal",
+    "expiresInHours": 12
+  }
+}
+
+tests {
+  test("responde 422 VALIDATION_FAILED sin revelar el motivo", function () {
+    expect(res.getStatus()).to.equal(422);
+    expect(res.getBody().error.code).to.equal("VALIDATION_FAILED");
+    expect(JSON.stringify(res.getBody())).to.not.match(/sede|site|hospital/i);
+  });
+}

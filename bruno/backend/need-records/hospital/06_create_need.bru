@@ -1,0 +1,48 @@
+meta {
+  name: Crea una necesidad en borrador (radio por defecto)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-create
+}
+
+body:json {
+  {
+    "component": "RBC",
+    "requiredBloodType": "A_POS",
+    "targetConfirmations": 3,
+    "siteId": "{{demoSiteId}}",
+    "urgency": "Normal",
+    "expiresInHours": 12
+  }
+}
+
+tests {
+  test("responde 201 JSON con exactamente los diez campos", function () {
+    expect(res.getStatus()).to.equal(201);
+    expect(res.getHeader("content-type")).to.contain("application/json");
+    var body = res.getBody();
+    expect(Object.keys(body)).to.deep.equal(["data"]);
+    expect(Object.keys(body.data).sort()).to.deep.equal(["needId","component","requiredBloodType","targetConfirmations","confirmedIntentCount","siteId","radiusKm","urgency","status","expiresAt"].slice().sort());
+  });
+  test("nace en borrador, con conteo 0 y radio 10 por defecto", function () {
+    var need = res.getBody().data;
+    expect(need.status).to.equal("borrador");
+    expect(need.confirmedIntentCount).to.equal(0);
+    expect(need.radiusKm).to.equal(10);
+    expect(need.siteId).to.equal(bru.getEnvVar("demoSiteId"));
+    expect(need.expiresAt).to.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/);
+    bru.setVar("createdNeedId", need.needId);
+    bru.setVar("createdNeedExpiresAt", need.expiresAt);
+  });
+}

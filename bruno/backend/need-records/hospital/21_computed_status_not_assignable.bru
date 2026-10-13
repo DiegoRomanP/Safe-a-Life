@@ -1,0 +1,27 @@
+meta {
+  name: vencida no se puede pedir
+  type: http
+  seq: 21
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{createdNeedId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-vencida
+}
+
+body:json {
+  { "status": "vencida" }
+}
+
+tests {
+  test("el estado calculado no es asignable: responde 422", function () {
+    expect(res.getStatus()).to.equal(422);
+  });
+}

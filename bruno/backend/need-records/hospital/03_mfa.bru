@@ -1,0 +1,31 @@
+meta {
+  name: Verificar MFA hospital
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/mfa-verifications
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{$guid}}
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {
+    "challengeId": "{{mfaChallengeId}}",
+    "code": "{{mfaCode}}"
+  }
+}
+
+tests {
+  test("el TOTP vigente completa la sesión AAL2", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.mfaRequired).to.equal(false);
+  });
+}

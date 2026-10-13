@@ -18,6 +18,7 @@ const SCENARIOS = [
   { folder: 'backend/platform' },
   { folder: 'backend/identity-institutions/hospital', user: SEED_USERS.admin1.email },
   { folder: 'backend/identity-institutions/superadmin', user: SEED_USERS.superadmin.email },
+  { folder: 'backend/need-records/hospital', user: SEED_USERS.admin1.email },
 ];
 
 function run(command, args) {
@@ -36,10 +37,17 @@ function freePort() {
   });
 }
 
-/** TOTP con al menos 10 s de margen en su ventana de 30 s. */
-async function freshCode(secret) {
-  const remaining = 30_000 - (Date.now() % 30_000);
-  if (remaining < 10_000) await delay(remaining + 100);
+const usedWindows = new Map();
+
+/**
+ * TOTP con al menos 10 s de margen en su ventana de 30 s. Un mismo usuario no reutiliza la ventana de un
+ * escenario anterior: Auth rechaza un código ya usado, así que se espera a la ventana siguiente.
+ */
+async function freshCode(user, secret) {
+  const window = () => Math.floor(Date.now() / 30_000);
+  const remaining = () => 30_000 - (Date.now() % 30_000);
+  if (remaining() < 10_000 || usedWindows.get(user) === window()) await delay(remaining() + 100);
+  usedWindows.set(user, window());
   return totpCode(secret);
 }
 
@@ -100,7 +108,7 @@ try {
   await waitForServer(server, baseUrl);
 
   for (const scenario of SCENARIOS) {
-    runScenario(scenario, baseUrl, scenario.user ? await freshCode(secrets[scenario.user]) : '000000');
+    runScenario(scenario, baseUrl, scenario.user ? await freshCode(scenario.user, secrets[scenario.user]) : '000000');
   }
 } catch (error) {
   process.stderr.write(`${error instanceof Error ? error.message : 'Falló el runner Bruno del backend.'}\n`);
