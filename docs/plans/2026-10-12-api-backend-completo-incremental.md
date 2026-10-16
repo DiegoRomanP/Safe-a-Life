@@ -1,7 +1,7 @@
 # API y backend completo: entrega incremental por capacidades
 
 Fecha: 2026-10-12. Coordinación: Senior. Harness: OpenCode (`task`).
-Estado general: En progreso — R0b BLOCKED por refs omitidas en header x-*; R0f/S0 PASS acotados. Regresión QA F0q asignada antes de fix/candidato nuevo; sin commits.
+Estado general: En progreso — base verificada comprometida en90c203a; A2 spec privada/ADR RPC asignada para primer servicio. No HTTP/Auth/RLS completos.
 
 ## Solicitud, objetivo y límites de autoridad
 
@@ -56,16 +56,19 @@ Orden propuesto: contrato/puertos y reglas aprobadas del borrador → contexto m
 | A1 | `solution-architect` | Read-only: mapa/dependencias, primer slice viable, decisiones mínimas y unidades de commit/prerrequisitos del tree sucio | B0 | Completada — recomendación, no PASS |
 | D1 | Senior/usuario | Aprobar mapa/base/RPC y límites; sesión/AP/otros contratos se resuelven antes de sus capas | A1 | Completada — tres respuestas explícitas |
 | G0p | `dev-back` | Metadata Api-Rules únicamente; preparar candidato base A+B y planes referenciados en índice temporal, no stage/commit real | D1 | Completada — candidato preparado, no aprobado |
-| R0b | `reviewer-back` | Revisión inmediata HEAD→candidato completo y metadata G0p | G0p | Bloqueada — B1 Required P2 headers/ref |
+| R0b | `reviewer-back` | Revisión inmediata HEAD→candidato completo y metadata G0p/F0 | G0p/F0 | Completada — PASS completo/B1cerrado |
 | R0f | `reviewer-front` | Independiente de generados/consumidores frontend del candidato base | G0p | Completada — PASS gen/consumidores |
-| S0 | `security-privacy-auditor` | Gate PII/proyecciones/deps del candidato completo; no solo traslado | G0p | Completada — PASS fundamento, no release |
+| S0 | `security-privacy-auditor` | Gate PII/proyecciones/deps del candidato completo y nuevo cierre headersrefs; no solo traslado | G0p/F0 | Completada — PASS recheck |
 | F0q | `qa-reliability-engineer` | Regresiones B1 solo scripts/generate-api-contract.test.mjs, RED seguro sin red/compensaciones | R0b B1 | Completada — RED22+3/RF0qPASS calidad |
 | RF0q | `reviewer-back` | Revisión inmediata calidad tests B1, no GREEN de fix aún | F0q | Completada — PASS tests |
-| F0 | `dev-back` | Fix B1 solo generador, rebuild candidato nativo mismas rutas, no modificar tests/contrato/dep | RF0q PASS | En progreso |
-| Q0 | `qa-reliability-engineer` | Candidato aislado reproducible desde árbol Git seleccionado, suites pertinentes y Bruno | Reviews/gates PASS | Pendiente |
-| G0 | Senior + reviewers de área | Congelar candidatos de commit intencionados, revisar diff completo/prerrequisitos sin autoaprobar trabajo previo | A1 | Pendiente |
-| C0 | `dev-back` | Git únicamente: commits de unidades verificadas, stage solo intencionado; no fuente producto nueva | G0/tests pertinentes PASS | Pendiente |
-| B1 | Escritor backend según slice | Primer slice acotado, paths exactos y contrato congelado tras D1; sin HTTP inseguro | D1 | Pendiente |
+| F0 | `dev-back` | Fix B1 solo generador, rebuild candidato nativo mismas rutas, no modificar tests/contrato/dep | RF0q PASS | Completada —25GREEN/R0bS0PASS |
+| Q0 | `qa-reliability-engineer` | Candidato aislado reproducible desde árbol Git seleccionado, suites pertinentes y Bruno | Reviews/gates PASS | Completada — candidatoGREEN/RQAPASS |
+| RQA | `reviewer-back` | Revisión inmediata de código QA/contexto nuevo y evidencia candidato | Q0 | Completada — PASS |
+| G0 | Senior + reviewers de área | Congelar candidatos de commit intencionados, revisar diff completo/prerrequisitos sin autoaprobar trabajo previo | A1/Q0/RQA | Completada — Tree2132cdd…aprobado/probado |
+| C0 | `dev-back` | Git únicamente: commits de unidades verificadas, stage solo intencionado; no fuente producto nueva | G0/tests pertinentes PASS | Completada —90c203a treeexacto |
+| A2 | `solution-architect` | Spec privada need-records y ADR003 RPC, dos documentos nuevos; sin producto/SQL/Auth | D1/C0 | En progreso |
+| RA2 | `reviewer-back` | Revisión independiente spec/ADR antes de código, autor no autoaprueba | A2 | Pendiente |
+| B1 | Escritor backend según slice | Primer slice acotado, paths exactos y contrato congelado tras RA2; sin HTTP inseguro | D1/RA2 | Pendiente |
 | R1 | `reviewer-back` | Revisión independiente inmediata B1 y correcciones | B1 | Pendiente |
 | T1 | `qa-reliability-engineer` | Único dueño aceptación crítica + Bruno real/persistencia según alcance | R1 y gates PASS | Pendiente |
 
@@ -137,3 +140,46 @@ La tabla se ampliará por módulo al aprobar su spec/slices. Elegir dev-back gen
 
 - Reviewer `ses_ecff04460ffemlJWGppAL3b64h`: **PASS** calidad tres tests45líneas y preservación22anteriores; sin bloqueantes. Estructurales/regex positivo apropiadas para generador fijado, negativos exactos rechazados antesresolver enRED. Fullpipeline debe ejecutarseGREEN trasfix; no aprobaciónG0ni commit.
 - Inicio F0 mismo autor G0p: editar **solo scripts/generate-api-contract.mjs**, reconocer mapaheaders por contexto/recorrer valores sin confundir claves x-* con metadata propietaria. No tests/canonical/DTO/generadosmanuales/dependencias nuevos; después25testsGREEN+check generación y nuevo candidato nativo mismas30rutas con sourcefix/testsQA. R0b re-review inmediata del conjunto al terminar, antes de otro escritor/commit.
+
+### F0 — GREEN25 y candidato actualizado; gates inmediatos
+
+- Autor `ses_ed001333affee5L6U9Mr03xiy8`, fecha2026-10-12/duraciónN/D; único sourcegen.mjs **+2/-0**: reconocer headersmap yvisitarvalores convisitDocument común, sinmetadataowner literal ni ampliacióncomponents.headersRefObjects.
+- Testgenerador **25/25exit0** sin skip, incluidosfullbuilderslocal/negativos auditfailfast; checkcanónico/syntax/fixdiffcheckPASS, sin regenerar/no red. TestQASHA308b301e…/OpenAPI/4DTO/snapshot/webmock/manifests/rootLockSHA8a0a671f… idénticos. Índice real/HEAD ajenos sin cambios.
+- ParentHEADa6fc65b6…; nuevoTree **2132cddbe117af8ce37a047cab92463b7e0d0ca1**, mismas30rutas. Delta vsG0p trespaths(genF0/testF0q/planSenioractualizado) yfix-only2líneas. Bundle `/tmp/opencode/save-a-life-f0-20261012-eT3SnQQW/` fullcandidate/manifest/deltas/hashes/archive paraQ0. Exportenvexampleexcluido comoantes; candidateGitunchangedheadfiles preserved.
+- Blobs génicos clienteweb/mock **03af4ca6502e65e6887daf260da84688e95d8a91**, DTOOpenAPI94f0156dc4417e89a6913c4e65cd61f35995a61b/snapshot8791a4832438df7c653f9b019c6e424c4ddcb304 idénticos aR0f/G0p. R0f sigue limitado a esosblobs/consumidores sin escriturasfrontendnuevas.
+- Auxiliaryrevparse primero fallóquotingzsh, repeticióncorregida confirmaIDs sin mutaciones. WhitespacehistóricoT3 hardbreaks documentado/sinocultar.
+- R0b re-reviewfullcandidate yS0refsfix recheck inmediato enparaleloread-only frozen. Q0/commits/purebusinesscase pendientes; no se asigna escritor nuevo hasta gates.
+
+### R0b/S0 PASS y Q0 asignada
+
+- R0b `ses_ecff04460ffemlJWGppAL3b64h`: **PASS** fullHEAD→Tree2132cdd…30rutas ydelta3completo, B1cerrado, sin nuevosRequired. Sharedwalk/audit/clausura/headerOwners literal/failfast before resolver verificados. Q0 sigueobligatorio; sin tests/hashes ejecutadosporReviewer.
+- S0 `ses_ecff0443affeOzsweq0KCbTXdE`: **PASS** corrección+fundamentoenteroactualizado poridentidadGitresto, sinRequiredCritical/High/Medium adicionales. No nuevospermisos/PII niRefexternos permisivos; auditruntimedevprevio mismoLock conservado, sinrelease ni Auth/RLS reales.
+- R0f anterior se conserva solo parablobscliente03af4ca…idénticos/consumidores sin nuevaescritura frontend. Tree actual aprobado paraaceptaciónQA, no para commit antesdepruebas.
+- Inicio Q0 al mismoúnicorolQA deF0q: copia fresca desdeexport/árbolGit seleccionado, nocopiaindiscriminada workingtree; ci/25gen/drift/151workspaces/type/lint/build/contrato/Bruno/E2E pertinentes, comparacióncandidate manifest/provenance/rootlock/preservacióny recursos. No nueva infraestructura/harness masivo ni fixerproductivo; si scriptspruebasQA nuevos Reviewerárea inmediato antesC0. Resultado pendiente.
+
+### Q0 — candidato Git fresco GREEN y RQA inmediato
+
+- QA task `ses_ecfdb7904ffeRY79wiSUyHkvmN`; bundle `/tmp/opencode/save-a-life-q0-20261012-4tBlci04/REVIEW-INDEX.md`, controls/inventory ylogs/recibos. ProbóTree2132cdd…parenta6fc…30paths exactos13M15A2D: tarSHAa752026d…/diffSHA3ecabab…; 255files322members contraGit/28hashesantesdespués, soloenvexampleHeadunchangedomitido safeexport.17docs58links sinfaltantes (anchorsnoverificados), inventario55/70/96 únicoPOSTratificado.
+- Todos18comandos críticos exit/childExit0, sin timeout/señales/reintentos: ci480,workspaces mock/web/backend, grafoparaconsumidor7 perfiles477registry/71opcionalplataformadrift0,gen**25/25**,checkdrift,unit**151=50+15+86**,type/lint/build3workspaces,OpenAPIlint5prevwarnings,NodeNextJSON/negativosDTO,listCompileinputs3soloDTO,repeatedbuild3outputsdeterministic,contrato**72+377HTTP+35schema** con70/68/2/26/34/16/273,postbuildDTO**86**,Bruno**24requests/29tests**,E2Etraceoff**10/10** Chromiumexistente/sindownload.
+- Lock8a0a671f…/testQASHA308b301e…/sourcepurity/HEAD/índice/diffajeno/cached/5D reales intactos; sin sourcewrites reales/candidato,stage/commit/provider. Recursos propiosninguno y4010/4011/5173 libres;8PNGsynthetic,sintrace/HAR/video/logsdebodyheaders/tokens.
+- Fullcandidate diffcheckexit2 exclusivo3MarkdownhardbreaksT3 aceptadosporreviewer, registrado sinfalsePASS. DeprecationsCI yavisosNO_COLOR registrados,no ocultos. No nuevoauditmisma lock;dev18preexisten sinrebaj/release.
+- Escrituras soloTemp: tresverificadores/contexto nuevos77/12/30líneas, grafoproofQ1copiadoidéntico yrunOwnedlatest revisado sinmodificar; evidencia mínima11JSON/18logpairs. RQA reviewer-back inmediato de código yproofantesC0; aceptaciónglobalcandidate pendiente esequalitygate, no selfapproval.
+
+### RQA PASS, G0 cerrado y C0 commit asignado
+
+- Reviewer `ses_ecff04460ffemlJWGppAL3b64h`: **PASS** código QA completo ylegitimidad18recibosQ0 delárbol2132cdd…; sin checksobligatoriosfaltantes ni Required. Comprueba source-proof255blobs28hashes manifest/exceptionenvHEAD, snapshotwx, smokerealcompilado/negativeDTO/outputsdeterministas ysyntax/provenance/recursos. No ejecución propia; habilitaSeniorprepararC0 sinagregarajenos.
+- G0/Q0 cerrados enalcancefundaciónA+B30paths. R0b/S0 PASSfullcandidate yR0f blobsidénticos, Q0actualtestsGreen/RQAapproved; no release ni backend completo.
+- Inicio C0 mismodev-back: operacionesGit solamente. Inspeccionarstatus/diff/cached/log10, HEADa6fc…/índicevacío guard; stage **exactTree2132cdd…** y30pathsapproved snapshot, noworkingfilesajenos/planeslegitposteriores. Verificarwrite-tree==candidateantescommit/nativehooks,noamend/skipconfig/push. Mensajepropuesto `feat(backend): add canonical need draft DTO foundation`.
+- Bitácoras posterioresalfreeze sepreservanunstaged yseincorporarán conunidadsiguiente/documentación, nofalseprovenancecandidato. SiHEAD/índices/fuente/hookcambian inesperadamente, detener/restaralcance sineludirgate; no ejecutarcommit distinto porconveniencia. Resultado pendiente.
+
+### C0 — commit atómico base verificado
+
+- Autor `ses_ed001333affee5L6U9Mr03xiy8`: commit **90c203afc4b565c9a5c2718db32d6603e76b2f41** — `feat(backend): add canonical need draft DTO foundation`. Parenta6fc65b6…/Tree**2132cddbe117af8ce37a047cab92463b7e0d0ca1** exactamenteQ0/reviews;30paths13M15A2D/4841insertions2427deletions. Ramaexistente `feat/backend-developing` sin cambio, sinpush.
+- Antes status/diffs/cached/log10 inspeccionados, índicevacío, stageexact30 desdeTreefrozen, manifest/write-tree/diffstagedcoinciden; scanner sincredencialesJWT/correosfueraejemplossintéticos. NativeGitcommitnormal,sin skiphooks/config/mod fuentes; hooks solomuestras. Índicefinal limpio, lockhashestable; no suites repetidas sobreTreeidéntico.
+- Preservadosunstaged AGENTS/Workflow/ADR1/5Dhistóricas/otrosplanes ybitácoraSenioractualposteriorfreeze, ninguna fuente/caches movidos. Commitcontieneplansnapshotaprobado, currentworkingregistrocontinúa másreciente. Bundle `/tmp/opencode/save-a-life-c0-20261012-9jIw7Sln/` sourcecandidateF0/Q0referenciados; dosauxshellquotingerrorscorregidossinwrites reportados.
+- No backendcompleto/HTTP/RLS real ni release. Basecohesiva reproducibleya versionada; siguienteunidad negocio puro+test/docs concommitseparado trasPASS.
+
+### A2 — asignación documentación de interfaces y decisión RPC
+
+- Inicio `solution-architect`, autorúnico **docs/Need-Draft-Application-Spec.md** y **docs/decisions/ADR-003-persistencia-rpc-supabase.md** nuevos (verificar no colisión). Congelar exactamente firmas privadas/errores/entidad/puerto/boundaries paraQA-first y servicio3paths sinHTTP/DBadapter. Registrar direcciónRPC aprobada conSQL/grants/session pendientes, no cambiarADR001/002 ni autorevisar.
+- Debe leerDTOexports actuales/BackendContracts/lineabase y concretar contratosinternos sin inventar nuevoscomportamientos; decisiones abiertas que cambienconducta seescalaantesescritor. RA2 reviewer-back independiente alresultado antes de implementar/pruebasque consuman interfaz; luegoB1 delegadono códigoSenior.

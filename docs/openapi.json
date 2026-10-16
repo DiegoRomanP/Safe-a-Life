@@ -571,6 +571,7 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "listOwnInvitations",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (listOwnInvitations)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Lista las invitaciones propias",
         "description": "No incluye datos de otros donantes, pacientes ni información clínica. La colección usa cursor opaco y límite de servidor.",
         "parameters": [
@@ -612,9 +613,12 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -622,14 +626,18 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "getOwnInvitation",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (getOwnInvitation)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Consulta detalle de una invitación propia",
         "parameters": [{ "$ref": "#/components/parameters/InvitationId" }],
         "responses": {
           "200": { "description": "Detalle operativo mínimo.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OwnInvitationDetailEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -637,6 +645,7 @@
       "patch": {
         "tags": ["Donor"],
         "operationId": "changeOwnInvitationResponse",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (changeOwnInvitationResponse)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Cambia la respuesta propia mientras la necesidad no sea terminal",
         "description": "Solo cambia la respuesta del donante autenticado. Conserva historial y no crea un nuevo lote; el hospital pierde los campos identificables cuando el estado vigente pasa a rechazada.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
@@ -650,7 +659,9 @@
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -658,6 +669,7 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "listOwnResponseHistory",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (listOwnResponseHistory)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Consulta historial inmutable de respuestas propias",
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
         "responses": {
@@ -688,10 +700,13 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -870,6 +885,7 @@
       "get": {
         "tags": ["Invitation action"],
         "operationId": "getInvitationActionPreview",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (getInvitationActionPreview)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Consulta información mínima del enlace de acción",
         "description": "Lectura informativa: nunca consume el token ni cambia estado. No cachear, cargar terceros, registrar el token ni registrar la URL completa (RF-INV-03, RNF-SEC-13).",
         "security": [],
@@ -903,9 +919,13 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "410": { "$ref": "#/components/responses/Gone" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -913,6 +933,7 @@
       "post": {
         "tags": ["Invitation action"],
         "operationId": "recordInitialInvitationResponse",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (recordInitialInvitationResponse)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Registra la primera respuesta mediante token de acción",
         "description": "El token aleatorio está ligado a invitación y acción (confirmar o rechazar); no se acepta una acción distinta en el body. Es válido solo con invitación/necesidad activas y `now < need.expires_at`; no tiene TTL independiente. Consumo y respuesta son atómicos. El GET anterior no muta estado. No devuelve contacto ni ubicación del donante.",
         "security": [],
@@ -937,12 +958,14 @@
             }
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "410": { "$ref": "#/components/responses/Gone" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
           "429": { "$ref": "#/components/responses/TooManyRequests" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1228,6 +1251,7 @@
       "get": {
         "tags": ["Hospital"],
         "operationId": "listOwnInvitationBatches",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (listOwnInvitationBatches)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Lista historial de lotes y conteos de entrega",
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
         "responses": {
@@ -1263,12 +1287,15 @@
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "post": {
         "tags": ["Hospital"],
         "operationId": "requestInvitationBatch",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (requestInvitationBatch)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Solicita manualmente un lote de invitaciones",
         "description": "El hospital solicita el lote, pero no elige donantes individuales. El servidor aplica los filtros documentados de preselección académica para RBC, radio, orden y cuotas; no determina elegibilidad médica. Invitaciones, outbox y auditoría se confirman en una transacción. No se devuelve identidad de candidatos (RF-MAT/RF-BAT).",
         "security": [
@@ -1303,7 +1330,8 @@
           "409": { "$ref": "#/components/responses/Conflict" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
           "429": { "$ref": "#/components/responses/TooManyRequests" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1316,6 +1344,7 @@
       "get": {
         "tags": ["Hospital"],
         "operationId": "listOwnNeedResponses",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (listOwnNeedResponses)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Consulta conteos y respuestas permitidas de una necesidad propia",
         "description": "Los registros no confirmados y rechazados usan código y estados opacos. Solo una confirmación afirmativa vigente incluye nombre, grupo declarado, respuesta y hora. Si el donante cambia confirmada a rechazada, esta proyección oculta inmediatamente nombre y grupo.",
         "responses": {
@@ -1367,7 +1396,9 @@
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1900,6 +1931,29 @@
           "403": { "$ref": "#/components/responses/Forbidden" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/api/v1/superadmin/invitations/{invitationId}/delivery-retries": {
+      "post": {
+        "tags": ["Superadmin"],
+        "operationId": "retryInvitationDelivery",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (retryInvitationDelivery)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
+        "summary": "Reintenta manualmente la entrega de una invitación fallida",
+        "description": "AAL2 + step-up de máximo 5 min (C-4, V5). Solo si la entrega de la invitación quedó en fallida, la invitación sigue activa y la necesidad vigente; renueva los enlaces anteriores y encola un correo nuevo. Responde con un mensaje neutro.",
+        "security": [{ "sessionCookie": [], "csrfToken": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/InvitationId" }, { "$ref": "#/components/parameters/IdempotencyKey" }],
+        "responses": {
+          "202": { "description": "Reintento aceptado.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NeutralMessageEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "410": { "$ref": "#/components/responses/Gone" },
           "429": { "$ref": "#/components/responses/TooManyRequests" },
           "500": { "$ref": "#/components/responses/InternalServerError" },
           "503": { "$ref": "#/components/responses/ServiceUnavailable" }
@@ -3004,7 +3058,7 @@
       },
       "SuperadminTask": {
         "type": "object", "additionalProperties": false, "required": ["taskId", "kind", "createdAt"],
-        "properties": { "taskId": { "type": "string", "format": "uuid" }, "kind": { "type": "string", "enum": ["correction_request", "hospital_review", "recognition_policy"] }, "createdAt": { "type": "string", "format": "date-time" }, "resourceCode": { "type": "string", "maxLength": 64 } }
+        "properties": { "taskId": { "type": "string", "format": "uuid" }, "kind": { "type": "string", "enum": ["correction_request", "hospital_review", "recognition_policy", "delivery_failure"] }, "createdAt": { "type": "string", "format": "date-time" }, "resourceCode": { "type": "string", "maxLength": 64 } }
       },
       "SuperadminTasksEnvelope": {
         "type": "object", "example": { "data": { "items": [{ "taskId": "14fc3c52-96b8-4aad-88b7-4e213c17bc97", "kind": "correction_request", "createdAt": "2026-10-01T18:00:00Z", "resourceCode": "request-51a8f2" }] } }, "additionalProperties": false, "required": ["data"],
