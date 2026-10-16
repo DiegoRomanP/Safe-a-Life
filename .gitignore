@@ -18,6 +18,7 @@ test-results/
 .pi/
 .opencode/
 .atl/
+.claude/
 .agents/
 # Supabase local (artefactos y secretos sintéticos de pruebas)
 backend/supabase/.temp/
