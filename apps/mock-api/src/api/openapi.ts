@@ -929,6 +929,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/superadmin/invitations/{invitationId}/delivery-retries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reintenta manualmente la entrega de una invitación fallida
+         * @description AAL2 + step-up de máximo 5 min (C-4, V5). Solo si la entrega de la invitación quedó en fallida, la invitación sigue activa y la necesidad vigente; renueva los enlaces anteriores y encola un correo nuevo. Responde con un mensaje neutro.
+         */
+        post: operations["retryInvitationDelivery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/superadmin/memberships/{membershipId}": {
         parameters: {
             query?: never;
@@ -1942,7 +1962,7 @@ export interface components {
             /** Format: uuid */
             taskId: string;
             /** @enum {string} */
-            kind: "correction_request" | "hospital_review" | "recognition_policy";
+            kind: "correction_request" | "hospital_review" | "recognition_policy" | "delivery_failure";
             /** Format: date-time */
             createdAt: string;
             resourceCode?: string;
@@ -3338,9 +3358,12 @@ export interface operations {
                     "application/json": components["schemas"]["OwnInvitationsEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getOwnInvitation: {
@@ -3363,10 +3386,13 @@ export interface operations {
                     "application/json": components["schemas"]["OwnInvitationDetailEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     changeOwnInvitationResponse: {
@@ -3407,7 +3433,9 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listOwnResponseHistory: {
@@ -3433,10 +3461,13 @@ export interface operations {
                     "application/json": components["schemas"]["OwnResponseHistoryEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listOwnCorrectionRequests: {
@@ -3685,9 +3716,13 @@ export interface operations {
                     "application/json": components["schemas"]["InvitationActionPreviewEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             410: components["responses"]["Gone"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     recordInitialInvitationResponse: {
@@ -3724,12 +3759,14 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             410: components["responses"]["Gone"];
             422: components["responses"]["UnprocessableEntity"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listOwnHospitalSites: {
@@ -3973,7 +4010,9 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     requestInvitationBatch: {
@@ -4017,6 +4056,7 @@ export interface operations {
             422: components["responses"]["UnprocessableEntity"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listOwnNeedResponses: {
@@ -4049,7 +4089,9 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listOwnAssistedSignups: {
@@ -4737,6 +4779,40 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    retryInvitationDelivery: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave estable para reintentos de la misma intención. El servidor la liga a actor, operación y hash canónico del payload; no registrar su valor. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                invitationId: components["parameters"]["InvitationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reintento aceptado. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NeutralMessageEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            410: components["responses"]["Gone"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
             503: components["responses"]["ServiceUnavailable"];

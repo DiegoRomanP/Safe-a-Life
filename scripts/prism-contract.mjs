@@ -23,8 +23,9 @@ const methods = new Set(['get', 'put', 'post', 'delete', 'options', 'head', 'pat
 // Third review round adds 4 more (403 of csrf-token and session, 400 of the health pair): 355 / 460.
 // F3 (2026-10-13) adds 10 more (400, 429 and 503 on the need list/get/transition and 429/503 on the create): 365 / 470.
 // F5 (2026-10-13) declares 56 more errors on its 14 donor and assisted-signup operations: 447 / 553.
+// F6 (2026-10-13) ratifies nine invitation operations (31 more errors) and adds retryInvitationDelivery (1 JSON, 9 errors): 73 operations, 478 errors, 585 cases.
 // Updating coverage requires explicit review; never derive it from the candidate.
-const expected = { operations: 72, json: 69, empty: 3, bodies: 27, variants: 34, variantCollections: 16, errors: 447 };
+const expected = { operations: 73, json: 70, empty: 3, bodies: 27, variants: 34, variantCollections: 16, errors: 478 };
 
 // Reviewed E2/E3 coverage fixture (method, path template, operationId), not a second
 // contract: NO payloads, schemas or behavior. Never derive/refresh it from the
@@ -90,6 +91,7 @@ const reviewedOperations = Object.freeze([
   ['patch', '/api/v1/superadmin/sites/{siteId}', 'updateHospitalSite'],
   ['get', '/api/v1/superadmin/memberships', 'listHospitalMemberships'],
   ['post', '/api/v1/superadmin/hospital-admin-invitations', 'inviteHospitalAdmin'],
+  ['post', '/api/v1/superadmin/invitations/{invitationId}/delivery-retries', 'retryInvitationDelivery'],
   ['patch', '/api/v1/superadmin/memberships/{membershipId}', 'revokeHospitalMembership'],
   ['get', '/api/v1/superadmin/correction-requests', 'listCorrectionRequests'],
   ['get', '/api/v1/superadmin/correction-requests/{requestId}', 'getCorrectionRequest'],

@@ -3,6 +3,29 @@
   "$id": "https://save-a-life.invalid/schemas/ratified-operations.json",
   "$comment": "Generated from docs/openapi.json for every operation with x-ratification.status = ratified-for-implementation.",
   "operations": {
+    "changeOwnInvitationResponse": {
+      "method": "patch",
+      "path": "/api/v1/donors/me/invitations/{invitationId}/response",
+      "body": "ChangeOwnInvitationResponseBody",
+      "query": "ChangeOwnInvitationResponseQuery",
+      "params": "ChangeOwnInvitationResponsePath",
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "ChangeOwnInvitationResponseSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422",
+        "429",
+        "500",
+        "503"
+      ]
+    },
     "claimAssistedRegistration": {
       "method": "post",
       "path": "/api/v1/assisted-activation-actions/{token}/claim",
@@ -412,6 +435,27 @@
         "503"
       ]
     },
+    "getInvitationActionPreview": {
+      "method": "get",
+      "path": "/api/v1/invitation-actions/{token}",
+      "body": null,
+      "query": "GetInvitationActionPreviewQuery",
+      "params": "GetInvitationActionPreviewPath",
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "GetInvitationActionPreviewSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "403",
+        "404",
+        "410",
+        "429",
+        "500",
+        "503"
+      ]
+    },
     "getLiveness": {
       "method": "get",
       "path": "/health/live",
@@ -481,6 +525,27 @@
       "success": {
         "status": "200",
         "def": "GetOwnHospitalNeedSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "404",
+        "429",
+        "500",
+        "503"
+      ]
+    },
+    "getOwnInvitation": {
+      "method": "get",
+      "path": "/api/v1/donors/me/invitations/{invitationId}",
+      "body": null,
+      "query": "GetOwnInvitationQuery",
+      "params": "GetOwnInvitationPath",
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "GetOwnInvitationSuccess"
       },
       "errorStatuses": [
         "400",
@@ -698,6 +763,89 @@
         "503"
       ]
     },
+    "listOwnInvitationBatches": {
+      "method": "get",
+      "path": "/api/v1/hospitals/me/needs/{needId}/invitation-batches",
+      "body": null,
+      "query": "ListOwnInvitationBatchesQuery",
+      "params": "ListOwnInvitationBatchesPath",
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "ListOwnInvitationBatchesSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "404",
+        "429",
+        "500",
+        "503"
+      ]
+    },
+    "listOwnInvitations": {
+      "method": "get",
+      "path": "/api/v1/donors/me/invitations",
+      "body": null,
+      "query": "ListOwnInvitationsQuery",
+      "params": null,
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "ListOwnInvitationsSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "429",
+        "500",
+        "503"
+      ]
+    },
+    "listOwnNeedResponses": {
+      "method": "get",
+      "path": "/api/v1/hospitals/me/needs/{needId}/responses",
+      "body": null,
+      "query": "ListOwnNeedResponsesQuery",
+      "params": "ListOwnNeedResponsesPath",
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "ListOwnNeedResponsesSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "404",
+        "429",
+        "500",
+        "503"
+      ]
+    },
+    "listOwnResponseHistory": {
+      "method": "get",
+      "path": "/api/v1/donors/me/responses",
+      "body": null,
+      "query": "ListOwnResponseHistoryQuery",
+      "params": null,
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "ListOwnResponseHistorySuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "422",
+        "429",
+        "500",
+        "503"
+      ]
+    },
     "listSuperadminTasks": {
       "method": "get",
       "path": "/api/v1/superadmin/task-queue",
@@ -738,6 +886,29 @@
         "503"
       ]
     },
+    "recordInitialInvitationResponse": {
+      "method": "post",
+      "path": "/api/v1/invitation-actions/{token}/response",
+      "body": null,
+      "query": "RecordInitialInvitationResponseQuery",
+      "params": "RecordInitialInvitationResponsePath",
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "RecordInitialInvitationResponseSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "403",
+        "404",
+        "409",
+        "410",
+        "422",
+        "429",
+        "500",
+        "503"
+      ]
+    },
     "reissueAssistedActivationLink": {
       "method": "post",
       "path": "/api/v1/hospitals/me/assisted-signups/{signupId}/activation-links",
@@ -748,6 +919,29 @@
       "success": {
         "status": "202",
         "def": "ReissueAssistedActivationLinkSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422",
+        "429",
+        "500",
+        "503"
+      ]
+    },
+    "requestInvitationBatch": {
+      "method": "post",
+      "path": "/api/v1/hospitals/me/needs/{needId}/invitation-batches",
+      "body": null,
+      "query": "RequestInvitationBatchQuery",
+      "params": "RequestInvitationBatchPath",
+      "headers": null,
+      "success": {
+        "status": "201",
+        "def": "RequestInvitationBatchSuccess"
       },
       "errorStatuses": [
         "400",
@@ -776,6 +970,29 @@
         "400",
         "403",
         "409",
+        "429",
+        "500",
+        "503"
+      ]
+    },
+    "retryInvitationDelivery": {
+      "method": "post",
+      "path": "/api/v1/superadmin/invitations/{invitationId}/delivery-retries",
+      "body": null,
+      "query": "RetryInvitationDeliveryQuery",
+      "params": "RetryInvitationDeliveryPath",
+      "headers": null,
+      "success": {
+        "status": "202",
+        "def": "RetryInvitationDeliverySuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "404",
+        "409",
+        "410",
         "429",
         "500",
         "503"
@@ -1396,6 +1613,46 @@
         "AB_POS"
       ]
     },
+    "ChangeInvitationResponseRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "response"
+      ],
+      "properties": {
+        "response": {
+          "type": "string",
+          "enum": [
+            "confirmada",
+            "rechazada"
+          ]
+        }
+      }
+    },
+    "ChangeOwnInvitationResponseBody": {
+      "$ref": "#/$defs/ChangeInvitationResponseRequest"
+    },
+    "ChangeOwnInvitationResponsePath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "invitationId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "invitationId"
+      ]
+    },
+    "ChangeOwnInvitationResponseQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "ChangeOwnInvitationResponseSuccess": {
+      "$ref": "#/$defs/InvitationResponseEnvelope"
+    },
     "ClaimAssistedRegistrationBody": {
       "$ref": "#/$defs/AssistedClaimRequest"
     },
@@ -1521,6 +1778,39 @@
           }
         }
       ]
+    },
+    "ConfirmedHospitalResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "needDonorCode",
+        "donorName",
+        "declaredBloodType",
+        "response",
+        "responseRecordedAt"
+      ],
+      "properties": {
+        "needDonorCode": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 64
+        },
+        "donorName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "declaredBloodType": {
+          "$ref": "#/$defs/BloodType"
+        },
+        "response": {
+          "type": "string",
+          "const": "confirmada"
+        },
+        "responseRecordedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
     },
     "CreateAssistedSignupBody": {
       "$ref": "#/$defs/CreateAssistedSignupRequest"
@@ -2059,6 +2349,29 @@
     "GetHospitalSuccess": {
       "$ref": "#/$defs/HospitalEnvelope"
     },
+    "GetInvitationActionPreviewPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "token": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 256,
+          "writeOnly": true
+        }
+      },
+      "required": [
+        "token"
+      ]
+    },
+    "GetInvitationActionPreviewQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "GetInvitationActionPreviewSuccess": {
+      "$ref": "#/$defs/InvitationActionPreviewEnvelope"
+    },
     "GetLivenessQuery": {
       "type": "object",
       "additionalProperties": false,
@@ -2116,6 +2429,27 @@
     },
     "GetOwnHospitalNeedSuccess": {
       "$ref": "#/$defs/NeedEnvelope"
+    },
+    "GetOwnInvitationPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "invitationId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "invitationId"
+      ]
+    },
+    "GetOwnInvitationQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "GetOwnInvitationSuccess": {
+      "$ref": "#/$defs/OwnInvitationDetailEnvelope"
     },
     "GetReadinessQuery": {
       "type": "object",
@@ -2257,6 +2591,381 @@
             }
           }
         }
+      ]
+    },
+    "HospitalResponsesEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "confirmedIntentCount",
+            "items",
+            "pagination"
+          ],
+          "properties": {
+            "confirmedIntentCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/OpaqueHospitalResponse"
+                  },
+                  {
+                    "$ref": "#/$defs/ConfirmedHospitalResponse"
+                  }
+                ]
+              }
+            },
+            "pagination": {
+              "$ref": "#/$defs/Pagination"
+            }
+          }
+        }
+      },
+      "examples": [
+        {
+          "data": {
+            "confirmedIntentCount": 1,
+            "items": [
+              {
+                "needDonorCode": "donor-code-51a8f2",
+                "validity": "activa",
+                "delivery": "entregada",
+                "response": "sin_respuesta"
+              },
+              {
+                "needDonorCode": "donor-code-b32d17",
+                "donorName": "Donante Demo",
+                "declaredBloodType": "O_POS",
+                "response": "confirmada",
+                "responseRecordedAt": "2026-10-01T18:20:00Z"
+              }
+            ],
+            "pagination": {
+              "nextCursor": null
+            }
+          }
+        }
+      ]
+    },
+    "InvitationActionPreviewEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "hospitalName",
+            "publicSiteName",
+            "intendedAction",
+            "expiresAt"
+          ],
+          "properties": {
+            "hospitalName": {
+              "type": "string",
+              "maxLength": 160
+            },
+            "publicSiteName": {
+              "type": "string",
+              "maxLength": 160
+            },
+            "intendedAction": {
+              "type": "string",
+              "enum": [
+                "confirmar",
+                "rechazar"
+              ]
+            },
+            "expiresAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      }
+    },
+    "InvitationBatchEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "batchId",
+            "createdInvitationCount",
+            "queuedEmailCount"
+          ],
+          "properties": {
+            "batchId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "createdInvitationCount": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 50
+            },
+            "queuedEmailCount": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 50
+            }
+          }
+        }
+      },
+      "examples": [
+        {
+          "data": {
+            "batchId": "e2eaec30-1f23-40c7-b986-21395b46a531",
+            "createdInvitationCount": 8,
+            "queuedEmailCount": 8
+          }
+        }
+      ]
+    },
+    "InvitationBatchListEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "items",
+            "pagination"
+          ],
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/InvitationBatchRecord"
+              }
+            },
+            "pagination": {
+              "$ref": "#/$defs/Pagination"
+            }
+          }
+        }
+      },
+      "examples": [
+        {
+          "data": {
+            "items": [
+              {
+                "batchId": "e2eaec30-1f23-40c7-b986-21395b46a531",
+                "createdAt": "2026-10-01T18:00:00Z",
+                "createdInvitationCount": 8,
+                "deliveryCounts": {
+                  "pendiente": 0,
+                  "enviada": 2,
+                  "entregada": 6,
+                  "fallida": 0
+                }
+              }
+            ],
+            "pagination": {
+              "nextCursor": null
+            }
+          }
+        }
+      ]
+    },
+    "InvitationBatchRecord": {
+      "type": "object",
+      "description": "Registro mínimo de un lote con conteos de entrega por estado actual; no contiene intentos acumulados ni datos de donantes.",
+      "additionalProperties": false,
+      "required": [
+        "batchId",
+        "createdAt",
+        "createdInvitationCount",
+        "deliveryCounts"
+      ],
+      "properties": {
+        "batchId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdInvitationCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50
+        },
+        "deliveryCounts": {
+          "type": "object",
+          "description": "Cuatro conteos de estado actual mutuamente excluyentes: cada invitación del lote pertenece a un solo estado y su suma es createdInvitationCount. enviada excluye las invitaciones ya entregadas; no son acumulados ni conteos de intentos. AP-02 sigue pendiente respecto de la relación operativa entre estado agregado e intentos y de cuándo un error transitorio pasa a fallida; esta proyección no define reintentos ni umbrales de fallo terminal.",
+          "additionalProperties": false,
+          "required": [
+            "pendiente",
+            "enviada",
+            "entregada",
+            "fallida"
+          ],
+          "properties": {
+            "pendiente": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "enviada": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "entregada": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "fallida": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "InvitationDelivery": {
+      "type": "string",
+      "enum": [
+        "pendiente",
+        "enviada",
+        "entregada",
+        "fallida"
+      ]
+    },
+    "InvitationListItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invitationId",
+        "hospitalName",
+        "publicSiteName",
+        "requiredBloodType",
+        "urgency",
+        "instructions",
+        "expiresAt",
+        "validity",
+        "delivery",
+        "response"
+      ],
+      "properties": {
+        "invitationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "hospitalName": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "publicSiteName": {
+          "type": "string",
+          "maxLength": 160
+        },
+        "requiredBloodType": {
+          "$ref": "#/$defs/BloodType"
+        },
+        "urgency": {
+          "$ref": "#/$defs/Urgency"
+        },
+        "instructions": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "RFC 3339 en UTC."
+        },
+        "validity": {
+          "$ref": "#/$defs/InvitationValidity"
+        },
+        "delivery": {
+          "$ref": "#/$defs/InvitationDelivery"
+        },
+        "response": {
+          "$ref": "#/$defs/InvitationResponse"
+        }
+      }
+    },
+    "InvitationResponse": {
+      "type": "string",
+      "enum": [
+        "sin_respuesta",
+        "confirmada",
+        "rechazada"
+      ]
+    },
+    "InvitationResponseEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "response",
+            "recordedAt",
+            "needStatus"
+          ],
+          "properties": {
+            "response": {
+              "type": "string",
+              "enum": [
+                "confirmada",
+                "rechazada"
+              ]
+            },
+            "recordedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "needStatus": {
+              "$ref": "#/$defs/NeedStatus"
+            }
+          }
+        }
+      },
+      "examples": [
+        {
+          "data": {
+            "response": "confirmada",
+            "recordedAt": "2026-10-01T18:20:00Z",
+            "needStatus": "activa"
+          }
+        }
+      ]
+    },
+    "InvitationValidity": {
+      "type": "string",
+      "enum": [
+        "activa",
+        "invalidada",
+        "vencida"
       ]
     },
     "InviteHospitalAdminBody": {
@@ -2426,6 +3135,108 @@
     },
     "ListOwnHospitalSitesSuccess": {
       "$ref": "#/$defs/OwnHospitalSiteListEnvelope"
+    },
+    "ListOwnInvitationBatchesPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "needId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "needId"
+      ]
+    },
+    "ListOwnInvitationBatchesQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        },
+        "cursor": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    "ListOwnInvitationBatchesSuccess": {
+      "$ref": "#/$defs/InvitationBatchListEnvelope"
+    },
+    "ListOwnInvitationsQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        },
+        "cursor": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    "ListOwnInvitationsSuccess": {
+      "$ref": "#/$defs/OwnInvitationsEnvelope"
+    },
+    "ListOwnNeedResponsesPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "needId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "needId"
+      ]
+    },
+    "ListOwnNeedResponsesQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        },
+        "cursor": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    "ListOwnNeedResponsesSuccess": {
+      "$ref": "#/$defs/HospitalResponsesEnvelope"
+    },
+    "ListOwnResponseHistoryQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        },
+        "cursor": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    "ListOwnResponseHistorySuccess": {
+      "$ref": "#/$defs/OwnResponseHistoryEnvelope"
     },
     "ListSuperadminTasksQuery": {
       "type": "object",
@@ -2812,6 +3623,37 @@
         }
       ]
     },
+    "OpaqueHospitalResponse": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "needDonorCode",
+        "validity",
+        "delivery",
+        "response"
+      ],
+      "properties": {
+        "needDonorCode": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 64,
+          "description": "Código aleatorio limitado a esta necesidad; no es un ID global de donante."
+        },
+        "validity": {
+          "$ref": "#/$defs/InvitationValidity"
+        },
+        "delivery": {
+          "$ref": "#/$defs/InvitationDelivery"
+        },
+        "response": {
+          "type": "string",
+          "enum": [
+            "sin_respuesta",
+            "rechazada"
+          ]
+        }
+      }
+    },
     "OwnDonorProfile": {
       "type": "object",
       "additionalProperties": false,
@@ -2919,6 +3761,146 @@
         }
       }
     },
+    "OwnInvitationDetailEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "invitation",
+            "instructions"
+          ],
+          "properties": {
+            "invitation": {
+              "$ref": "#/$defs/InvitationListItem"
+            },
+            "instructions": {
+              "type": "string",
+              "maxLength": 1000
+            }
+          }
+        }
+      },
+      "examples": [
+        {
+          "data": {
+            "invitation": {
+              "invitationId": "76eb9a7c-484f-4478-9a6f-01a21710ce8f",
+              "hospitalName": "Hospital Demo",
+              "publicSiteName": "Sede Centro",
+              "requiredBloodType": "O_POS",
+              "urgency": "Urgente",
+              "instructions": "Presenta este código al personal del hospital; el equipo médico verificará elegibilidad.",
+              "expiresAt": "2026-10-02T18:00:00Z",
+              "validity": "activa",
+              "delivery": "entregada",
+              "response": "sin_respuesta"
+            },
+            "instructions": "Presenta este código al personal del hospital; el equipo médico verificará elegibilidad."
+          }
+        }
+      ]
+    },
+    "OwnInvitationsEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "items",
+            "pagination"
+          ],
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/InvitationListItem"
+              }
+            },
+            "pagination": {
+              "$ref": "#/$defs/Pagination"
+            }
+          }
+        }
+      },
+      "examples": [
+        {
+          "data": {
+            "items": [
+              {
+                "invitationId": "76eb9a7c-484f-4478-9a6f-01a21710ce8f",
+                "hospitalName": "Hospital Demo",
+                "publicSiteName": "Sede Centro",
+                "requiredBloodType": "O_POS",
+                "urgency": "Urgente",
+                "instructions": "Presenta este código al personal del hospital; el equipo médico verificará elegibilidad.",
+                "expiresAt": "2026-10-02T18:00:00Z",
+                "validity": "activa",
+                "delivery": "entregada",
+                "response": "sin_respuesta"
+              }
+            ],
+            "pagination": {
+              "nextCursor": null
+            }
+          }
+        }
+      ]
+    },
+    "OwnResponseHistoryEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "items",
+            "pagination"
+          ],
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/ResponseHistoryItem"
+              }
+            },
+            "pagination": {
+              "$ref": "#/$defs/Pagination"
+            }
+          }
+        }
+      },
+      "examples": [
+        {
+          "data": {
+            "items": [
+              {
+                "invitationId": "76eb9a7c-484f-4478-9a6f-01a21710ce8f",
+                "response": "confirmada",
+                "changedAt": "2026-10-01T18:20:00Z"
+              }
+            ],
+            "pagination": {
+              "nextCursor": null
+            }
+          }
+        }
+      ]
+    },
     "Pagination": {
       "type": "object",
       "additionalProperties": false,
@@ -2999,6 +3981,29 @@
     "ReceiveResendWebhookSuccess": {
       "const": null
     },
+    "RecordInitialInvitationResponsePath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "token": {
+          "type": "string",
+          "minLength": 43,
+          "maxLength": 256,
+          "writeOnly": true
+        }
+      },
+      "required": [
+        "token"
+      ]
+    },
+    "RecordInitialInvitationResponseQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "RecordInitialInvitationResponseSuccess": {
+      "$ref": "#/$defs/InvitationResponseEnvelope"
+    },
     "ReissueAssistedActivationLinkPath": {
       "type": "object",
       "additionalProperties": false,
@@ -3019,6 +4024,27 @@
     },
     "ReissueAssistedActivationLinkSuccess": {
       "$ref": "#/$defs/NeutralMessageEnvelope"
+    },
+    "RequestInvitationBatchPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "needId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "needId"
+      ]
+    },
+    "RequestInvitationBatchQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "RequestInvitationBatchSuccess": {
+      "$ref": "#/$defs/InvitationBatchEnvelope"
     },
     "RequestPasswordRecoveryBody": {
       "$ref": "#/$defs/PasswordRecoveryRequest"
@@ -3064,6 +4090,53 @@
           }
         }
       }
+    },
+    "ResponseHistoryItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "invitationId",
+        "response",
+        "changedAt"
+      ],
+      "properties": {
+        "invitationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "response": {
+          "type": "string",
+          "enum": [
+            "confirmada",
+            "rechazada"
+          ]
+        },
+        "changedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "RetryInvitationDeliveryPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "invitationId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "invitationId"
+      ]
+    },
+    "RetryInvitationDeliveryQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "RetryInvitationDeliverySuccess": {
+      "$ref": "#/$defs/NeutralMessageEnvelope"
     },
     "RevokeHospitalMembershipBody": {
       "$ref": "#/$defs/RevokeMembershipRequest"
@@ -3336,7 +4409,8 @@
           "enum": [
             "correction_request",
             "hospital_review",
-            "recognition_policy"
+            "recognition_policy",
+            "delivery_failure"
           ]
         },
         "createdAt": {
