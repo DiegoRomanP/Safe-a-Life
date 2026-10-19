@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | En curso |
+| Estado | Implementado y revisado (PASS); pendiente de aprobación de la persona usuaria |
 | Fecha | 2026-10-19 |
 | Rama | `feat/frontend-typescript-base` (local, desde `origin/feat/backend-developing` en `1956d63`) |
 | Decisiones | ADR-001 (TypeScript, React 18, Tailwind), ADR-002 (pines y scripts de instalación), ADR-004 (mismo origen, cookies, CSRF) |
@@ -38,6 +38,8 @@ Incluido:
    `dev:frontend`; actualizar `package-lock.json` solo con la entrada del nuevo
    workspace.
 4. Documentar en `CLAUDE.md` y README que `frontend/` ya es workspace TS.
+5. Actualizar en `scripts/generate-api-contract.test.mjs` la prueba que fija la
+   lista exacta de workspaces (hallazgo B1 de la revisión).
 
 Excluido: vistas, routing por rol, cliente HTTP, CSRF, login, tipos generados
 para `frontend/` (cambio en `scripts/generate-api-contract.mjs`), E2E, cambios en
@@ -66,7 +68,8 @@ para `frontend/` (cambio en `scripts/generate-api-contract.mjs`), E2E, cambios e
 - `npm run typecheck`, `npm test` y `npm run build` del workspace `frontend`
   pasan.
 - `typecheck` y `test` globales siguen pasando para `apps/web`, `apps/mock-api`
-  y `backend`.
+  y `backend`, y también `npm run test:api:generator`, que valida la lista de
+  workspaces y no forma parte de `npm test`.
 - El diff de `package-lock.json` solo agrega el workspace `frontend` y sus
   enlaces; no cambia versiones existentes ni añade paquetes de registro nuevos.
 - El servidor de desarrollo renderiza el marcador en `http://127.0.0.1:5174`.
@@ -79,7 +82,8 @@ para `frontend/` (cambio en `scripts/generate-api-contract.mjs`), E2E, cambios e
   11.11.0. `allowScripts` de `package.json` es una función de npm 12: con npm 11
   no se garantiza que se bloqueen los scripts de `@scarf/scarf` y `protobufjs`,
   y el lockfile podría reescribirse con otro formato. **No se instala hasta usar
-  las versiones fijadas.**
+  las versiones fijadas.** Resuelto el 2026-10-19: la persona usuaria instaló
+  Node 24.19.0 y npm 12.0.2 antes de instalar.
 - `frontend/node_modules/` local fue instalado con pnpm; se borra antes de
   instalar con npm para que no interfiera con la resolución del workspace. No
   está versionado.
@@ -88,3 +92,28 @@ para `frontend/` (cambio en `scripts/generate-api-contract.mjs`), E2E, cambios e
 
 - 2026-10-19: rama local creada desde `origin/feat/backend-developing`. Plan
   escrito. Detectado el bloqueo de versiones de Node/npm antes de instalar.
+- 2026-10-19: plantilla JS retirada (`f6baeda`). Base TS creada. Con Node
+  24.19.0 y npm 12.0.2, `SCARF_ANALYTICS=false npm install` registró el
+  workspace: el diff del lockfile solo añade `frontend` y su enlace.
+- 2026-10-19: verificación. `frontend`: typecheck, test 1/1 y build OK. Global:
+  typecheck de los cuatro workspaces y `npm test` OK (mock-api 50, web 15,
+  backend 715, frontend 1); `audit:production` sin vulnerabilidades. El servidor
+  de desarrollo sirve la página en `127.0.0.1:5174`; el proxy de `/health`
+  responde 502 con el backend apagado, lo esperado.
+- 2026-10-19: revisión `reviewer-front` (subagente de contexto separado):
+  **BLOCKED** por B1: `scripts/generate-api-contract.test.mjs` exigía
+  exactamente tres workspaces. Corregida la aserción y el nombre de la prueba.
+  Observaciones atendidas: N1 (plan actualizado) y N2 (se restituye "Do not
+  delete `frontend/`" en `CLAUDE.md`). N3 (sin `xfwd` en el proxy) no aplica
+  mientras `TRUSTED_PROXIES` esté vacío en local. Pendiente: nueva revisión.
+- 2026-10-19: tras la corrección, `npm run test:api:generator` 29/29.
+  `node --test scripts/prism-contract.test.mjs` da 70/72 con y sin los cambios
+  de esta rama (comprobado con `git stash`). Fallan `TYPE_DRIFT rejects…` y
+  `CLI SIGINT/SIGTERM close the real Prism child…`: preexistentes en este
+  Windows y ajenos a este plan; quedan para quien mantiene el runner.
+- 2026-10-19: segunda revisión `reviewer-front`: **PASS** sin hallazgos
+  abiertos. Cubre los commits `0439be8` y `f6baeda` y los cambios de `frontend/`,
+  `package.json`, `package-lock.json`, `CLAUDE.md`, README, este plan y
+  `scripts/generate-api-contract.test.mjs`. No verificado: render visual,
+  peticiones por el proxy con el backend encendido, cookies `__Host-` en el
+  navegador, E2E, responsive y lector de pantalla (no hay vistas todavía).
