@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+/* Tokens de docs/Frontend-Design.md. */
+@theme {
+  --font-sans: "Manrope Variable", sans-serif;
+  --font-editorial: "Newsreader Variable", Georgia, serif;
+  --color-ink: #172b3a;
+  --color-petrol: #164e63;
+  --color-petrol-deep: #103b4b;
+  --color-brand: #b4233c;
+  --color-brand-deep: #8f1930;
+  --color-canvas: #f6f8fa;
+  --color-surface: #ffffff;
+  --color-muted: #526271;
+  --color-line: #d9e0e5;
+  --color-success: #166534;
+  --color-warning: #854d0e;
+  --color-danger: #b91c1c;
+  --color-focus: #0369a1;
+}
+
+@layer base {
+  body {
+    min-width: 320px;
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
