@@ -356,9 +356,9 @@ test('backend migration: checks backend-only fixtures without recreating apps/ap
   }
 });
 
-test('backend migration: registers backend as the only production workspace and preserves web/mock', async () => {
+test('workspaces: registers the production backend and frontend and preserves web/mock', async () => {
   const rootPackage = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
-  assert.deepEqual([...rootPackage.workspaces].sort(), ['apps/mock-api', 'apps/web', 'backend']);
+  assert.deepEqual([...rootPackage.workspaces].sort(), ['apps/mock-api', 'apps/web', 'backend', 'frontend']);
 });
 
 test('backend package: wires DTO tests and TypeScript entrypoint scripts', async () => {
