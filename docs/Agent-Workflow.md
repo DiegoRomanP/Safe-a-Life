@@ -20,13 +20,15 @@ Usa solamente la herramienta de delegación que aparezca en el harness actual:
 
 | Harness | Delegación | IDs de rol |
 | --- | --- | --- |
-| OpenCode | `task` | IDs OpenCode de las tablas siguientes |
+| OpenCode V2 | `subagent` | IDs OpenCode de las tablas siguientes |
+| OpenCode V1 | `task` | IDs OpenCode de las tablas siguientes |
 | Pi + `pi-open-agents` | `subagent({ agent: "<id>", task: "<asignación>" })` | IDs `pi-*` de la tabla de mapeo |
 | Claude Code | `Agent({ subagent_type, prompt })` | Sin IDs propios: el prompt contiene el rol completo de `.opencode/agent/<id>.md`, el alcance y las rutas o el diff |
 
-No supongas que existe `task`, `subagent_run`, `subagent_list_agents` o un
-cargador de skills en otros harnesses. Pi expone `subagent`; sus skills se leen
-con las herramientas normales desde `.opencode/skills/<nombre>/SKILL.md`. Si no
+No supongas que existe `subagent`, `task`, `subagent_run`,
+`subagent_list_agents` o un cargador de skills en otros harnesses. Pi expone
+`subagent`; sus skills se leen con las herramientas normales desde
+`.opencode/skills/<nombre>/SKILL.md`. Si no
 hay herramienta compatible, procede directamente con las herramientas permitidas,
 mantén un solo escritor por slice y documenta cualquier gate de revisión que no
 se haya podido ejecutar. Nunca declares PASS de un reviewer que no participó.
@@ -66,9 +68,10 @@ skills están versionadas en `.opencode/skills/`.
 ### Especialistas ya configurados
 
 Estos agentes también son invocables por su ID exacto con la herramienta
-correspondiente al harness; usa `task` en OpenCode y la tabla de IDs `pi-*` para
-`subagent` en Pi. No se usan todos en cada tarea; se seleccionan cuando su
-expertise es el centro del trabajo o cuando se activa un gate de riesgo.
+correspondiente al harness; usa `subagent` en OpenCode V2 (`task` en V1) y la
+tabla de IDs `pi-*` para `subagent` en Pi. No se usan todos en cada tarea; se
+seleccionan cuando su expertise es el centro del trabajo o cuando se activa un
+gate de riesgo.
 
 | ID OpenCode | Usar cuando | Límite / relación con otros agentes |
 | --- | --- | --- |
@@ -219,9 +222,10 @@ de solicitudes.
 
 ## Operación
 
-- En OpenCode, `Senior` es `default_agent` y los subagentes personalizados se
-  invocan mediante `task` con los IDs OpenCode. En Pi, `.pi/settings.json` fija
-  `defaultAgent: pi-senior` y `.pi/modes.config.json` fija el modo inicial `build`;
+- En OpenCode V2, `Senior` es `default_agent` y los subagentes personalizados se
+  invocan mediante `subagent` con los IDs OpenCode (`task` en V1). En Pi,
+  `.pi/settings.json` fija `defaultAgent: pi-senior` y
+  `.pi/modes.config.json` fija el modo inicial `build`;
   usa `subagent` con los IDs Pi. La disponibilidad real depende del harness y de
   sus permisos. Una sesión Pi reanudada puede conservar su modo previo.
 - Las restricciones de herramienta de esta sección son específicas de la

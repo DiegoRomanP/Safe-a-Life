@@ -46,6 +46,10 @@ npm run build
 npm run openapi:lint
 npm run openapi:types              # regenerate types/snapshot from docs/openapi.json
 npm run openapi:api:check          # fail if generated artifacts drifted
+npm run test:api:generator         # node:test for the contract generator
+npm run dev:backend                # real backend (tsx watch, reads backend/.env)
+npm run dev:worker                 # outbox email worker, separate process
+npm run audit:production           # npm audit --omit=dev
 ```
 
 Single test:
@@ -91,8 +95,9 @@ The npm workspace has three members: `apps/web`, `apps/mock-api` and `backend`.
   `src/composition.ts` wires the adapters, `src/app.ts` exposes
   `createApp({config, logger, mount})`, `src/config/env.ts` validates the
   environment and `src/shared/*` holds HTTP, auth, persistence and crypto pieces.
-  `src/modules/{platform,identity-institutions,need-records,email-delivery}` are
-  implemented (F2a, F3, F4); `src/worker.ts` is the separate outbox worker
+  `src/modules/{platform,identity-institutions,need-records,email-delivery,donor-records}`
+  are implemented (F2a, F3, F4, F5), each split into
+  `domain/application/http/infrastructure`; `src/worker.ts` is the separate outbox worker
   (`npm run dev:worker`); `need-records/dto/` has the AJV 2020 validators. `supabase/` holds
   the local project: migrations, `seed.sql` and pgTAP tests. Planned modules are
   listed in the capability map in
@@ -117,7 +122,9 @@ The npm workspace has three members: `apps/web`, `apps/mock-api` and `backend`.
   backend evidence.
 - **ADRs** live in `docs/decisions/`. ADR-001 sets the stack (Node/Express,
   Supabase, Resend). ADR-002 sets the dev tooling pins and install-script
-  policy. Do not change an approved ADR without the user's decision.
+  policy. ADR-003 sets RPC persistence, ADR-004 session/CSRF/CORS/topology,
+  ADR-005 the email outbox + worker and ADR-006 the `service_role` allowlist.
+  Do not change an approved ADR without the user's decision.
 
 ## Repo conventions
 

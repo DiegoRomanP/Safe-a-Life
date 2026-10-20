@@ -3,39 +3,36 @@
   "default_agent": "senior",
   "share": "disabled",
   "snapshot": true,
-  "permission": {
-    "task": "deny"
-  },
-  "agent": {
+  "agents": {
     "build": {
-      "permission": {
-        "task": "deny"
-      }
+      "permissions": [
+        { "action": "subagent", "resource": "*", "effect": "deny" }
+      ]
     },
     "plan": {
-      "permission": {
-        "task": "deny"
-      }
+      "permissions": [
+        { "action": "subagent", "resource": "*", "effect": "deny" }
+      ]
     },
     "general": {
-      "permission": {
-        "task": "deny"
-      }
+      "permissions": [
+        { "action": "subagent", "resource": "*", "effect": "deny" }
+      ]
     },
     "explore": {
-      "permission": {
-        "task": "deny"
-      }
+      "permissions": [
+        { "action": "subagent", "resource": "*", "effect": "deny" }
+      ]
     },
     "maestro-protegido": {
-      "permission": {
-        "task": "deny"
-      }
+      "permissions": [
+        { "action": "subagent", "resource": "*", "effect": "deny" }
+      ]
     },
     "maestro-libre": {
-      "permission": {
-        "task": "deny"
-      }
+      "permissions": [
+        { "action": "subagent", "resource": "*", "effect": "deny" }
+      ]
     }
   },
   "compaction": {

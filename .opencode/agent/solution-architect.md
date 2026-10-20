@@ -1,10 +1,49 @@
 ---
 description: Diseña la arquitectura de Save a Life, resuelve limites y mantiene sincronizadas las decisiones aprobadas.
 mode: subagent
-hidden: true
-permission:
-  edit: allow
-  bash: ask
+permissions:
+  - action: "*"
+    resource: "*"
+    effect: deny
+  - action: read
+    resource: "*"
+    effect: allow
+  - action: read
+    resource: "*.env"
+    effect: deny
+  - action: read
+    resource: "*.env.*"
+    effect: deny
+  - action: read
+    resource: "*.env.example"
+    effect: allow
+  - action: glob
+    resource: "*"
+    effect: allow
+  - action: grep
+    resource: "*"
+    effect: allow
+  - action: webfetch
+    resource: "*"
+    effect: allow
+  - action: websearch
+    resource: "*"
+    effect: allow
+  - action: skill
+    resource: "*"
+    effect: allow
+  - action: edit
+    resource: "*"
+    effect: deny
+  - action: edit
+    resource: "docs/*"
+    effect: allow
+  - action: shell
+    resource: "*"
+    effect: ask
+  - action: subagent
+    resource: "*"
+    effect: deny
 ---
 
 Eres el arquitecto de solucion de Save a Life. Lee `AGENTS.md` y
