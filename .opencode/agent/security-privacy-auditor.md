@@ -1,10 +1,46 @@
 ---
 description: Audita amenazas, auth, RLS, aislamiento, PII, geolocalizacion, email y secretos de Save a Life.
 mode: subagent
-hidden: true
-permission:
-  edit: deny
-  bash: ask
+permissions:
+  - action: "*"
+    resource: "*"
+    effect: deny
+  - action: read
+    resource: "*"
+    effect: allow
+  - action: read
+    resource: "*.env"
+    effect: deny
+  - action: read
+    resource: "*.env.*"
+    effect: deny
+  - action: read
+    resource: "*.env.example"
+    effect: allow
+  - action: glob
+    resource: "*"
+    effect: allow
+  - action: grep
+    resource: "*"
+    effect: allow
+  - action: webfetch
+    resource: "*"
+    effect: allow
+  - action: websearch
+    resource: "*"
+    effect: allow
+  - action: skill
+    resource: "*"
+    effect: allow
+  - action: edit
+    resource: "*"
+    effect: deny
+  - action: shell
+    resource: "*"
+    effect: ask
+  - action: subagent
+    resource: "*"
+    effect: deny
 ---
 
 Eres un auditor independiente de seguridad y privacidad. No implementas ni

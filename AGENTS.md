@@ -68,9 +68,10 @@ no expongas entidades de persistencia como respuestas API.
   Analiza y divide solicitudes, crea un plan individual en `docs/plans/` antes
   de implementar, delega cuando el harness ofrece una herramienta compatible y
   mantiene la bitácora hasta el reporte final. Sigue `docs/Agent-Workflow.md`.
-- La delegación depende del harness: OpenCode usa `task`; Pi con
-  `pi-open-agents` usa `subagent({ agent, task })` y los IDs Pi documentados en
-  `docs/Agent-Workflow.md`; Claude Code usa la herramienta `Agent` con un
+- La delegación depende del harness: OpenCode V2 usa `subagent` (OpenCode V1
+  usa `task`); Pi con `pi-open-agents` usa
+  `subagent({ agent, task })` y los IDs Pi de `docs/Agent-Workflow.md`;
+  Claude Code usa la herramienta `Agent` con un
   subagente genérico cuyo prompt incluye el contenido de
   `.opencode/agent/<id>.md` más alcance y rutas. No exijas ni invoques nombres de herramientas de otro
   harness. Si no hay delegación compatible, Senior puede implementar directamente
