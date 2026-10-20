@@ -1,0 +1,19 @@
+meta {
+  name: Consultar una solicitud
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/correction-requests/{{privacyRequestId}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("devuelve la proyección mínima", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.status).to.equal("pendiente");
+    expect(Object.keys(res.getBody().data).sort()).to.deep.equal(["createdAt","requestId","requestedFields","status","type","updatedAt"]);
+  });
+}

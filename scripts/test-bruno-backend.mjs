@@ -2,7 +2,7 @@
 // con instrucciones. Reinicia la base, siembra usuarios, levanta el backend en un puerto efímero y corre
 // cada carpeta de bruno/backend/** con el TOTP vigente del usuario. Mismos flags de higiene que test-bruno.mjs.
 import { spawn, spawnSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -29,6 +29,8 @@ const SCENARIOS = [
   { folder: 'backend/identity-institutions/tokens', tokens: true },
   { folder: 'backend/donor-records/public', donors: true },
   { folder: 'backend/donor-records/hospital', user: SEED_USERS.admin1.email, hospital: true },
+  { folder: 'backend/privacy-requests/donor', privacyDonor: true },
+  { folder: 'backend/privacy-requests/superadmin', user: SEED_USERS.superadmin.email, privacyAdmin: true },
 ];
 
 function run(command, args) {
@@ -168,6 +170,30 @@ async function hospitalVars() {
   return { signupEmail: `bruno-alta-hospital-${suffix}@example.test`, existingAccountEmail: SEED_USERS.donor1.email };
 }
 
+const PRIVACY_PASSWORD = 'Contrasena-Donante-Bruno-2026';
+
+/** Donante activo y sintético con contraseña conocida (el registro completo ya lo cubre donor-records). */
+async function activeDonorAccount(name) {
+  const email = await createDonorAccount(PRIVACY_PASSWORD);
+  sql(`insert into app.donor_profiles (donor_id, name, declared_blood_type, is_available, latitude, longitude, location_polygon_version, status, email_verified_at)
+    select id, '${name}', 'O_POS', true, -12.046, -77.043, 'DEMO_ONLY-1', 'activo', now() from auth.users where email = '${email}'`);
+  return email;
+}
+
+/** F7, lado donante: una cuenta activa que crea sus propias solicitudes. */
+async function privacyDonorVars() {
+  return { privacyDonorEmail: await activeDonorAccount('Donante Bruno'), donorPassword: PRIVACY_PASSWORD, unknownRequestId: randomUUID() };
+}
+
+/** F7, lado superadmin: una solicitud pendiente de corrección de nombre sobre un donante activo. */
+async function privacyAdminVars() {
+  const email = await activeDonorAccount('Nombre Original');
+  const requestId = randomUUID();
+  sql(`insert into app.correction_requests (request_id, donor_id, type, requested_fields, proposed_name)
+    select '${requestId}', id, 'correccion', array['name'], 'Nombre Bruno Corregido' from auth.users where email = '${email}'`);
+  return { privacyRequestId: requestId, unknownRequestId: randomUUID() };
+}
+
 async function runScenario(scenario, baseUrl, mfaCode) {
   const key = `${path.basename(scenario.folder)}-${randomBytes(12).toString('hex')}`;
   const result = spawnSync('bru', [
@@ -178,6 +204,8 @@ async function runScenario(scenario, baseUrl, mfaCode) {
     '--env-var', `mfaCode=${mfaCode}`,
     ...(scenario.webhook ? Object.entries(webhookVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
     ...(scenario.donors ? Object.entries(await donorVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
+    ...(scenario.privacyDonor ? Object.entries(await privacyDonorVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
+    ...(scenario.privacyAdmin ? Object.entries(await privacyAdminVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
     ...(scenario.hospital ? Object.entries(await hospitalVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
     ...(scenario.tokens ? Object.entries(await tokenVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
     '--tests-only',

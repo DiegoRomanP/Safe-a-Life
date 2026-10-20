@@ -1,0 +1,17 @@
+meta {
+  name: Sin sesión no lista solicitudes
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors/me/correction-requests
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("responde 401", function () {
+    expect(res.getStatus()).to.equal(401);
+  });
+}

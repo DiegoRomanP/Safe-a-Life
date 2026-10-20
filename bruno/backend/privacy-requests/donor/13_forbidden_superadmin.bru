@@ -1,0 +1,17 @@
+meta {
+  name: Un donante no entra a la ruta de superadmin
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/correction-requests
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("responde 403", function () {
+    expect(res.getStatus()).to.equal(403);
+  });
+}

@@ -1,0 +1,27 @@
+meta {
+  name: Decidir otra vez con otra clave
+  type: http
+  seq: 11
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/superadmin/correction-requests/{{privacyRequestId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-decide-2
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {"decision":"rechazada","reason":"Tarde."}
+}
+
+tests {
+  test("responde 409", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+}

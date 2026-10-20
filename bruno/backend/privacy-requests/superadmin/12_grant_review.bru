@@ -1,0 +1,30 @@
+meta {
+  name: Grant de revisión
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/v1/superadmin/access-grants
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-review
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {"requestId":"{{privacyRequestId}}","action":"review","allowedFields":["name"],"reason":"Revisión sintética."}
+}
+
+tests {
+  test("emite el grant de 10 minutos", function () {
+    expect(res.getStatus()).to.equal(201);
+    expect(res.getBody().data.action).to.equal("review");
+    expect(res.getBody().data.allowedFields).to.deep.equal(["name"]);
+    bru.setVar("reviewGrantId", res.getBody().data.grantId);
+  });
+}

@@ -1,0 +1,28 @@
+meta {
+  name: Replay del alta
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donors/me/correction-requests
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-create
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {"type":"correccion","changes":{"name":"Nombre Bruno Corregido"}}
+}
+
+tests {
+  test("devuelve la misma solicitud", function () {
+    expect(res.getStatus()).to.equal(201);
+    expect(res.getBody().data.requestId).to.equal(bru.getVar("ownRequestId"));
+  });
+}

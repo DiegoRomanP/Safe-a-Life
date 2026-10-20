@@ -1,0 +1,31 @@
+meta {
+  name: Crear corrección de nombre
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donors/me/correction-requests
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-create
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {"type":"correccion","changes":{"name":"Nombre Bruno Corregido"}}
+}
+
+tests {
+  test("crea la solicitud pendiente sin devolver valores", function () {
+    expect(res.getStatus()).to.equal(201);
+    expect(res.getBody().data.status).to.equal("pendiente");
+    expect(res.getBody().data.requestedFields).to.deep.equal(["name"]);
+    expect(JSON.stringify(res.getBody())).to.not.match(/Bruno Corregido/);
+    bru.setVar("ownRequestId", res.getBody().data.requestId);
+  });
+}

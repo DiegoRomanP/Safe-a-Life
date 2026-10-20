@@ -1,0 +1,24 @@
+meta {
+  name: Datos contextuales
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/correction-requests/{{privacyRequestId}}/donor-data
+  body: none
+  auth: inherit
+}
+
+headers {
+  X-Contextual-Grant: {{reviewGrantId}}
+}
+
+tests {
+  test("solo el campo autorizado, sin caché", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getHeader("cache-control")).to.equal("no-store");
+    expect(Object.keys(res.getBody().data.currentValues)).to.deep.equal(["name"]);
+    expect(res.getBody().data.proposedValues.name).to.equal("Nombre Bruno Corregido");
+  });
+}

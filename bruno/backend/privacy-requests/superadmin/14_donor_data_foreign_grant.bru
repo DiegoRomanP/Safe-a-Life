@@ -1,0 +1,21 @@
+meta {
+  name: Grant ajeno
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/correction-requests/{{privacyRequestId}}/donor-data
+  body: none
+  auth: inherit
+}
+
+headers {
+  X-Contextual-Grant: {{unknownRequestId}}
+}
+
+tests {
+  test("responde 403", function () {
+    expect(res.getStatus()).to.equal(403);
+  });
+}

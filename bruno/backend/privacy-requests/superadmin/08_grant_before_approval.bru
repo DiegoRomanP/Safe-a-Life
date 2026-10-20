@@ -1,0 +1,27 @@
+meta {
+  name: Grant de ejecución sin aprobación
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/superadmin/access-grants
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-early
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {"requestId":"{{privacyRequestId}}","action":"execute","allowedFields":["name"],"reason":"Antes de aprobar."}
+}
+
+tests {
+  test("responde 409", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+}
