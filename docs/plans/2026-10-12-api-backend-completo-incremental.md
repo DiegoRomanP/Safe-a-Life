@@ -7,7 +7,7 @@ Estado general: En progreso — base verificada comprometida en90c203a; A2 spec 
 
 Después de continuar y cerrar el traslado, el usuario solicita implementar API/backend completo y lógica de negocio conforme a las especificaciones elaboradas, parte por parte, con revisión independiente, ejecución/testeo constante y Bruno CLI reutilizando `bruno/`. Solicita commits atómicos Conventional Commits tras unidades grandes verificadas y aviso de lo que falte.
 
-Antecedentes preservados: `2026-10-04-backend-inside-out.md` y `2026-10-11-continuacion-traslado-backend-monolito-modular.md`. No se sobrescriben ni convierten sus estados históricos en aprobaciones nuevas. El traslado está cerrado CA1–CA5; no es backend HTTP terminado.
+Antecedentes preservados: `2026-10-04-backend-inside-out.md` y `HISTORIAL.md` (traslado a `backend/`). No se sobrescriben ni convierten sus estados históricos en aprobaciones nuevas. El traslado está cerrado CA1–CA5; no es backend HTTP terminado.
 
 Fuentes: AGENTS/Workflow, línea base funcional `1_Primeros_Alcances.md` v1.2 aprobada, ERS v0.4 en borrador controlado, ADR-001/002, requisitos normalizados, Api-Rules, OpenAPI único y Backend-Contracts. ERS organiza la línea base, no reemplaza decisiones aprobadas. Fuente clínica/legal competente sigue necesaria para uso real.
 
