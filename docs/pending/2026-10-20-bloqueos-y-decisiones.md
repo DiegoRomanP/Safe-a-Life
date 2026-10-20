@@ -208,3 +208,15 @@ hallazgos del reviewer. Son revisiones estáticas; sus regresiones aún deben
 ejecutarse. El diagnóstico QA actual sí ejecutó 715 unitarias backend,
 typecheck/lint/build con exit 0; no ejecutó DB, integración, Bruno ni E2E y no
 levanta estos bloqueos.
+
+### P-12 — F7 implementada sin el borrado de cuentas de Auth
+
+F7 se implementó en el backend por solicitud explícita (adelantada a F6; detalle y
+verificación en [`plans/2026-10-20-privacy-requests.md`](../plans/2026-10-20-privacy-requests.md)).
+Quedan bloqueadas por ADR-006 las operaciones que borran cuentas de Auth con rol:
+eliminación V15, cuentas `reclamada_incompleta` > 30 días y usuarios inertes > 24 h.
+Decisión pendiente de la persona usuaria: ampliar el adaptador `AuthAdmin` con un
+borrado de cuentas (o una DEFINER de `postgres` equivalente), actualizar ADR-006 y
+ADR-003 y pasar la revisión de `security-privacy-auditor`. Mientras tanto una
+eliminación aprobada responde 503 sin cambiar el estado. Los gates de F7
+(`reviewer-back`, `security-privacy-auditor`) no se han ejecutado.
