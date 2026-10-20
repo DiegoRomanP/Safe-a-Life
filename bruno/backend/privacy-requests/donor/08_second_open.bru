@@ -1,0 +1,27 @@
+meta {
+  name: Segunda corrección abierta
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donors/me/correction-requests
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-second
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {"type":"correccion","changes":{"declaredBloodType":"A_POS"}}
+}
+
+tests {
+  test("responde 409", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+}

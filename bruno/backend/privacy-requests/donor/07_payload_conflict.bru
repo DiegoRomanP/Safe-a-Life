@@ -1,0 +1,27 @@
+meta {
+  name: Misma clave con otro cuerpo
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donors/me/correction-requests
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-create
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {"type":"correccion","changes":{"name":"Otro Nombre"}}
+}
+
+tests {
+  test("responde 409", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+}

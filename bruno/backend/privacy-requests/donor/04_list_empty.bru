@@ -1,0 +1,18 @@
+meta {
+  name: Lista vacía
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors/me/correction-requests
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("no hay solicitudes propias", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.items).to.deep.equal([]);
+  });
+}

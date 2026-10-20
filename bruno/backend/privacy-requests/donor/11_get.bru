@@ -1,0 +1,18 @@
+meta {
+  name: Consultar la propia
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors/me/correction-requests/{{ownRequestId}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("devuelve la solicitud", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.requestId).to.equal(bru.getVar("ownRequestId"));
+  });
+}

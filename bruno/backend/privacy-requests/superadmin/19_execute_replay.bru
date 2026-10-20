@@ -1,0 +1,25 @@
+meta {
+  name: Replay de la ejecución
+  type: http
+  seq: 19
+}
+
+post {
+  url: {{baseUrl}}/api/v1/superadmin/correction-requests/{{privacyRequestId}}/executions
+  body: none
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-execute
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  X-Contextual-Grant: {{executeGrantId}}
+}
+
+tests {
+  test("devuelve el mismo resultado", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.status).to.equal("completada");
+  });
+}

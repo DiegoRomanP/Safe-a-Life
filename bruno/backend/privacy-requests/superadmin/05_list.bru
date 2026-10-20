@@ -1,0 +1,19 @@
+meta {
+  name: Listar solicitudes
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/correction-requests?limit=50
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("la lista incluye la solicitud y no trae valores ni donante", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.items.map(i => i.requestId)).to.include(bru.getEnvVar("privacyRequestId"));
+    expect(JSON.stringify(res.getBody())).to.not.match(/Nombre Bruno|donorId|@example/);
+  });
+}

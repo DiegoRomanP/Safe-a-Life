@@ -1,0 +1,28 @@
+meta {
+  name: Grant de ejecución
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/v1/superadmin/access-grants
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-exec-grant
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {"requestId":"{{privacyRequestId}}","action":"execute","allowedFields":["name"],"reason":"Ejecución sintética."}
+}
+
+tests {
+  test("emite el grant de ejecución", function () {
+    expect(res.getStatus()).to.equal(201);
+    bru.setVar("executeGrantId", res.getBody().data.grantId);
+  });
+}
