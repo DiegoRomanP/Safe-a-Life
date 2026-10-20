@@ -140,6 +140,28 @@
         "503"
       ]
     },
+    "createContextualAccessGrant": {
+      "method": "post",
+      "path": "/api/v1/superadmin/access-grants",
+      "body": "CreateContextualAccessGrantBody",
+      "query": "CreateContextualAccessGrantQuery",
+      "params": null,
+      "headers": null,
+      "success": {
+        "status": "201",
+        "def": "CreateContextualAccessGrantSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "404",
+        "422",
+        "429",
+        "500",
+        "503"
+      ]
+    },
     "createDonorRegistration": {
       "method": "post",
       "path": "/api/v1/donor-registrations",
@@ -228,6 +250,28 @@
         "503"
       ]
     },
+    "createOwnCorrectionRequest": {
+      "method": "post",
+      "path": "/api/v1/donors/me/correction-requests",
+      "body": "CreateOwnCorrectionRequestBody",
+      "query": "CreateOwnCorrectionRequestQuery",
+      "params": null,
+      "headers": null,
+      "success": {
+        "status": "201",
+        "def": "CreateOwnCorrectionRequestSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "409",
+        "422",
+        "429",
+        "500",
+        "503"
+      ]
+    },
     "createSession": {
       "method": "post",
       "path": "/api/v1/auth/sessions",
@@ -244,6 +288,29 @@
         "401",
         "403",
         "409",
+        "429",
+        "500",
+        "503"
+      ]
+    },
+    "decideCorrectionRequest": {
+      "method": "patch",
+      "path": "/api/v1/superadmin/correction-requests/{requestId}",
+      "body": "DecideCorrectionRequestBody",
+      "query": "DecideCorrectionRequestQuery",
+      "params": "DecideCorrectionRequestPath",
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "DecideCorrectionRequestSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "404",
+        "409",
+        "422",
         "429",
         "500",
         "503"
@@ -290,6 +357,29 @@
         "503"
       ]
     },
+    "executeApprovedCorrectionRequest": {
+      "method": "post",
+      "path": "/api/v1/superadmin/correction-requests/{requestId}/executions",
+      "body": null,
+      "query": "ExecuteApprovedCorrectionRequestQuery",
+      "params": "ExecuteApprovedCorrectionRequestPath",
+      "headers": "ExecuteApprovedCorrectionRequestHeaders",
+      "success": {
+        "status": "200",
+        "def": "ExecuteApprovedCorrectionRequestSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "404",
+        "409",
+        "410",
+        "429",
+        "500",
+        "503"
+      ]
+    },
     "getAssistedActivationPreview": {
       "method": "get",
       "path": "/api/v1/assisted-activation-actions/{token}",
@@ -306,6 +396,49 @@
         "403",
         "404",
         "410",
+        "429",
+        "500",
+        "503"
+      ]
+    },
+    "getContextualDonorData": {
+      "method": "get",
+      "path": "/api/v1/superadmin/correction-requests/{requestId}/donor-data",
+      "body": null,
+      "query": "GetContextualDonorDataQuery",
+      "params": "GetContextualDonorDataPath",
+      "headers": "GetContextualDonorDataHeaders",
+      "success": {
+        "status": "200",
+        "def": "GetContextualDonorDataSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "404",
+        "410",
+        "429",
+        "500",
+        "503"
+      ]
+    },
+    "getCorrectionRequest": {
+      "method": "get",
+      "path": "/api/v1/superadmin/correction-requests/{requestId}",
+      "body": null,
+      "query": "GetCorrectionRequestQuery",
+      "params": "GetCorrectionRequestPath",
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "GetCorrectionRequestSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "404",
         "429",
         "500",
         "503"
@@ -494,6 +627,27 @@
         "503"
       ]
     },
+    "getOwnCorrectionRequest": {
+      "method": "get",
+      "path": "/api/v1/donors/me/correction-requests/{requestId}",
+      "body": null,
+      "query": "GetOwnCorrectionRequestQuery",
+      "params": "GetOwnCorrectionRequestPath",
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "GetOwnCorrectionRequestSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "404",
+        "429",
+        "500",
+        "503"
+      ]
+    },
     "getOwnDonorProfile": {
       "method": "get",
       "path": "/api/v1/donors/me/profile",
@@ -638,6 +792,26 @@
         "503"
       ]
     },
+    "listCorrectionRequests": {
+      "method": "get",
+      "path": "/api/v1/superadmin/correction-requests",
+      "body": null,
+      "query": "ListCorrectionRequestsQuery",
+      "params": null,
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "ListCorrectionRequestsSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "429",
+        "500",
+        "503"
+      ]
+    },
     "listHospitalMemberships": {
       "method": "get",
       "path": "/api/v1/superadmin/memberships",
@@ -716,6 +890,27 @@
         "400",
         "401",
         "403",
+        "429",
+        "500",
+        "503"
+      ]
+    },
+    "listOwnCorrectionRequests": {
+      "method": "get",
+      "path": "/api/v1/donors/me/correction-requests",
+      "body": null,
+      "query": "ListOwnCorrectionRequestsQuery",
+      "params": null,
+      "headers": null,
+      "success": {
+        "status": "200",
+        "def": "ListOwnCorrectionRequestsSuccess"
+      },
+      "errorStatuses": [
+        "400",
+        "401",
+        "403",
+        "422",
         "429",
         "500",
         "503"
@@ -1223,6 +1418,72 @@
     }
   },
   "$defs": {
+    "AccessGrantEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "grantId",
+            "requestId",
+            "action",
+            "allowedFields",
+            "expiresAt"
+          ],
+          "properties": {
+            "grantId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "requestId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "review",
+                "execute"
+              ]
+            },
+            "allowedFields": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "name",
+                  "email",
+                  "declaredBloodType"
+                ]
+              }
+            },
+            "expiresAt": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        }
+      },
+      "examples": [
+        {
+          "data": {
+            "grantId": "db13a2e5-49d8-408d-89b7-2677a86b2ac9",
+            "requestId": "b30c64a0-488c-4a10-8df5-7411ecb44cc8",
+            "action": "review",
+            "allowedFields": [
+              "name",
+              "declaredBloodType"
+            ],
+            "expiresAt": "2026-10-01T18:10:00Z"
+          }
+        }
+      ]
+    },
     "ActorRole": {
       "type": "string",
       "enum": [
@@ -1812,6 +2073,284 @@
         }
       }
     },
+    "ContextualDonorDataEnvelope": {
+      "type": "object",
+      "description": "Comparación contextual minimizada para una solicitud concreta; no agrega identificadores ni categorías de datos y no se reutiliza en resúmenes o auditoría.",
+      "additionalProperties": false,
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "currentValues",
+            "proposedValues"
+          ],
+          "description": "Ambas proyecciones se incluyen siempre como objetos cerrados; solo contienen la intersección de campos autorizados y necesarios para la solicitud.",
+          "properties": {
+            "currentValues": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "currentValues se limita al grant vigente ligado al actor superadmin, solicitud, donante, acción concreta y campos autorizados, en intersección con los campos necesarios para la solicitud: valores actuales persistidos, solo de campos autorizados presentes.",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "email": {
+                  "type": "string",
+                  "format": "email",
+                  "maxLength": 254
+                },
+                "declaredBloodType": {
+                  "$ref": "#/$defs/BloodType"
+                }
+              }
+            },
+            "proposedValues": {
+              "type": "object",
+              "additionalProperties": false,
+              "description": "proposedValues se limita al grant vigente ligado al actor superadmin, solicitud, donante, acción concreta y campos autorizados, en intersección con los campos necesarios para la solicitud: solo valores propuestos presentes, proyectando newEmail como email y devolviendo un objeto vacío cuando no hay propuesta, incluida una eliminación sin valores propuestos.",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "maxLength": 120
+                },
+                "email": {
+                  "type": "string",
+                  "format": "email",
+                  "maxLength": 254
+                },
+                "declaredBloodType": {
+                  "$ref": "#/$defs/BloodType"
+                }
+              }
+            }
+          }
+        }
+      },
+      "examples": [
+        {
+          "data": {
+            "currentValues": {
+              "name": "Donante Demo"
+            },
+            "proposedValues": {
+              "name": "Donante Demo Corregido"
+            }
+          }
+        }
+      ]
+    },
+    "CorrectionDecisionRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "decision",
+        "reason"
+      ],
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": [
+            "aprobada",
+            "rechazada"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        }
+      }
+    },
+    "CorrectionRequestEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "$ref": "#/$defs/CorrectionRequestSummary"
+        }
+      },
+      "examples": [
+        {
+          "data": {
+            "requestId": "b30c64a0-488c-4a10-8df5-7411ecb44cc8",
+            "type": "correccion",
+            "requestedFields": [
+              "name"
+            ],
+            "status": "pendiente",
+            "createdAt": "2026-10-01T18:00:00Z",
+            "updatedAt": "2026-10-01T18:00:00Z"
+          }
+        }
+      ]
+    },
+    "CorrectionRequestListEnvelope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data"
+      ],
+      "properties": {
+        "data": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "items",
+            "pagination"
+          ],
+          "properties": {
+            "items": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/CorrectionRequestSummary"
+              }
+            },
+            "pagination": {
+              "$ref": "#/$defs/Pagination"
+            }
+          }
+        }
+      },
+      "examples": [
+        {
+          "data": {
+            "items": [
+              {
+                "requestId": "b30c64a0-488c-4a10-8df5-7411ecb44cc8",
+                "type": "correccion",
+                "requestedFields": [
+                  "name"
+                ],
+                "status": "pendiente",
+                "createdAt": "2026-10-01T18:00:00Z",
+                "updatedAt": "2026-10-01T18:00:00Z"
+              }
+            ],
+            "pagination": {
+              "nextCursor": null
+            }
+          }
+        }
+      ]
+    },
+    "CorrectionRequestStatus": {
+      "type": "string",
+      "enum": [
+        "pendiente",
+        "aprobada",
+        "rechazada",
+        "en_ejecucion",
+        "completada",
+        "fallida"
+      ]
+    },
+    "CorrectionRequestSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "type",
+        "requestedFields",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ],
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "format": "uuid",
+          "description": "Identificador opaco; no es un id de donante."
+        },
+        "type": {
+          "$ref": "#/$defs/CorrectionRequestType"
+        },
+        "requestedFields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "name",
+              "email",
+              "declaredBloodType",
+              "deletion"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "status": {
+          "$ref": "#/$defs/CorrectionRequestStatus"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "decisionReason": {
+          "type": "string",
+          "maxLength": 300
+        }
+      }
+    },
+    "CorrectionRequestType": {
+      "type": "string",
+      "enum": [
+        "correccion",
+        "eliminacion"
+      ]
+    },
+    "CreateAccessGrantRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "requestId",
+        "action",
+        "allowedFields",
+        "reason"
+      ],
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "action": {
+          "type": "string",
+          "enum": [
+            "review",
+            "execute"
+          ]
+        },
+        "allowedFields": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "name",
+              "email",
+              "declaredBloodType"
+            ]
+          }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        }
+      }
+    },
     "CreateAssistedSignupBody": {
       "$ref": "#/$defs/CreateAssistedSignupRequest"
     },
@@ -1841,6 +2380,49 @@
     },
     "CreateAssistedSignupSuccess": {
       "$ref": "#/$defs/AssistedSignupCreatedEnvelope"
+    },
+    "CreateContextualAccessGrantBody": {
+      "$ref": "#/$defs/CreateAccessGrantRequest"
+    },
+    "CreateContextualAccessGrantQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "CreateContextualAccessGrantSuccess": {
+      "$ref": "#/$defs/AccessGrantEnvelope"
+    },
+    "CreateCorrectionRequest": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "changes"
+          ],
+          "properties": {
+            "type": {
+              "const": "correccion"
+            },
+            "changes": {
+              "$ref": "#/$defs/RequestedProfileChanges"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type"
+          ],
+          "properties": {
+            "type": {
+              "const": "eliminacion"
+            }
+          }
+        }
+      ]
     },
     "CreateDonorRegistrationBody": {
       "$ref": "#/$defs/DonorRegistrationRequest"
@@ -2007,6 +2589,17 @@
         }
       }
     },
+    "CreateOwnCorrectionRequestBody": {
+      "$ref": "#/$defs/CreateCorrectionRequest"
+    },
+    "CreateOwnCorrectionRequestQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "CreateOwnCorrectionRequestSuccess": {
+      "$ref": "#/$defs/CorrectionRequestEnvelope"
+    },
     "CreateSessionBody": {
       "$ref": "#/$defs/LoginRequest"
     },
@@ -2077,6 +2670,30 @@
           }
         }
       ]
+    },
+    "DecideCorrectionRequestBody": {
+      "$ref": "#/$defs/CorrectionDecisionRequest"
+    },
+    "DecideCorrectionRequestPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "requestId"
+      ]
+    },
+    "DecideCorrectionRequestQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "DecideCorrectionRequestSuccess": {
+      "$ref": "#/$defs/CorrectionRequestEnvelope"
     },
     "DeleteCurrentSessionQuery": {
       "type": "object",
@@ -2220,6 +2837,42 @@
     "EnrollMfaFactorSuccess": {
       "$ref": "#/$defs/MfaEnrollmentEnvelope"
     },
+    "ExecuteApprovedCorrectionRequestHeaders": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "X-Contextual-Grant": {
+          "type": "string",
+          "minLength": 32,
+          "maxLength": 512,
+          "writeOnly": true
+        }
+      },
+      "required": [
+        "X-Contextual-Grant"
+      ]
+    },
+    "ExecuteApprovedCorrectionRequestPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "requestId"
+      ]
+    },
+    "ExecuteApprovedCorrectionRequestQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "ExecuteApprovedCorrectionRequestSuccess": {
+      "$ref": "#/$defs/CorrectionRequestEnvelope"
+    },
     "GetAssistedActivationPreviewPath": {
       "type": "object",
       "additionalProperties": false,
@@ -2242,6 +2895,63 @@
     },
     "GetAssistedActivationPreviewSuccess": {
       "$ref": "#/$defs/EmailActionPreviewEnvelope"
+    },
+    "GetContextualDonorDataHeaders": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "X-Contextual-Grant": {
+          "type": "string",
+          "minLength": 32,
+          "maxLength": 512,
+          "writeOnly": true
+        }
+      },
+      "required": [
+        "X-Contextual-Grant"
+      ]
+    },
+    "GetContextualDonorDataPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "requestId"
+      ]
+    },
+    "GetContextualDonorDataQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "GetContextualDonorDataSuccess": {
+      "$ref": "#/$defs/ContextualDonorDataEnvelope"
+    },
+    "GetCorrectionRequestPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "requestId"
+      ]
+    },
+    "GetCorrectionRequestQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "GetCorrectionRequestSuccess": {
+      "$ref": "#/$defs/CorrectionRequestEnvelope"
     },
     "GetCsrfTokenQuery": {
       "type": "object",
@@ -2400,6 +3110,27 @@
     },
     "GetOwnAssistedSignupSuccess": {
       "$ref": "#/$defs/AssistedSignupCreatedEnvelope"
+    },
+    "GetOwnCorrectionRequestPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "requestId"
+      ]
+    },
+    "GetOwnCorrectionRequestQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+    "GetOwnCorrectionRequestSuccess": {
+      "$ref": "#/$defs/CorrectionRequestEnvelope"
     },
     "GetOwnDonorProfileQuery": {
       "type": "object",
@@ -3017,6 +3748,25 @@
     "ListAuditEventsSuccess": {
       "$ref": "#/$defs/AuditEventListEnvelope"
     },
+    "ListCorrectionRequestsQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        },
+        "cursor": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    "ListCorrectionRequestsSuccess": {
+      "$ref": "#/$defs/CorrectionRequestListEnvelope"
+    },
     "ListHospitalMembershipsQuery": {
       "type": "object",
       "additionalProperties": false,
@@ -3094,6 +3844,25 @@
     },
     "ListOwnAssistedSignupsSuccess": {
       "$ref": "#/$defs/AssistedSignupListEnvelope"
+    },
+    "ListOwnCorrectionRequestsQuery": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 20
+        },
+        "cursor": {
+          "type": "string",
+          "maxLength": 512
+        }
+      }
+    },
+    "ListOwnCorrectionRequestsSuccess": {
+      "$ref": "#/$defs/CorrectionRequestListEnvelope"
     },
     "ListOwnHospitalNeedsQuery": {
       "type": "object",
@@ -4056,6 +4825,26 @@
     },
     "RequestPasswordRecoverySuccess": {
       "$ref": "#/$defs/NeutralMessageEnvelope"
+    },
+    "RequestedProfileChanges": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "newEmail": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 254
+        },
+        "declaredBloodType": {
+          "$ref": "#/$defs/BloodType"
+        }
+      }
     },
     "ResendWebhookEvent": {
       "type": "object",
