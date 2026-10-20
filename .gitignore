@@ -20,6 +20,7 @@ test-results/
 .atl/
 .claude/
 .agents/
+.engram/
 # Supabase local (artefactos y secretos sintéticos de pruebas)
 backend/supabase/.temp/
 backend/supabase/.branches/
