@@ -19,7 +19,10 @@ import { sealEmailPayload } from './modules/email-delivery/application/email-pay
 import { createDonorRecordsService } from './modules/donor-records/application/donor-records-service.js';
 import { createDonorRecordsRpcGateway } from './modules/donor-records/infrastructure/donor-records-rpc-gateway.js';
 import { registerDonorRecordsRoutes } from './modules/donor-records/http/donor-records.router.js';
-import { openEmailChange } from './modules/donor-records/application/email-change.js';
+import { createPrivacyRequestsService } from './modules/privacy-requests/application/privacy-requests-service.js';
+import { createPrivacyRequestsRpcGateway } from './modules/privacy-requests/infrastructure/privacy-requests-rpc-gateway.js';
+import { registerPrivacyRequestsRoutes } from './modules/privacy-requests/http/privacy-requests.router.js';
+import { openEmailChange, sealEmailChange } from './modules/donor-records/application/email-change.js';
 import { registerNeedsRoutes } from './modules/need-records/http/needs.router.js';
 import { createWebhookIngester } from './modules/email-delivery/application/ingest-webhook.js';
 import { createOutboxRpcGateway } from './modules/email-delivery/infrastructure/outbox-rpc-gateway.js';
@@ -30,7 +33,7 @@ import { createTechnicalSession } from './shared/auth/technical-session.js';
 import { createReadinessRpcGateway } from './modules/platform/infrastructure/readiness-rpc-gateway.js';
 import { registerHealthRoutes } from './modules/platform/http/health.router.js';
 import { authenticate } from './shared/auth/authenticate.js';
-import { deriveHmacKeyring } from './shared/crypto/hmac.js';
+import { deriveHmacKey, deriveHmacKeyring, hmacSha256Hex } from './shared/crypto/hmac.js';
 import { clientIpSubject } from './shared/http/client-ip.js';
 import { createSupabaseSessionGateway } from './shared/auth/supabase-session.js';
 import { callRpc } from './shared/persistence/rpc.js';
@@ -109,6 +112,16 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
     seal: (outboxId, payload) => sealEmailPayload(config.secrets.outboxKeyring, outboxId, payload),
     open: (context, sealed) => openEmailChange(config.secrets.outboxKeyring, context, sealed),
   });
+  // Solicitudes de corrección y eliminación (F7). Sin `eraser`: ADR-006 no permite borrar cuentas con vida propia, así que una
+  // eliminación se rechaza (503) antes de tocar nada hasta que la persona usuaria amplíe el adaptador.
+  const ledgerKey = deriveHmacKey(config.secrets.emailHmac, 'deletion-ledger');
+  const privacy = createPrivacyRequestsService({
+    repository: createPrivacyRequestsRpcGateway(rpc, technicalRpc),
+    sealEmailValue: (context, email) => sealEmailChange(config.secrets.outboxKeyring, context, email),
+    openEmailValue: (context, sealed) => openEmailChange(config.secrets.outboxKeyring, context, sealed),
+    seal: (outboxId, payload) => sealEmailPayload(config.secrets.outboxKeyring, outboxId, payload),
+    ledgerHmac: (userId) => hmacSha256Hex(ledgerKey, userId),
+  });
   const httpSecrets = {
     csrf: config.secrets.csrf,
     cursor: config.secrets.cursor,
@@ -147,6 +160,7 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
       registerInstitutionsRoutes(app, { institutions, secrets: httpSecrets });
       registerActionTokenRoutes(app, { tokens: actionTokens, secrets: { ...httpSecrets, ipHmac } });
       registerDonorRecordsRoutes(app, { donors, secrets: { ...httpSecrets, ipHmac } });
+      registerPrivacyRequestsRoutes(app, { privacy, secrets: httpSecrets });
       registerNeedsRoutes(app, {
         needs,
         createDraft: (accessToken) => createNeedDraftService(needsGateway.draftGatewayFor(accessToken)),

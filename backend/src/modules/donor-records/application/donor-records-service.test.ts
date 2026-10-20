@@ -49,6 +49,7 @@ function harness(options: Options = {}) {
     linkAssistedAccount: async (userId, hash) => { calls.push(`linkAssisted:${userId}`); seen.hashes.push(hash); if (options.linkError) throw options.linkError; return { status: 'reclamada_incompleta', emailVerified: true }; },
     emailChangePreview: async () => ({ expiresAt: '2026-10-14T00:00:00Z' }),
     consumeEmailChange: async () => ({ userId: 'u-donante', sealedEmail: 'sellado' }),
+    finishEmailChange: async (_hash, changed) => { calls.push(`finishEmailChange:${changed}`); },
     reissueDonorVerification: async (command) => { calls.push('reissueVerification'); seen.links.push(command); if (options.reissueVerificationError) throw options.reissueVerificationError; },
     createAssistedSignup: async (_token, envelope, command) => {
       calls.push('createSignup');
@@ -278,13 +279,20 @@ describe('verifyEmailChange', () => {
     await service.verifyEmailChange(TOKEN, 'ip');
 
     expect(seen.hashes).toEqual([hashToken(TOKEN)]);
-    expect(calls).toEqual(['updateEmail:u-donante:nuevo@example.test', 'revokeAllSessions']);
+    expect(calls).toEqual(['updateEmail:u-donante:nuevo@example.test', 'finishEmailChange:true', 'revokeAllSessions']);
   });
 
   it('un correo ya ocupado es 409', async () => {
     const { service } = harness({ updateEmailError: new PersistenceError('rejected') });
 
     await expect(service.verifyEmailChange(TOKEN, 'ip')).rejects.toMatchObject({ code: 'STATE_CONFLICT' });
+  });
+
+  it('un correo ocupado cierra como fallida la solicitud que originó el enlace', async () => {
+    const { service, calls } = harness({ updateEmailError: new PersistenceError('rejected') });
+
+    await expect(service.verifyEmailChange(TOKEN, 'ip')).rejects.toMatchObject({ code: 'STATE_CONFLICT' });
+    expect(calls).toContain('finishEmailChange:false');
   });
 
   it('si no se puede abrir el correo sellado es un error interno genérico', async () => {

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createWorkerLoop } from './worker-loop.js';
 import type { OutboxProcessor } from './process-outbox.js';
 
-function harness(options: { claimed?: number; failProcessor?: boolean } = {}) {
+function harness(options: { claimed?: number; failProcessor?: boolean; maintenance?: () => Promise<unknown> } = {}) {
   let clock = 0;
   const logs: Array<[string, string, number]> = [];
   let expires = 0;
@@ -16,9 +16,33 @@ function harness(options: { claimed?: number; failProcessor?: boolean } = {}) {
   const loop = createWorkerLoop({
     processor, gateway: { expire: async () => { expires += 1; return { expired: 0, exhausted: 0 }; } }, pollMs: 1000, expireEveryMs: 60_000,
     now: () => clock, log: (event, code, durationMs) => logs.push([event, code, durationMs]),
+    ...(options.maintenance ? { maintenance: { run: options.maintenance, everyMs: 600_000 } } : {}),
   });
   return { loop, logs, expires: () => expires, advance: (ms: number) => { clock += ms; } };
 }
+
+describe('mantenimiento del worker', () => {
+  it('corre en el primer ciclo y luego cada 10 minutos, no en cada ciclo', async () => {
+    let runs = 0;
+    const { loop, advance } = harness({ maintenance: async () => { runs += 1; } });
+
+    await loop.tick();
+    await loop.tick();
+    expect(runs).toBe(1);
+    advance(601_000);
+    await loop.tick();
+
+    expect(runs).toBe(2);
+  });
+
+  it('un fallo del mantenimiento se registra por código y el bucle sigue', async () => {
+    const { loop, logs } = harness({ maintenance: async () => { throw new Error('canario-secreto'); } });
+
+    await expect(loop.tick()).resolves.toBeUndefined();
+
+    expect(logs).toEqual([['worker.error', 'INTERNAL_ERROR', 5]]);
+  });
+});
 
 describe('bucle del worker', () => {
   it('un ciclo con trabajo registra OK y sin trabajo SIN_TRABAJO, solo con evento, código y duración', async () => {
