@@ -714,6 +714,7 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "listOwnCorrectionRequests",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (listOwnCorrectionRequests)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Lista solicitudes propias de corrección/eliminación",
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
         "responses": {
@@ -747,15 +748,19 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "post": {
         "tags": ["Donor"],
         "operationId": "createOwnCorrectionRequest",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (createOwnCorrectionRequest)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Solicita corrección o eliminación de datos propios",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
@@ -767,7 +772,9 @@
           "403": { "$ref": "#/components/responses/Forbidden" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -775,14 +782,18 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "getOwnCorrectionRequest",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (getOwnCorrectionRequest)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Consulta una solicitud propia",
         "parameters": [{ "$ref": "#/components/parameters/RequestId" }],
         "responses": {
           "200": { "description": "Solicitud propia.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CorrectionRequestEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1988,6 +1999,7 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "listCorrectionRequests",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (listCorrectionRequests)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Lista solicitudes con datos minimizados",
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
         "responses": {
@@ -2021,8 +2033,12 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -2031,28 +2047,38 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "getCorrectionRequest",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (getCorrectionRequest)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Consulta estado de solicitud sin datos identificables",
         "responses": {
           "200": { "description": "Solicitud minimizada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CorrectionRequestEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "patch": {
         "tags": ["Superadmin"],
         "operationId": "decideCorrectionRequest",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (decideCorrectionRequest)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Aprueba o rechaza una solicitud",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CorrectionDecisionRequest" }, "example": { "decision": "aprobada", "reason": "Solicitud sintética verificada para el ejemplo." } } } },
         "responses": {
           "200": { "description": "Decisión auditada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CorrectionRequestEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -2060,16 +2086,21 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "getContextualDonorData",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (getContextualDonorData)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Lee PII exclusivamente bajo grant contextual",
         "description": "No permite búsqueda general. currentValues se limita al grant vigente ligado al actor superadmin, solicitud, donante, acción concreta y campos autorizados, en intersección con los campos necesarios para esa solicitud. proposedValues se limita al grant vigente ligado al actor superadmin, solicitud, donante, acción concreta y campos autorizados, en intersección con los campos necesarios para esa solicitud. El servidor resuelve al actor desde la identidad validada y al donante desde la solicitud, sin aceptar un selector alternativo de donante. El acceso conserva los controles privilegiados de RNF-SEC-05/06 y la vigencia máxima de 10 minutos del grant; esta proyección no fija un mapping nuevo GET→review o POST→execute ni cambia los endpoints de grants o ejecuciones. Cada proyección solo permite name, email y declaredBloodType como campos opcionales autorizados; sin propuesta, incluida una eliminación sin valores propuestos, proposedValues es un objeto vacío. newEmail de la propuesta se proyecta como email, sin añadir otra categoría ni propiedad al DTO. Resúmenes, auditoría, errores y telemetría permanecen sin valores PII anteriores o propuestos.",
         "security": [{ "sessionCookie": [] }],
         "parameters": [{ "$ref": "#/components/parameters/RequestId" }, { "$ref": "#/components/parameters/AccessGrantHeader" }],
         "responses": {
           "200": { "description": "Solo los campos autorizados por el grant.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ContextualDonorDataEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "410": { "$ref": "#/components/responses/Gone" }
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -2077,17 +2108,22 @@
       "post": {
         "tags": ["Superadmin"],
         "operationId": "executeApprovedCorrectionRequest",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (executeApprovedCorrectionRequest)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Ejecuta una solicitud aprobada",
         "description": "AAL2, step-up reciente, grant contextual y solicitud aprobada obligatorios. Efecto idempotente y auditado.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/RequestId" }, { "$ref": "#/components/parameters/AccessGrantHeader" }, { "$ref": "#/components/parameters/IdempotencyKey" }],
         "responses": {
           "200": { "description": "Ejecución registrada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CorrectionRequestEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "410": { "$ref": "#/components/responses/Gone" }
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -2095,6 +2131,7 @@
       "post": {
         "tags": ["Superadmin"],
         "operationId": "createContextualAccessGrant",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (createContextualAccessGrant)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Crea grant limitado a solicitud/campos/acción",
         "description": "Requiere AAL2 y step-up de hasta 5 min. El grant expira en máximo 10 min; registrar motivo y auditoría minimizada.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
@@ -2102,10 +2139,14 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateAccessGrantRequest" }, "example": { "requestId": "b30c64a0-488c-4a10-8df5-7411ecb44cc8", "action": "review", "allowedFields": ["name"], "reason": "Revisión sintética de ejemplo." } } } },
         "responses": {
           "201": { "description": "Grant contextual emitido.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AccessGrantEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
