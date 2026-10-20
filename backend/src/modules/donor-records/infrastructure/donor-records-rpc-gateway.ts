@@ -122,6 +122,10 @@ export function createDonorRecordsRpcGateway(rpc: RpcInvoker, technical: RpcInvo
       return Object.freeze({ userId: asString(row.userId), sealedEmail: asString(row.sealedEmail) });
     },
 
+    async finishEmailChange(tokenHash, changed) {
+      await technical({ accessToken: null, name: 'finish_email_change', okKinds: ['ok'], args: { p_token_hash: tokenHash, p_ok: changed } });
+    },
+
     async createAssistedSignup(accessToken, { key, hash }, command) {
       const reply = await rpc({
         accessToken, name: 'create_assisted_signup', okKinds: ['created'],

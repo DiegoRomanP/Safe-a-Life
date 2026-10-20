@@ -72,6 +72,8 @@ export interface DonorRecordsRepository {
   linkAssistedAccount(userId: string, tokenHash: string): Promise<OnboardingOutcome>;
   emailChangePreview(tokenHash: string): Promise<Readonly<{ expiresAt: string }>>;
   consumeEmailChange(tokenHash: string): Promise<Readonly<{ userId: string; sealedEmail: string }>>;
+  /** Cierra la solicitud de corrección (F7) que originó el enlace: completada si el correo cambió, fallida si no pudo cambiar. */
+  finishEmailChange(tokenHash: string, changed: boolean): Promise<void>;
 
   /** Registra el alta (sesión del admin); el token y el correo los emite `issueAssistedActivation`. */
   createAssistedSignup(accessToken: string, envelope: Envelope, command: SignupCommand): Promise<SignupRegistered>;

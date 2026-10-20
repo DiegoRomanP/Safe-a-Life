@@ -238,9 +238,14 @@ export function createDonorRecordsService({
       try {
         await admin.updateEmail(userId, newEmail);
       } catch (error) {
-        if (error instanceof PersistenceError) throw new ApiError('STATE_CONFLICT');
+        if (error instanceof PersistenceError) {
+          // Correo ocupado: la solicitud de corrección que originó el enlace (F7) no puede completarse.
+          await repository.finishEmailChange(tokenHash, false).catch(() => undefined);
+          throw new ApiError('STATE_CONFLICT');
+        }
         throw error;
       }
+      await repository.finishEmailChange(tokenHash, true);
       await revokeSessions(userId);
     },
 
