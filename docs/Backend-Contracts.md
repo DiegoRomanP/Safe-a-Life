@@ -1,21 +1,45 @@
-# Contrato backend ratificado: crear necesidad en borrador
+# Contratos backend: ratificación y estado de implementación
 
 | Campo | Valor |
 | --- | --- |
-| Estado | Contrato de `createHospitalNeed` ratificado; DTO y validación runtime existen; endpoint HTTP productivo de esta operación aún no implementado |
-| Fecha | 2026-10-04 |
-| Alcance | Solo `POST /api/v1/hospitals/me/needs`; el inventario OpenAPI global permanece en borrador |
+| Estado | Ratificación parcial por operación; existen implementación HTTP, aplicación y persistencia F2a/F2b/F3/F4/F5, sin aceptación vigente del backend completo |
+| Fecha inicial | 2026-10-04: contrato acotado de `createHospitalNeed` |
+| Sincronización documental | 2026-10-20: refleja decisiones y ratificaciones existentes; no modifica contrato JSON, código, pruebas ni ADRs |
+| Alcance | Detalle de `createHospitalNeed` y resumen de módulos; inventario global en borrador con 57 operaciones ratificadas de 73 |
 | Fuentes | [`openapi.json`](openapi.json), [`Api-Rules.md`](Api-Rules.md), [`1_Primeros_Alcances.md`](1_Primeros_Alcances.md) v1.2 y decisión T3 en [`plans/2026-10-04-backend-inside-out.md`](plans/2026-10-04-backend-inside-out.md) |
 
-Este documento fija el contrato y la aceptación futura de `createHospitalNeed`;
-no aprueba las operaciones vecinas ni reemplaza la línea base funcional. El
-workspace `backend` contiene los DTO y su validación runtime, además de la
-plataforma HTTP (`src/server.ts` + `createApp`, configuración validada y
-utilidades compartidas), pero todavía no registra ninguna ruta de negocio ni la
-capa de aplicación/persistencia descrita aquí. El scaffold legacy
-(`backend/index.js`, `backend/config/`) ya fue retirado. La salida es un DTO
-proyectado, no una entidad o fila de persistencia. Se usan únicamente
-identificadores y datos sintéticos.
+El acuerdo inicial del 2026-10-04 fijó el contrato acotado de `createHospitalNeed`;
+no ratificó por extensión operaciones vecinas. Las ratificaciones posteriores
+están en cada operación de `openapi.json` y en los planes de módulo. El workspace
+`backend` ya contiene DTO, aplicación, adaptadores, routers y migraciones; el
+scaffold legacy (`backend/index.js`, `backend/config/`) fue retirado. Las salidas
+siguen siendo DTO proyectados, no entidades ni filas de persistencia. Se usan
+únicamente identificadores y datos sintéticos.
+
+## Corte estático y límites — 2026-10-20
+
+- **58 paths, 73 operaciones, 100 schemas y 57 operaciones ratificadas** en
+  `docs/openapi.json`; el inventario global no queda aprobado en bloque.
+- **47 registros HTTP** en siete routers backend: plataforma 2, F2a 21, F2b 5,
+  F3 4, F4 1 y F5 14. La composición habilita el webhook según configuración.
+- **F6: diez operaciones ratificadas sin registro HTTP ni módulo productivo**.
+  F7 (nueve operaciones) y F8 (siete) no están ratificados ni implementados.
+  El [índice documental](README.md) permite reproducir los recuentos.
+- AP-02/AP-06/AP-07/AP-08 están resueltas por
+  [ADR-005](decisions/ADR-005-email-outbox-worker.md), aceptado el 2026-10-12;
+  AP-04 por V6 de la [especificación backend](plans/2026-10-12-especificacion-faltante-backend.md)
+  §2.3/§6 F6 y la ratificación F6 del 2026-10-13. La
+  [línea base](1_Primeros_Alcances.md) y ERS §10.5 reflejan sus efectos, incluido
+  jitter **uniforme ±20 %**. No se reabren esas decisiones desde textos obsoletos.
+- **Ratificado no equivale a implementado; implementado no equivale a probado
+  o aceptado.** El [plan de ejecución](plans/2026-10-20-ejecucion-de-pendientes-con-agentes.md)
+  registra E3 BLOCKED y correcciones pendientes sobre el baseline F2b–F5. Los
+  resultados de pruebas de los planes históricos conservan sus fechas y no son
+  ejecuciones actuales de esta sincronización.
+- Se mantiene F6 → F7 → F8 → F9, con ratificación por módulo para F7/F8.
+  F9 permanece pendiente, sin elegir frontend o borde. Los contratos discrepantes
+  de F6 requieren resolución antes de sus slices; este documento no la introduce.
+  No se declara backend completo ni se habilita uso con datos reales.
 
 ## DTO implementado y fuente canónica
 
@@ -31,7 +55,9 @@ identificadores y datos sintéticos.
   Resend.
 - `docs/openapi.json` sigue siendo la única fuente contractual. El generador en
   `scripts/generate-api-contract.mjs` produce los tipos `openapi.ts` de backend,
-  web y mock, además del snapshot `contract.generated.json` del DTO backend.
+  web y mock, además del snapshot `contract.generated.json` del DTO backend y
+  `backend/src/contract/ratified-schemas.generated.json` para las operaciones
+  ratificadas.
   Editar esos artefactos a mano no sustituye al contrato canónico.
 - Instalar dependencias solo desde la raíz con `npm ci`; el único lock activo es
   el `package-lock.json` raíz. `backend` es un workspace npm, no una instalación
@@ -48,34 +74,36 @@ Comandos de referencia, ejecutados desde la raíz:
 | `npm run openapi:types` | Regenera los tipos backend/web/mock y el snapshot DTO backend |
 | `npm run typecheck --workspace backend` | Typecheck del workspace backend |
 | `npm run build --workspace backend` | Compila `backend/src` a `backend/dist`; no inicia el servidor |
-| `npm run dev:backend` | Inicia `backend/src/server.ts` con `tsx watch` (sin rutas de negocio todavía) |
+| `npm run dev:backend` | Inicia `backend/src/server.ts` con `tsx watch` y la composición de rutas implementadas |
 | `npm run lint --workspace backend` | Validación TypeScript configurada para backend |
 
 El `npm test` de raíz incluye los scripts `test` presentes en todos los
 workspaces, incluido `backend`. `npm run dev` solo inicia Vite y el mock web;
-no inicia el backend; para eso existe `npm run dev:backend`. Mientras no haya
-rutas de negocio, ese servidor no es evidencia de la API productiva.
+no inicia el backend; para eso existe `npm run dev:backend`. La presencia de
+rutas de negocio no sustituye pruebas de Auth, autorización, RLS y persistencia.
 
 ## Alcance de la ratificación
 
-Se ratifican únicamente la creación en `borrador`, la entrada cerrada, el DTO de
-creación de diez campos, el conteo inicial cero, la sede activa propia, el radio
-entero opcional normalizado a 10, la urgencia informativa, el vencimiento desde
+El acuerdo inicial ratificó únicamente la creación en `borrador`, la entrada
+cerrada, el DTO de creación de diez campos, el conteo inicial cero, la sede
+activa propia, el radio entero opcional normalizado a 10, la urgencia
+informativa, el vencimiento desde
 creación UTC de PostgreSQL, el replay idempotente y el catálogo de errores de
-este caso. `GET /api/v1/hospitals/me/needs` y las otras 68 operaciones no quedan
-ratificadas por compartir ruta, recurso o schema.
+este caso. Las demás operaciones, incluido `GET /api/v1/hospitals/me/needs`,
+no quedaron ratificadas por compartir ruta, recurso o schema; las marcas actuales
+de ratificación y los planes de módulo registran sus acuerdos propios.
 
-No se aprueban aquí la duración/refresh de sesión, el protocolo concreto de
-autenticación, nombres y mecanismo de cookie/CSRF, allowlist CORS/Origin,
-repositorio/driver, RPC, esquema SQL ni políticas/grants RLS. Las referencias
-`sessionCookie` y `csrfToken` del OpenAPI siguen siendo placeholders. La
-precondición funcional de identidad administrativa AAL2 sí aplica; su
-implementación real debe diseñarse antes del transporte protegido.
+El acuerdo inicial no decidió sesión, CSRF, Origin ni persistencia. Esas
+decisiones se concretaron después en ADR-003 (RPC y RLS), ADR-004 (cookies,
+sesión, CSRF y topología) y ADR-006 (allowlist de `service_role`). Ya no se
+tratan `sessionCookie` y `csrfToken` como mecanismos por decidir. Su aprobación
+no acredita el despliegue ni elimina los gates de autorización administrativa AAL2.
 
-## Operación HTTP futura
+## Operación HTTP ratificada e implementada
 
-La sección siguiente describe el contrato del transporte aún no implementado;
-no afirma que exista un handler ejecutable de `createHospitalNeed`.
+La sección siguiente conserva el contrato de creación; el handler existe en
+`backend/src/modules/need-records/http/needs.router.ts`. La aceptación vigente
+requiere corregir y verificar el baseline, no solo localizar el handler.
 
 - Método y ruta: `POST /api/v1/hospitals/me/needs`.
 - Éxito: `201 Created`, `Content-Type: application/json` y envoltura `{ "data":
@@ -83,8 +111,9 @@ no afirma que exista un handler ejecutable de `createHospitalNeed`.
 - `Idempotency-Key` es metadata del transporte, requerida y fuera del JSON del
   body; el schema canónico actual limita el valor a 16–255 caracteres. Se
   conserva para reintentar la misma intención y nunca se registra.
-- La identidad/sesión y controles CSRF mostrados en OpenAPI no fijan la política
-  productiva pendiente. La autorización no se deriva de campos del request.
+- La identidad/sesión y controles CSRF siguen ADR-004. La autorización no se
+  deriva de campos del request; se revalida con membresía y recurso en servidor
+  y base de datos.
 
 ### Entrada: body JSON cerrado
 
@@ -132,12 +161,12 @@ No añadir al DTO `hospitalId`, `createdAt`, nombres de hospital/sede, actor,
 conteos de candidatos, invitaciones, paciente, coordenadas ni distancia. La sede
 solo se refleja por el `siteId` ya declarado en el contrato.
 
-## Frontera del DTO actual y caso de uso futuro sin HTTP
+## Frontera del DTO y del caso de uso
 
-La implementación actual termina en los DTO/validadores descritos arriba. Los
-puntos siguientes describen la frontera conceptual que deberá respetar un caso
-de uso futuro; no fijan nombres de clases, librerías o repositorios ni afirman
-que esa capa exista.
+Los DTO/validadores son una frontera, no el final de la implementación actual.
+El caso de uso vive en `need-records/application/create-need-draft.ts` y el
+gateway en `need-records/infrastructure/needs-rpc-gateway.ts`. Los puntos
+siguientes conservan el contrato de separación entre esas capas y el transporte.
 
 - **Entrada de negocio:** los seis campos requeridos y `radiusKm` ya normalizado
   (el caso de uso recibe el radio como entero efectivo, incluso cuando el body
@@ -153,7 +182,7 @@ que esa capa exista.
 - **Salida de negocio:** proyección de necesidad con exactamente los diez
   campos de la tabla anterior, sin la envoltura HTTP.
 - **Errores de dominio:** representan motivos del caso de uso sin asignar status
-  HTTP. Un futuro controlador traducirá solo categorías allowlisted al catálogo
+  HTTP. El controlador traduce solo categorías allowlisted al catálogo
   seguro de esta especificación; nunca devolverá una excepción, fila SQL,
   detalle de Supabase ni stack.
 
@@ -164,7 +193,7 @@ resultado; misma clave con intención distinta o ejecución aún en curso produc
 `409`. El reclamo no puede implementarse como `SELECT` seguido de `INSERT` sin
 una restricción única.
 
-## Precondiciones, tiempo y efectos futuros
+## Precondiciones, tiempo y efectos
 
 1. Una identidad real autenticada corresponde a un admin hospitalario en AAL2.
 2. La membresía vigente determina el hospital del actor; ningún campo del cliente
@@ -177,8 +206,8 @@ una restricción única.
    `expires_at = created_at + expiresInHours` en UTC, dentro de la creación
    atómica. El `expiresAt` público es ese instante serializado en RFC 3339/UTC.
    Activar posteriormente no recalcula ni extiende el vencimiento. La ruta de
-   activación no queda ratificada por este documento.
-5. En una transacción futura se confirman juntos: necesidad `borrador`, resultado
+   activación tiene su ratificación propia en F3, no por extensión de este POST.
+5. En una transacción se confirman juntos: necesidad `borrador`, resultado
    idempotente original y evento de auditoría minimizado. La auditoría usa IDs
    opacos, actor, evento, recurso, resultado y fecha; no guarda body ni valores
    sensibles.
@@ -188,9 +217,11 @@ una restricción única.
    el mismo `expiresAt`, incluso si ese instante ya pasó; no crea otra necesidad,
    no vuelve a calcular el plazo y no reactiva el recurso.
 
-No se define aquí precedencia de carreras entre operaciones distintas (AP-04),
-TTL/sesiones, driver, política RLS, polígono de Lima ni retención específica de
-la clave fuera de las reglas aprobadas por RNF-REL-01/02.
+La precedencia de carreras de invitaciones sigue V6 (AP-04), con implementación
+F6 pendiente; no se deduce de este POST. Sesiones y persistencia siguen sus ADRs,
+y la retención de claves RNF-REL-01/02. La carrera entre creación y desactivación
+de sede sigue como hallazgo E3/B4 del plan de ejecución; no se redefine aquí su
+respuesta contractual ni se presume corregida.
 
 ## Errores HTTP seguros
 
@@ -198,7 +229,7 @@ Todas las respuestas de error usan `application/json` y exactamente la forma
 `{ "error": { "code": "...", "message": "...", "correlationId": "..." } }`
 según `ErrorResponse`. `correlationId` es opaco; no se incluyen detalles de
 validación que expongan datos protegidos, body, clave idempotente, SQL, proveedor
-ni stack. El controlador futuro es responsable del mapeo; el dominio no depende
+ni stack. El controlador es responsable del mapeo; el dominio no depende
 de HTTP.
 
 | HTTP | Caso para este POST | Código / mensaje público | Regla de privacidad |
@@ -219,11 +250,13 @@ se reserva a sintaxis/forma y `422` a semántica; ningún error incluye datos de
 paciente ni afirma elegibilidad clínica. Las respuestas de error llevan siempre
 un `correlationId` opaco.
 
-## Criterios de aceptación para implementación futura
+## Checklist histórico de aceptación — 2026-10-04
 
-El checklist es para integrar DTO, transporte y caso de uso; los criterios
-siguen pendientes como aceptación de la API HTTP completa aunque la validación
-runtime de DTO ya exista.
+Se conserva el checklist del contrato inicial sin marcar pruebas como ejecutadas
+por esta sincronización. Los planes de módulo registran sus verificaciones
+históricas; la evidencia actual y los hallazgos pendientes están en el plan de
+ejecución del 2026-10-20. La existencia del código no convierte estas casillas
+en un PASS vigente de la API.
 
 - [ ] Aceptar `RBC`, los ocho enums sanguíneos y las tres urgencias exactas; meta
       y radio aceptan solo enteros en sus límites; `expiresInHours` acepta solo
@@ -252,15 +285,15 @@ runtime de DTO ya exista.
       paciente; confirmar que auditoría, logs y errores no registran body,
       `Idempotency-Key`, PII ni datos sensibles.
 
-## Pendientes antes de aceptación backend/HTTP
+## Pendientes de aceptación backend/HTTP
 
-- Implementar el endpoint HTTP y el caso de uso dentro del workspace backend,
-  consumiendo los DTO/validadores existentes; el scaffolding Express legacy no
-  constituye ese endpoint.
-- Diseñar y probar identidad Supabase real, AAL2, autorización server-side y RLS
-  con acceso directo negativo antes de publicar HTTP protegido.
-- Cerrar de forma independiente sesión/refresh, CSRF, CORS/Origin y decisiones
-  de driver/transacción; esta ratificación no las resuelve.
+- Corregir los hallazgos E3 del baseline implementado y repetir revisión backend,
+  seguridad/privacidad y pruebas pertinentes antes de continuar F6.
+- Verificar identidad Supabase, AAL2, autorización server-side y RLS con acceso
+  directo negativo; no usar el scaffolding legacy ni el mock como evidencia.
+- Aplicar las decisiones ya aprobadas de sesión/refresh, CSRF, Origin y RPC;
+  la configuración y comprobación del borde siguen pendientes de F9, sin
+  cambiarlas desde esta sincronización.
 - Ejecutar pruebas unitarias/de integración contra PostgreSQL/Supabase local,
   escenarios de rollback/concurrencia y Bruno contra el backend real. Prism,
   mock, readiness y auth de demo no prueban esos controles.
@@ -292,9 +325,10 @@ cierre sujeto a las revisiones y a la aprobación registradas en
   reglas ocurren antes de reclamar la clave. Las operaciones MFA usan claves de
   un solo uso (el replay responde 409).
 - **Persistencia** (ADR-003): tablas en el esquema `app` (no expuesto); RPC en
-  `api` con `SECURITY INVOKER` y RLS forzada. Las únicas funciones
-  `SECURITY DEFINER` de `api` son `api.consume_rate_limit`, `api.readiness` y
-  `api.record_public_idempotency`, todas en la allowlist cerrada de ADR-003.
+  `api` con `SECURITY INVOKER` y RLS forzada. Las funciones
+  `SECURITY DEFINER` de `api` de este fundamento F2a son `api.consume_rate_limit`,
+  `api.readiness` y `api.record_public_idempotency`; los módulos posteriores
+  añaden las excepciones aprobadas de la allowlist cerrada de ADR-003.
   `PUBLIC` no tiene `EXECUTE` en ninguna función de `api` ni de `app` (lo
   verifica pgTAP).
 - **Replay idempotente**: las operaciones cuyo rechazo depende del estado
@@ -313,8 +347,8 @@ cierre sujeto a las revisiones y a la aprobación registradas en
   500. Lo verifica una prueba estructural y las pruebas de integración.
 - **Cuota de Supabase Auth**: login y renovación comparten la cuota por IP del
   backend (150 cada 5 min, no ampliable); la renovación tiene límite propio
-  (`refresh:ip`), ambos flujos tienen un techo global propio de 60 cada 5 min que
-  protege esa cuota, y un 429 del proveedor responde 429 sin cerrar la sesión
+  (`refresh:ip`), y los techos globales propios fijados por O1 son 50 logins y 80
+  renovaciones cada 5 min. Un 429 del proveedor responde 429 sin cerrar la sesión
   (ADR-004, decisión O1).
 - **Fuera de este módulo**: recuperación de contraseña e invitación de admins
   (F2b, requieren correo y el adaptador `service_role` de ADR-006).
@@ -339,8 +373,9 @@ cierre sujeto a las revisiones y a la aprobación registradas en
 - **Creación** (`api.create_need_draft`, INVOKER): una sola RPC atómica que valida,
   recalcula el hash canónico, consulta el replay, comprueba la sede, reclama la clave,
   inserta la necesidad y escribe la auditoría. PostgreSQL fija `expires_at`. Sede
-  inexistente, ajena, inactiva o sin aprobar dan el mismo 422 y no dejan registro de
-  idempotencia. El replay devuelve el 201 original aunque el plazo ya haya pasado o la
+  inexistente, ajena, inactiva o sin aprobar deben dar el mismo 422 sin registro de
+  idempotencia; la carrera con desactivación simultánea sigue pendiente en E3/B4.
+  El replay devuelve el 201 original aunque el plazo ya haya pasado o la
   sede se haya desactivado.
 - **Estado visible**: un estado no terminal cuyo `expires_at` ya pasó se proyecta como
   `vencida` (también un borrador); el filtro `status` se aplica sobre ese estado.
@@ -378,11 +413,13 @@ Estado: implementado en `backend/src/modules/email-delivery`; revisiones y cierr
   `email.bounced`/`email.failed → fallida`; otros eventos se ignoran.
 - **Outbox**: el payload (token y destinatario) se cifra en la aplicación con AES-256-GCM y el id del outbox como
   AAD; en la base solo existe cifrado y se destruye (`NULL`) al llegar a un estado final o vencer.
-- **Reintentos**: máximo 6 llamadas, backoff 1/2/5/10/20 min con jitter ±20 %, nada se envía tras `not_after` (se
+- **Reintentos**: máximo 6 llamadas, backoff 1/2/5/10/20 min con jitter uniforme ±20 %, nada se envía tras `not_after` (se
   comprueba otra vez justo antes de llamar al proveedor),
   y un resultado incierto se reconcilia a los 30 s durante 5 min con la misma clave de idempotencia.
-- **Worker**: proceso separado con identidad técnica y rol interno `worker`; solo llama a las RPC `worker_*` e
-  `ingest_email_event`. Sus registros contienen solo evento, código y duración.
+- **Worker**: proceso separado con identidad técnica y rol interno `worker` para las RPC `worker_*`;
+  `ingest_email_event` la ejecuta la identidad `api_technical` de la API (enmienda ADR-005 del 2026-10-13).
+  Sus registros contienen solo evento, código y duración. La separación de secretos de configuración del
+  worker sigue pendiente de corrección E3/B2; no se presenta como resuelta por documentar los roles.
 - **Plantillas**: enlaces con el token en el fragmento; sin grupo sanguíneo, ubicación ni datos de paciente.
 - **Allowlist de bandejas** (RF-EML-04): un destinatario no permitido no llega al proveedor.
 
@@ -466,4 +503,3 @@ responder, sin esperar y sin alterar la respuesta, con la identidad técnica de 
 actor y la ruta con sus parámetros sin sustituir (`GET /api/v1/hospitals/me/assisted-signups`), nunca valores de la petición. Para
 que un actor no llene la tabla se deduplica por actor, evento y ruta: una fila cada 10 segundos y una por minuto para los límites
 de tasa. Las peticiones sin sesión no tienen actor y solo quedan en el registro técnico (`seguridad.rechazo`).
-

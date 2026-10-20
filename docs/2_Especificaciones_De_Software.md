@@ -5,6 +5,7 @@
 | Estado | Borrador controlado para revision |
 | Version | 0.4 |
 | Fecha | 2026-10-01 |
+| Sincronizacion documental | 2026-10-20; refleja decisiones aprobadas e inventario actual, sin nueva ratificacion ni cambio de estado de la ERS |
 | Tipo de documento | Especificacion de Requisitos de Software (ERS) |
 | Ambito | Prototipo academico con datos sinteticos en Lima Metropolitana |
 | Linea base funcional | [`1_Primeros_Alcances.md`](1_Primeros_Alcances.md), version 1.2 |
@@ -18,6 +19,7 @@
 | 0.2 | 2026-09-27 | Borrador para revision | Reorganizacion editorial de requisitos por rol y objetivo; conserva los 101 RF/RNF, prioridades, verificaciones y ambiguedades abiertas, sin cambio funcional ni arquitectonico. |
 | 0.3 | 2026-09-27 | Borrador para revision | Incorpora reconocimientos hospitalarios opcionales limitados a refrigerio, diploma y pin, mas informacion comun sobre constancia y permiso laboral; no modifica la arquitectura. |
 | 0.4 | 2026-10-01 | Borrador controlado | Registra decisiones aprobadas AP-01/AP-03/AP-05/AP-09, sincroniza la exclusion de historial de ultima donacion y explicita sus efectos en estados, tokens y proyecciones. |
+| 0.4 (sincronizacion) | 2026-10-20 | Borrador controlado | Refleja AP-02/AP-06/AP-07/AP-08 de ADR-005, AP-04 de V6 y ratificacion F6; distingue decisiones, ratificacion, implementacion y pruebas. Conserva el corte anterior y no agrega requisitos ni aprobaciones. |
 
 ### Autoridad y precedencia
 
@@ -29,17 +31,32 @@ funcional y operativo detallado, y `ADR-001` prevalece para el stack y los
 limites arquitectonicos. La ERS no introduce reglas clinicas, legales,
 funcionales ni arquitectonicas nuevas.
 
-Los valores de reintento, timeout, reconciliacion y webhook definidos en
-RF-EML-01 a RF-EML-03 concretan decisiones que `ADR-001` todavia describe como
-pendientes. Esa redaccion del ADR debe sincronizarse, sin modificar los RF
-aprobados, antes de implementar el modulo de email.
+Los valores de reintento, timeout, reconciliacion y webhook de RF-EML-01 a
+RF-EML-03 se concretan en [`ADR-005`](decisions/ADR-005-email-outbox-worker.md),
+aceptado el 2026-10-12: resuelve AP-02, AP-06, AP-07 y AP-08, con jitter
+uniforme de ±20 %. AP-04 refleja V6 de la
+[especificacion backend](plans/2026-10-12-especificacion-faltante-backend.md)
+§2.3 y §6 F6, con operaciones F6 ratificadas el 2026-10-13 en
+[`openapi.json`](openapi.json). La tabla §10.5 conserva la ambiguedad heredada
+y su resolucion; no representa decisiones nuevas de esta ERS.
 
-`Save_a_Life.xlsx` y `.opencode/references/project-requirements.md` se sincronizan
-con RF-PRO-05 en esta revision: no recopilar historial de ultima donacion ni
-aplicar filtro postdonacion. AP-01, AP-03, AP-05 y AP-09 quedan resueltos por las
-decisiones de producto registradas en la linea base; los cambios de API/mock deben
-mantenerse alineados con esta ERS y `docs/Api-Rules.md`. No inferir resoluciones
-para AP-02, AP-04, AP-06, AP-07 ni AP-08.
+El corte del 2026-10-01 resolvio AP-01/AP-03/AP-05/AP-09 y fijo RF-PRO-05:
+no recopilar historial de ultima donacion ni aplicar filtro postdonacion. La
+sincronizacion autorizada del 2026-10-20 no modifica `Save_a_Life.xlsx`, la
+referencia normalizada, `Api-Rules.md`, JSON, generados, pruebas ni ADRs; sus
+textos obsoletos se tratan en asignaciones separadas, no como autoridad para
+reabrir decisiones aprobadas.
+
+Inventario estatico del 2026-10-20: **58 paths, 73 operaciones, 100 schemas,
+57 operaciones ratificadas y 47 registros HTTP backend**. Las diez operaciones
+F6 ratificadas aun carecen de registro HTTP; F7 (nueve) y F8 (siete) siguen sin
+ratificar ni implementar. El [indice documental](README.md) ofrece el recuento
+reproducible. Esto no acredita pruebas actuales ni backend completo: los
+resultados historicos conservan sus fechas, E3 esta BLOCKED en el
+[plan de ejecucion](plans/2026-10-20-ejecucion-de-pendientes-con-agentes.md)
+y faltan correcciones, revisiones y pruebas antes de F6. No se resuelven aqui
+las discrepancias de contratos F6. F9 permanece pendiente, sin decidir frontend
+ni borde, y el uso real conserva sus gates profesionales.
 
 ### Referencia metodologica
 
@@ -133,8 +150,10 @@ escasez, y separada de urgencia, respuesta e informacion laboral.
   dominio de la seccion 7 y los datos de prueba de la seccion 9.2 son
   elaboraciones vinculantes de los RF/RNF relacionados y no requisitos
   adicionales sin trazabilidad.
-- Las clausulas afectadas por una ambiguedad `AP` de la seccion 10.5 permanecen
-  suspendidas hasta que la decision se apruebe y las fuentes se sincronicen.
+- Las clausulas que requieran una decision aun no aprobada permanecen
+  suspendidas hasta aprobarla y sincronizar las fuentes. Las AP ya resueltas de
+  la seccion 10.5 conservan sus gates de implementacion y verificacion, no un
+  voto pendiente por el solo hecho de figurar en ese registro historico.
 - El vencimiento de una necesidad se evalua en UTC mediante el reloj de
   PostgreSQL conforme a RF-NEC-08. Cada otro limite temporal usa la fuente de
   tiempo definida por su requisito y por el diseno aprobado en Sprint 0.
@@ -363,10 +382,12 @@ El frontend no usara el SDK de Supabase para consultar o modificar datos de
 dominio. Las capacidades publicas estrictamente necesarias de autenticacion se
 mantendran mediadas por Express conforme a RNF-SEC-01 y RNF-SEC-09.
 
-La propuesta inicial de rutas REST/OpenAPI esta en [`openapi.json`](openapi.json) y
-sus convenciones en [`Api-Rules.md`](Api-Rules.md). Ambos siguen en borrador hasta
-su ratificacion en Sprint 0; el acceso a datos concreto tambien se decide en
-Sprint 0. El contrato no modifica los requisitos de esta ERS.
+La propuesta inicial de rutas REST/OpenAPI esta en [`openapi.json`](openapi.json)
+y sus convenciones en [`Api-Rules.md`](Api-Rules.md). El inventario global sigue
+en borrador, con ratificacion por operacion: 57 ratificadas y 16 pendientes de
+F7/F8 al 2026-10-20. El acceso RPC se concreta en ADR-003; las operaciones
+ratificadas no se consideran implementadas ni probadas por esa sola marca.
+El contrato no modifica los requisitos de esta ERS.
 
 ### 3.3 Interfaces de comunicacion
 
@@ -474,7 +495,7 @@ se rigen por su contexto de acceso, sin exigirles una sesion por esta agrupacion
 | Restricciones y relaciones | No mutar por GET ni aceptar replay. RF-INV-05 y RF-INV-08 en HOS-OBJ-06 regulan meta y terminales; RF-INV-01 distingue los ejes de estado. |
 | RNF particulares | RNF-SEC-12, RNF-SEC-13, RNF-REL-01 y RNF-REL-02. |
 | Aceptacion derivada | GET sin efectos; un unico efecto entre POST concurrentes del mismo token; accion cruzada, replay y respuesta tras meta o terminal rechazados. |
-| Pendientes y fuente | AP-04 para carreras entre operaciones distintas; CU-03 y LINK-01 del Anexo A. |
+| Decisiones y fuente | AP-04 resuelta por V6 (§10.5); implementacion y pruebas de carreras F6 pendientes. CU-03 y LINK-01 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
@@ -490,7 +511,7 @@ se rigen por su contexto de acceso, sin exigirles una sesion por esta agrupacion
 | Restricciones y relaciones | RF-NEC-07 y RF-INV-06 en HOS-OBJ-06 regulan el retorno a activa sin revalidar invitaciones ni crear lotes; HOS-OBJ-05 consulta la proyeccion permitida, que oculta identidad al quedar rechazada. |
 | RNF particulares | RNF-SEC-08 y RNF-AUD-01. |
 | Aceptacion derivada | Cambio propio permitido en el contexto aprobado; cambio ajeno o tras terminal denegado; historial conservado; hospital deja de ver identidad tras `confirmada -> rechazada`; perdida de meta sin lote automatico. |
-| Pendientes y fuente | AP-04 mantiene pendientes carreras entre operaciones; CU-03, DON-03 y DON-04 del Anexo A. |
+| Decisiones y fuente | AP-04 resuelta por V6 (§10.5), sin dar por implementados sus efectos; CU-03, DON-03 y DON-04 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
@@ -587,7 +608,7 @@ y la entrega automatica, sin concederle exploracion del padron.
 | Restricciones y relaciones | No selecciona personas individuales ni ejecuta intentos del worker. DON-OBJ-02 aporta disponibilidad; HOS-OBJ-05 consulta estados; HOS-OBJ-06 limita envios por meta y terminales. |
 | RNF particulares | RNF-REL-01, RNF-REL-02, RNF-PER-02, RNF-PER-06, RNF-SEC-10, RNF-SEC-14 y RNF-OPS-05. |
 | Aceptacion derivada | Orden exactos/otras coincidencias y desempate estable; lote limitado y sin duplicados; tercera invitacion global admitida y cuarta bloqueada; conjunto insuficiente sin completar artificialmente; fallo intermedio revierte el lote. Entrega con reintentos acotados, destinatario externo bloqueado y webhook validado. |
-| Pendientes y fuente | AP-02, AP-04, AP-06 y AP-08 conservan sus decisiones; CU-02 y CU-06, reglas de la seccion 7 y HOS-04 del Anexo A. |
+| Decisiones y fuente | AP-02, AP-04, AP-06 y AP-08 resueltas segun §10.5; falta completar y verificar F6. CU-02 y CU-06, reglas de la seccion 7 y HOS-04 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
@@ -605,7 +626,7 @@ Reglas de entrega que soportan el mismo recorrido:
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
-| RF-EML-01 | El worker debera realizar un intento inicial y hasta cinco reintentos, seis llamadas maximas, con timeout de 10 s y backoff con jitter de 1, 2, 5, 10 y 20 minutos, sin intentar en o despues del vencimiento. | M | Proveedor falso y reloj controlado. |
+| RF-EML-01 | El worker debera realizar un intento inicial y hasta cinco reintentos, seis llamadas maximas, con timeout de 10 s y backoff de 1, 2, 5, 10 y 20 minutos con jitter uniforme de ±20 % (ADR-005, AP-08), sin intentar en o despues del vencimiento. | M | Proveedor falso y reloj controlado. |
 | RF-EML-02 | Red, timeout, `408`, `429` y `5xx` seran transitorios; otros `4xx` seran permanentes. Un resultado incierto se reconciliara durante 5 minutos con la misma clave idempotente antes de reintentar. | M | Casos por categoria sin segundo envio logico. |
 | RF-EML-03 | El webhook debera validar firma sobre cuerpo crudo y una antiguedad maxima de 5 minutos, deduplicar por ID y aceptar unicamente transiciones que no hagan retroceder el estado. | M | Firma alterada, evento antiguo, replay y desorden. |
 | RF-EML-04 | El worker debera comprobar la allowlist de inboxes de prueba inmediatamente antes de llamar a Resend. | M | Destinatario permitido y externo bloqueado. |
@@ -619,7 +640,7 @@ Reglas de entrega que soportan el mismo recorrido:
 | Restricciones y relaciones | DON-OBJ-04 y DON-OBJ-05 registran respuestas; HOS-OBJ-04 procesa entregas. Ningun estado de entrega equivale a confirmacion o asistencia. |
 | RNF particulares | RNF-SEC-08, RNF-PER-04 y RNF-PER-05. |
 | Aceptacion derivada | Ejes de estado independientes; antes de confirmacion solo opacos; mientras confirmacion vigente, lista cerrada; al cambiar a rechazo vuelve proyeccion opaca; recurso ajeno denegado; respuesta reflejada dentro del umbral aprobado. |
-| Pendientes y fuente | AP-02 mantiene pendiente el estado agregado de entrega. CU-04; HOS-01, HOS-04 y HOS-05 del Anexo A. |
+| Decisiones y fuente | AP-02 resuelta por ADR-005 (§10.5); la proyeccion agregada en invitaciones se conecta en F6, aun pendiente. CU-04; HOS-01, HOS-04 y HOS-05 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
@@ -636,7 +657,7 @@ Reglas de entrega que soportan el mismo recorrido:
 | Restricciones y relaciones | Terminales sin reapertura; retorno a activa sin nuevo lote ni revalidacion. DON-OBJ-04 y DON-OBJ-05 aportan respuestas; HOS-OBJ-04 requiere accion manual para otro lote. |
 | RNF particulares | RNF-REL-01, RNF-REL-02 y RNF-AUD-01. |
 | Aceptacion derivada | Meta alcanzada invalida pendientes; perdida de confirmacion retorna a activa sin fan-out; cerrar/cancelar marca invitaciones invalidas; vencer marca invitaciones vencidas; todos conservan historial y rechazan respuestas posteriores; verificar antes, en y despues de expires_at. |
-| Pendientes y fuente | AP-04 mantiene pendientes carreras y envio en vuelo. CU-04, transiciones 5.4 y HOS-03 del Anexo A. |
+| Decisiones y fuente | AP-04 resuelta por V6 (§10.5); carreras y envio en vuelo requieren implementacion y pruebas F6. CU-04, transiciones 5.4 y HOS-03 del Anexo A. |
 
 | ID | Requisito | Prioridad | Verificacion |
 | --- | --- | ---: | --- |
@@ -751,7 +772,7 @@ accesos excepcionales mantienen finalidad y tiempo acotados.
 | Restricciones y relaciones | No habilita nuevos parametros editables ni asigna al superadmin la ejecucion de la purga. La retencion afecta a los tres roles. |
 | RNF particulares | RNF-PRV-02 a RNF-PRV-04, RNF-SEC-05 y RNF-AUD-01. |
 | Aceptacion derivada | Fecha no modificable tras fijarse; inventario purgado dentro del plazo; solo agregados irreversibles posteriores; restauracion en cuarentena reaplica eliminaciones. |
-| Pendientes y fuente | AP-07 mantiene pendiente la cota de retencion de backups; entidades 5.1, matriz 5.3 y SA-06 del Anexo A. No agrega RF ni permisos de operacion de backups al rol. |
+| Decisiones y fuente | AP-07 resuelta por ADR-005: backups de siete dias como maximo y ledger reaplicado al restaurar; falta verificacion operativa. Entidades 5.1, matriz 5.3 y SA-06 del Anexo A. No agrega RF ni permisos de operacion de backups al rol. |
 
 #### SA-OBJ-06: Consultar auditoria minimizada
 
@@ -785,7 +806,7 @@ accesos excepcionales mantienen finalidad y tiempo acotados.
 | --- | --- | --- |
 | Acceso, cierre y recuperacion de sesion | Los tres roles; AAL2 para administradores. | AUTH-01, AUTH-04 y AUTH-05 del Anexo A; RNF-SEC-01 a RNF-SEC-05, RNF-SEC-11 a RNF-SEC-13 y RNF-SEC-15 a RNF-SEC-16. Recuperacion neutra, credencial de un uso, revocacion de sesiones previas y conservacion de rol, hospital y MFA. |
 | Alta asistida | HOS-OBJ-02 inicia; DON-OBJ-01 reclama y completa. | RF-IAM-02 se define en hospital; RF-IAM-03 y RF-IAM-04 en donante. Probar ambos lados sin trasladar propiedad del perfil; reemision no reinicia purga. |
-| Respuesta y seguimiento | DON-OBJ-04 y DON-OBJ-05 responden; HOS-OBJ-05 consulta y HOS-OBJ-06 refleja efectos. | RF-INV-01 a RF-INV-06, RF-INV-08 y RF-VIS-01 a RF-VIS-03. Verificar cambio de estado y proyeccion autorizada; AP-04 abierto para carreras. |
+| Respuesta y seguimiento | DON-OBJ-04 y DON-OBJ-05 responden; HOS-OBJ-05 consulta y HOS-OBJ-06 refleja efectos. | RF-INV-01 a RF-INV-06, RF-INV-08 y RF-VIS-01 a RF-VIS-03. Verificar cambio de estado y proyeccion autorizada; carreras conforme a V6 (AP-04), aun sin implementacion F6. |
 | Correccion o eliminacion | DON-OBJ-06 solicita; SA-OBJ-03 decide y ejecuta con SA-OBJ-04. | RF-PRO-02 en donante; RF-PRO-03 y RF-PRO-04 en superadmin; RNF-SEC-05, RNF-SEC-06 y RNF-AUD-01. Token del nuevo email de 24 horas. |
 | Reconocimientos e informacion laboral | HOS-OBJ-08 publica una oferta opcional; DON-OBJ-07 la consulta junto con el segmento comun; SA-OBJ-07 puede suspender o levantar la suspension. | RF-REC-01 y RF-REC-03 en hospital; RF-REC-02 y RF-LAB-01 en donante; RF-REC-04 en superadmin; RNF-LGL-01 comun. Verificar tambien la ausencia valida de oferta y que el flujo de invitacion no cambie. |
 
@@ -849,9 +870,10 @@ considerara anonimizacion para datos reales.
 | Respuesta | `sin_respuesta -> confirmada o rechazada` antes del vencimiento; `confirmada <-> rechazada` autenticado mientras la necesidad no sea terminal. |
 | Politica de reconocimientos | `sin_publicar -> publicada` y `publicada -> sin_publicar` por un admin del hospital; `publicada -> suspendida` y `suspendida -> sin_publicar` solo por superadmin. Cada mutacion compara la version esperada, incrementa la version y rechaza con conflicto una version obsoleta; una suspension bloquea mutaciones hospitalarias. |
 
-La semantica pendiente de reintentos y carreras queda suspendida por AP-02 y
-AP-04. AP-01, AP-03, AP-05 y AP-09 quedan resueltos por las reglas de estados,
-proyeccion y vigencia de estas secciones.
+La semantica de reintentos y carreras sigue las resoluciones de AP-02 y AP-04
+recogidas en §10.5; implementacion, discrepancias F6 y evidencia de pruebas se
+evalúan por separado. AP-01, AP-03, AP-05 y AP-09 conservan las reglas de
+estados, proyeccion y vigencia aprobadas el 2026-10-01.
 
 ### 5.5 Integridad, retencion y eliminacion
 
@@ -947,7 +969,7 @@ referencia particular no exime del resto de obligaciones aplicables.
 | RNF-PRV-01 | Todos los fixtures, perfiles y coordenadas del prototipo deberan ser sinteticos; una precision de tres decimales no debera describirse como anonimizacion para datos reales. | M | Revision de fixtures, capturas y textos. |
 | RNF-PRV-02 | `final_demo_at` debera ser fijada una sola vez por superadmin y ser inmutable; a mas tardar 30 dias despues deberan purgarse Auth, DB, perfiles, membresias, ubicaciones, necesidades, invitaciones, respuestas, solicitudes, tokens, outbox, caches, archivos y metadatos controlables de proveedores. | M | Reloj controlado e inventario antes/despues por almacen. |
 | RNF-PRV-03 | Despues de la purga solo podran permanecer conteos agregados irreversibles sin IDs, pseudonimos ni dimensiones que permitan vinculacion. | M | Intento de busqueda y reidentificacion con datos previos. |
-| RNF-PRV-04 | Cada backup debera tener fecha maxima de expiracion documentada; una restauracion debera ejecutarse en cuarentena y reaplicar el ledger de eliminaciones antes de habilitar acceso. | M | Ensayo de restauracion de un backup anterior a la purga. |
+| RNF-PRV-04 | Cada backup debera tener fecha maxima de expiracion documentada y retencion de siete dias como maximo (ADR-005, AP-07); una restauracion debera ejecutarse en cuarentena y reaplicar el ledger de eliminaciones antes de habilitar acceso. | M | Ensayo de restauracion de un backup anterior a la purga. |
 | RNF-SAF-01 | `MATRIZ_RBC_ACADEMICA_V1` debera identificarse como declaracion academica para datos sinteticos, no como fuente oficial, recomendacion ni validacion clinica. | M | Revision de UI, API, email, pruebas e informes. |
 | RNF-SAF-02 | El sistema debera mostrar en los flujos y mensajes pertinentes que matching significa unicamente preseleccion academica y que confirmar significa intencion de asistir. Ante cualquier eventual proceso real, el hospital debera verificar mediante sus procesos profesionales la identidad, el grupo sanguineo y la elegibilidad antes de una donacion efectiva. El prototipo no realiza ni registra esa evaluacion y no certifica asistencia, donacion ni seguridad transfusional. | M | Revision de textos en flujos de ambos roles y presencia del aviso de verificacion profesional externa. |
 | RNF-SAF-03 | Todo uso con datos reales debera permanecer bloqueado hasta contar con fuente oficial versionada, revision clinica competente y revision legal/privacidad aplicable en Peru; cumplir esos gates no constituira por si solo certificacion. | M | Gate de configuracion y checklist documental. |
@@ -1208,8 +1230,10 @@ La lectura vertical de esa evidencia usara:
   aprobar otra del mismo ID.
 - Los RNF comunes tendran evidencia en los roles y flujos a los que aplican;
   comprobar accesibilidad o aislamiento en un solo rol no cubre los otros.
-- Las clausulas afectadas por AP se marcaran pendientes de decision, nunca
-  aprobadas ni omitidas silenciosamente. Se conservan los criterios de 9.5.
+- Solo las decisiones efectivamente abiertas se marcaran pendientes de decision.
+  Las AP resueltas de §10.5 no equivalen a clausulas implementadas o verificadas;
+  su evidencia pendiente no se omite ni se presenta como aprobada. Se conservan
+  los criterios de 9.5.
 - HOS-OBJ-07 conserva su caracter opcional; la agrupacion por rol no eleva sus
   dos RF `Could` a `Must`.
 - HOS-OBJ-08 es opcional respecto de publicar una oferta, pero sus RF son
@@ -1392,6 +1416,10 @@ requiere un ADR nuevo y no modifica esta ERS de forma implicita.
 Los siguientes puntos concretan la implementacion, pero no autorizan cambios de
 comportamiento respecto de esta ERS:
 
+El listado conserva el inventario inicial de Sprint 0. Al 2026-10-20 deben
+distinguirse las decisiones ya fijadas por ADR-002/003/004/005 de su verificacion
+y de los detalles que siguen abiertos; no es una nueva lista de votos pendientes.
+
 - versiones exactas de Node.js, TypeScript, Express, Tailwind y SDK;
 - gestor de paquetes, unico lockfile e instalacion inmutable;
 - estructura concreta del monorepo y comandos de build, lint, test y desarrollo;
@@ -1400,39 +1428,41 @@ comportamiento respecto de esta ERS:
 - algoritmo y rotacion del cifrado autenticado del outbox;
 - mecanismo concreto de CSRF y nombres de cookies;
 - archivo GeoJSON, version y hash del poligono de Lima;
-- implementacion acotada del jitter de reintentos, una vez resuelto AP-08;
+- verificacion del jitter uniforme de ±20 % ya aprobado en ADR-005 (AP-08);
 - proveedor de pruebas en navegadores reales;
 - perfiles reproducibles de carga, tasa de exito, infraestructura, region,
   navegador y red para medir los umbrales de rendimiento ya aprobados;
-- ratificar la propuesta de rutas REST y esquemas OpenAPI de `docs/openapi.json`;
+- ratificar por modulo las 16 operaciones restantes de F7/F8 en `docs/openapi.json`, sin atribuirles la ratificacion de las otras 57;
 - configuracion de health checks, intervalos del worker, regiones y rollback;
 - limites operativos comprobados de Vercel, Render, Supabase y Resend.
 
-### 10.5 Ambiguedades heredadas: decisiones aprobadas y pendientes
+### 10.5 Ambiguedades heredadas y decisiones aprobadas
 
 Las siguientes diferencias heredadas se hacen visibles para conservar trazabilidad.
-AP-01, AP-03, AP-05 y AP-09 tienen decision aprobada y reflejada en las clausulas
-anteriores; solo los modulos afectados por AP pendientes quedan bloqueados hasta
-registrar una decision y sincronizar las fuentes.
+AP-01, AP-03, AP-05 y AP-09 reflejan el corte aprobado del 2026-10-01.
+La sincronizacion del 2026-10-20 incorpora las resoluciones posteriores de
+AP-02/AP-06/AP-07/AP-08 (ADR-005, aceptado el 2026-10-12) y AP-04 (V6 y
+ratificacion F6 registrada el 2026-10-13). No acredita implementacion, pruebas
+actuales ni resolucion de discrepancias nuevas de F6.
 
 | ID | Ambiguedad heredada | Estado / decision |
 | --- | --- | --- |
 | AP-01 | El alta asistida debe definir el efecto observable del vencimiento del token de 24 h y la reemision. | Resuelto: al vencer, estado `vencida`; reemision antes de 30 dias invalida tokens previos y retorna a `pendiente` sin reiniciar `created_at` ni la purga. |
-| AP-02 | RF-EML-01 y RF-EML-02 exigen reintentos automaticos, pero la transicion `fallida -> pendiente` se reserva al reintento manual. | Pendiente: distinguir estado agregado de entrega e intento; definir cuando un error transitorio pasa a `fallida`. |
+| AP-02 | RF-EML-01 y RF-EML-02 exigian distinguir reintentos automaticos del reintento manual `fallida -> pendiente`. | Resuelta, ADR-005 decision 4: estado agregado por invitacion separado de intentos; `fallida` ante error permanente o al agotar seis llamadas. Reintento manual por superadmin, auditado, antes del vencimiento y con tokens nuevos; excepcion manual al avance automatico monotono. La proyeccion en invitaciones llega con F6. |
 | AP-03 | RF-INV-04 permite `confirmada -> rechazada`; debe precisarse la proyeccion hospitalaria tras el cambio. | Resuelto: ocultar nombre y grupo al pasar a `rechazada`; conservar codigo opaco por necesidad y estados conforme a RF-VIS-01. |
-| AP-04 | La linea base exige atomicidad, pero no fija precedencia para confirmaciones distintas que compiten por la ultima plaza; cierre, cancelacion o vencimiento frente a envio en vuelo; ni cambio de respuesta frente a meta alcanzada. | Pendiente: definir resultados observables de cada carrera; el mecanismo tecnico se decide en Sprint 0. |
+| AP-04 | La linea base original no fijaba precedencia entre confirmaciones, meta, cierre, cancelacion, vencimiento y envio en vuelo. | Resuelta por V6, especificacion backend §2.3/§6 F6 y ratificacion F6: gana el primer commit mediante `SELECT … FOR UPDATE` sobre la necesidad; confirmar con meta alcanzada, incluido `rechazada -> confirmada`, produce 409. Terminales cancelan outbox no enviado; un envio iniciado puede terminar, pero sus tokens quedan invalidos por el estado. Implementacion y pruebas F6 pendientes. |
 | AP-05 | RNF-SEC-12 incluye el token de cambio de email, pero no fijaba su vigencia. | Resuelto: token de un uso por 24 h; vencido no cambia el email actual. |
-| AP-06 | RNF-SEC-14 exige destruir el payload cifrado tras entrega definitiva, fallo final o vencimiento, pero no fija el plazo maximo de esa destruccion. | Pendiente: aprobar plazo observable y verificacion. |
-| AP-07 | RNF-PRV-04 exige una expiracion documentada para backups sin fijar su limite respecto de `final_demo_at`. | Pendiente: aprobar limite y reaplicacion de eliminaciones tras restaurar. |
-| AP-08 | RF-EML-01 fija la secuencia base de backoff, pero no acota el jitter. | Pendiente: aprobar rango o algoritmo verificable. |
+| AP-06 | RNF-SEC-14 requeria concretar la destruccion del payload cifrado. | Resuelta, ADR-005 decision 5: `sealed_payload = NULL` al llegar a un estado final o al vencer; verificar todos los caminos de finalizacion y expiracion. |
+| AP-07 | RNF-PRV-04 requeria concretar la cota de retencion de backups. | Resuelta, ADR-005 seccion «Resuelve»: siete dias como maximo, expiracion documentada y ledger de borrados reaplicado al restaurar en cuarentena antes de habilitar acceso. No acredita configuracion o ensayo del proveedor. |
+| AP-08 | RF-EML-01 requeria acotar el jitter del backoff. | Resuelta, ADR-005 decision 3: jitter uniforme de ±20 % sobre 1/2/5/10/20 minutos, con un intento inicial y hasta cinco reintentos; no full jitter. |
 | AP-09 | No estaban definidos el estado de invitaciones ni la vigencia de tokens al vencer la necesidad. | Resuelto: sin TTL separado, tokens validos solo con invitacion/necesidad activas y `now < need.expires_at`; al vencer, invitaciones pendientes pasan a `vencida`; cierre/cancelacion manual las pasa a `invalidada`. |
 
-#### Localizacion de pendientes en la lectura por rol
+#### Localizacion de las decisiones en la lectura por rol
 
 Esta asociacion facilita encontrar las clausulas afectadas; no resuelve ni
-cambia ninguna de las decisiones pendientes anteriores.
+cambia decisiones ni convierte verificaciones pendientes en resultados aprobados.
 
-| Pendiente | Recorridos afectados |
+| Decision | Recorridos afectados |
 | --- | --- |
 | AP-02 | HOS-OBJ-04 y HOS-OBJ-05: reintento y estado agregado de entrega. |
 | AP-04 | DON-OBJ-04, DON-OBJ-05, HOS-OBJ-04 y HOS-OBJ-06: carreras entre respuestas, meta, terminales y envio en vuelo. |
