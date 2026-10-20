@@ -78,7 +78,7 @@ The npm workspace has three members: `apps/web`, `apps/mock-api` and `backend`.
   `apps/mock-api/src/api/openapi.ts`. Never hand-edit these. Edit the JSON, then
   lint, run `openapi:types`, and rerun the contract/Bruno tests.
 - **Ratification status.** Ratified for implementation (`x-ratification` in
-  `docs/openapi.json`): the 14 donor-registration / profile / assisted-signup / email-change operations of F5, the five admin-invitation / password-recovery operations of F2b, the Resend webhook of F4, the four need operations of F3 (`createHospitalNeed`,
+  `docs/openapi.json`): the 14 donor-registration / profile / assisted-signup / email-change operations of F5, the nine privacy-request operations of F7 (implemented without account deletion in Auth, see `docs/plans/2026-10-20-privacy-requests.md`), the five admin-invitation / password-recovery operations of F2b, the Resend webhook of F4, the four need operations of F3 (`createHospitalNeed`,
   list, get and transition of own needs), the health pair and the 21
   identity-institutions operations of F2a (session, MFA, step-up, hospitals,
   sites, memberships, configuration, audit, task queue). The rest are drafts.
@@ -95,8 +95,8 @@ The npm workspace has three members: `apps/web`, `apps/mock-api` and `backend`.
   `src/composition.ts` wires the adapters, `src/app.ts` exposes
   `createApp({config, logger, mount})`, `src/config/env.ts` validates the
   environment and `src/shared/*` holds HTTP, auth, persistence and crypto pieces.
-  `src/modules/{platform,identity-institutions,need-records,email-delivery,donor-records}`
-  are implemented (F2a, F3, F4, F5), each split into
+  `src/modules/{platform,identity-institutions,need-records,email-delivery,donor-records,privacy-requests}`
+  are implemented (F2a, F3, F4, F5, F7), each split into
   `domain/application/http/infrastructure`; `src/worker.ts` is the separate outbox worker
   (`npm run dev:worker`); `need-records/dto/` has the AJV 2020 validators. `supabase/` holds
   the local project: migrations, `seed.sql` and pgTAP tests. Planned modules are
