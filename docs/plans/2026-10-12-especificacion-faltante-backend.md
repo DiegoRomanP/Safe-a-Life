@@ -6,7 +6,7 @@
 | Harness | Claude Code (planificación; este documento no implementa código) |
 | Rama | `feat/backend-developing` (HEAD `cd8d2b3`) |
 | Plan padre | [`2026-10-12-plan-maestro-backend-ocho-capacidades.md`](2026-10-12-plan-maestro-backend-ocho-capacidades.md) |
-| Ejecución previa | [`2026-10-12-ejecucion-plan-maestro-f0-f1.md`](2026-10-12-ejecucion-plan-maestro-f0-f1.md) (U2–U7c) |
+| Ejecución previa | [`HISTORIAL.md`](HISTORIAL.md) §4 (U2–U7c) |
 | Estado | **Especificación propuesta.** Las decisiones de §2.1 ya están tomadas; las de §2.3 siguen pendientes de voto |
 
 ## Cómo usar este documento
@@ -343,7 +343,7 @@ desde el commit `cd8d2b3`, pero no está versionado. Va en un commit
 
 ### A11. Registrar la revisión y lanzar la de seguridad
 
-- Añadir a la bitácora de `docs/plans/2026-10-12-ejecucion-plan-maestro-f0-f1.md`:
+- Añadir a la bitácora de `docs/plans/HISTORIAL.md`:
   - la revisión equivale a `reviewer-back` para U2–U7c;
   - los hallazgos A1–A9 están resueltos;
   - la sesión de ejecución omitió los subagentes, aunque D-1 los exigía.

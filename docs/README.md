@@ -1,8 +1,8 @@
 # Índice de documentación
 
-Sincronización documental: **2026-10-20**, conforme a decisiones ya aprobadas y
-a la autorización «Sí, sincronizar». No ratifica operaciones nuevas ni acredita
-pruebas, despliegues o cierre del backend.
+Sincronización documental: **2026-10-20**, tras implementar F7 en el backend. No
+ratifica operaciones nuevas ni acredita despliegues, revisiones independientes
+(gates) o cierre del backend.
 
 Esta carpeta reúne la línea base funcional, la especificación en borrador, el
 contrato API de trabajo, las decisiones técnicas y las guías para desarrollar el
@@ -20,7 +20,8 @@ mocks; no sustituye los documentos que enlaza.
 | Consultar el sistema visual de la interfaz | [Diseño frontend](Frontend-Design.md) |
 | Entender la asignación y revisión entre agentes | [Flujo de trabajo de agentes](Agent-Workflow.md) |
 | Verificar una decisión de stack o de tooling local | [Decisiones de arquitectura](decisions/) |
-| Consultar el avance y evidencia de una tarea | [Planes y bitácoras](plans/) |
+| Consultar el avance y evidencia de una tarea | [Planes vigentes](plans/) y [historial consolidado](plans/HISTORIAL.md) |
+| Ver bloqueos y decisiones abiertas | [Pendientes](pending/2026-10-20-bloqueos-y-decisiones.md) |
 
 ## Mapa de `docs/`
 
@@ -35,7 +36,8 @@ docs/
 ├── Frontend-Handoff.md             # Setup, matriz de operaciones y trabajo frontend
 ├── openapi.json                    # Contrato OpenAPI 3.1 canónico de trabajo
 ├── decisions/                      # ADRs aceptados y sus límites
-└── plans/                          # Plan y bitácora por tarea/slice
+├── pending/                        # Bloqueos y decisiones abiertas
+└── plans/                          # Planes vigentes; HISTORIAL.md resume los cerrados
 ```
 
 La referencia de requisitos normalizada está en
@@ -51,7 +53,7 @@ está en `AGENTS.md`. El backlog y matriz funcional se conservan además en
    un borrador controlado y no reemplaza la línea base.
 4. `Api-Rules.md` y `openapi.json` definen una propuesta Design-First para que
    frontend, Prism, Bruno y el mock compartan modelos. El estado global sigue en
-   borrador, con ratificación por operación: 57 ratificadas y 16 sin ratificar.
+   borrador, con ratificación por operación: 66 ratificadas y 7 sin ratificar.
    Sus textos de estado aún requieren sincronización separada; no prevalecen
    sobre las decisiones posteriores aprobadas.
 5. `docs/decisions/ADR-002-design-first-mock-tooling.md` acota las herramientas
@@ -70,15 +72,15 @@ No deducir nuevas decisiones clínicas, legales o de producto desde el contrato.
 | Medida | Recuento y alcance |
 | --- | --- |
 | OpenAPI | 58 paths, 73 operaciones y 100 schemas |
-| Ratificación | 57 operaciones con `x-ratification.status = ratified-for-implementation` |
-| Backend HTTP | 47 registros método/ruta en siete routers de `backend/src/modules/**/http/*.router.ts`, coincidentes con operaciones ratificadas |
-| F6 | Diez operaciones ratificadas sin registro HTTP; el módulo `invitation-coordination` aún no existe |
-| F7/F8 | Nueve operaciones de privacidad y siete de reconocimientos/información legal sin ratificar ni módulos productivos |
+| Ratificación | 66 operaciones con `x-ratification.status = ratified-for-implementation` |
+| Backend HTTP | 56 registros método/ruta en ocho routers de `backend/src/modules/**/http/*.router.ts` (plataforma 2, F2a 21, F2b 5, F3 4, F4 1, F5 14, F7 9) |
+| F6 | Diez operaciones ratificadas sin registro HTTP; solo existe el dominio puro de `invitation-coordination` (`da425c0`) |
+| F8 | Siete operaciones de reconocimientos e información legal sin ratificar ni módulo |
+| F7 | Implementado sin borrado de cuentas de Auth (ADR-006, ver P-12 en pendientes) |
 
-Las 47 registradas se desglosan en plataforma 2, F2a 21, F2b 5, F3 4, F4 1 y
-F5 14; al añadir F6 10 se obtienen las 57 ratificadas. El webhook depende de
+56 registrados + 10 de F6 = 66 ratificadas. El webhook depende de
 configuración en la composición: contar su registro no prueba que esté activo.
-El recuento no mide cobertura de pruebas ni equivale a 47 flujos aceptados.
+El recuento no mide cobertura de pruebas ni equivale a 56 flujos aceptados.
 
 Para reproducir las cantidades, ejecutar desde la raíz, sin leer secretos:
 
@@ -96,11 +98,12 @@ print('registros HTTP:', sum(len(re.findall(r'\bapp\.(?:get|post|put|patch|delet
 PY
 ```
 
-Los planes de octubre conservan resultados históricos; esta sincronización no
-los presenta como pruebas actuales. El [plan de ejecución](plans/2026-10-20-ejecucion-de-pendientes-con-agentes.md)
-registra E3 **BLOCKED**, correcciones y gates pendientes antes de F6. Mantener
-F6 → F7 → F8 → F9; F7/F8 requieren ratificación y **F9 queda pendiente**, sin
-decidir frontend ni borde. No se anuncia backend completo ni uso con datos reales.
+Los planes conservan resultados históricos; no son pruebas actuales. Estado de
+F7 (2026-10-20): pgTAP 684, unitarias 766, integración 208 y Bruno backend en
+verde; `test:contract` no se completó (Prism se cuelga en este entorno) y no se
+ejecutó ningún gate independiente. F7 se hizo antes que F6. Quedan F6 (resto),
+F8 y F9 (frontend y borde sin decidir). No se anuncia backend completo ni uso
+con datos reales.
 
 ## Preparar el entorno local
 
@@ -154,7 +157,7 @@ Abrir `http://127.0.0.1:5173`. El comando inicia Vite y el mock Express en
 al reiniciar. El proxy de la web apunta únicamente a Express. Iniciar Prism no
 conecta automáticamente la web a `4010`.
 
-Este Express es el **mock**, no el backend de 47 registros del inventario
+Este Express es el **mock**, no el backend de 56 registros del inventario
 anterior. La [matriz histórica de entrega frontend](Frontend-Handoff.md#7-matriz-exacta-de-las-69-operaciones)
 documenta el corte de 69 operaciones y 25 registros del mock; no es un inventario
 actual del backend ni acredita sus 73 operaciones como flujos stateful. La

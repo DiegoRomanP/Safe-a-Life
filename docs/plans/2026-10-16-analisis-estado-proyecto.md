@@ -1,5 +1,12 @@
 # 2026-10-16 — Análisis del estado del proyecto y de lo que falta para que sea funcional
 
+> **Actualización 2026-10-20:** diagnóstico histórico, superado en parte. Desde
+> entonces: F2b–F5 implementados, F7 implementado sin borrado de cuentas Auth
+> ([plan](2026-10-20-privacy-requests.md)) y F6 con solo el dominio puro
+> ([plan](2026-10-20-invitation-coordination.md)). Pendiente: resto de F6, F8, F9
+> y los gates. Estado vigente en [pendientes](../pending/2026-10-20-bloqueos-y-decisiones.md)
+> y en [`README.md`](../README.md).
+
 | Campo | Valor |
 | --- | --- |
 | Fecha y hora | 2026-10-16, cerca de las 03:30 (UTC−05:00, Lima) |
