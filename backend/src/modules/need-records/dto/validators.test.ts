@@ -131,12 +131,11 @@ describe('parseCreateNeedInput', () => {
     expectDtoError(() => parseCreateNeedInput({ ...validInput(), [field]: value }), category);
   });
 
-  it.each(['component', 'requiredBloodType', 'targetConfirmations', 'siteId', 'urgency', 'expiresInHours'])
-    ('rejects missing required field %s', (field) => {
-      const input = validInput();
-      delete input[field];
-      expectDtoError(() => parseCreateNeedInput(input), 'shape');
-    });
+  it.each(['component', 'requiredBloodType', 'targetConfirmations', 'siteId', 'urgency', 'expiresInHours'])('rejects missing required field %s', (field) => {
+    const input = validInput();
+    delete input[field];
+    expectDtoError(() => parseCreateNeedInput(input), 'shape');
+  });
 
   it.each([
     'role', 'hospitalId', 'ownerId', 'status', 'confirmedIntentCount', 'patientId', 'lastDonationDate',

@@ -78,6 +78,7 @@ export async function withPrism(task, { signal = AbortSignal.timeout(totalMs), r
     if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
     if (!await waitForClose(closed, 2000)) {
       child.kill('SIGKILL');
+      // eslint-disable-next-line no-unsafe-finally -- un cierre fallido debe prevalecer sobre el resultado de la tarea
       if (!await waitForClose(closed, 2000)) throw new ContractError('CLEANUP_TIMEOUT');
     }
   }
