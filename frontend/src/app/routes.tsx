@@ -5,6 +5,7 @@ import { LoginPage } from '../features/auth/pages/LoginPage.js';
 import { RecoverAccessPage } from '../features/auth/pages/RecoverAccessPage.js';
 import { RegisterPage } from '../features/auth/pages/RegisterPage.js';
 import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage.js';
+import { VerifyIdentityPage } from '../features/auth/pages/VerifyIdentityPage.js';
 import { HomePage } from '../features/public/pages/HomePage.js';
 import { NotFoundPage } from '../features/system/pages/NotFoundPage.js';
 
@@ -21,5 +22,6 @@ export const routes: RouteObject[] = [
   { path: 'activar-cuenta', element: <ActivateAccountPage /> },
   { path: 'recuperar-acceso', element: <RecoverAccessPage /> },
   { path: 'restablecer-contrasena', element: <ResetPasswordPage /> },
+  { path: 'verificar-identidad', element: <VerifyIdentityPage /> },
   { path: '*', element: <NotFoundPage /> },
 ];
