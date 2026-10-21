@@ -24,6 +24,6 @@ describe('parseIdempotencyKey', () => {
   it('rechaza valores que no son cadenas simples', () => {
     expect(parseIdempotencyKey(undefined)).toBeUndefined();
     expect(parseIdempotencyKey(['a'.repeat(20), 'b'.repeat(20)])).toBeUndefined();
-    expect(parseIdempotencyKey(1234567890123456789)).toBeUndefined();
+    expect(parseIdempotencyKey(Number.MAX_SAFE_INTEGER)).toBeUndefined();
   });
 });

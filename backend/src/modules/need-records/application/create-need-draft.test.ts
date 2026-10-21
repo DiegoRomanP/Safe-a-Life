@@ -72,7 +72,7 @@ describe('precondiciones del principal', () => {
 
 describe('clave de idempotencia', () => {
   it.each([
-    ['ausente', NO_KEY], ['null', null], ['número', 12345678901234567], ['15 caracteres', 'a'.repeat(15)], ['256 caracteres', 'a'.repeat(256)],
+    ['ausente', NO_KEY], ['null', null], ['número', Number.MAX_SAFE_INTEGER], ['15 caracteres', 'a'.repeat(15)], ['256 caracteres', 'a'.repeat(256)],
   ])('%s es BAD_REQUEST sin gateway', async (_label, key) => {
     const { result, commands } = await run(BODY, CONTEXT, key);
 
