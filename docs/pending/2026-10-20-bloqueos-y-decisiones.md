@@ -133,8 +133,9 @@ Plan: [auditoría y cierre de pendientes](../plans/2026-10-20-auditoria-y-cierre
 
 ## P-08 — Salida, CI y topología pendientes
 
-- No se encontró `.github/`, benchmark backend ni configuración Playwright
-  contra backend; la suite actual usa el mock.
+- Existe `.github/workflows/security.yml` (gitleaks sobre el rango de commits y
+  `npm audit --omit=dev`, 2026-10-20); no hay CI de pruebas, ni benchmark backend
+  ni configuración Playwright contra backend; la suite actual usa el mock.
 - ADR-004 exige inyección de `X-Edge-Secret` desde el borde; ADR-004 también
   excluye Edge Functions. La capacidad exacta de rewrite/header y los proxies
   deben verificarse, no suponerse ni resolverse debilitando el guard.
@@ -210,6 +211,13 @@ typecheck/lint/build con exit 0; no ejecutó DB, integración, Bruno ni E2E y no
 levanta estos bloqueos.
 
 ### P-12 — F7 implementada sin el borrado de cuentas de Auth
+
+**Prioridad: 🔴 URGENTE** (clasificada en la auditoría de seguridad del
+historial, 2026-10-20). Mientras el borrado de Auth no esté resuelto, el derecho
+de eliminación no se puede cumplir de punta a punta: una eliminación aprobada
+responde 503 y el correo y la cuenta de Auth siguen almacenados. Las cuentas
+`reclamada_incompleta` y los usuarios inertes se acumulan sin purga. Debe
+resolverse antes de operar con datos reales de donantes.
 
 F7 se implementó en el backend por solicitud explícita (adelantada a F6; detalle y
 verificación en [`plans/2026-10-20-privacy-requests.md`](../plans/2026-10-20-privacy-requests.md)).

@@ -39,6 +39,10 @@
 
 Ver `docs/pending/2026-10-20-bloqueos-y-decisiones.md` (P-12).
 
+**Prioridad: 🔴 URGENTE.** Sin el borrado de Auth la eliminación de cuentas no se
+cumple de punta a punta (responde 503) y los datos personales siguen guardados.
+Resolver antes de operar con datos reales.
+
 1. **Borrado de la cuenta de Auth (eliminación V15).** `AuthAdmin` (ADR-006) solo permite 4 métodos y `deleteInertUser` no borra cuentas con rol. Sin adaptador, `executeApprovedCorrectionRequest` sobre una eliminación responde 503 **antes** de tocar nada. Ampliar ADR-006 requiere decisión y revisión de seguridad.
 2. **Borrado de cuentas `reclamada_incompleta` > 30 días y usuarios de Auth inertes > 24 h.** Mismo motivo; el job de purga lista las cuentas pero no las borra. Listar usuarios inertes exige además una DEFINER de `postgres` fuera de las cuatro fijadas.
 3. **Purga final (`final_demo_at` + 30 días).** Solo con autorización explícita; no hay script.
