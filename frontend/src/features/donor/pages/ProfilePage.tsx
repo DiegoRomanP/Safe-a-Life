@@ -75,7 +75,7 @@ export function ProfilePage() {
         Nombre, correo y grupo declarado requieren una solicitud de corrección.
       </Alert>
       <div aria-live="polite">
-        {saved && <SuccessNotice message="Cambios guardados" detail="Tu disponibilidad y ubicación quedaron actualizadas." />}
+        {saved && <SuccessNotice announce={false} message="Cambios guardados" detail="Tu disponibilidad y ubicación quedaron actualizadas." />}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -104,7 +104,10 @@ export function ProfilePage() {
                       ref={latitudeRef}
                       inputMode="decimal"
                       value={latitude}
-                      onChange={(event) => setLatitude(event.target.value)}
+                      onChange={(event) => {
+                        setLatitude(event.target.value);
+                        setSaved(false);
+                      }}
                     />
                   )}
                 </Field>
@@ -115,7 +118,10 @@ export function ProfilePage() {
                       ref={longitudeRef}
                       inputMode="decimal"
                       value={longitude}
-                      onChange={(event) => setLongitude(event.target.value)}
+                      onChange={(event) => {
+                        setLongitude(event.target.value);
+                        setSaved(false);
+                      }}
                     />
                   )}
                 </Field>
@@ -132,7 +138,10 @@ export function ProfilePage() {
                 aria-checked={isAvailable}
                 aria-labelledby="disponibilidad-etiqueta"
                 aria-describedby="disponibilidad-ayuda"
-                onClick={() => setIsAvailable((value) => !value)}
+                onClick={() => {
+                  setIsAvailable((value) => !value);
+                  setSaved(false);
+                }}
                 className={cx(
                   'flex min-h-12 w-full max-w-[220px] items-center gap-3 rounded-full border px-3 font-semibold',
                   isAvailable ? 'border-success bg-success-soft text-success' : 'border-muted bg-neutral-soft text-muted',
@@ -158,7 +167,7 @@ export function ProfilePage() {
                 <h3 className="font-semibold text-ink">{item.title}</h3>
                 <p className="text-sm text-muted">{item.detail}</p>
                 <LinkButton to="/donante/solicitudes" variant={item.variant}>
-                  Crear solicitud<span className="sr-only">: {item.title.toLowerCase()}</span>
+                  Ver mis solicitudes<span className="sr-only">: {item.title.toLowerCase()}</span>
                 </LinkButton>
               </li>
             ))}

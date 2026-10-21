@@ -11,7 +11,7 @@ export const urgencyLabel: Record<DonorInvitation['urgency'], { label: string; t
 
 export const responseLabel: Record<InvitationResponse, { label: string; tone: Tone }> = {
   sin_respuesta: { label: 'Sin respuesta', tone: 'neutral' },
-  confirmada: { label: 'Confirmada', tone: 'success' },
+  confirmada: { label: 'Intención confirmada', tone: 'success' },
   rechazada: { label: 'No asistiré', tone: 'info' },
 };
 

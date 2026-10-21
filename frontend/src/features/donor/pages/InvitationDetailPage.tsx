@@ -41,7 +41,10 @@ export function InvitationDetailPage() {
   const current = responseLabel[invitation.response];
   const canRespond = invitation.validity === 'activa';
 
+  // La respuesta vigente se marca con aria-disabled y no con disabled: un botón
+  // enfocado que se deshabilita suelta el foco al body.
   function answer(response: 'confirmada' | 'rechazada') {
+    if (invitation!.response === response) return;
     respond(invitation!.invitationId, response);
     setResult(response);
   }
@@ -77,6 +80,7 @@ export function InvitationDetailPage() {
         <div aria-live="polite">
           {result && (
             <SuccessNotice
+              announce={false}
               message={result === 'confirmada' ? 'Confirmaste tu intención de asistir.' : 'Indicaste que no podrás asistir.'}
               detail="Puedes cambiar tu respuesta mientras la invitación siga activa."
             />
@@ -89,10 +93,10 @@ export function InvitationDetailPage() {
               Abrir esta invitación no registra una respuesta. Confirmar expresa únicamente intención de asistir.
             </Alert>
             <div className="flex flex-wrap gap-4">
-              <Button onClick={() => answer('confirmada')} disabled={invitation.response === 'confirmada'}>
+              <Button onClick={() => answer('confirmada')} aria-disabled={invitation.response === 'confirmada'}>
                 Confirmar intención de asistir
               </Button>
-              <Button variant="ghost" onClick={() => answer('rechazada')} disabled={invitation.response === 'rechazada'}>
+              <Button variant="ghost" onClick={() => answer('rechazada')} aria-disabled={invitation.response === 'rechazada'}>
                 No podré asistir
               </Button>
             </div>
