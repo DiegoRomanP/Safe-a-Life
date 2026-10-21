@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent } from 'react';
+import { flushSync } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { Button } from '../../../components/ui/Button.js';
 import { Field } from '../../../components/ui/Field.js';
@@ -34,7 +35,9 @@ export function LoginForm({ onSubmit, disabled = false }: LoginFormProps) {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const found = validate({ email, password });
-    setErrors(found);
+    // flushSync pinta el error y aria-describedby antes de mover el foco, para
+    // que el lector de pantalla lea el mensaje junto con el campo.
+    flushSync(() => setErrors(found));
     if (found.email) return emailRef.current?.focus();
     if (found.password) return passwordRef.current?.focus();
     onSubmit({ email: email.trim(), password });

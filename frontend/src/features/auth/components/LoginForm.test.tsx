@@ -37,6 +37,17 @@ describe('LoginForm', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
+  it('al recibir el foco, el campo ya tiene el error enlazado', () => {
+    const { view, email, submit } = renderForm();
+    let atFocus: { describedby: string | null; message: string | null | undefined } | undefined;
+    email?.addEventListener('focus', () => {
+      const describedby = email.getAttribute('aria-describedby');
+      atFocus = { describedby, message: describedby ? view.querySelector(`#${CSS.escape(describedby)}`)?.textContent : null };
+    });
+    click(submit);
+    expect(atFocus).toEqual({ describedby: expect.any(String), message: 'Ingresa tu correo.' });
+  });
+
   it('correo con forma inválida: lo indica sin enviar', () => {
     const { view, email, password, submit, onSubmit } = renderForm();
     type(email, 'sin-arroba');
