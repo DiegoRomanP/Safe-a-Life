@@ -6,7 +6,7 @@ import { useFragmentToken } from './useFragmentToken.js';
 
 setupRender();
 
-const TOKEN = 'tok_sintetico_0123456789abcdefghijklmnop';
+const TOKEN = 'tok_sintetico_0123456789abcdefghijklmnopqrstu';
 
 function Probe() {
   const { token, malformed } = useFragmentToken();

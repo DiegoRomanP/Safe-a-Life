@@ -5,7 +5,7 @@ import { renderRoute } from '../../../test/renderRoute.js';
 
 setupRender();
 
-const TOKEN = 'tok_sintetico_0123456789abcdefghijklmnop';
+const TOKEN = 'tok_sintetico_0123456789abcdefghijklmnopqrstu';
 
 describe('AUTH-03 Reclamar cuenta asistida', () => {
   it('sin token muestra «Enlace no disponible»', () => {

@@ -5,7 +5,7 @@ import { renderRoute } from '../../../test/renderRoute.js';
 
 setupRender();
 
-const TOKEN = 'tok_sintetico_0123456789abcdefghijklmnop';
+const TOKEN = 'tok_sintetico_0123456789abcdefghijklmnopqrstu';
 
 describe('AUTH-04 Recuperar acceso', () => {
   it('valida el correo antes de enviar', () => {
@@ -44,6 +44,7 @@ describe('AUTH-04 Completar recuperación', () => {
     click(view.querySelector('input[value="expired"]'));
     expect(view.textContent).toContain('Solicita un nuevo enlace de recuperación para continuar.');
     expect(view.textContent).not.toContain('hospital');
+    expect(view.textContent).toContain('Vencido');
   });
 
   it('con contraseña válida avisa que el cambio aún no existe', () => {
