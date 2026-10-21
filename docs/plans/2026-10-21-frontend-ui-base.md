@@ -53,9 +53,13 @@ layouts, router, cliente HTTP, vistas y dependencias nuevas.
   `danger-soft`). Los íconos son decorativos (`aria-hidden`); el tono se dice
   con texto.
 - **Card:** fondo `surface`, borde `line` y radio 12.
-- **Estados** («Galería de estados», página 04): carga con `aria-busy` y sin
-  ocultar la estructura; vacío; éxito con `role="status"`; conflicto
-  concurrente.
+- **Estados** («Galería de estados», página 04): base común `StatePanel` con
+  franja de acento, ícono en círculo, título, mensaje, detalle y acción.
+  - Carga: `role="status"`. La página mantiene visible la estructura y pone
+    `aria-busy` en la región que se actualiza.
+  - Vacío: sin rol.
+  - Éxito: `role="status"`.
+  - Conflicto concurrente: `role="alert"` y botón «Revisar cambios».
 
 ## 4. Criterios de aceptación
 
