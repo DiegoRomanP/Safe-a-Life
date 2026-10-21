@@ -4,10 +4,18 @@ import { cx } from '../ui/cx.js';
 export type BrandProps = { tone?: 'light' | 'dark'; className?: string };
 
 // Marca de Penpot: cuadro granate de radio 10 con «+» y el nombre. Enlaza al
-// inicio. En fondos petróleo (tone="dark") el nombre va en blanco.
+// inicio. En fondos petróleo (tone="dark") el nombre y el foco van en blanco,
+// porque el azul de foco no contrasta con el petróleo (Frontend-Design.md).
 export function Brand({ tone = 'light', className }: BrandProps) {
   return (
-    <Link to="/" className={cx('inline-flex items-center gap-3 rounded-lg', className)}>
+    <Link
+      to="/"
+      className={cx(
+        'inline-flex items-center gap-3 rounded-lg',
+        tone === 'dark' && 'focus-visible:outline-white',
+        className,
+      )}
+    >
       <span
         aria-hidden="true"
         className="flex size-10 items-center justify-center rounded-[10px] bg-brand text-2xl leading-none font-bold text-white"
