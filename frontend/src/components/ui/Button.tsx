@@ -16,6 +16,16 @@ const variants: Record<ButtonVariant, string> = {
   danger: 'border-danger bg-surface text-danger hover:bg-danger-soft',
 };
 
+export function buttonClass(variant: ButtonVariant = 'primary', fullWidth = false, className?: string) {
+  return cx(
+    'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-4 text-base font-semibold transition-colors',
+    'disabled:cursor-not-allowed disabled:opacity-60',
+    variants[variant],
+    fullWidth && 'w-full',
+    className,
+  );
+}
+
 export function Button({
   variant = 'primary',
   fullWidth = false,
@@ -26,13 +36,7 @@ export function Button({
   return (
     <button
       type={type}
-      className={cx(
-        'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-4 text-base font-semibold transition-colors',
-        'disabled:cursor-not-allowed disabled:opacity-60',
-        variants[variant],
-        fullWidth && 'w-full',
-        className,
-      )}
+      className={buttonClass(variant, fullWidth, className)}
       {...props}
     />
   );
