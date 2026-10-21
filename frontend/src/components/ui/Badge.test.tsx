@@ -12,6 +12,7 @@ describe('Badge', () => {
     ['warning', 'Pendiente', 'bg-warning-soft'],
     ['danger', 'Cancelada', 'bg-danger-soft'],
     ['neutral', 'Borrador', 'bg-neutral-soft'],
+    ['brand', 'Prototipo académico', 'bg-brand-soft'],
   ] as const)('tono %s muestra el texto «%s»', (tone, label, expected) => {
     const badge = render(<Badge tone={tone}>{label}</Badge>).querySelector('span');
     expect(badge?.textContent).toBe(label);
