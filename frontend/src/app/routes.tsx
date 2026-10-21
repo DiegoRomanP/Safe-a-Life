@@ -1,5 +1,6 @@
 import type { RouteObject } from 'react-router-dom';
 import { PublicLayout } from '../components/layout/PublicLayout.js';
+import { ActivateAccountPage } from '../features/auth/pages/ActivateAccountPage.js';
 import { LoginPage } from '../features/auth/pages/LoginPage.js';
 import { RegisterPage } from '../features/auth/pages/RegisterPage.js';
 import { HomePage } from '../features/public/pages/HomePage.js';
@@ -15,5 +16,6 @@ export const routes: RouteObject[] = [
   // Las vistas de acceso usan AuthShell (dos columnas), sin la cabecera pública.
   { path: 'ingresar', element: <LoginPage /> },
   { path: 'registro', element: <RegisterPage /> },
+  { path: 'activar-cuenta', element: <ActivateAccountPage /> },
   { path: '*', element: <NotFoundPage /> },
 ];
