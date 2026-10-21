@@ -9,6 +9,7 @@ import { VerifyIdentityPage } from '../features/auth/pages/VerifyIdentityPage.js
 import { DonorLayout } from '../features/donor/DonorLayout.js';
 import { InvitationDetailPage } from '../features/donor/pages/InvitationDetailPage.js';
 import { InvitationsPage } from '../features/donor/pages/InvitationsPage.js';
+import { ProfilePage } from '../features/donor/pages/ProfilePage.js';
 import { HomePage } from '../features/public/pages/HomePage.js';
 import { NotFoundPage } from '../features/system/pages/NotFoundPage.js';
 
@@ -34,6 +35,7 @@ export const routes: RouteObject[] = [
       { index: true, element: <Navigate to="invitaciones" replace /> },
       { path: 'invitaciones', element: <InvitationsPage /> },
       { path: 'invitaciones/:invitationId', element: <InvitationDetailPage /> },
+      { path: 'perfil', element: <ProfilePage /> },
     ],
   },
   { path: '*', element: <NotFoundPage /> },
