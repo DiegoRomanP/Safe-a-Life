@@ -1,5 +1,6 @@
 import type { RouteObject } from 'react-router-dom';
 import { PublicLayout } from '../components/layout/PublicLayout.js';
+import { LoginPage } from '../features/auth/pages/LoginPage.js';
 import { HomePage } from '../features/public/pages/HomePage.js';
 import { NotFoundPage } from '../features/system/pages/NotFoundPage.js';
 
@@ -10,5 +11,7 @@ export const routes: RouteObject[] = [
     element: <PublicLayout />,
     children: [{ index: true, element: <HomePage /> }],
   },
+  // AUTH-01 tiene su propia composición en dos columnas, sin la cabecera pública.
+  { path: 'ingresar', element: <LoginPage /> },
   { path: '*', element: <NotFoundPage /> },
 ];
