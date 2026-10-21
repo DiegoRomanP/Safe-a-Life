@@ -7,9 +7,11 @@ import { RegisterPage } from '../features/auth/pages/RegisterPage.js';
 import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage.js';
 import { VerifyIdentityPage } from '../features/auth/pages/VerifyIdentityPage.js';
 import { DonorLayout } from '../features/donor/DonorLayout.js';
+import { HistoryPage } from '../features/donor/pages/HistoryPage.js';
 import { InvitationDetailPage } from '../features/donor/pages/InvitationDetailPage.js';
 import { InvitationsPage } from '../features/donor/pages/InvitationsPage.js';
 import { ProfilePage } from '../features/donor/pages/ProfilePage.js';
+import { RequestsPage } from '../features/donor/pages/RequestsPage.js';
 import { HomePage } from '../features/public/pages/HomePage.js';
 import { NotFoundPage } from '../features/system/pages/NotFoundPage.js';
 
@@ -36,6 +38,8 @@ export const routes: RouteObject[] = [
       { path: 'invitaciones', element: <InvitationsPage /> },
       { path: 'invitaciones/:invitationId', element: <InvitationDetailPage /> },
       { path: 'perfil', element: <ProfilePage /> },
+      { path: 'historial', element: <HistoryPage /> },
+      { path: 'solicitudes', element: <RequestsPage /> },
     ],
   },
   { path: '*', element: <NotFoundPage /> },
