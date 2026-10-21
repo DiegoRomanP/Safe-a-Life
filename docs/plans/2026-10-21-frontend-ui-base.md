@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | En curso |
+| Estado | Implementado; gate BLOCKED por B2 (pendiente por decisión de la persona usuaria) |
 | Fecha | 2026-10-21 |
 | Rama | `feat/frontend-ui-base` (desde `chore/frontend-estructura`; se rebasa sobre `main` cuando ese PR se fusione) |
 | Plan padre | [`2026-10-20-frontend-estructura-por-componentes.md`](2026-10-20-frontend-estructura-por-componentes.md), slice 3 adelantado |
@@ -70,6 +70,34 @@ layouts, router, cliente HTTP, vistas y dependencias nuevas.
 - Pasan `npm run lint --workspace @save-a-life/frontend` (ESLint con
   `jsx-a11y` + typecheck) y `npm run test --workspace @save-a-life/frontend`.
 
-## 5. Bitácora
+## 5. Revisión
 
-- 2026-10-21: plan aprobado por la persona usuaria.
+`reviewer-front` (subagente independiente, solo lectura) dio **BLOCKED** el
+2026-10-21:
+
+- **B1 (resuelto en el commit «fix(frontend): Select con placeholder…»):**
+  `Select` con placeholder y sin valor inicial preseleccionaba la primera opción
+  real.
+- **B2 (pendiente por decisión de la persona usuaria):** el borde de `Input` y
+  `Select` usa `border-line` (#D9E0E5, 1,33:1 sobre blanco). No cumple el
+  contraste de 3:1 para componentes (WCAG 2.x AA 1.4.11). Propuesta: token
+  `line-strong` #7E8C99 (3,4:1) solo para controles de formulario. Se corrige
+  en un cambio posterior; hasta entonces el gate sigue **BLOCKED**.
+
+Observaciones no bloqueantes para slices posteriores:
+
+- Las regiones `role="status"` que se montan ya con contenido pueden no
+  anunciarse; las páginas deben usar una región `aria-live` persistente.
+- Los errores de `Field` no se anuncian solos; la vista debe mover el foco al
+  campo o a un resumen de errores.
+- `Card` puede enlazar su `<section>` al título con `aria-labelledby`.
+- Falta la variante de foco blanca para el rail oscuro (slice de layout).
+
+No verificado: revisión visual a 320/360/390 px, lectores de pantalla reales y
+comparación visual contra Penpot.
+
+## 6. Bitácora
+
+- 2026-10-21: plan aprobado por la persona usuaria. Componentes implementados
+  (42 pruebas, lint y build en verde). Gate BLOCKED por B2, que la persona
+  usuaria decidió dejar para después.
