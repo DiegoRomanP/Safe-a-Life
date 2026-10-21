@@ -134,7 +134,7 @@ npm run typecheck
 npm run typecheck --workspace backend
 npm run build --workspace backend
 npm run lint --workspace backend
-npm run lint                     # Actualmente equivale a tsc --noEmit
+npm run lint                     # ESLint 9 (eslint.config.mjs) + tsc --noEmit en cada workspace
 npm run build
 npm run openapi:lint
 npm run audit:production

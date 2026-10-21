@@ -55,7 +55,8 @@ para `frontend/` (cambio en `scripts/generate-api-contract.mjs`), E2E, cambios e
   añadirán con la slice que los use.
 - **Lint:** `lint` = `tsc --noEmit`, igual que los demás workspaces. ESLint se
   retira porque no forma parte del tooling fijado; un linter real requiere una
-  decisión aparte.
+  decisión aparte. **Resuelto el 2026-10-20** en
+  [`2026-10-20-eslint-workspaces.md`](2026-10-20-eslint-workspaces.md).
 - **Servidor de desarrollo:** `127.0.0.1:5174` (5173 es de `apps/web`), con
   `strictPort`. Proxy de `/api` y `/health` a `http://127.0.0.1:3000` (backend
   real), para que navegador y API compartan origen como en ADR-004. Para

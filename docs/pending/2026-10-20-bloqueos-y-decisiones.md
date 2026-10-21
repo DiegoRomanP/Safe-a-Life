@@ -133,8 +133,8 @@ Plan: [auditoría y cierre de pendientes](../plans/2026-10-20-auditoria-y-cierre
 
 ## P-08 — Salida, CI y topología pendientes
 
-- Existe `.github/workflows/security.yml` (gitleaks sobre el rango de commits y
-  `npm audit --omit=dev`, 2026-10-20); no hay CI de pruebas, ni benchmark backend
+- Existe `.github/workflows/security.yml` (gitleaks sobre el rango de commits,
+  `npm audit --omit=dev` y `npm run lint` con ESLint, 2026-10-20); no hay CI de pruebas, ni benchmark backend
   ni configuración Playwright contra backend; la suite actual usa el mock.
 - ADR-004 exige inyección de `X-Edge-Secret` desde el borde; ADR-004 también
   excluye Edge Functions. La capacidad exacta de rewrite/header y los proxies

@@ -42,7 +42,8 @@ npm run test:backend:db            # pgTAP (needs `supabase start --workdir back
 npm run test:backend:integration   # vitest against local Supabase (resets + seeds the DB)
 npm run test:bruno:backend         # Bruno CLI against the REAL backend (bruno/backend/**)
 npm run test:e2e -- --trace=off    # Playwright; stop `npm run dev` first
-npm run typecheck                  # also `npm run lint` (= tsc --noEmit)
+npm run typecheck                  # tsc --noEmit in every workspace
+npm run lint                       # ESLint 9 (eslint.config.mjs) + typecheck; CI runs it
 npm run build
 npm run openapi:lint
 npm run openapi:types              # regenerate types/snapshot from docs/openapi.json
