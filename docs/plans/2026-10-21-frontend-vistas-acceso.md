@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | En curso |
+| Estado | Implementado; gate PASS de reviewer-front |
 | Fecha | 2026-10-21 |
 | Rama | `feat/frontend-vistas-acceso` (desde `main` en `503bea7`) |
 | Plan padre | [`2026-10-20-frontend-estructura-por-componentes.md`](2026-10-20-frontend-estructura-por-componentes.md) |
@@ -63,6 +63,37 @@ Excluido:
 - Sin overflow a 320 px. Composición de Penpot a 1440 px.
 - Pasan `npm run lint`, `npm run test` y `npm run build`.
 
-## 4. Bitácora
+## 4. Revisión
+
+`reviewer-front` (subagente independiente, solo lectura) dio **PASS** en la
+primera ronda sobre los commits 907814f a 1711cbf. Revisó el manejo del token,
+la neutralidad ante enumeración, `autocomplete`, foco, encabezados, el
+`DevStatusPicker` (confirmó con un build fuera del repo que no llega a
+producción), el copy y el contrato.
+
+Después del PASS se aplicaron dos de sus observaciones en el commit
+«fix(frontend): mínimo de 43 caracteres del token…», que no tuvo revisión
+aparte:
+
+- El mínimo del token sube de 20 a 43 caracteres, como en el contrato.
+- Las etiquetas «Usado» y «Vencido» de recuperación pasan a concordar con
+  «enlace».
+
+Observaciones pendientes para el slice del cliente HTTP:
+
+- AUTH-05 dice «6 dígitos» aunque el contrato acepta de 6 a 8, y `maxLength`
+  corta un código de 8 dígitos pegado con un espacio.
+- Al recargar sin el fragmento, la vista muestra «Enlace no disponible»;
+  conviene explicar que hay que reabrir el enlace del correo.
+- `malformed` de `useFragmentToken` todavía no se usa.
+- Falta una prueba automática de que el selector no llega al build.
+
+Verificación del autor a 1440 px: `/registro`, `/activar-cuenta` (token
+borrado de la dirección y estado vencido), `/recuperar-acceso` y
+`/verificar-identidad`. No verificado: lector de pantalla real y E2E.
+
+## 5. Bitácora
 
 - 2026-10-21: plan aprobado por la persona usuaria.
+- 2026-10-21: AUTH-02 a AUTH-05 implementadas, con 88 pruebas, lint y build en
+  verde. Gate PASS.
