@@ -2,9 +2,9 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | En curso |
+| Estado | Implementado; gate PASS de reviewer-front (segunda ronda) |
 | Fecha | 2026-10-21 |
-| Rama | `feat/frontend-vistas-publicas` (desde `feat/frontend-ui-base`; se rebasa sobre `main` cuando ese PR se fusione) |
+| Rama | `feat/frontend-vistas-publicas` (desde `main` en `af7df69`, tras fusionarse `feat/frontend-ui-base` en el PR #8) |
 | Plan padre | [`2026-10-20-frontend-estructura-por-componentes.md`](2026-10-20-frontend-estructura-por-componentes.md) |
 | Decisiones | ADR-001, ADR-002 (pines), [`Frontend-Design.md`](../Frontend-Design.md), versión «+» de Penpot, D-4 |
 | Gate | `reviewer-front` independiente del autor y revisión visual a 320 y 1440 px |
@@ -48,6 +48,36 @@ y la corrección de B2 del slice anterior.
 - Sin overflow horizontal a 320 px. Composición de Penpot a 1440 px.
 - Pasan `npm run lint` y `npm run test` del workspace y `npm run build`.
 
-## 4. Bitácora
+## 4. Revisión
+
+`reviewer-front` (subagente independiente, solo lectura):
+
+1. **Primera ronda: BLOCKED.**
+   - **B1:** el foco azul sobre el aside petróleo de AUTH-01 daba 1,54:1.
+   - **B2':** el error de `LoginForm` no estaba en el DOM cuando el campo
+     recibía el foco.
+2. **Corrección `73e0655`.** `Brand` en tono oscuro usa foco blanco (9,11:1) y
+   `LoginForm` aplica los errores con `flushSync` antes del foco. Las dos
+   correcciones tienen pruebas.
+3. **Segunda ronda: PASS** sobre los 6 commits del slice. Cubre semántica,
+   teclado y foco, contraste, privacidad y copy.
+
+Observaciones no bloqueantes:
+
+- Las rutas aún inexistentes (`/registro`, `/alta-asistida`,
+  `/recuperar-acceso`) caen en SYS-01, cuyo texto menciona «tu cuenta».
+- El enlace «Cómo funciona» no coincide con el título «Así funciona».
+- La región aria-live de AUTH-01 solo anuncia el primer envío.
+- En AUTH-01, `Brand` va dentro del `aside` y no de un `header`.
+
+Verificación visual del autor en navegador: composición a 1440 px, sin
+overflow a 320 px y foco blanco sobre petróleo. No verificado: lector de
+pantalla real, E2E y axe. B2 del slice anterior (borde de los campos) sigue
+pendiente por decisión de la persona usuaria.
+
+## 5. Bitácora
 
 - 2026-10-21: plan aprobado por la persona usuaria.
+- 2026-10-21: PUB-01, AUTH-01 y SYS-01 implementadas, con 60 pruebas, lint y
+  build en verde. Gate PASS en la segunda ronda. La persona usuaria prioriza
+  escritorio; el diseño móvil específico queda para después.
