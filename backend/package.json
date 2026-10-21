@@ -10,7 +10,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc -p tsconfig.build.json",
-    "lint": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint . && tsc --noEmit -p tsconfig.json",
     "worker": "node dist/worker.js",
     "dev:worker": "tsx watch --env-file-if-exists=.env src/worker.ts"
   },
