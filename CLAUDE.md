@@ -32,7 +32,8 @@ SCARF_ANALYTICS=false npm ci       # respects allowScripts policy (ADR-002)
 npm run dev                        # Vite web :5173 + Express mock :4011 (not the backend)
 npm run mock:prism                 # static contract mock on :4010, separate
 
-npm test                           # vitest in all workspaces (mock-api, web, backend)
+npm run dev:frontend               # real frontend on :5174, proxies /api and /health to the backend :3000
+npm test                           # vitest in all workspaces (mock-api, web, backend, frontend)
 npm run test:backend:dto           # backend DTO validators only
 npm run test:api                   # mock-api Supertest integration
 npm run test:contract              # Prism + Ajv2020 contract runner
@@ -66,7 +67,8 @@ If Chromium is missing, run `npx playwright install chromium`.
 
 ## Architecture
 
-The npm workspace has three members: `apps/web`, `apps/mock-api` and `backend`.
+The npm workspace has four members: `apps/web`, `apps/mock-api`, `backend` and
+`frontend`.
 
 - **Contract-first.** `docs/openapi.json` (OpenAPI 3.1) is the single canonical
   contract. `scripts/generate-api-contract.mjs` derives six generated files from
@@ -104,10 +106,12 @@ The npm workspace has three members: `apps/web`, `apps/mock-api` and `backend`.
   `docs/plans/2026-10-12-api-backend-completo-incremental.md`; the execution
   spec is `docs/plans/2026-10-12-especificacion-faltante-backend.md`.
 - **Monolito modular, two top-level folders.** The production frontend goes in
-  `frontend/` (not built yet; today it holds only a Vite template that is not a
-  workspace, so do not run it or build on that template's logic) and the
-  production backend goes in `backend/`. Do not delete `frontend/`. `apps/web`
-  is the demo web against the mock until the real frontend exists. The old
+  `frontend/` and the production backend goes in `backend/`. `frontend/` is the
+  `@save-a-life/frontend` workspace (TypeScript, React 18, Vite, Tailwind 4) with
+  only a base and no views, HTTP client or session yet; its plan is
+  `docs/plans/2026-10-19-frontend-typescript-base.md`. Do not delete `frontend/`.
+  `apps/web` is the demo web
+  against the mock until the real frontend exists. The old
   `backend/index.js`, `backend/config/` and `database/esquema.sql` were already
   removed.
 - **Persistence direction (ADR-003, accepted).** Use PostgreSQL functions called

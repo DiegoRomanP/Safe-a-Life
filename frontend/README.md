@@ -1,16 +1,32 @@
-# React + Vite
+# Frontend de Save a Life
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend real del prototipo: TypeScript, React 18, Vite y Tailwind 4
+([ADR-001](../docs/decisions/ADR-001-stack-del-prototipo.md)). Es un workspace
+del monorepo npm; se instala y se prueba desde la raíz.
 
-Currently, two official plugins are available:
+`apps/web` sigue siendo la web de demostración contra el mock. Este paquete
+todavía no tiene vistas, cliente HTTP ni sesión.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Comandos
 
-## React Compiler
+Desde la raíz del repositorio:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm run dev:frontend
+npm run test --workspace @save-a-life/frontend
+npm run typecheck --workspace @save-a-life/frontend
+npm run build --workspace @save-a-life/frontend
+```
 
-## Expanding the ESLint configuration
+El servidor de desarrollo usa `http://127.0.0.1:5174` y redirige `/api` y
+`/health` al backend en `http://127.0.0.1:3000` (`npm run dev:backend`), para
+que navegador y API compartan origen ([ADR-004](../docs/decisions/ADR-004-sesion-csrf-cors-topologia.md)).
+Para mutaciones, `ALLOWED_ORIGINS` de `backend/.env` debe incluir
+`http://127.0.0.1:5174`.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Reglas
+
+- Sin `localStorage` ni `sessionStorage` para sesión, tokens o datos personales.
+- Tokens visuales en `src/styles.css`, tomados de
+  [Frontend-Design](../docs/Frontend-Design.md).
+- Dependencias nuevas solo con revisión (ADR-002).

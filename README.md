@@ -65,6 +65,10 @@ Java/Spring Boot fue evaluado y descartado para esta fase.
   mock; `npm run openapi:api:check` comprueba que estén sincronizados.
 - `apps/web` y `apps/mock-api` siguen siendo workspaces separados de tooling.
   `npm run dev` inicia Vite y el mock; no inicia el backend.
+- `frontend/` es el workspace del frontend real (`@save-a-life/frontend`:
+  TypeScript, React 18, Vite y Tailwind). Por ahora solo tiene la base, sin
+  vistas. `npm run dev:frontend` lo sirve en `127.0.0.1:5174` con proxy de `/api`
+  y `/health` al backend en `127.0.0.1:3000`. Ver [`frontend/README.md`](frontend/README.md).
 - `backend/src/server.ts` es el punto de entrada del backend: valida el entorno
   (`backend/.env.example` lista los nombres) y compone `createApp` mediante
   `backend/src/composition.ts`. Hoy expone salud (`/health/live`, `/health/ready`)
