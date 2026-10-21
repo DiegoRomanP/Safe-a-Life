@@ -9,7 +9,7 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc -p tsconfig.build.json",
-    "lint": "tsc --noEmit -p tsconfig.json"
+    "lint": "eslint . && tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "cookie-parser": "1.4.7",
