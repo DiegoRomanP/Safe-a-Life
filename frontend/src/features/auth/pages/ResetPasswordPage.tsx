@@ -16,10 +16,16 @@ import {
 import { useFragmentToken } from '../useFragmentToken.js';
 import { newPasswordError, PASSWORD_HINT } from '../validation.js';
 
-// Para recuperación, el enlace vencido se renueva pidiendo otro, no al hospital.
+// Para recuperación, el enlace vencido se renueva pidiendo otro, no al hospital,
+// y las etiquetas concuerdan con «enlace».
 const resetCopy: TokenStatusCopy = {
   ...defaultTokenStatusCopy,
-  expired: { ...defaultTokenStatusCopy.expired, detail: 'Solicita un nuevo enlace de recuperación para continuar.' },
+  used: { ...defaultTokenStatusCopy.used, badge: 'Usado' },
+  expired: {
+    ...defaultTokenStatusCopy.expired,
+    badge: 'Vencido',
+    detail: 'Solicita un nuevo enlace de recuperación para continuar.',
+  },
 };
 
 // AUTH-04 Completar recuperación (`/restablecer-contrasena#token`). Sin backend
