@@ -17,6 +17,13 @@
   --color-warning: #854d0e;
   --color-danger: #b91c1c;
   --color-focus: #0369a1;
+  /* Fondos suaves de estados, badges y alertas (Penpot, 00 - Fundamentos). */
+  --color-soft-blue: #eaf3f6;
+  --color-success-soft: #f0fdf4;
+  --color-warning-soft: #fffbeb;
+  --color-danger-soft: #fef2f2;
+  --color-neutral-soft: #eef2f4;
+  --color-brand-soft: #fbecef;
 }
 
 @layer base {
