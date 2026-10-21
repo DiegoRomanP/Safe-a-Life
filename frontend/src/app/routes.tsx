@@ -2,7 +2,9 @@ import type { RouteObject } from 'react-router-dom';
 import { PublicLayout } from '../components/layout/PublicLayout.js';
 import { ActivateAccountPage } from '../features/auth/pages/ActivateAccountPage.js';
 import { LoginPage } from '../features/auth/pages/LoginPage.js';
+import { RecoverAccessPage } from '../features/auth/pages/RecoverAccessPage.js';
 import { RegisterPage } from '../features/auth/pages/RegisterPage.js';
+import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage.js';
 import { HomePage } from '../features/public/pages/HomePage.js';
 import { NotFoundPage } from '../features/system/pages/NotFoundPage.js';
 
@@ -17,5 +19,7 @@ export const routes: RouteObject[] = [
   { path: 'ingresar', element: <LoginPage /> },
   { path: 'registro', element: <RegisterPage /> },
   { path: 'activar-cuenta', element: <ActivateAccountPage /> },
+  { path: 'recuperar-acceso', element: <RecoverAccessPage /> },
+  { path: 'restablecer-contrasena', element: <ResetPasswordPage /> },
   { path: '*', element: <NotFoundPage /> },
 ];
