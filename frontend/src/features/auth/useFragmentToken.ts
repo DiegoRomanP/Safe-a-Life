@@ -5,7 +5,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 // servidor ni al Referer. Al montar, el token se guarda solo en memoria y se
 // borra de la dirección para que no quede en el historial ni se comparta por
 // error (RNF-SEC-13). Nunca se registra ni se muestra.
-const TOKEN_SHAPE = /^[A-Za-z0-9_-]{20,256}$/;
+// Mismo mínimo que ActionToken y RecoveryToken en docs/openapi.json.
+const TOKEN_SHAPE = /^[A-Za-z0-9_-]{43,256}$/;
 
 export type FragmentToken = { token: string | null; malformed: boolean };
 
