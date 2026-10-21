@@ -57,7 +57,7 @@ describe('DON-02 Mi perfil', () => {
     expect(view.querySelector('[aria-live="polite"]')?.textContent).toBe('');
   });
 
-  it('los enlaces «Crear solicitud» tienen nombres distintos', () => {
+  it('los enlaces a Mis solicitudes tienen nombres distintos', () => {
     const view = renderRoute('/donante/perfil');
     const names = [...view.querySelectorAll('main a[href="/donante/solicitudes"]')].map((a) => a.textContent);
     expect(new Set(names).size).toBe(3);
