@@ -44,9 +44,10 @@ describe('Field con Input', () => {
     expect(view.textContent).not.toContain('En horas');
   });
 
-  it('indica con texto cuando el campo es obligatorio', () => {
+  it('indica con texto y en el control cuando el campo es obligatorio', () => {
     const view = render(<Field label="Correo" required>{(control) => <Input {...control} />}</Field>);
     expect(view.querySelector('label')?.textContent).toBe('Correo (obligatorio)');
+    expect(view.querySelector('input')?.required).toBe(true);
   });
 
   it('sin ayuda ni error no agrega aria-describedby', () => {
@@ -62,7 +63,6 @@ describe('Select', () => {
         {(control) => (
           <Select
             {...control}
-            defaultValue=""
             placeholder="Selecciona una opción"
             options={[
               { value: 'A+', label: 'A+' },
@@ -76,5 +76,23 @@ describe('Select', () => {
     expect(options.map((option) => option.textContent)).toEqual(['Selecciona una opción', 'A+', 'O-']);
     expect(options[0]?.disabled).toBe(true);
     expect(view.querySelector('select')?.value).toBe('');
+  });
+
+  it('respeta el defaultValue que se entregue', () => {
+    const view = render(
+      <Select aria-label="Grupo" defaultValue="O-" placeholder="Selecciona" options={[{ value: 'A+', label: 'A+' }, { value: 'O-', label: 'O-' }]} />,
+    );
+    expect(view.querySelector('select')?.value).toBe('O-');
+  });
+
+  it('en error marca aria-invalid y el borde danger', () => {
+    const view = render(
+      <Field label="Grupo declarado" error="Selecciona un grupo.">
+        {(control) => <Select {...control} placeholder="Selecciona" options={[{ value: 'A+', label: 'A+' }]} />}
+      </Field>,
+    );
+    const select = view.querySelector('select');
+    expect(select?.getAttribute('aria-invalid')).toBe('true');
+    expect(select?.className).toContain('border-danger');
   });
 });

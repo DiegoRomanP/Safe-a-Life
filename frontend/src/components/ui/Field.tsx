@@ -5,6 +5,7 @@ export type FieldControlProps = {
   id: string;
   'aria-describedby'?: string;
   'aria-invalid'?: true;
+  required?: true;
   invalid: boolean;
 };
 
@@ -34,6 +35,7 @@ export function Field({ label, hint, error, required = false, className, childre
         id,
         'aria-describedby': message ? messageId : undefined,
         'aria-invalid': error ? true : undefined,
+        required: required ? true : undefined,
         invalid: Boolean(error),
       })}
       {message && (

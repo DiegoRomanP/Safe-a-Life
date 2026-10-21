@@ -11,8 +11,16 @@ export type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
 };
 
 export function Select({ options, placeholder, invalid = false, className, ...props }: SelectProps) {
+  // Sin valor inicial, el navegador elegiría la primera opción real. Con
+  // placeholder se arranca vacío para exigir una elección explícita.
+  const initial =
+    placeholder && props.value === undefined && props.defaultValue === undefined ? { defaultValue: '' } : {};
   return (
-    <select className={cx(controlClass, invalid ? 'border-danger' : 'border-line', className)} {...props}>
+    <select
+      className={cx(controlClass, invalid ? 'border-danger' : 'border-line', className)}
+      {...initial}
+      {...props}
+    >
       {placeholder && (
         <option value="" disabled>
           {placeholder}
