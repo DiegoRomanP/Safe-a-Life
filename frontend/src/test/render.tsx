@@ -36,3 +36,14 @@ export function click(element: Element | null) {
     (element as HTMLElement).click();
   });
 }
+
+// Escribe en un input controlado de React: usa el setter nativo para que React
+// detecte el cambio y dispara el evento input.
+export function type(element: Element | null, value: string) {
+  if (!(element instanceof HTMLInputElement)) throw new Error('No se encontró el input.');
+  const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  act(() => {
+    setter?.call(element, value);
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
