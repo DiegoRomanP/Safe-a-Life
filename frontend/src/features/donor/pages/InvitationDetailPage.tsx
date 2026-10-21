@@ -1,0 +1,113 @@
+import { useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
+import { SuccessNotice } from '../../../components/states/SuccessNotice.js';
+import { Alert } from '../../../components/ui/Alert.js';
+import { Badge } from '../../../components/ui/Badge.js';
+import { Button } from '../../../components/ui/Button.js';
+import { LinkButton } from '../../../components/ui/LinkButton.js';
+import { formatDateTime } from '../../../lib/format.js';
+import { useDonorDemo } from '../DonorDemoContext.js';
+import { responseLabel, urgencyLabel } from '../labels.js';
+
+const backLink = (
+  <Link to="/donante/invitaciones" className="self-start rounded font-semibold text-petrol underline underline-offset-4">
+    Volver a invitaciones
+  </Link>
+);
+
+// Detalle de una invitación dentro de la cuenta, con el diseño de LINK-01
+// (Penpot «+»). Datos de getOwnInvitation; responder usa
+// changeOwnInvitationResponse, que permite confirmar o rechazar y cambiar la
+// respuesta mientras la invitación siga activa.
+export function InvitationDetailPage() {
+  const { invitationId } = useParams();
+  const { invitations, respond } = useDonorDemo();
+  const [result, setResult] = useState<'confirmada' | 'rechazada' | null>(null);
+  const invitation = invitations.find((item) => item.invitationId === invitationId);
+
+  if (!invitation) {
+    return (
+      <>
+        {backLink}
+        <section className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-8">
+          <h1 className="text-3xl font-bold text-ink">No pudimos abrir esta invitación</h1>
+          <p className="text-muted">Puede que no exista o que ya no esté disponible para tu cuenta.</p>
+        </section>
+      </>
+    );
+  }
+
+  const urgency = urgencyLabel[invitation.urgency];
+  const current = responseLabel[invitation.response];
+  const canRespond = invitation.validity === 'activa';
+
+  function answer(response: 'confirmada' | 'rechazada') {
+    respond(invitation!.invitationId, response);
+    setResult(response);
+  }
+
+  return (
+    <>
+      {backLink}
+      <section
+        aria-labelledby="invitacion-titulo"
+        className="mx-auto flex w-full max-w-[796px] flex-col gap-6 rounded-2xl border border-line bg-surface p-6 sm:p-12"
+      >
+        <div className="flex flex-wrap gap-3">
+          <Badge tone={urgency.tone}>{`${urgency.label} · informativa`}</Badge>
+          <Badge tone={current.tone}>{`Tu respuesta: ${current.label}`}</Badge>
+        </div>
+        <h1 id="invitacion-titulo" className="text-3xl font-bold text-ink">
+          ¿Deseas registrar tu intención de asistir?
+        </h1>
+        <div>
+          <h2 className="text-xl font-semibold text-petrol">{invitation.hospitalName}</h2>
+          <p className="text-muted">{invitation.publicSiteName}</p>
+        </div>
+        <hr className="border-line" />
+        <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-[120px_minmax(0,1fr)]">
+          <dt className="text-sm font-semibold text-muted">Plazo</dt>
+          <dd className="text-ink">{formatDateTime(invitation.expiresAt)}</dd>
+          <dt className="text-sm font-semibold text-muted">Componente</dt>
+          <dd className="text-ink">Glóbulos rojos (RBC)</dd>
+          <dt className="text-sm font-semibold text-muted">Instrucciones</dt>
+          <dd className="text-ink">{invitation.instructions}</dd>
+        </dl>
+
+        <div aria-live="polite">
+          {result && (
+            <SuccessNotice
+              message={result === 'confirmada' ? 'Confirmaste tu intención de asistir.' : 'Indicaste que no podrás asistir.'}
+              detail="Puedes cambiar tu respuesta mientras la invitación siga activa."
+            />
+          )}
+        </div>
+
+        {canRespond ? (
+          <>
+            <Alert tone="info" title="Antes de responder">
+              Abrir esta invitación no registra una respuesta. Confirmar expresa únicamente intención de asistir.
+            </Alert>
+            <div className="flex flex-wrap gap-4">
+              <Button onClick={() => answer('confirmada')} disabled={invitation.response === 'confirmada'}>
+                Confirmar intención de asistir
+              </Button>
+              <Button variant="ghost" onClick={() => answer('rechazada')} disabled={invitation.response === 'rechazada'}>
+                No podré asistir
+              </Button>
+            </div>
+          </>
+        ) : (
+          <Alert tone="warning" title="Invitación no disponible">
+            Esta invitación ya no admite respuestas.
+          </Alert>
+        )}
+      </section>
+      <div>
+        <LinkButton to="/donante/historial" variant="ghost">
+          Ver historial de respuestas
+        </LinkButton>
+      </div>
+    </>
+  );
+}

@@ -46,6 +46,16 @@ export function LoginPage() {
             Crear cuenta
           </LinkButton>
         </div>
+
+        {/* Solo en desarrollo: entrada al recorrido con datos sintéticos (D-4). */}
+        {import.meta.env.DEV && (
+          <div className="flex flex-col gap-2 rounded-xl border border-dashed border-muted p-4">
+            <p className="text-sm font-semibold text-muted">Vista de desarrollo</p>
+            <LinkButton to="/donante" variant="ghost" fullWidth>
+              Entrar como donante de prueba
+            </LinkButton>
+          </div>
+        )}
       </AuthCard>
     </AuthShell>
   );
