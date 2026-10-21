@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { cx } from './cx.js';
 import { toneClass } from './tones.js';
 
-export type AlertTone = 'info' | 'success' | 'warning' | 'danger';
+export type AlertTone = 'info' | 'success' | 'warning' | 'danger' | 'brand';
 
 export type AlertProps = {
   tone: AlertTone;
@@ -11,12 +11,13 @@ export type AlertProps = {
   className?: string;
 };
 
-const icons: Record<AlertTone, string> = { info: 'i', success: '✓', warning: '!', danger: '×' };
+const icons: Record<AlertTone, string> = { info: 'i', success: '✓', warning: '!', danger: '×', brand: 'i' };
 
 // El tono se dice también con texto para lectores de pantalla; el ícono es
 // decorativo. Los errores usan role="alert" para anunciarse al aparecer.
 const toneLabel: Record<AlertTone, string> = {
   info: 'Información',
+  brand: 'Información',
   success: 'Correcto',
   warning: 'Aviso',
   danger: 'Error',
