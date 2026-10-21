@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '../../../components/ui/Button.js';
 import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
+import { emailError } from '../validation.js';
 
 export type LoginCredentials = { email: string; password: string };
 
@@ -16,8 +17,8 @@ type Errors = Partial<Record<keyof LoginCredentials, string>>;
 
 function validate({ email, password }: LoginCredentials): Errors {
   const errors: Errors = {};
-  if (!email.trim()) errors.email = 'Ingresa tu correo.';
-  else if (!/^[^\s@]+@[^\s@]+$/.test(email.trim())) errors.email = 'Ingresa un correo válido.';
+  const emailMessage = emailError(email);
+  if (emailMessage) errors.email = emailMessage;
   if (!password) errors.password = 'Ingresa tu contraseña.';
   return errors;
 }

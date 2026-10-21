@@ -28,7 +28,7 @@ export function HomePage() {
           </p>
           <div className="flex flex-wrap gap-3">
             <LinkButton to="/registro">Crear cuenta de donante</LinkButton>
-            <LinkButton to="/alta-asistida" variant="ghost">
+            <LinkButton to="/activar-cuenta" variant="ghost">
               Reclamar alta asistida
             </LinkButton>
           </div>
