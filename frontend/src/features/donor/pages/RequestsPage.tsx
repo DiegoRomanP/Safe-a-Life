@@ -1,7 +1,7 @@
 import { PageHeader } from '../../../components/layout/PageHeader.js';
 import { EmptyState } from '../../../components/states/EmptyState.js';
 import { Alert } from '../../../components/ui/Alert.js';
-import { formatDate, formatDateTimeShort } from '../../../lib/format.js';
+import { formatDate, formatDateTime } from '../../../lib/format.js';
 import { useDonorDemo } from '../DonorDemoContext.js';
 import { requestCode, requestStatusLabel, requestTypeLabel } from '../labels.js';
 
@@ -44,7 +44,7 @@ export function RequestsPage() {
                   <td className="px-4 py-4">{requestTypeLabel(request)}</td>
                   <td className="px-4 py-4">{requestStatusLabel[request.status]}</td>
                   <td className="px-4 py-4">{formatDate(request.createdAt)}</td>
-                  <td className="px-4 py-4">{formatDateTimeShort(request.updatedAt)}</td>
+                  <td className="px-4 py-4">{formatDateTime(request.updatedAt)}</td>
                 </tr>
               ))}
             </tbody>

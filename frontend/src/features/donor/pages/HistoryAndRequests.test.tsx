@@ -38,6 +38,7 @@ describe('DON-05 Mis solicitudes', () => {
     expect(first?.textContent).toContain('Corrección de grupo');
     expect(first?.textContent).toContain('Pendiente');
     expect(first?.textContent).toContain('22 sep 2026');
+    expect(first?.querySelector('td:last-child')?.textContent).toBe('22 sep 2026, 10:14 · Lima, UTC−5');
   });
 
   it('describe el cambio de correo y la corrección de nombre', () => {

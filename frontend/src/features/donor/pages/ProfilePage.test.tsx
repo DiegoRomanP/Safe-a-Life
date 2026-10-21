@@ -49,6 +49,14 @@ describe('DON-02 Mi perfil', () => {
     expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Cambios guardados');
   });
 
+  it('el aviso de guardado desaparece al volver a editar', () => {
+    const view = renderRoute('/donante/perfil');
+    save(view);
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Cambios guardados');
+    click(view.querySelector('[role="switch"]'));
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).toBe('');
+  });
+
   it('los enlaces «Crear solicitud» tienen nombres distintos', () => {
     const view = renderRoute('/donante/perfil');
     const names = [...view.querySelectorAll('main a[href="/donante/solicitudes"]')].map((a) => a.textContent);

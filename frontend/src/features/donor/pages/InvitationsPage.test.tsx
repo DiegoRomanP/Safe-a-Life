@@ -47,10 +47,16 @@ describe('Detalle de invitación', () => {
 
   it('confirmar registra la intención, lo anuncia y la refleja en la lista', () => {
     const view = renderRoute('/donante/invitaciones/7f21c3a0-1b2c-4d5e-8f90-0a1b2c3d4e51');
-    click(buttonByText(view, 'Confirmar intención de asistir'));
+    const confirm = buttonByText(view, 'Confirmar intención de asistir');
+    confirm?.focus();
+    click(confirm);
     expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Confirmaste tu intención de asistir.');
-    expect(view.textContent).toContain('Tu respuesta: Confirmada');
-    expect(buttonByText(view, 'Confirmar intención de asistir')?.disabled).toBe(true);
+    expect(view.querySelector('[aria-live="polite"] [role]')).toBeNull();
+    expect(view.textContent).toContain('Tu respuesta: Intención confirmada');
+    // El botón de la respuesta vigente sigue enfocable: no se pierde el foco.
+    expect(confirm?.getAttribute('aria-disabled')).toBe('true');
+    expect(confirm?.disabled).toBe(false);
+    expect(document.activeElement).toBe(confirm);
     click(view.querySelector('a[href="/donante/invitaciones"]'));
     expect(view.textContent).toContain('2 respondidas');
   });
