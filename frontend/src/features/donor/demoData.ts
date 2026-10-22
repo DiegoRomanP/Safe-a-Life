@@ -44,7 +44,7 @@ export const demoInvitations: DonorInvitation[] = [
 ];
 
 export const demoHistory: ResponseHistoryItem[] = [
-  { invitationId: '2a09d4b1-2c3d-4e5f-9a01-1b2c3d4e5f62', response: 'confirmada', changedAt: '2026-09-25T15:32:00Z' },
+  { invitationId: '2a09d4b1-2c3d-4e5f-9a01-1b2c3d4e5f62', response: 'confirmada', changedAt: '2026-09-25T13:32:00Z' },
 ];
 
 export const demoProfile: DonorProfile = {

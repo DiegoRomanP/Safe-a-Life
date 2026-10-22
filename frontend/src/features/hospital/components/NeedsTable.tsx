@@ -15,9 +15,9 @@ export function NeedsTable({ needs, caption }: NeedsTableProps) {
         <thead>
           <tr className="border-b border-line text-sm text-muted">
             <th scope="col" className="px-4 py-4 font-semibold">Necesidad</th>
-            <th scope="col" className="px-4 py-4 font-semibold">Grupo</th>
+            <th scope="col" className="px-4 py-4 font-semibold">Grupo requerido</th>
             <th scope="col" className="px-4 py-4 font-semibold">Meta de intenciones</th>
-            <th scope="col" className="px-4 py-4 font-semibold">Urgencia</th>
+            <th scope="col" className="px-4 py-4 font-semibold">Urgencia (informativa)</th>
             <th scope="col" className="px-4 py-4 font-semibold">Estado</th>
             <th scope="col" className="px-4 py-4 font-semibold">Vencimiento</th>
           </tr>

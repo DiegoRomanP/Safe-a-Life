@@ -32,7 +32,8 @@ function requestedFieldsOf(request: NewCorrectionRequest): CorrectionRequest['re
 
 // Estado en memoria del área del donante para recorrerla sin backend (D-4).
 // Imita lo que harían changeOwnInvitationResponse (actualiza la respuesta y
-// agrega una entrada al historial), updateOwnDonorParticipation,
+// agrega una entrada al historial), updateOwnDonorParticipation (marcarse no
+// disponible invalida las invitaciones activas sin respuesta),
 // completeDonorOnboarding y createOwnCorrectionRequest (la solicitud queda
 // pendiente; los valores nuevos no se guardan en el navegador). Recargar la
 // página vuelve a los datos iniciales; nada se guarda en el navegador.
@@ -54,7 +55,16 @@ export function DonorDemoProvider({ children, now = () => new Date().toISOString
         );
         setHistory((current) => [{ invitationId, response, changedAt: now() }, ...current]);
       },
-      updateParticipation: (patch) => setProfile((current) => ({ ...current, ...patch })),
+      updateParticipation: (patch) => {
+        setProfile((current) => ({ ...current, ...patch }));
+        if (!patch.isAvailable) {
+          setInvitations((current) =>
+            current.map((item) =>
+              item.validity === 'activa' && item.response === 'sin_respuesta' ? { ...item, validity: 'invalidada' } : item,
+            ),
+          );
+        }
+      },
       // completeDonorOnboarding: fija los campos obligatorios; el correo no cambia.
       completeOnboarding: (data) => setProfile((current) => ({ ...current, ...data })),
       createRequest: (request) => {

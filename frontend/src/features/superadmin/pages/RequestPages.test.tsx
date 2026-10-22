@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { act } from 'react';
 import { describe, expect, it } from 'vitest';
 import { click, setupRender, type } from '../../../test/render.js';
 import { renderRoute } from '../../../test/renderRoute.js';
@@ -16,6 +17,9 @@ function control(view: HTMLElement, label: string) {
 
 const button = (view: HTMLElement, text: string) =>
   [...view.querySelectorAll('button')].find((item) => item.textContent === text) ?? null;
+
+const choice = (view: HTMLElement, value: 'aprobada' | 'rechazada') =>
+  view.querySelector(`input[type="radio"][name="decision"][value="${value}"]`);
 
 function stepUp(view: HTMLElement) {
   type(control(view, 'Código de 6 dígitos'), '123456');
@@ -52,10 +56,11 @@ describe('SA-05 Solicitudes', () => {
 
   it('decidir exige motivo; ejecutar una aprobada exige motivo y step-up', () => {
     const view = renderRoute(`/superadmin/solicitudes/${CORRECTION}`);
-    click(button(view, 'Aprobar'));
+    click(choice(view, 'aprobada'));
+    click(button(view, 'Registrar decisión'));
     expect(view.textContent).toContain('Indica el motivo de la decisión.');
     type(control(view, 'Motivo de la decisión'), 'Corrección documentada.');
-    click(button(view, 'Aprobar'));
+    click(button(view, 'Registrar decisión'));
     expect(live(view)).toContain('SOL-7F21 aprobada');
     expect(view.textContent).toContain('Esta solicitud ya no requiere consultar datos personales.');
     click(button(view, 'Ejecutar solicitud'));
@@ -65,6 +70,31 @@ describe('SA-05 Solicitudes', () => {
     stepUp(view);
     expect(live(view)).toContain('SOL-7F21 ejecutada');
     expect(view.querySelector('h1')?.parentElement?.textContent).toContain('Completada');
+  });
+
+  it('enviar el formulario sin elegir decisión no aprueba (Enter en el motivo)', () => {
+    const view = renderRoute(`/superadmin/solicitudes/${CORRECTION}`);
+    // Un solo botón de envío y sin valor: el envío implícito no elige nada.
+    const submits = view.querySelectorAll('form button[type="submit"]');
+    expect([...submits].map((item) => item.textContent)).toContain('Registrar decisión');
+    expect(button(view, 'Registrar decisión')?.hasAttribute('value')).toBe(false);
+    expect(button(view, 'Aprobar')).toBeNull();
+    const reason = control(view, 'Motivo de la decisión');
+    type(reason, 'Corrección documentada.');
+    // Enter en un campo hace un envío implícito del formulario: se simula igual.
+    act(() => {
+      (reason as HTMLInputElement).form?.requestSubmit();
+    });
+    expect(view.textContent).toContain('Elige si apruebas o rechazas la solicitud.');
+    expect(document.activeElement).toBe(choice(view, 'aprobada'));
+    expect(choice(view, 'aprobada')?.getAttribute('aria-describedby')).toBe('decision-eleccion-error');
+    expect(live(view)).not.toContain('aprobada');
+    expect(view.querySelector('h1')?.parentElement?.textContent).toContain('Pendiente');
+  });
+
+  it('una corrección de grupo avisa que aprobar no verifica el grupo', () => {
+    const view = renderRoute(`/superadmin/solicitudes/${CORRECTION}`);
+    expect(view.textContent).toContain('no constituye verificación de grupo');
   });
 
   it('una solicitud terminal no ofrece consultar datos', () => {
@@ -82,7 +112,8 @@ describe('SA-05 Solicitudes', () => {
   it('rechazar cierra la tarea y deja el motivo en la auditoría', () => {
     const view = renderRoute(`/superadmin/solicitudes/${DELETION}`);
     type(control(view, 'Motivo de la decisión'), 'Falta confirmar la identidad.');
-    click(button(view, 'Rechazar'));
+    click(choice(view, 'rechazada'));
+    click(button(view, 'Registrar decisión'));
     click(view.querySelector('nav a[href="/superadmin"]'));
     expect(view.querySelector('main')?.textContent).not.toContain('SOL-91A2');
     click(view.querySelector('nav a[href="/superadmin/auditoria"]'));

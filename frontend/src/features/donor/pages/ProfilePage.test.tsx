@@ -49,6 +49,15 @@ describe('DON-02 Mi perfil', () => {
     expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Cambios guardados');
   });
 
+  it('marcarse no disponible invalida las invitaciones activas sin respuesta', () => {
+    const view = renderRoute('/donante/perfil');
+    click(view.querySelector('[role="switch"]'));
+    save(view);
+    click(view.querySelector('nav a[href="/donante/invitaciones"]'));
+    // Quedan activas solo las ya respondidas (una confirmada en los datos demo).
+    expect(view.querySelector('main')?.textContent).toContain('1 activa');
+  });
+
   it('el aviso de guardado desaparece al volver a editar', () => {
     const view = renderRoute('/donante/perfil');
     save(view);

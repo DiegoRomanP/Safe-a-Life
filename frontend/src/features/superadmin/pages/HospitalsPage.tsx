@@ -65,7 +65,7 @@ export function HospitalsPage() {
     <>
       <PageHeader
         title="Hospitales autorizados"
-        description="Gestiona instituciones verificadas y su estado operativo."
+        description="Gestiona instituciones autorizadas y su estado operativo."
         actions={<Button onClick={() => publicRef.current?.focus()}>Nuevo hospital</Button>}
       />
       <Alert tone="brand" title="Control central">
