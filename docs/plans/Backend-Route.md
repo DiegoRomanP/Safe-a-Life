@@ -344,6 +344,7 @@ No ejecutar `npm run test:e2e` aquí (es de la demo y exige parar `npm run dev`)
 | --- | --- | --- |
 | 2026-10-21 | Senior / redacción | Plan creado; sin ejecución ni cambios al repositorio |
 | 2026-10-21 | Senior / Fase A | V0–V7 ejecutados y V1 clasificado: B1–B4, SP-01, SP-04 y P-12 siguen abiertos. V8/V9 esperan A1–A3. Detalle en `docs/plans/2026-10-21-verificacion-backend.md` |
+| 2026-10-22 | Senior / Fase A y B | V7–V9 cerradas; SP-01 (ADR-007) y P-12 (a) implementados y commiteados; ver `2026-10-21-verificacion-backend.md` |
 
 ---
 
@@ -356,4 +357,3 @@ No ejecutar `npm run test:e2e` aquí (es de la demo y exige parar `npm run dev`)
 - Documentos de octubre contienen afirmaciones desactualizadas (README/Backend-Contracts/JSON heading); si un conteo contradice el script reproducible de `docs/README.md`, prevalece lo ejecutado.
 - Engram: usar la identidad oficial `save-a-life-oficial`; no fusionar ni borrar historiales anteriores.
 - Los planes de otras tareas no se sobrescriben; este archivo (`Backend-Route.md`) es el tablero de la ruta, y cada fase abre su propio plan fechado `docs/plans/YYYY-MM-DD-<slug>.md`.
-| 2026-10-22 | Senior / Fase A y B | V7–V9 cerradas; SP-01 (ADR-007) y P-12 (a) implementados y commiteados; ver `2026-10-21-verificacion-backend.md` |
