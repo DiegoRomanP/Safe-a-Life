@@ -1,5 +1,10 @@
 import { type APIRequestContext, type Page, expect, test } from '@playwright/test';
 
+async function login(page: Page, role: 'donante' | 'hospital' | 'superadmin') {
+  await page.getByLabel('Correo', { exact: true }).fill(`${role}.demo@example.test`);
+  await page.getByLabel('Contraseña', { exact: true }).fill('synthetic-demo-only');
+  await page.getByRole('button', { name: 'Ingresar', exact: true }).press('Enter');
+}
 async function resetDemo(request: APIRequestContext) {
   const response = await request.post('http://127.0.0.1:4011/__mock/reset', {
     headers: {
@@ -28,8 +33,7 @@ async function enterBatchPage(page: Page, needs = [syntheticBatchNeed]) {
     json: { data: { items: needs, pagination: { nextCursor: null } } },
   }));
   await page.goto('/login');
-  await page.getByRole('button', { name: /Hospital Consulta necesidades/ }).press('Enter');
-  await page.getByRole('button', { name: /Entrar como hospital/ }).press('Enter');
+  await login(page, 'hospital');
   await expect(page.getByRole('heading', { name: 'Resumen hospitalario' })).toBeVisible();
   await page.goto('/app/hospital/batches');
   await expect(page.getByRole('heading', { name: 'Lotes de invitación' })).toBeVisible();
@@ -316,8 +320,8 @@ test('donor response is reflected as a minimized hospital view', async ({ page, 
   await page.keyboard.press('Enter');
   await expect(page.locator('#public-main')).toBeFocused();
   await page.getByRole('button', { name: 'Entrar a la demostración' }).press('Enter');
-  await expect(page.getByRole('heading', { name: 'Elige una vista de demostración.' })).toBeVisible();
-  await page.getByRole('button', { name: /Entrar como donante/ }).press('Enter');
+  await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible();
+  await login(page, 'donante');
 
   await expect(page).toHaveURL(/\/app\/donor\/invitations$/);
   await expect(page.getByRole('heading', { name: 'Tus invitaciones' })).toBeVisible();
@@ -371,11 +375,7 @@ test('donor response is reflected as a minimized hospital view', async ({ page, 
 
   await page.getByRole('button', { name: 'Cerrar sesión' }).press('Enter');
   await expect(page).toHaveURL('/login');
-  const hospitalOption = page.getByRole('button', { name: /Hospital Consulta necesidades/ });
-  await hospitalOption.focus();
-  await page.keyboard.press('Space');
-  await expect(hospitalOption).toHaveAttribute('aria-pressed', 'true');
-  await page.getByRole('button', { name: /Entrar como hospital/ }).press('Enter');
+  await login(page, 'hospital');
   await expect(page).toHaveURL(/\/app\/hospital$/);
   await page.getByRole('button', { name: 'Navegación' }).press('Enter');
   await page.getByRole('link', { name: 'Respuestas', exact: true }).press('Enter');
@@ -390,7 +390,7 @@ test('hospital creates a draft and all role shells fit a narrow viewport', async
   await resetDemo(request);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/login');
-  await expect(page.getByRole('heading', { name: 'Elige una vista de demostración.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible();
   await page.keyboard.press('Tab');
   const loginSkipLink = page.getByRole('link', { name: 'Saltar al contenido' });
   await expect(loginSkipLink).toBeFocused();
@@ -398,10 +398,7 @@ test('hospital creates a draft and all role shells fit a narrow viewport', async
   await page.keyboard.press('Enter');
   await expect(page.locator('#login-main')).toBeFocused();
   await expect(page.getByRole('button', { name: /Hospital Norte Demo/ })).toHaveCount(0);
-  const hospitalOption = page.getByRole('button', { name: /Hospital Consulta necesidades/ });
-  await hospitalOption.focus();
-  await page.keyboard.press('Space');
-  await page.getByRole('button', { name: /Entrar como hospital/ }).press('Enter');
+  await login(page, 'hospital');
   await expect(page.getByRole('heading', { name: 'Resumen hospitalario' })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('hospital-mobile.png'), fullPage: true });
   const mobileSkipLink = page.getByRole('link', { name: 'Saltar al contenido' });
@@ -483,9 +480,6 @@ test('hospital creates a draft and all role shells fit a narrow viewport', async
 
   await page.getByRole('button', { name: 'Cerrar sesión' }).press('Enter');
   await page.goto('/login');
-  const superadminOption = page.getByRole('button', { name: /Superadmin Revisa tareas/ });
-  await superadminOption.focus();
-  await page.keyboard.press('Space');
   let tasksMode: 'delayed' | 'server' = 'delayed';
   await page.route('**/api/v1/superadmin/task-queue', async (route) => {
     if (route.request().method() !== 'GET' || tasksMode === 'server') return route.continue();
@@ -501,7 +495,7 @@ test('hospital creates a draft and all role shells fit a narrow viewport', async
       }] } }),
     });
   });
-  await page.getByRole('button', { name: /Entrar como superadmin/ }).press('Enter');
+  await login(page, 'superadmin');
   await expect(page.getByRole('status').filter({ hasText: 'Cargando tareas administrativas' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Tareas administrativas' })).toBeVisible();
   tasksMode = 'server';
@@ -561,7 +555,7 @@ test('donor invitation list provides clear empty and service-error states', asyn
   });
 
   await page.goto('/login');
-  await page.getByRole('button', { name: /Entrar como donante/ }).click();
+  await login(page, 'donante');
   await expect(page.getByRole('status').filter({ hasText: 'Cargando tus invitaciones' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'No tienes invitaciones activas' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -620,10 +614,10 @@ test('an expired local session hides previously loaded protected data', async ({
   }));
 
   await page.goto('/login');
-  await page.getByRole('button', { name: /Entrar como donante/ }).press('Enter');
+  await login(page, 'donante');
   await expect(page.getByRole('heading', { name: 'Tus invitaciones' })).toBeVisible();
   await expect(page.getByText('Sede Centro', { exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Elige una vista de demostración.' })).toBeVisible({ timeout: 7000 });
+  await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible({ timeout: 7000 });
   await expect(page.getByText('Donante Demo', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Sede Centro', { exact: true })).toHaveCount(0);
 });
@@ -665,7 +659,7 @@ test('session revalidation clears protected data after an API 401', async ({ pag
   }));
 
   await page.goto('/login');
-  await page.getByRole('button', { name: /Entrar como donante/ }).press('Enter');
+  await login(page, 'donante');
   await expect(page.getByRole('main').getByText('Donante Demo', { exact: true })).toBeVisible();
 
   await page.route('**/api/v1/auth/session', (route) => route.fulfill({
@@ -676,6 +670,6 @@ test('session revalidation clears protected data after an API 401', async ({ pag
     }),
   }));
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-  await expect(page.getByRole('heading', { name: 'Elige una vista de demostración.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible();
   await expect(page.getByRole('main').getByText('Donante Demo', { exact: true })).toHaveCount(0);
 });

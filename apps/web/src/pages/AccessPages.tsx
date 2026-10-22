@@ -1,40 +1,15 @@
-import { useState } from 'react';
-import { ArrowRight, Building2, HeartHandshake, ShieldCheck } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import type { ActorRole } from '../api/client.js';
+import { useRef, useState, type FormEvent } from 'react';
+import { ArrowRight } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Brand, Notice } from '../components/Ui.js';
 
 const demoPassword = 'synthetic-demo-only';
 
-const demoRoles: Array<{
-  role: ActorRole;
-  email: string;
-  title: string;
-  description: string;
-  icon: typeof HeartHandshake;
-}> = [
-  {
-    role: 'donante',
-    email: 'donante.demo@example.test',
-    title: 'Donante',
-    description: 'Revisa invitaciones y gestiona tu disponibilidad.',
-    icon: HeartHandshake,
-  },
-  {
-    role: 'admin_hospitalario',
-    email: 'hospital.demo@example.test',
-    title: 'Hospital',
-    description: 'Consulta necesidades e intenciones de asistir.',
-    icon: Building2,
-  },
-  {
-    role: 'superadmin',
-    email: 'superadmin.demo@example.test',
-    title: 'Superadmin',
-    description: 'Revisa tareas administrativas y auditoría minimizada.',
-    icon: ShieldCheck,
-  },
-];
+const demoAccounts = [
+  { role: 'Donante', email: 'donante.demo@example.test' },
+  { role: 'Hospital', email: 'hospital.demo@example.test' },
+  { role: 'Superadmin', email: 'superadmin.demo@example.test' },
+] as const;
 
 export function LandingPage() {
   const navigate = useNavigate();
@@ -119,20 +94,27 @@ export function LoginPage({
 }: {
   onLogin: (email: string, password: string) => Promise<void>;
 }) {
-  const navigate = useNavigate();
-  const [selectedRole, setSelectedRole] = useState<ActorRole>('donante');
+  const pendingRef = useRef(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const selectedDemo = demoRoles.find((demo) => demo.role === selectedRole)!;
-  const SelectedIcon = selectedDemo.icon;
+  const [pendingAction, setPendingAction] = useState<'recovery' | 'registration' | null>(null);
 
-  async function submitLogin() {
+  async function submitLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pendingRef.current) return;
+
+    pendingRef.current = true;
     setPending(true);
     setError(null);
+    setPendingAction(null);
     try {
-      await onLogin(selectedDemo.email, demoPassword);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'No se pudo iniciar sesión.');
+      await onLogin(email.trim(), password);
+    } catch {
+      setPassword('');
+      setError('No se pudo iniciar sesión. Verifica el correo y la contraseña e inténtalo de nuevo.');
+      pendingRef.current = false;
       setPending(false);
     }
   }
@@ -140,45 +122,118 @@ export function LoginPage({
   return (
     <div className="access-page">
       <a className="skip-link" href="#login-main">Saltar al contenido</a>
-      <header className="access-header">
-        <button className="brand-button" onClick={() => navigate('/')} aria-label="Volver al inicio">
-          <Brand />
-        </button>
-        <span className="environment-label"><span /> Entorno local</span>
-      </header>
-      <main id="login-main" className="access-main" tabIndex={-1}>
-        <div className="access-intro">
-          <p className="hero-kicker">Acceso al prototipo</p>
-          <h1>Elige una vista de demostración.</h1>
-          <p>Usa un perfil sintético para recorrer la interfaz según cada rol.</p>
+      <aside className="login-story">
+        <Link className="login-brand" to="/" aria-label="Save a Life, volver al inicio">
+          <span className="login-brand__mark" aria-hidden="true" />
+          <span>Save a Life</span>
+        </Link>
+        <div className="login-story__copy">
+          <p className="login-story__heading">Accede a tu espacio seguro</p>
+          <p className="login-story__description">
+            Gestiona tus invitaciones o coordina necesidades de tu institución según tu rol asignado.
+          </p>
         </div>
-        <section className="login-panel" aria-labelledby="role-title">
-          <h2 id="role-title">Continuar como</h2>
-          <div className="role-options" role="group" aria-label="Perfil de demostración">
-            {demoRoles.map(({ role, title, description, icon: Icon }) => (
+        <div className="login-academic-note">
+          <span aria-hidden="true">!</span>
+          <div>
+            <strong>Uso académico</strong>
+            <p>No ingreses datos reales en este prototipo.</p>
+          </div>
+        </div>
+      </aside>
+
+      <main id="login-main" className="login-main" tabIndex={-1}>
+        <section className="login-card" aria-labelledby="login-title">
+          <h1 id="login-title">Iniciar sesión</h1>
+          <p className="login-card__intro">Ingresa con tu correo verificado.</p>
+
+          <form className="login-form" onSubmit={submitLogin} aria-busy={pending}>
+            <div className="login-field">
+              <label htmlFor="login-email">Correo</label>
+              <input
+                autoCapitalize="none"
+                autoComplete="username"
+                autoCorrect="off"
+                disabled={pending}
+                id="login-email"
+                name="email"
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="nombre@ejemplo.test"
+                required
+                type="email"
+                value={email}
+              />
+            </div>
+
+            <div className="login-field">
+              <label htmlFor="login-password">Contraseña</label>
+              <input
+                autoComplete="current-password"
+                disabled={pending}
+                id="login-password"
+                name="password"
+                onChange={(event) => setPassword(event.target.value)}
+                required
+                type="password"
+                value={password}
+              />
+            </div>
+
+            <div className="login-recovery">
               <button
-                aria-pressed={selectedRole === role}
-                className={`role-option${selectedRole === role ? ' role-option--selected' : ''}`}
-                key={role}
-                onClick={() => setSelectedRole(role)}
+                className="login-inline-action"
+                disabled={pending}
+                onClick={() => setPendingAction('recovery')}
                 type="button"
               >
-                <Icon size={20} aria-hidden="true" />
-                <span className="role-option__copy"><strong>{title}</strong><small>{description}</small></span>
-                <span className="role-option__selection" aria-hidden="true" />
+                ¿Olvidaste tu contraseña?
               </button>
-            ))}
-          </div>
-          {error && <Notice tone="error" title="No se pudo iniciar sesión">{error}</Notice>}
-          <button className="button button--primary button--wide" disabled={pending} onClick={submitLogin}>
-            <SelectedIcon size={18} aria-hidden="true" />
-            {pending ? 'Ingresando…' : `Entrar como ${selectedDemo.title.toLocaleLowerCase('es')}`}
+              {pendingAction === 'recovery' && (
+                <p className="login-pending-note" role="status">
+                  La recuperación de contraseña aún está pendiente en esta demostración.
+                </p>
+              )}
+            </div>
+
+            {error && <p className="login-error" role="alert">{error}</p>}
+
+            <button className="button button--primary button--wide login-submit" disabled={pending} type="submit">
+              <span aria-live="polite">{pending ? 'Ingresando…' : 'Ingresar'}</span>
+            </button>
+          </form>
+
+          <div className="login-divider" aria-hidden="true" />
+          <p className="login-create-account-copy">¿Aún no tienes cuenta de donante?</p>
+          <button
+            className="login-create-account"
+            disabled={pending}
+            onClick={() => setPendingAction('registration')}
+            type="button"
+          >
+            Crear cuenta
           </button>
-          <p className="login-footnote">La sesión se mantiene en una cookie local. No guardamos credenciales en el navegador.</p>
+          {pendingAction === 'registration' && (
+            <p className="login-pending-note" role="status">
+              El registro de donantes aún está pendiente. Por ahora, usa una cuenta sintética de la demostración.
+            </p>
+          )}
+
+          <details className="login-demo-details">
+            <summary>Ver credenciales de demostración</summary>
+            <p>Usa únicamente estas cuentas sintéticas. El sistema asigna el perfil de cada cuenta:</p>
+            <ul>
+              {demoAccounts.map(({ role, email: accountEmail }) => (
+                <li key={accountEmail}>
+                  <span>{role}</span>
+                  <code>{accountEmail}</code>
+                </li>
+              ))}
+            </ul>
+            <p className="login-demo-details__password">
+              Contraseña compartida: <code>{demoPassword}</code>
+            </p>
+          </details>
         </section>
-        <Notice tone="warning" title="Datos sintéticos">
-          No uses correos, ubicaciones ni información de personas reales. Esta demo no se conecta a Supabase ni envía email.
-        </Notice>
       </main>
     </div>
   );
