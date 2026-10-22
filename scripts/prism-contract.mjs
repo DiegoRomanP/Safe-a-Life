@@ -24,8 +24,10 @@ const methods = new Set(['get', 'put', 'post', 'delete', 'options', 'head', 'pat
 // F3 (2026-10-13) adds 10 more (400, 429 and 503 on the need list/get/transition and 429/503 on the create): 365 / 470.
 // F5 (2026-10-13) declares 56 more errors on its 14 donor and assisted-signup operations: 447 / 553.
 // F6 (2026-10-13) ratifies nine invitation operations (31 more errors) and adds retryInvitationDelivery (1 JSON, 9 errors): 73 operations, 478 errors, 585 cases.
+// F7 (2026-10-20, 0a710e1) ratifies the nine privacy-request operations already counted above and declares 32 more errors on them: 510 errors, 617 cases.
+// F7 correction (2026-10-22) declares the 409 of createContextualAccessGrant and getContextualDonorData that the backend already returned: 512 errors, 619 cases.
 // Updating coverage requires explicit review; never derive it from the candidate.
-const expected = { operations: 73, json: 70, empty: 3, bodies: 27, variants: 34, variantCollections: 16, errors: 478 };
+const expected = { operations: 73, json: 70, empty: 3, bodies: 27, variants: 34, variantCollections: 16, errors: 512 };
 
 // Reviewed E2/E3 coverage fixture (method, path template, operationId), not a second
 // contract: NO payloads, schemas or behavior. Never derive/refresh it from the

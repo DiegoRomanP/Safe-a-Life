@@ -13,7 +13,7 @@ import { totpCode } from '../backend/test/support/totp.ts';
 import { createHash } from 'node:crypto';
 import { createDonorAccount } from '../backend/test/support/accounts.ts';
 import { sealEmailChange } from '../backend/src/modules/donor-records/application/email-change.ts';
-import { sql } from '../backend/test/support/db.ts';
+import { resetAuthQuota, sql } from '../backend/test/support/db.ts';
 import { signWebhook } from '../backend/src/modules/email-delivery/application/webhook-signature.ts';
 import { WEBHOOK_SECRET, WEBHOOK_SECRET_ENV, workerConfig } from '../backend/test/support/worker.ts';
 
@@ -239,6 +239,9 @@ try {
   await waitForServer(server, baseUrl);
 
   for (const scenario of SCENARIOS) {
+    // Los techos de login (global de /token 50/5 min y 10/15 min por IP, todos desde 127.0.0.1) son estado compartido que la colección entera supera: se vacían por escenario.
+    resetAuthQuota();
+    sql("delete from app.rate_limit_events where bucket like 'login:%'");
     await runScenario(scenario, baseUrl, scenario.user ? await freshCode(scenario.user, secrets[scenario.user]) : '000000');
   }
 } catch (error) {

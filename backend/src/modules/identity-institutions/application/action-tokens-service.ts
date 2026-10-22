@@ -151,7 +151,7 @@ export function createActionTokensService({
      * con la contraseña vieja entre ambos pasos (sus access tokens valen hasta 600 s).
      */
     async completePasswordReset(token: string, newPassword: string): Promise<void> {
-      const { userId } = await repository.consumePasswordReset(hashToken(token));
+      const { userId, generation } = await repository.consumePasswordReset(hashToken(token));
       await admin.revokeAllSessions(userId);
       await admin.updatePassword(userId, newPassword);
       // La contraseña ya cambió: otros módulos (p. ej. el perfil de un donante que debía fijarla) levantan su bloqueo.
@@ -173,6 +173,17 @@ export function createActionTokensService({
         }
       }
       if (hookFailed) throw new ApiError('SERVICE_UNAVAILABLE');
+      // ADR-007: solo con todo el reset hecho se cierra la barrera abierta por el consumo; si algo falló arriba queda abierta
+      // (falla cerrado) y se pide otro enlace. `conflict`: un reset posterior ya abrió otra generación, que cerrará el suyo.
+      try {
+        await repository.closeSessionBarrier(userId, generation);
+      } catch {
+        try {
+          await repository.closeSessionBarrier(userId, generation);
+        } catch {
+          throw new ApiError('SERVICE_UNAVAILABLE');
+        }
+      }
     },
   });
 }

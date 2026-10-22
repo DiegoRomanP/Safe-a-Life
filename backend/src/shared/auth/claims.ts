@@ -9,7 +9,7 @@ export function parseClaims(claims: unknown, expected: { issuer?: string; audien
   if (expected.issuer !== undefined && iss !== expected.issuer) return null;
   if (expected.audience !== undefined && !(aud === expected.audience || (Array.isArray(aud) && aud.includes(expected.audience)))) return null;
   if (typeof sub !== 'string' || !UUID.test(sub)) return null;
-  if (typeof sessionId !== 'string' || sessionId === '') return null;
+  if (typeof sessionId !== 'string' || !UUID.test(sessionId)) return null;
   if (role !== 'authenticated' || (aal !== 'aal1' && aal !== 'aal2')) return null;
 
   const methods: Array<{ method: string; timestamp: number }> = [];

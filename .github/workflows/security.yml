@@ -8,6 +8,7 @@ on:
 permissions:
   contents: read
   pull-requests: read
+  # voy a poner un issues: write
 
 jobs:
   secrets:
@@ -45,5 +46,5 @@ jobs:
       # `npm ci` respeta allowScripts (ADR-002).
       - run: npm ci
         env:
-          SCARF_ANALYTICS: 'false'
+          SCARF_ANALYTICS: "false"
       - run: npm run lint

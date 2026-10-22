@@ -142,15 +142,15 @@ describe('autorregistro y verificación de correo', () => {
     expect(sql(`select password_setup_required from app.donor_profiles where donor_id = (select id from auth.users where email = '${email}')`)).toBe('t');
     const setup = latestSealed('recuperacion', email);
 
-    // Con la contraseña que conoce, quien registró puede entrar, pero no completar el perfil, ni por la API ni por la base.
+    // ADR-007: la barrera abierta por la verificación impide al registrante abrir sesión por Express (401) y, con un JWT obtenido
+    // directo de Auth, completar el perfil por la base (la prueba session-barrier.integration.ts cubre el resto).
     const again = anonymous();
-    expect((await again.login(email, { password: PASSWORD })).status).toBe(200);
-    expect((await onboard(again)).status).toBe(409);
+    expect((await again.login(email, { password: PASSWORD })).status).toBe(401);
     const attackerToken = await accessTokenFor(email, PASSWORD);
     const direct = await rpc('complete_own_onboarding', {
       p_key: randomUUID(), p_hash: 'x', p_name: 'Intruso', p_blood_type: 'O_POS', p_available: true, p_latitude: -12.046, p_longitude: -77.043, p_polygon_version: 'DEMO_ONLY-1',
     }, attackerToken);
-    expect(JSON.stringify(await direct.json())).not.toContain('"activo"');
+    expect(((await direct.json()) as { kind?: string }).kind).toBe('unauthenticated');
     expect(sql(`select status from app.donor_profiles where donor_id = (select id from auth.users where email = '${email}')`)).toBe('incompleto');
 
     // El dueño del buzón fija su contraseña: la anterior deja de valer y el bloqueo se levanta.
@@ -340,8 +340,9 @@ describe('perfil propio del donante', () => {
   });
 
   it('la RPC llamada directamente también rechaza Madrid, una versión de polígono falsa y un nombre en blanco', async () => {
-    const { email } = await verifiedDonor();
-    const token = await accessTokenFor(email);
+    const { email, client } = await verifiedDonor();
+    // ADR-007: solo una sesión admitida (login por Express tras cerrar la barrera) autoriza; un JWT directo de Auth daría `unauthenticated`.
+    const token = client.cookies.get('__Host-sal_at') as string;
     const call = async (name: string, lat: number, lon: number, version: string) => {
       const response = await rpc('complete_own_onboarding', {
         p_key: randomUUID(), p_hash: fingerprint([['name', name], ['declaredBloodType', 'A_POS'], ['isAvailable', true], ['latitude', lat], ['longitude', lon]]),
