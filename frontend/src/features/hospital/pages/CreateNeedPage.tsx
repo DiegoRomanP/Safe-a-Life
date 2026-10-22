@@ -67,7 +67,8 @@ export function CreateNeedPage() {
       bloodType: bloodType ? undefined : 'Selecciona el grupo requerido.',
       target: rangeError(target, 1, 50, 'intenciones'),
       site: siteId ? undefined : 'Selecciona una sede del hospital.',
-      radius: rangeError(radius, 1, 50, 'km'),
+      // El radio es opcional en el contrato: vacío equivale a 10 km.
+      radius: radius.trim() ? rangeError(radius, 1, 50, 'km') : undefined,
       hours: rangeError(hours, 1, 72, 'horas'),
     };
     flushSync(() => setErrors(found));
@@ -78,7 +79,7 @@ export function CreateNeedPage() {
         requiredBloodType: bloodType as BloodType,
         targetConfirmations: Number(target),
         siteId,
-        radiusKm: Number(radius),
+        radiusKm: radius.trim() ? Number(radius) : 10,
         urgency,
         expiresInHours: Number(hours),
       },
@@ -135,7 +136,7 @@ export function CreateNeedPage() {
                   />
                 )}
               </Field>
-              <Field label="Radio en km" hint="Rango permitido: 1 a 50 km." error={errors.radius}>
+              <Field label="Radio en km" hint="Rango permitido: 1 a 50 km. Si lo dejas vacío, se usan 10 km." error={errors.radius}>
                 {(control) => (
                   <Input
                     {...control}

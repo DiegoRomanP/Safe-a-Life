@@ -66,7 +66,25 @@ const opaque = (
   validity: 'activa' | 'invalidada' | 'vencida' = 'activa',
 ): NeedResponse => ({ needDonorCode, validity, delivery: 'entregada', response });
 
+const confirmed = (needDonorCode: string, donorName: string, responseRecordedAt: string): NeedResponse => ({
+  needDonorCode,
+  donorName,
+  declaredBloodType: 'O_NEG',
+  response: 'confirmada',
+  responseRecordedAt,
+});
+
+// Cada necesidad tiene tantas respuestas «confirmada» como su
+// confirmedIntentCount (lo comprueba demoData.test.ts).
 export const demoResponses: Record<string, NeedResponse[]> = {
+  '02210d4e-2f3a-4b4c-9d5e-6f7a8b9c0d12': [
+    confirmed('N-21A0-01', 'Carla Mendoza', '2026-09-24T15:02:00Z'),
+    confirmed('N-21A0-02', 'Jorge Salas', '2026-09-24T15:20:00Z'),
+    confirmed('N-21A0-03', 'Rosa Huamán', '2026-09-24T16:05:00Z'),
+    confirmed('N-21A0-04', 'Diego Paredes', '2026-09-24T16:48:00Z'),
+    confirmed('N-21A0-05', 'Lucía Vargas', '2026-09-24T17:30:00Z'),
+    opaque('N-21A0-06', 'sin_respuesta', 'invalidada'),
+  ],
   'a1040c3d-1e2f-4a3b-8c4d-5e6f7a8b9c01': [
     {
       needDonorCode: 'D-7F2A-01',

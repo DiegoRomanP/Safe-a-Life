@@ -110,8 +110,8 @@ export function NeedDetailPage() {
       </div>
 
       {confirmingCancel && (
-        <Alert tone="danger" title={`¿Cancelar ${code}?`}>
-          <p>Las invitaciones sin respuesta dejarán de estar vigentes. Esta acción no se puede deshacer.</p>
+        <Alert tone="warning" title={`¿Cancelar ${code}?`}>
+          <p>La necesidad pasará a «Cancelada». Esta acción no se puede deshacer.</p>
           <div className="mt-3 flex flex-wrap gap-3">
             <Button ref={confirmRef} variant="danger" onClick={() => apply('cancelada')}>
               Sí, cancelar necesidad
@@ -150,6 +150,7 @@ export function NeedDetailPage() {
             aria-valuemin={0}
             aria-valuemax={need.targetConfirmations}
             aria-valuenow={need.confirmedIntentCount}
+            aria-valuetext={`${need.confirmedIntentCount} de ${need.targetConfirmations} intenciones`}
             className="h-3 overflow-hidden rounded-full bg-neutral-soft"
           >
             <div className="h-full rounded-full bg-success" style={{ width: `${progress}%` }} />
