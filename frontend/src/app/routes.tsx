@@ -25,6 +25,7 @@ import { NeedsPage } from '../features/hospital/pages/NeedsPage.js';
 import { ResponsesPage } from '../features/hospital/pages/ResponsesPage.js';
 import { SummaryPage } from '../features/hospital/pages/SummaryPage.js';
 import { SuperadminLayout } from '../features/superadmin/SuperadminLayout.js';
+import { AdminsPage } from '../features/superadmin/pages/AdminsPage.js';
 import { HospitalsPage } from '../features/superadmin/pages/HospitalsPage.js';
 import { SitesPage } from '../features/superadmin/pages/SitesPage.js';
 import { TasksPage } from '../features/superadmin/pages/TasksPage.js';
@@ -87,6 +88,7 @@ export const routes: RouteObject[] = [
       { index: true, element: <TasksPage /> },
       { path: 'hospitales', element: <HospitalsPage /> },
       { path: 'sedes', element: <SitesPage /> },
+      { path: 'administradores', element: <AdminsPage /> },
     ],
   },
   { path: '*', element: <NotFoundPage /> },
