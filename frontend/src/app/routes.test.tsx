@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { Navigate, type RouteObject } from 'react-router-dom';
+import { act } from 'react';
+import { Navigate, RouterProvider, createMemoryRouter, type RouteObject } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
-import { setupRender } from '../test/render.js';
+import { render, setupRender } from '../test/render.js';
 import { renderRoute } from '../test/renderRoute.js';
 import type { RouteHandle } from './DocumentTitle.js';
 import { routes } from './routes.js';
@@ -21,9 +22,14 @@ describe('rutas', () => {
     const walk = (list: RouteObject[], parent: string) => {
       for (const route of list) {
         const path = [parent, route.path ?? (route.index ? '(índice)' : '')].filter(Boolean).join('/');
-        if (route.children) walk(route.children, path);
-        else if (route.element && (route.element as { type?: unknown }).type !== Navigate && !(route.handle as RouteHandle)?.title)
-          missing.push(path);
+        if (route.children) {
+          walk(route.children, path);
+          continue;
+        }
+        // Las redirecciones no son vistas; cualquier otra hoja (element,
+        // Component o lazy) necesita título.
+        const redirect = (route.element as { type?: unknown } | undefined)?.type === Navigate;
+        if (!redirect && !(route.handle as RouteHandle)?.title) missing.push(path);
       }
     };
     walk(routes, '');
@@ -40,6 +46,16 @@ describe('rutas', () => {
   ])('%s se titula «%s»', (path, title) => {
     renderRoute(path);
     expect(document.title).toBe(title);
+  });
+
+  it('el título cambia al navegar dentro de la app', () => {
+    const router = createMemoryRouter(routes, { initialEntries: ['/hospital'] });
+    render(<RouterProvider router={router} />);
+    expect(document.title).toBe('Resumen · Hospital · Save a Life');
+    act(() => {
+      void router.navigate('/hospital/altas');
+    });
+    expect(document.title).toBe('Altas asistidas · Hospital · Save a Life');
   });
 
   it('el título no lleva el ID de la ruta', () => {
