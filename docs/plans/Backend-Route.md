@@ -329,11 +329,11 @@ No ejecutar `npm run test:e2e` aquí (es de la demo y exige parar `npm run dev`)
 | --- | --- | --- | --- | --- | --- |
 | V0–V6 | Verificación baseline | Completada | Senior | n/a | `docs/plans/2026-10-21-verificacion-backend.md` (V4 y V5 con una corrida fallida previa; ver plan) |
 | V7 | Contrato Prism + Ajv | Completada | Senior | n/a | Inventario del runner actualizado (510 errores, 617 casos); 72/72 |
-| V8 (B1, B2, B3, B4, SP-04) | Correcciones | Completada (sin commit) | subagentes sonnet | reviewer-back PASS; security **pendiente** | `docs/plans/2026-10-21-verificacion-backend.md` |
-| V8 (SP-01 ADR, P-12) | Decisiones de seguridad | Bloqueada (A2, A3) | — | — | — |
-| V9 | Gates independientes F5/F7 | En progreso | subagente opus | reviewer-back: F5 PASS, F7 **BLOCKED** (409 no contratado); security y clinical pendientes | ver plan de verificación |
+| V8 (B1, B2, B3, B4, SP-04) | Correcciones | Completada | subagentes sonnet | reviewer-back PASS; security **pendiente** | `docs/plans/2026-10-21-verificacion-backend.md` |
+| V8 (SP-01, P-12 V15) | Seguridad | Completada | subagentes sonnet | reviewer-back PASS; security PASS | `a9193aa`, `c4aab53`; purgas del worker siguen abiertas |
+| V9 | Gates independientes F5/F7 | Completada (clinical pendiente) | subagentes opus | F5 PASS, F7 PASS tras documentar el 409 (`c864044`); security PASS | clinical-safety-reviewer no ejecutado |
 | C0, C1 | Reconciliar P-11; gate clínico | Pendiente | — | — | — |
-| F6-2 … F6-6 | Slices F6 | Bloqueada (Fase A/B, A4) | — | — | — |
+| F6-2 … F6-6 | Slices F6 | Bloqueada (A4; Fase A/B cerrada salvo purgas del worker) | — | — | — |
 | L0 | Investigación legal | Pendiente (puede iniciar ya) | — | — | — |
 | L1 … L5 | legal-information | Bloqueada (A5–A8, F6) | — | — | — |
 | F8-RP | recognition-policies | Bloqueada (L5, ratificación) | — | — | — |
@@ -356,3 +356,4 @@ No ejecutar `npm run test:e2e` aquí (es de la demo y exige parar `npm run dev`)
 - Documentos de octubre contienen afirmaciones desactualizadas (README/Backend-Contracts/JSON heading); si un conteo contradice el script reproducible de `docs/README.md`, prevalece lo ejecutado.
 - Engram: usar la identidad oficial `save-a-life-oficial`; no fusionar ni borrar historiales anteriores.
 - Los planes de otras tareas no se sobrescriben; este archivo (`Backend-Route.md`) es el tablero de la ruta, y cada fase abre su propio plan fechado `docs/plans/YYYY-MM-DD-<slug>.md`.
+| 2026-10-22 | Senior / Fase A y B | V7–V9 cerradas; SP-01 (ADR-007) y P-12 (a) implementados y commiteados; ver `2026-10-21-verificacion-backend.md` |
