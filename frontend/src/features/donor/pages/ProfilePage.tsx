@@ -12,7 +12,7 @@ import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { bloodTypeLabel } from '../../../lib/format.js';
-import { useDemoMutation } from '../../../lib/useDemoMutation.js';
+import { useDemoMutation, type Mutation } from '../../../lib/useDemoMutation.js';
 import { useDemoQuery } from '../../../lib/useDemoQuery.js';
 import { useDonorDemo } from '../DonorDemoContext.js';
 import { latitudeError, longitudeError } from '../location.js';
@@ -37,10 +37,10 @@ const protectedChanges: Array<{
 // disponibilidad y ubicación aproximada (updateOwnDonorParticipation); nombre,
 // correo y grupo requieren una solicitud de corrección.
 export function ProfilePage() {
-  const { scenario, getProfile } = useDonorDemo();
+  const { scenario, getProfile, updateParticipation } = useDonorDemo();
   const query = useDemoQuery(getProfile, scenario);
-  // Tras un conflicto, el formulario se vuelve a montar con los datos actuales.
-  const [formKey, setFormKey] = useState(0);
+  // La escritura vive aquí para que el botón de la cabecera refleje el envío.
+  const save = useDemoMutation(updateParticipation);
 
   return (
     <>
@@ -49,7 +49,7 @@ export function ProfilePage() {
         description="Administra tu disponibilidad y ubicación sintética aproximada."
         actions={
           query.status === 'ready' && (
-            <Button type="submit" form="perfil-formulario">
+            <Button type="submit" form="perfil-formulario" aria-disabled={save.pending}>
               Guardar cambios
             </Button>
           )
@@ -60,11 +60,13 @@ export function ProfilePage() {
       </Alert>
       <QueryView query={query} loadingMessage="Cargando tu perfil…" backTo="/donante/invitaciones" backLabel="Ir a mis invitaciones">
         {(profile, reload) => (
+          // Revisar un conflicto vuelve a «Cargando», así que el formulario se
+          // monta de nuevo con los datos que llegan del reintento.
           <ProfileForm
-            key={formKey}
             profile={profile}
+            save={save}
             onReload={() => {
-              setFormKey((current) => current + 1);
+              save.reset();
               reload();
             }}
           />
@@ -74,9 +76,13 @@ export function ProfilePage() {
   );
 }
 
-function ProfileForm({ profile, onReload }: { profile: DonorProfile; onReload: () => void }) {
-  const { updateParticipation } = useDonorDemo();
-  const save = useDemoMutation(updateParticipation);
+type ProfileFormProps = {
+  profile: DonorProfile;
+  save: Mutation<[Pick<DonorProfile, 'isAvailable' | 'approximateLocation'>], void>;
+  onReload: () => void;
+};
+
+function ProfileForm({ profile, save, onReload }: ProfileFormProps) {
   const [isAvailable, setIsAvailable] = useState(profile.isAvailable);
   const [latitude, setLatitude] = useState(String(profile.approximateLocation.latitude));
   const [longitude, setLongitude] = useState(String(profile.approximateLocation.longitude));

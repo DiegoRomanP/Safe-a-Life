@@ -34,35 +34,31 @@ export function InvitationDetailPage() {
     <>
       {backLink}
       <QueryView query={query} loadingMessage="Cargando la invitación…" backTo="/donante/invitaciones" backLabel="Ir a mis invitaciones">
-        {(invitation, reload) =>
-          invitation ? <InvitationDetail invitation={invitation} onReload={reload} /> : <InvitationNotFound />
-        }
+        {(invitation, reload) => (
+          <InvitationDetail invitation={invitation} refreshing={query.refreshing} onReload={reload} />
+        )}
       </QueryView>
     </>
   );
 }
 
-function InvitationNotFound() {
-  return (
-    <section className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-8">
-      <h1 className="text-3xl font-bold text-ink">No pudimos abrir esta invitación</h1>
-      <p className="text-muted">Puede que no exista o que ya no esté disponible para tu cuenta.</p>
-    </section>
-  );
-}
+type InvitationDetailProps = { invitation: DonorInvitation; refreshing: boolean; onReload: () => void };
 
-function InvitationDetail({ invitation, onReload }: { invitation: DonorInvitation; onReload: () => void }) {
+function InvitationDetail({ invitation, refreshing, onReload }: InvitationDetailProps) {
   const { respond } = useDonorDemo();
   const save = useDemoMutation(respond);
   const [result, setResult] = useState<'confirmada' | 'rechazada' | null>(null);
   const urgency = urgencyLabel[invitation.urgency];
   const current = responseLabel[invitation.response];
   const canRespond = invitation.validity === 'activa';
+  // Tras guardar, la invitación se revalida: hasta que llega no se actúa sobre
+  // la respuesta anterior, para no repetir el envío.
+  const busy = save.pending || refreshing;
 
   // La respuesta vigente y el envío en curso se marcan con aria-disabled y no
   // con disabled: un botón enfocado que se deshabilita suelta el foco al body.
   async function answer(response: 'confirmada' | 'rechazada') {
-    if (save.pending || invitation.response === response) return;
+    if (busy || invitation.response === response) return;
     setResult(null);
     const saved = await save.run(invitation.invitationId, response);
     if (saved.ok) setResult(response);
@@ -121,14 +117,14 @@ function InvitationDetail({ invitation, onReload }: { invitation: DonorInvitatio
             <div className="flex flex-wrap gap-4">
               <Button
                 onClick={() => answer('confirmada')}
-                aria-disabled={save.pending || invitation.response === 'confirmada'}
+                aria-disabled={busy || invitation.response === 'confirmada'}
               >
                 Confirmar intención de asistir
               </Button>
               <Button
                 variant="ghost"
                 onClick={() => answer('rechazada')}
-                aria-disabled={save.pending || invitation.response === 'rechazada'}
+                aria-disabled={busy || invitation.response === 'rechazada'}
               >
                 No podré asistir
               </Button>
