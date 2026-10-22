@@ -24,6 +24,15 @@ import { NeedDetailPage } from '../features/hospital/pages/NeedDetailPage.js';
 import { NeedsPage } from '../features/hospital/pages/NeedsPage.js';
 import { ResponsesPage } from '../features/hospital/pages/ResponsesPage.js';
 import { SummaryPage } from '../features/hospital/pages/SummaryPage.js';
+import { SuperadminLayout } from '../features/superadmin/SuperadminLayout.js';
+import { AdminsPage } from '../features/superadmin/pages/AdminsPage.js';
+import { AuditPage } from '../features/superadmin/pages/AuditPage.js';
+import { ConfigurationPage } from '../features/superadmin/pages/ConfigurationPage.js';
+import { HospitalsPage } from '../features/superadmin/pages/HospitalsPage.js';
+import { RequestDetailPage } from '../features/superadmin/pages/RequestDetailPage.js';
+import { AdminRequestsPage } from '../features/superadmin/pages/RequestsPage.js';
+import { SitesPage } from '../features/superadmin/pages/SitesPage.js';
+import { TasksPage } from '../features/superadmin/pages/TasksPage.js';
 import { InvitationLinkPage } from '../features/invitation/pages/InvitationLinkPage.js';
 import { HomePage } from '../features/public/pages/HomePage.js';
 import { NotFoundPage } from '../features/system/pages/NotFoundPage.js';
@@ -73,6 +82,21 @@ export const routes: RouteObject[] = [
       { path: 'necesidades/:needId/respuestas', element: <ResponsesPage /> },
       { path: 'necesidades/:needId/lotes', element: <BatchesPage /> },
       { path: 'altas', element: <AssistedSignupsPage /> },
+    ],
+  },
+  // Área del superadmin. Sin backend (D-4) todavía no hay guard de sesión ni AAL2.
+  {
+    path: 'superadmin',
+    element: <SuperadminLayout />,
+    children: [
+      { index: true, element: <TasksPage /> },
+      { path: 'hospitales', element: <HospitalsPage /> },
+      { path: 'sedes', element: <SitesPage /> },
+      { path: 'administradores', element: <AdminsPage /> },
+      { path: 'solicitudes', element: <AdminRequestsPage /> },
+      { path: 'solicitudes/:requestId', element: <RequestDetailPage /> },
+      { path: 'configuracion', element: <ConfigurationPage /> },
+      { path: 'auditoria', element: <AuditPage /> },
     ],
   },
   { path: '*', element: <NotFoundPage /> },
