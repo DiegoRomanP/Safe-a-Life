@@ -2,7 +2,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { click, render, setupRender } from '../../test/render.js';
 import { Button } from '../ui/Button.js';
+import { MemoryRouter } from 'react-router-dom';
 import { ConflictNotice } from './ConflictNotice.js';
+import { ErrorState } from './ErrorState.js';
+import { ForbiddenState } from './ForbiddenState.js';
+import { SaveErrorNotice } from './SaveErrorNotice.js';
 import { EmptyState } from './EmptyState.js';
 import { Loading } from './Loading.js';
 import { SuccessNotice } from './SuccessNotice.js';
@@ -62,5 +66,42 @@ describe('StatePanel', () => {
   it('oculta el ícono y la franja decorativa a lectores de pantalla', () => {
     const view = render(<EmptyState message="Sin datos" />);
     expect(view.querySelectorAll('[aria-hidden="true"]')).toHaveLength(2);
+  });
+});
+
+describe('ErrorState', () => {
+  it('se anuncia con role="alert" y ofrece reintentar', () => {
+    const onRetry = vi.fn();
+    const view = render(<ErrorState onRetry={onRetry} />);
+    expect(view.querySelector('[role="alert"]')?.textContent).toContain('No pudimos cargar la información');
+    click(view.querySelector('button'));
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('ForbiddenState', () => {
+  it('usa el mensaje neutro de SYS-01 y ofrece volver', () => {
+    const view = render(
+      <MemoryRouter>
+        <ForbiddenState backTo="/donante/invitaciones" backLabel="Ir a mis invitaciones" />
+      </MemoryRouter>,
+    );
+    expect(view.textContent).toContain('No pudimos abrir este recurso');
+    expect(view.querySelector('a[href="/donante/invitaciones"]')?.textContent).toBe('Ir a mis invitaciones');
+  });
+});
+
+describe('SaveErrorNotice', () => {
+  it('no muestra nada sin error', () => {
+    expect(render(<SaveErrorNotice error={null} onReview={() => {}} />).textContent).toBe('');
+  });
+
+  it.each([
+    ['red', 'No pudimos conectar. No se registró ningún cambio'],
+    ['sin_permiso', 'Tu cuenta no puede realizar esta acción. No se registró ningún cambio.'],
+    ['conflicto', 'el tuyo no se guardó'],
+  ] as const)('%s dice que nada cambió', (error, text) => {
+    const view = render(<SaveErrorNotice error={error} onReview={() => {}} />);
+    expect(view.querySelector('[role="alert"]')?.textContent).toContain(text);
   });
 });
