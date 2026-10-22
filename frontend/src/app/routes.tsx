@@ -17,7 +17,10 @@ import { OnboardingPage } from '../features/donor/pages/OnboardingPage.js';
 import { ProfilePage } from '../features/donor/pages/ProfilePage.js';
 import { RequestsPage } from '../features/donor/pages/RequestsPage.js';
 import { HospitalLayout } from '../features/hospital/HospitalLayout.js';
+import { CreateNeedPage } from '../features/hospital/pages/CreateNeedPage.js';
+import { NeedDetailPage } from '../features/hospital/pages/NeedDetailPage.js';
 import { NeedsPage } from '../features/hospital/pages/NeedsPage.js';
+import { ResponsesPage } from '../features/hospital/pages/ResponsesPage.js';
 import { SummaryPage } from '../features/hospital/pages/SummaryPage.js';
 import { InvitationLinkPage } from '../features/invitation/pages/InvitationLinkPage.js';
 import { HomePage } from '../features/public/pages/HomePage.js';
@@ -63,6 +66,9 @@ export const routes: RouteObject[] = [
     children: [
       { index: true, element: <SummaryPage /> },
       { path: 'necesidades', element: <NeedsPage /> },
+      { path: 'necesidades/nueva', element: <CreateNeedPage /> },
+      { path: 'necesidades/:needId', element: <NeedDetailPage /> },
+      { path: 'necesidades/:needId/respuestas', element: <ResponsesPage /> },
     ],
   },
   { path: '*', element: <NotFoundPage /> },
