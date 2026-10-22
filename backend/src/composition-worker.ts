@@ -1,4 +1,4 @@
-import type { AppConfig } from './config/env.js';
+import type { WorkerConfig } from './config/env.js';
 import { createOutboxProcessor } from './modules/email-delivery/application/process-outbox.js';
 import { createWorkerLoop } from './modules/email-delivery/application/worker-loop.js';
 import { FakeEmailSender } from './modules/email-delivery/infrastructure/fake-sender.js';
@@ -28,7 +28,7 @@ export interface WorkerOverrides {
  * Raíz de composición del worker: proceso separado de la API, con la identidad técnica `worker` (V13). Solo llama a
  * las RPC `worker_*`; no usa `service_role` ni el SDK fuera de los adaptadores.
  */
-export function buildWorker(config: AppConfig, logger: Logger, overrides: WorkerOverrides = {}) {
+export function buildWorker(config: WorkerConfig, logger: Logger, overrides: WorkerOverrides = {}) {
   const supabase = createSupabaseFactory(config);
   const sessions = createSupabaseSessionGateway(config);
   const technicalSession = createTechnicalSession({
@@ -37,8 +37,8 @@ export function buildWorker(config: AppConfig, logger: Logger, overrides: Worker
   });
   const rpc = createRpcInvoker(supabase);
   const gateway = createOutboxRpcGateway(rpc, () => technicalSession.accessToken(), () => technicalSession.invalidate());
-  // Purgas (F7): el ledger de eliminaciones usa su propia clave derivada. No hay adaptador que borre cuentas de Auth
-  // (ADR-006 solo permite borrar usuarios inertes), así que `eraser` queda sin definir hasta que la persona usuaria decida.
+  // Purgas (F7): el ledger de eliminaciones usa su propia clave derivada. Las cuentas de Auth vencidas las borra una RPC
+  // con el JWT del worker (ADR-003 b2, decisión 2026-10-22): sin `service_role` ni `eraser`.
   const ledgerKey = deriveHmacKey(config.secrets.emailHmac, 'deletion-ledger');
   const purge = createPurgeJob({
     repository: createPrivacyPurgeRpcGateway(createTechnicalInvoker(rpc, () => technicalSession.accessToken(), () => technicalSession.invalidate())),

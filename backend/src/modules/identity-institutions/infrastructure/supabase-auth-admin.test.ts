@@ -89,4 +89,44 @@ describe('AuthAdmin (service_role)', () => {
     expect(calls[0].url).toContain('/rest/v1/rpc/worker_revoke_sessions');
     expect(JSON.parse(calls[0].init.body as string)).toEqual({ p_user_id: USER.id });
   });
+
+  it('deleteAccount borra definitivamente (DELETE, should_soft_delete=false) con la clave elevada', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+
+    await expect(admin(() => json(USER), calls).deleteAccount(USER.id)).resolves.toBeUndefined();
+
+    expect(calls[0].url).toContain(`/auth/v1/admin/users/${USER.id}`);
+    expect(calls[0].init.method).toBe('DELETE');
+    expect(JSON.parse(calls[0].init.body as string)).toMatchObject({ should_soft_delete: false });
+    expect(JSON.stringify(calls[0].init.headers)).toContain('clave-elevada-sintetica');
+  });
+
+  it('deleteAccount: 404 o user_not_found es éxito (idempotente)', async () => {
+    await expect(admin(() => json({ msg: 'x' }, 404)).deleteAccount(USER.id)).resolves.toBeUndefined();
+    await expect(admin(() => json({ error_code: 'user_not_found', msg: 'x' }, 422)).deleteAccount(USER.id)).resolves.toBeUndefined();
+  });
+
+  it('deleteAccount: 5xx, red, 429 son indisponibilidad (resultado incierto); 403 o 422 son rechazo, sin detalle del proveedor', async () => {
+    await expect(admin(() => json({ msg: 'canario-detalle' }, 503)).deleteAccount(USER.id)).rejects.toBeInstanceOf(PersistenceUnavailableError);
+    await expect(admin(() => { throw new TypeError('fetch failed'); }).deleteAccount(USER.id)).rejects.toBeInstanceOf(PersistenceUnavailableError);
+    await expect(admin(() => { throw new DOMException('timeout', 'TimeoutError'); }).deleteAccount(USER.id)).rejects.toBeInstanceOf(PersistenceUnavailableError);
+    await expect(admin(() => json({ msg: 'x' }, 429)).deleteAccount(USER.id)).rejects.toBeInstanceOf(PersistenceUnavailableError);
+    for (const status of [403, 422]) {
+      const error = await admin(() => json({ error_code: 'otra', msg: 'canario-detalle' }, status)).deleteAccount(USER.id).catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(PersistenceError);
+      expect(JSON.stringify(error)).not.toContain('canario');
+    }
+  });
+
+  it('deleteAccount: una excepción inesperada del SDK (respuesta no válida) es resultado incierto, no rechazo', async () => {
+    await expect(admin(() => undefined as unknown as Response).deleteAccount(USER.id)).rejects.toBeInstanceOf(PersistenceUnavailableError);
+  });
+
+  it('deleteAccount: un id que no es UUID se rechaza sin llamar a Auth', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+
+    await expect(admin(() => json(USER), calls).deleteAccount('../../x')).rejects.toBeInstanceOf(PersistenceError);
+
+    expect(calls).toEqual([]);
+  });
 });

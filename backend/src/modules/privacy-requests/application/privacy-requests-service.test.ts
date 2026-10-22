@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { PersistenceError, PersistenceUnavailableError } from '../../../shared/persistence/errors.js';
 import { fingerprint } from '../../../shared/crypto/fingerprint.js';
 import { hashToken } from '../../../shared/crypto/tokens.js';
 import { ApiError } from '../../../shared/http/errors.js';
@@ -19,6 +20,7 @@ interface Options {
   view?: CorrectionRequestView;
   withEraser?: boolean;
   eraserError?: boolean;
+  eraserUnavailable?: boolean;
   proposedEmailSealed?: string;
   openError?: boolean;
 }
@@ -51,7 +53,7 @@ function harness(options: Options = {}) {
     openEmailValue: (_context, sealed) => { if (options.openError) throw new Error('no abre'); return sealed.startsWith('prop') ? 'Nuevo@example.test' : 'x'; },
     seal: (outboxId, payload) => { seen.payloads.push([outboxId, payload]); return 'v1.k1.cifrado'; },
     ledgerHmac: (userId) => `hmac(${userId})`,
-    ...(options.withEraser ? { eraser: { deleteAccount: async (id: string) => { calls.push(`erase:${id}`); if (options.eraserError) throw new Error('auth'); } } } : {}),
+    ...(options.withEraser ? { eraser: { deleteAccount: async (id: string) => { calls.push(`erase:${id}`); if (options.eraserUnavailable) throw new PersistenceUnavailableError(); if (options.eraserError) throw new PersistenceError('rejected'); } } } : {}),
     newToken: () => TOKEN, newId: () => NEW_ID,
   });
   return { service, calls, seen };
@@ -170,5 +172,23 @@ describe('execute', () => {
     });
     await expect(service.execute('jwt', 'clave-ejecuta-0005', ID, GRANT)).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
     expect(calls).toEqual(['execute', 'subject', 'erase:d-1', 'fail']);
+  });
+
+  it('si el resultado del borrado es incierto (indisponible), no se marca fallida: queda en_ejecucion y responde 503', async () => {
+    const { service, calls } = harness({
+      withEraser: true, eraserUnavailable: true, view: { ...VIEW, type: 'eliminacion', requestedFields: ['deletion'] },
+      started: { request: { ...VIEW, status: 'en_ejecucion' }, next: 'deletion' }, subject: { type: 'eliminacion', donorId: 'd-1' },
+    });
+    await expect(service.execute('jwt', 'clave-ejecuta-0006', ID, GRANT)).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+    expect(calls).toEqual(['execute', 'subject', 'erase:d-1']);
+  });
+
+  it('un replay tras el cierre devuelve el estado actual sin volver a borrar', async () => {
+    const { service, calls } = harness({
+      withEraser: true, view: { ...VIEW, type: 'eliminacion', requestedFields: ['deletion'] },
+      started: { request: { ...VIEW, status: 'en_ejecucion' }, next: 'deletion' }, subject: new ApiError('STATE_CONFLICT'),
+    });
+    await expect(service.execute('jwt', 'clave-ejecuta-0007', ID, GRANT)).resolves.toMatchObject({ requestId: ID });
+    expect(calls).toEqual(['execute', 'subject']);
   });
 });

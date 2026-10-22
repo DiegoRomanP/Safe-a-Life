@@ -13,7 +13,7 @@ export interface SupabaseFactoryOptions {
 }
 
 export function createSupabaseFactory(
-  config: Pick<AppConfig, 'supabase'>,
+  config: { supabase: Pick<AppConfig['supabase'], 'url' | 'anonKey'> },
   options: SupabaseFactoryOptions = {},
 ): SupabaseFactory {
   const { url, anonKey } = config.supabase;

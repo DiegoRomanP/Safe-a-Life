@@ -40,7 +40,7 @@ function toPair(session: Pick<Session, 'access_token' | 'refresh_token' | 'expir
  * Los mensajes del proveedor no salen de este archivo.
  */
 export function createSupabaseSessionGateway(
-  config: Pick<AppConfig, 'supabase'>,
+  config: { supabase: Pick<AppConfig['supabase'], 'url' | 'anonKey'> },
   options: SupabaseSessionOptions = {},
 ): SessionGateway {
   const { url, anonKey } = config.supabase;

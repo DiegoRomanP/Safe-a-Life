@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { fingerprint } from '../../../shared/crypto/fingerprint.js';
 import { generateActionToken, hashToken } from '../../../shared/crypto/tokens.js';
 import { ApiError } from '../../../shared/http/errors.js';
+import { PersistenceUnavailableError } from '../../../shared/persistence/errors.js';
 import type { SealEmail } from '../../identity-institutions/application/action-tokens-service.js';
 import type {
   AccountEraser, ContextualData, CorrectionRequestView, GrantAction, GrantField, GrantView, Page, PageQuery, PrivacyRequestsRepository,
@@ -159,8 +160,9 @@ export function createPrivacyRequestsService({
       if (subject.donorId === undefined || eraser === undefined) throw new ApiError('INTERNAL_ERROR');
       try {
         await eraser.deleteAccount(subject.donorId);
-      } catch {
-        await repository.failExecution(requestId);
+      } catch (error) {
+        // Resultado incierto (timeout, 5xx): Auth pudo borrar. No se marca fallida; el worker la resuelve a los 15 min.
+        if (!(error instanceof PersistenceUnavailableError)) await repository.failExecution(requestId);
         throw new ApiError('SERVICE_UNAVAILABLE');
       }
       await finishDeletion(requestId, subject.donorId);

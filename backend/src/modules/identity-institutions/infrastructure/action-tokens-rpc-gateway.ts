@@ -1,4 +1,5 @@
-import { asNullableString, asString, closedRecord } from '../../../shared/persistence/guards.js';
+import { PersistenceError } from '../../../shared/persistence/errors.js';
+import { asNullableString, asNumber, asString, closedRecord } from '../../../shared/persistence/guards.js';
 import type { RpcInvoker } from '../../../shared/persistence/rpc-invoker.js';
 import type { ActionTokensRepository } from '../application/action-tokens.ports.js';
 
@@ -48,8 +49,18 @@ export function createActionTokensRpcGateway(rpc: RpcInvoker, technical: RpcInvo
 
     async consumePasswordReset(tokenHash) {
       const reply = await technical({ accessToken: null, name: 'consume_password_reset', okKinds: ['ok'], args: { p_token_hash: tokenHash } });
-      const row = closedRecord(reply, ['kind', 'userId']);
-      return Object.freeze({ userId: asString(row.userId) });
+      const row = closedRecord(reply, ['kind', 'userId', 'generation']);
+      const generation = asNumber(row.generation);
+      if (!Number.isInteger(generation) || generation < 1) throw new PersistenceError('shape');
+      return Object.freeze({ userId: asString(row.userId), generation });
+    },
+
+    async closeSessionBarrier(userId, generation) {
+      const reply = await technical({
+        accessToken: null, name: 'close_session_barrier', okKinds: ['ok', 'conflict'], args: { p_user_id: userId, p_generation: generation },
+      });
+      closedRecord(reply, ['kind']);
+      return reply.kind;
     },
   };
 }

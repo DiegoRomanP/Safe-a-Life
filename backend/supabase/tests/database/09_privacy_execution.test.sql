@@ -207,7 +207,7 @@ select is((select (r -> 'purged' ->> 'idempotencyRecords')::int from purge), 1, 
 select is((select (r -> 'purged' ->> 'actionTokens')::int from purge), 1, 'purga solo el token vencido hace más de 24 h');
 select is((select (r -> 'purged' ->> 'rateLimitEvents')::int from purge), 1, 'purga solo los eventos de más de un día');
 select is((select (r -> 'purged' ->> 'assistedSignups')::int from purge), 1, 'purga solo el alta sin reclamar pasada su fecha');
-select is((select r -> 'staleAccounts' from purge), '["00000000-0000-4000-8000-0000000000a5"]'::jsonb, 'lista la cuenta reclamada e incompleta de hace más de 30 días para borrarla en Auth');
+select ok(not (select r ? 'staleAccounts' from purge), 'ya no devuelve cuentas vencidas: las borra api.worker_purge_auth_accounts (P-12 b2)');
 select is((select r -> 'pendingDeletions' -> 0 ->> 'requestId' from purge), '90000000-0000-4000-8000-000000000011', 'lista la eliminación que solo necesita el ledger');
 select is((select (r ->> 'failedRequests')::int from purge), 1, 'y marca fallido el cambio de correo que no emitió enlace');
 select is(api.worker_purge_expired() -> 'purged', '{"actionTokens": 0, "accessGrants": 0, "assistedSignups": 0, "rateLimitEvents": 0, "idempotencyRecords": 0}'::jsonb, 'una segunda pasada no encuentra nada');

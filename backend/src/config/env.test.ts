@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validEnvSource } from '../test-support/env.js';
-import { ConfigError, parseEnv } from './env.js';
+import { ConfigError, parseApiEnv, parseEnv, parseWorkerEnv } from './env.js';
 
 const OUTBOX_KEY = Buffer.alloc(32, 7).toString('base64');
 const OUTBOX_KEY_B = Buffer.alloc(32, 8).toString('base64');
@@ -193,10 +193,9 @@ describe('parseEnv: variables de F1', () => {
     expect(api.apiTechnical.email).toBe('api-technical@example.test');
     expect(api.worker.password).toBe('');
     const workerOnly = validEnv({ API_TECHNICAL_EMAIL: undefined, API_TECHNICAL_PASSWORD: undefined });
-    const worker = parseEnv(workerOnly, 'worker');
+    const worker = parseWorkerEnv(workerOnly);
     expect(worker.worker.email).toBe('worker@example.test');
-    expect(worker.apiTechnical.password).toBe('');
-    expect(() => parseEnv(apiOnly, 'worker')).toThrowError(/WORKER_EMAIL/);
+    expect(() => parseWorkerEnv(apiOnly)).toThrowError(/WORKER_EMAIL/);
     expect(() => parseEnv(workerOnly, 'api')).toThrowError(/API_TECHNICAL_EMAIL/);
   });
 
@@ -271,5 +270,45 @@ describe('parseEnv: secreto de borde y producción', () => {
       WORKER_PASSWORD: 'w'.repeat(40), API_TECHNICAL_PASSWORD: 'a'.repeat(40),
       EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test_key', RESEND_WEBHOOK_SECRET: `whsec_${Buffer.alloc(24, 1).toString('base64')}`,
     })).production).toBe(true);
+  });
+});
+
+describe('configuración separada por proceso (V8-B2)', () => {
+  const API_ONLY = ['CSRF_SECRET', 'CURSOR_SECRET', 'EDGE_SHARED_SECRET', 'ALLOWED_ORIGINS', 'TRUSTED_PROXIES', 'SUPABASE_SERVICE_ROLE_KEY',
+    'SUPABASE_JWKS_URL', 'API_TECHNICAL_EMAIL', 'API_TECHNICAL_PASSWORD', 'RESEND_WEBHOOK_SECRET'];
+  const WORKER_ONLY = ['WORKER_EMAIL', 'WORKER_PASSWORD', 'WORKER_POLL_MS'];
+  const without = (names: string[], extra: Record<string, string | undefined> = {}) =>
+    validEnvSource({ ...Object.fromEntries(names.map((name) => [name, undefined])), ...extra });
+
+  it('el worker arranca sin los secretos de la API y no los expone', () => {
+    const config = parseWorkerEnv(without(API_ONLY));
+
+    expect(config.worker.email).toBe('worker@example.test');
+    expect(config.secrets.emailHmac).toBe('e'.repeat(40));
+    expect(config.secrets.outboxKeyring.currentKid).toBe('k1');
+    for (const key of ['csrf', 'cursor']) expect(config.secrets).not.toHaveProperty(key);
+    for (const key of ['allowedOrigins', 'trustedProxies', 'edgeSecret', 'apiTechnical']) expect(config).not.toHaveProperty(key);
+    expect(config.supabase).not.toHaveProperty('serviceRoleKey');
+    expect(Object.isFrozen(config)).toBe(true);
+  });
+
+  it('el worker sigue exigiendo lo que consume', () => {
+    for (const name of ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'EMAIL_HMAC_SECRET', 'OUTBOX_KEYS', 'WORKER_EMAIL', 'WORKER_PASSWORD', 'APP_PUBLIC_URL', 'EMAIL_FROM']) {
+      expect(() => parseWorkerEnv(without([...API_ONLY, name])), name).toThrowError(new RegExp(name));
+    }
+  });
+
+  it('la API no exige WORKER_*', () => {
+    expect(parseApiEnv(without(WORKER_ONLY)).apiTechnical.email).toBe('api-technical@example.test');
+    expect(() => parseApiEnv(without([...WORKER_ONLY, 'CSRF_SECRET']))).toThrowError(/CSRF_SECRET/);
+  });
+
+  it('en producción el worker falla cerrado sin pedir las reglas de la API', () => {
+    const production = { NODE_ENV: 'production', WORKER_PASSWORD: 'w'.repeat(40), EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_sintetica' };
+    expect(parseWorkerEnv(without(API_ONLY, production)).production).toBe(true);
+    expect(() => parseWorkerEnv(without(API_ONLY, { ...production, EMAIL_PROVIDER: 'fake' }))).toThrowError(/EMAIL_PROVIDER/);
+    expect(() => parseWorkerEnv(without(API_ONLY, { ...production, WORKER_PASSWORD: 'doce-caracteres' }))).toThrowError(/WORKER_PASSWORD/);
+    expect(() => parseWorkerEnv(without(API_ONLY, { ...production, APP_PUBLIC_URL: 'http://localhost:5173' }))).toThrowError(/APP_PUBLIC_URL/);
+    expect(() => parseWorkerEnv(without(API_ONLY, { ...production, SUPABASE_URL: 'http://127.0.0.1:54321' }))).toThrowError(/SUPABASE_URL/);
   });
 });

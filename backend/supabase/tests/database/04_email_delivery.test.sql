@@ -30,7 +30,7 @@ select is((select count(*)::int from (values ('app.email_outbox'), ('app.email_a
   where has_table_privilege(r.role, t.name, p.priv)), 0, 'ni authenticated ni anon tienen privilegios sobre las tablas de correo');
 select is((select array_agg(p.proname::text order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'api' and p.prosecdef and p.proname like any (array['worker\_%', 'ingest\_%']) and p.proname not in ('worker_revoke_sessions', 'worker_delete_inert_user')),
-  array['ingest_email_event', 'worker_claim_due_outbox', 'worker_expire_outbox', 'worker_purge_expired', 'worker_record_attempt'], 'las funciones del worker son SECURITY DEFINER');
+  array['ingest_email_event', 'worker_claim_due_outbox', 'worker_expire_outbox', 'worker_purge_auth_accounts', 'worker_purge_expired', 'worker_record_attempt'], 'las funciones del worker son SECURITY DEFINER');
 select is((select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'api' and p.prosecdef and pg_get_userbyid(p.proowner) <> 'app_privileged' and p.proname not in ('worker_revoke_sessions', 'worker_delete_inert_user')), 0,
   'toda DEFINER de api pertenece a app_privileged salvo la de revocación de sesiones (ADR-006)');

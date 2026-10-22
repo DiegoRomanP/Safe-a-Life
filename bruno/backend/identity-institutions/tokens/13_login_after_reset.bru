@@ -1,0 +1,30 @@
+meta {
+  name: Barrera: login nuevo con la contraseña nueva
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/sessions
+  body: json
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-barrier-login-2
+}
+
+body:json {
+  { "email": "{{donorEmail}}", "password": "{{newPassword}}" }
+}
+
+docs {
+  No hay petición «cookie anterior al reset => 401»: GoTrue ya rechaza la sesión revocada, así que daría 401 incluso sin la barrera
+  (ADR-007) y no probaría nada. El bypass (JWT anterior directo a PostgREST) lo cubre backend/test/integration/session-barrier.integration.ts.
+}
+
+tests {
+  test("el login tras el cierre de la barrera responde 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

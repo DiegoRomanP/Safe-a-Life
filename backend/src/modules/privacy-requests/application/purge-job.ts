@@ -1,26 +1,33 @@
-import type { AccountEraser, PrivacyPurgeRepository } from './privacy-requests.ports.js';
+import type { PrivacyPurgeRepository, PurgeReport } from './privacy-requests.ports.js';
 
 export interface PurgeJobDependencies {
   readonly repository: PrivacyPurgeRepository;
   readonly ledgerHmac: (userId: string) => string;
-  /** Sin adaptador de producción (ADR-006): sin él no se borran cuentas de Auth y el resto de las purgas sigue. */
-  readonly eraser?: AccountEraser;
 }
 
-export type PurgeSummary = Readonly<{ purged: number; failedRequests: number; erasedAccounts: number; closedDeletions: number; skipped: number }>;
+export type PurgeSummary = Readonly<{
+  purged: number; failedRequests: number; staleAccountsDeleted: number; inertAccountsDeleted: number; closedDeletions: number; skipped: number;
+}>;
+
+/** Máximo de la RPC `worker_purge_auth_accounts` (1..500); lo que sobre se purga en la siguiente pasada. */
+const AUTH_PURGE_LIMIT = 500;
 
 /**
- * Purgas del worker (RNF-PRV, decisión 8). La base purga lo suyo en una sola RPC; aquí se completa lo que necesita Auth:
- * cuentas reclamadas e incompletas con más de 30 días y eliminaciones a las que solo falta el ledger. Una cuenta que no se
- * puede borrar no detiene las demás: se cuenta y se reintenta en la siguiente pasada. Nada de lo que devuelve contiene ids.
+ * Purgas del worker (RNF-PRV, decisión 8). La base purga lo suyo en una RPC y las cuentas de Auth vencidas (reclamadas e
+ * incompletas > 30 días, inertes > 24 h) en otra, ambas con el JWT técnico del worker: sin `service_role` (ADR-003, b2).
+ * Un paso que falla no detiene los demás: se cuenta y se reintenta en la siguiente pasada. Nada de lo que devuelve contiene ids.
  */
-export function createPurgeJob({ repository, ledgerHmac, eraser }: PurgeJobDependencies) {
+export function createPurgeJob({ repository, ledgerHmac }: PurgeJobDependencies) {
   return Object.freeze({
     async runOnce(): Promise<PurgeSummary> {
-      const report = await repository.purge();
       let closedDeletions = 0;
-      let erasedAccounts = 0;
       let skipped = 0;
+      let report: PurgeReport = { purged: {}, failedRequests: 0, pendingDeletions: [] };
+      try {
+        report = await repository.purge();
+      } catch {
+        skipped += 1;
+      }
 
       for (const { requestId, donorId } of report.pendingDeletions) {
         try {
@@ -30,18 +37,16 @@ export function createPurgeJob({ repository, ledgerHmac, eraser }: PurgeJobDepen
           skipped += 1;
         }
       }
-      for (const accountId of report.staleAccounts) {
-        if (eraser === undefined) { skipped += 1; continue; }
-        try {
-          await eraser.deleteAccount(accountId);
-          erasedAccounts += 1;
-        } catch {
-          skipped += 1;
-        }
+      let accounts = { staleDeleted: 0, inertDeleted: 0 };
+      try {
+        accounts = await repository.purgeAuthAccounts(AUTH_PURGE_LIMIT);
+      } catch {
+        skipped += 1;
       }
       return Object.freeze({
         purged: Object.values(report.purged).reduce((total, count) => total + count, 0),
-        failedRequests: report.failedRequests, erasedAccounts, closedDeletions, skipped,
+        failedRequests: report.failedRequests, staleAccountsDeleted: accounts.staleDeleted, inertAccountsDeleted: accounts.inertDeleted,
+        closedDeletions, skipped,
       });
     },
   });

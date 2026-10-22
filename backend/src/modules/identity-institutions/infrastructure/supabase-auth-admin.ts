@@ -5,6 +5,7 @@ import { PersistenceError, PersistenceUnavailableError } from '../../../shared/p
 import type { AuthAdmin } from '../application/auth-admin.ports.js';
 
 const TIMEOUT_MS = 8_000;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface SupabaseAuthAdminOptions {
   readonly fetch?: typeof fetch;
@@ -90,6 +91,20 @@ export function createSupabaseAuthAdmin(
         if (error.code === undefined || /fetch|network/i.test(error.message)) throw new PersistenceUnavailableError();
         throw new PersistenceError('rejected');
       }
+    },
+
+    async deleteAccount(userId) {
+      if (!UUID.test(userId)) throw new PersistenceError('rejected'); // nunca llamar a Auth con un id raro
+      let error;
+      try {
+        ({ error } = await client().auth.admin.deleteUser(userId, false)); // borrado definitivo, no soft delete
+      } catch {
+        throw new PersistenceUnavailableError(); // el SDK lanzó: Auth pudo borrar, resultado incierto
+      }
+      if (!error) return;
+      if (error.status === 404 || error.code === 'user_not_found') return; // ya no existe: idempotente
+      if (isUnavailable(error) || error.status === 429) throw new PersistenceUnavailableError();
+      throw new PersistenceError('rejected');
     },
   };
   return Object.freeze(admin);

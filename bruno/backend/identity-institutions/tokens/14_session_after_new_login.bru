@@ -1,0 +1,18 @@
+meta {
+  name: Barrera: la sesión nueva está admitida
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/v1/auth/session
+  body: none
+  auth: none
+}
+
+tests {
+  test("responde 200 con la sesión admitida", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.actor.role).to.equal("donante");
+  });
+}
