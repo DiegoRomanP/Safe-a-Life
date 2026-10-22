@@ -85,8 +85,9 @@ export interface PrivacyPurgeRepository {
 }
 
 /**
- * Borra la cuenta de Auth de una persona (eliminación, V15) y devuelve cuando ya no existe. No tiene adaptador de producción:
- * `AuthAdmin` (ADR-006) solo permite borrar usuarios inertes, y ampliarlo es una decisión de la persona usuaria.
+ * Borra la cuenta de Auth de una persona (eliminación, V15) y devuelve cuando ya no existe (un 404 es éxito). La composición
+ * de la API lo adapta a `AuthAdmin.deleteAccount` (ADR-006); el worker no lo recibe. `PersistenceUnavailableError` indica un
+ * resultado incierto; cualquier otro error, un rechazo definitivo.
  */
 export interface AccountEraser {
   deleteAccount(userId: string): Promise<void>;

@@ -185,7 +185,7 @@ describe('cambio de correo', () => {
 });
 
 describe('eliminación', () => {
-  it('sin adaptador que borre cuentas (ADR-006) se rechaza con 503 y no cambia nada', async () => {
+  it('la eliminación aprobada borra la cuenta de Auth y los datos de aplicación, deja el ledger y completa la solicitud (200)', async () => {
     const donor = await activeDonor();
     const created = await donor.client.send('POST', REQUESTS, { body: { type: 'eliminacion' } });
     expect(created.status).toBe(201);
@@ -194,11 +194,24 @@ describe('eliminación', () => {
     await approve(requestId);
     const executeGrant = await grant(requestId, 'execute', ['name']);
 
-    const executed = await superadmin.send('POST', `${ADMIN_REQUESTS}/${requestId}/executions`, { headers: { [GRANT_HEADER]: executeGrant } });
+    const executionKey = randomUUID();
+    const executed = await superadmin.send('POST', `${ADMIN_REQUESTS}/${requestId}/executions`, { key: executionKey, headers: { [GRANT_HEADER]: executeGrant } });
 
-    expect(executed.status).toBe(503);
-    expect(sql(`select status from app.correction_requests where request_id = '${requestId}'`)).toBe('aprobada');
-    expect(sql(`select is_available from app.donor_profiles where donor_id = '${donor.id}'`)).toBe('t');
-    expect(sql(`select count(*) from app.deletion_ledger`)).toBe('0');
+    expect(executed.status).toBe(200);
+    expect(executed.json.data.status).toBe('completada');
+    expect(sql(`select count(*) from auth.users where id = '${donor.id}'`)).toBe('0');
+    expect(sql(`select count(*) from app.user_accounts where user_id = '${donor.id}'`)).toBe('0');
+    expect(sql(`select count(*) from app.donor_profiles where donor_id = '${donor.id}'`)).toBe('0');
+    expect(sql(`select count(*) from app.hospital_memberships where user_id = '${donor.id}'`)).toBe('0');
+    expect(sql(`select count(*) from app.deletion_ledger`)).not.toBe('0');
+    expect(sql(`select donor_id is null from app.correction_requests where request_id = '${requestId}'`)).toBe('t');
+    expect((await new ApiClient(backend.baseUrl).login(donor.email)).status).toBe(401);
+
+    // Replay (misma clave de idempotencia) tras el cierre: sigue siendo 200 y no vuelve a escribir el ledger. Con otra clave la
+    // solicitud ya completada es un 409 legítimo.
+    const ledgerBefore = sql('select count(*) from app.deletion_ledger');
+    const replay = await superadmin.send('POST', `${ADMIN_REQUESTS}/${requestId}/executions`, { key: executionKey, headers: { [GRANT_HEADER]: executeGrant } });
+    expect(replay.status).toBe(200);
+    expect(sql('select count(*) from app.deletion_ledger')).toBe(ledgerBefore);
   });
 });

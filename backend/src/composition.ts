@@ -113,11 +113,12 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
     seal: (outboxId, payload) => sealEmailPayload(config.secrets.outboxKeyring, outboxId, payload),
     open: (context, sealed) => openEmailChange(config.secrets.outboxKeyring, context, sealed),
   });
-  // Solicitudes de corrección y eliminación (F7). Sin `eraser`: ADR-006 no permite borrar cuentas con vida propia, así que una
-  // eliminación se rechaza (503) antes de tocar nada hasta que la persona usuaria amplíe el adaptador.
+  // Solicitudes de corrección y eliminación (F7). El `eraser` adapta el puerto a `AuthAdmin.deleteAccount` (ADR-006, aprobado
+  // el 2026-10-22 solo para V15); el módulo no importa identity-institutions. El worker sigue sin `eraser`.
   const ledgerKey = deriveHmacKey(config.secrets.emailHmac, 'deletion-ledger');
   const privacy = createPrivacyRequestsService({
     repository: createPrivacyRequestsRpcGateway(rpc, technicalRpc),
+    eraser: { deleteAccount: (userId) => authAdmin.deleteAccount(userId) },
     sealEmailValue: (context, email) => sealEmailChange(config.secrets.outboxKeyring, context, email),
     openEmailValue: (context, sealed) => openEmailChange(config.secrets.outboxKeyring, context, sealed),
     seal: (outboxId, payload) => sealEmailPayload(config.secrets.outboxKeyring, outboxId, payload),
