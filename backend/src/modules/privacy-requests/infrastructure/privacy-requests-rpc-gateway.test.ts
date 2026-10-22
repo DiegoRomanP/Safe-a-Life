@@ -67,16 +67,27 @@ describe('purga del worker', () => {
   it('lee el informe cerrado y lo entrega congelado', async () => {
     const { purge, calls } = harness({
       kind: 'ok', purged: { idempotencyRecords: 1, actionTokens: 0, rateLimitEvents: 0, accessGrants: 0, assistedSignups: 0 },
-      failedRequests: 0, staleAccounts: ['u-1'], pendingDeletions: [{ requestId: 'r-1', donorId: 'd-1' }],
+      failedRequests: 0, pendingDeletions: [{ requestId: 'r-1', donorId: 'd-1' }],
     });
     const report = await purge.purge();
-    expect(report.staleAccounts).toEqual(['u-1']);
+    expect(report).not.toHaveProperty('staleAccounts');
     expect(report.pendingDeletions).toEqual([{ requestId: 'r-1', donorId: 'd-1' }]);
     expect(calls[0]?.name).toBe('worker:worker_purge_expired');
   });
 
+  it('la purga de cuentas de Auth llama a una RPC del worker con p_limit y devuelve solo conteos', async () => {
+    const { purge, calls } = harness({ kind: 'ok', staleDeleted: 2, inertDeleted: 1 });
+    expect(await purge.purgeAuthAccounts(500)).toEqual({ staleDeleted: 2, inertDeleted: 1 });
+    expect(calls[0]).toMatchObject({ name: 'worker:worker_purge_auth_accounts', args: { p_limit: 500 } });
+  });
+
+  it('una respuesta de cuentas con ids de más es un fallo de persistencia', async () => {
+    const { purge } = harness({ kind: 'ok', staleDeleted: 0, inertDeleted: 0, ids: ['u-1'] });
+    await expect(purge.purgeAuthAccounts(10)).rejects.toThrow(PersistenceError);
+  });
+
   it('un informe con claves de más es un fallo de persistencia', async () => {
-    const { purge } = harness({ kind: 'ok', purged: {}, failedRequests: 0, staleAccounts: [], pendingDeletions: [] });
+    const { purge } = harness({ kind: 'ok', purged: {}, failedRequests: 0, pendingDeletions: [], staleAccounts: [] });
     await expect(purge.purge()).rejects.toThrow(PersistenceError);
   });
 });

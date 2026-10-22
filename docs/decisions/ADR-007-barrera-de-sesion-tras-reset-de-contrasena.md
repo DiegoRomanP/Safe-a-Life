@@ -409,3 +409,24 @@ reset → cookie anterior → 401 → login nuevo → 200.
 Con el sí, la implementación va a `backend-data-engineer` (migración y pgTAP) y a
 `dev-back` (Express), con `reviewer-back`, `security-privacy-auditor` y QA en
 cada slice. Mientras tanto SP-01 sigue abierto y F6 bloqueada.
+
+## Enmienda 2026-10-22: el reset borra los factores MFA de las donantes
+
+Decisión de la persona usuaria y de arquitectura tras un hallazgo del auditor: un
+factor TOTP creado antes del reset sobrevivía, de modo que quien se hubiera
+autorregistrado con un correo ajeno podía dejar un factor propio.
+`api.consume_password_reset` llama ahora a `app.delete_mfa_factors(uuid)`
+(DEFINER de `postgres`, solo `app_privileged`, ADR-003 regla 6) en la misma
+transacción que abre la barrera, y el helper borra los factores (verificados o
+no; retos y códigos de recuperación caen en cascada) **solo si el usuario tiene
+rol `donante`** en `app.user_accounts`. Admin hospitalario y superadmin conservan
+sus factores, y un usuario sin cuenta de aplicación no se toca.
+
+Por qué no a todos: las cuentas admin y superadmin nacen por invitación, no por
+autorregistro. Si el reset les borrara el factor, el correo (el buzón
+posiblemente comprometido que dispara el reset) pasaría a ser el único factor:
+reset, login AAL1, enrolar un TOTP propio y AAL2. Conservar el factor evita que
+el buzón comprometido dé AAL2. Un admin o superadmin que pierda su factor sigue
+necesitando un re-enrolamiento asistido, fuera del alcance de este ADR. Efecto
+aceptado: si el reset de una donante falla después de consumir el token, su
+factor ya está borrado.

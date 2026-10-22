@@ -290,7 +290,7 @@ select is((select array_agg(p.proname::text order by p.proname) from pg_proc p j
   array['admit_session', 'close_session_barrier', 'issue_login_ticket'], 'las tres RPC son DEFINER de app_privileged');
 select is((select array_agg(p.proname::text order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname in ('api', 'app') and p.prosecdef and pg_get_userbyid(p.proowner) = 'postgres'),
-  array['user_email', 'user_id_by_email', 'worker_delete_inert_user', 'worker_revoke_sessions'], 'las DEFINER de postgres siguen siendo las cuatro');
+  array['delete_mfa_factors', 'delete_stale_assisted_account', 'purge_inert_auth_users', 'user_email', 'user_id_by_email', 'worker_delete_inert_user', 'worker_revoke_sessions'], 'las DEFINER de postgres son las siete de P-12 (b2): ninguna nueva de la barrera');
 select is(has_function_privilege('authenticated', 'app.open_session_barrier(uuid)', 'EXECUTE') or has_function_privilege('authenticated', 'app.d_session_admitted()', 'EXECUTE'), false,
   'authenticated no ejecuta los helpers de DEFINER');
 

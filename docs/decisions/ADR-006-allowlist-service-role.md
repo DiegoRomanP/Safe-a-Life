@@ -48,5 +48,8 @@ revocar todas sus sesiones.
   como cliente de petición.
 - Los JWT ya emitidos siguen siendo válidos hasta expirar (≤ 600 s); SEC-07
   lo mitiga resolviendo el actor en cada petición.
-- El `signUp` público deja usuarios de Auth inertes sin `user_accounts`; el
-  worker los purga tras 24 h con `deleteUser`.
+- El `signUp` público deja usuarios de Auth inertes sin `user_accounts`. Su
+  purga (> 24 h) y la de cuentas `reclamada_incompleta` (> 30 días) las hace la
+  RPC `api.worker_purge_auth_accounts` con el JWT técnico del worker (opción b2,
+  decisión de la persona usuaria del 2026-10-22): el worker no tiene
+  `service_role` ni `eraser`, y `AuthAdmin` sigue en cinco métodos.
