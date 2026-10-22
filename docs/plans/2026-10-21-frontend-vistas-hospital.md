@@ -2,9 +2,9 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | Parte principal con gate PASS; ampliación HOS-04 y HOS-06 en curso |
+| Estado | Implementado (página 02 completa); gate PASS de reviewer-front |
 | Fecha | 2026-10-21 |
-| Rama | `feat/frontend-vistas-hospital` (desde `feat/frontend-donante-secundarias`; se rebasa sobre `main` cuando ese PR se fusione) |
+| Rama | `feat/frontend-vistas-hospital` (desde `main` en `9a2f20d`, tras fusionarse las vistas secundarias del donante en el PR #13) |
 | Plan padre | [`2026-10-20-frontend-estructura-por-componentes.md`](2026-10-20-frontend-estructura-por-componentes.md) |
 | Decisiones | D-4, versión «+» de Penpot, prioridad de escritorio, primero lo principal |
 | Gate | `reviewer-front` independiente del autor y revisión visual a 1440 px |
@@ -103,9 +103,31 @@ navegador era pequeño, así que no se comprobó la composición a 1440 px. Las
 entradas de desarrollo no están en `dist`. No verificado: composición a
 1440 px, lector de pantalla real, E2E y gitleaks local.
 
+### Revisión de la ampliación (HOS-04 y HOS-06)
+
+`reviewer-front` dio **PASS** en la primera ronda sobre `31cd1fd` y `d8c411a`.
+Revisó minimización y neutralidad de HOS-06, reenvío según AP-01, HOS-04 solo
+con la necesidad activa y la coherencia de la demo tras solicitar un lote.
+
+Después del PASS se aplicaron, sin revisión aparte, en «fix(frontend): textos
+de altas asistidas y lotes»:
+
+- el error de correo habla del correo de la persona;
+- el aviso de reenvío es neutral;
+- el resultado de un lote se redacta bien con 0 o 1 invitación;
+- se corrigió la sangría del enlace en HOS-03.
+
+Pendiente para el cliente HTTP:
+
+- Reemitir solo antes de la purga original (409/422).
+- La numeración LOT-00N supone orden ascendente por `createdAt`.
+- La lista de altas no muestra `activationExpiresAt` ni `purgeAt`.
+
 ## 6. Bitácora
 
 - 2026-10-21: plan aprobado por la persona usuaria.
 - 2026-10-21: HOS-01, lista de necesidades, HOS-02, HOS-03 y HOS-05
   implementadas, con 151 pruebas, lint y build en verde. Gate PASS en la
   segunda ronda.
+- 2026-10-21: la persona usuaria pidió sumar HOS-04 y HOS-06 en la misma rama.
+  Implementadas con 162 pruebas, lint y build en verde. Gate PASS.
