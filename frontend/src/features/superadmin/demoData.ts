@@ -151,5 +151,5 @@ export const demoAuditEvents: AuditEvent[] = [
   { eventId: 'e4a5b6c7-0002-4d8e-9f0a-1b2c3d4e5f22', actorCode: 'ACT-12A0', event: 'solicitud.creada', resourceCode: 'SOL-91A2', result: 'ok', occurredAt: '2026-09-24T16:06:00Z' },
   { eventId: 'e4a5b6c7-0003-4d8e-9f0a-1b2c3d4e5f33', actorCode: 'ACT-470B', event: 'necesidad.activada', resourceCode: 'NEC-A104', result: 'ok', occurredAt: '2026-09-24T15:44:00Z' },
   { eventId: 'e4a5b6c7-0004-4d8e-9f0a-1b2c3d4e5f44', actorCode: 'ACT-470B', event: 'lote.creado', resourceCode: 'LOT-001', result: 'ok', occurredAt: '2026-09-24T14:32:00Z' },
-  { eventId: 'e4a5b6c7-0005-4d8e-9f0a-1b2c3d4e5f55', actorCode: 'ACT-9C3E', event: 'membresia.revocada', resourceCode: 'MEM-C9E3', result: 'denegado', occurredAt: '2026-09-24T13:05:00Z', reason: 'Sin step-up reciente.' },
+  { eventId: 'e4a5b6c7-0005-4d8e-9f0a-1b2c3d4e5f55', actorCode: 'ACT-9C3E', event: 'membresia.revocada', resourceCode: 'MEM-C2E3', result: 'denegado', occurredAt: '2026-09-24T13:05:00Z', reason: 'Sin step-up reciente.' },
 ];

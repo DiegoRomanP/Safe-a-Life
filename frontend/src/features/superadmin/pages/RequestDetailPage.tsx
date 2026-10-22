@@ -181,10 +181,14 @@ export function RequestDetailPage() {
             maxLength={300}
             value={accessReason}
             onChange={(event) => setAccessReason(event.target.value)}
+            required
             aria-invalid={accessError ? true : undefined}
-            aria-describedby={accessError ? 'acceso-motivo-error' : undefined}
+            aria-describedby={accessError ? 'acceso-motivo-ayuda acceso-motivo-error' : 'acceso-motivo-ayuda'}
             className="min-h-11 w-full rounded-lg border border-white bg-surface px-3 text-ink focus-visible:outline-white"
           />
+          <p id="acceso-motivo-ayuda" className="text-sm text-white/85">
+            Queda en la auditoría. No incluyas datos personales.
+          </p>
           {accessError && (
             <p id="acceso-motivo-error" className="rounded bg-surface px-2 py-1 text-sm text-danger">
               {accessError}

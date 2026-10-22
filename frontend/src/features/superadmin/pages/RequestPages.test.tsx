@@ -36,6 +36,7 @@ describe('SA-05 Solicitudes', () => {
   it('ver datos exige motivo y step-up, y muestra solo los campos pedidos', () => {
     const view = renderRoute(`/superadmin/solicitudes/${CORRECTION}`);
     expect(view.querySelector('h1')?.textContent).toBe('Solicitud SOL-7F21');
+    expect(view.textContent).not.toContain('A−');
     click(button(view, 'Ver datos de la solicitud'));
     expect(view.textContent).toContain('Indica el motivo de la consulta.');
     expect(document.activeElement).toBe(view.querySelector('#acceso-motivo'));
@@ -63,6 +64,7 @@ describe('SA-05 Solicitudes', () => {
     click(button(view, 'Ejecutar solicitud'));
     stepUp(view);
     expect(live(view)).toContain('SOL-7F21 ejecutada');
+    expect(view.querySelector('h1')?.parentElement?.textContent).toContain('Completada');
   });
 
   it('una solicitud terminal no ofrece consultar datos', () => {
