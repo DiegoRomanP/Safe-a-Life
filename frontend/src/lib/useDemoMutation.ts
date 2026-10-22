@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { errorKindOf, type ApiErrorKind } from './demoApi.js';
 
 export type MutationResult<R> = { ok: true; value: R } | { ok: false };
@@ -19,9 +19,13 @@ export type Mutation<A extends unknown[], R> = {
 export function useDemoMutation<A extends unknown[], R>(write: (...args: A) => Promise<R>): Mutation<A, R> {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<ApiErrorKind | null>(null);
+  // Bloqueo síncrono: dos clics seguidos no alcanzan a ver `pending` en true.
+  const inFlight = useRef(false);
 
   const run = useCallback(
     async (...args: A): Promise<MutationResult<R>> => {
+      if (inFlight.current) return { ok: false };
+      inFlight.current = true;
       setPending(true);
       setError(null);
       try {
@@ -30,6 +34,7 @@ export function useDemoMutation<A extends unknown[], R>(write: (...args: A) => P
         setError(errorKindOf(caught));
         return { ok: false };
       } finally {
+        inFlight.current = false;
         setPending(false);
       }
     },

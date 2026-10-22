@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import { demoRead, demoWrite, type DemoScenario } from '../../lib/demoApi.js';
+import { ApiError, demoRead, demoWrite, type DemoScenario } from '../../lib/demoApi.js';
 import type { BloodType } from '../../lib/format.js';
 import { demoHistory, demoInvitations, demoProfile, demoRequests } from './demoData.js';
 import type { CorrectionRequest, DonorInvitation, DonorProfile, ResponseHistoryItem } from './types.js';
@@ -20,8 +20,8 @@ type DonorDemo = {
   scenario: DemoScenario;
   setScenario: (scenario: DemoScenario) => void;
   listInvitations: () => Promise<DonorInvitation[]>;
-  /** null si no existe o no es de la persona: la vista lo trata como sin acceso. */
-  getInvitation: (invitationId: string) => Promise<DonorInvitation | null>;
+  /** Si no existe o no es de la persona falla con `sin_permiso`: 404 y 403 se ven igual. */
+  getInvitation: (invitationId: string) => Promise<DonorInvitation>;
   listHistory: () => Promise<HistoryEntry[]>;
   getProfile: () => Promise<DonorProfile>;
   listRequests: () => Promise<CorrectionRequest[]>;
@@ -61,7 +61,11 @@ export function DonorDemoProvider({ children, now = () => new Date().toISOString
   const listInvitations = useCallback(() => demoRead(scenario, () => invitations), [scenario, invitations]);
   const getInvitation = useCallback(
     (invitationId: string) =>
-      demoRead(scenario, () => invitations.find((item) => item.invitationId === invitationId) ?? null),
+      demoRead(scenario, () => {
+        const found = invitations.find((item) => item.invitationId === invitationId);
+        if (!found) throw new ApiError('sin_permiso');
+        return found;
+      }),
     [scenario, invitations],
   );
   const listHistory = useCallback(

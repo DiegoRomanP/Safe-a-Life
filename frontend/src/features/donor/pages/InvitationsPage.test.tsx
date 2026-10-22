@@ -71,7 +71,9 @@ describe('Detalle de invitación', () => {
   it('una invitación inexistente muestra un mensaje neutral', async () => {
     const view = renderRoute('/donante/invitaciones/no-existe');
     await settle();
-    expect(view.querySelector('h1')?.textContent).toBe('No pudimos abrir esta invitación');
+    // Mismo mensaje neutro que un 403 (SYS-01): no revela si la invitación existe.
+    expect(view.querySelector('main')?.textContent).toContain('No pudimos abrir este recurso');
+    expect(view.querySelector('main')?.textContent).toContain('Por seguridad no mostramos más información.');
     expect(view.textContent).not.toContain('no-existe');
   });
 });

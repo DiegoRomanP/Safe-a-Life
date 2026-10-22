@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import type { DemoScenario } from '../../../lib/demoApi.js';
+import { act } from 'react';
 import { click, settle, setupRender, type } from '../../../test/render.js';
 import { renderRoute } from '../../../test/renderRoute.js';
 
@@ -12,6 +13,13 @@ const INVITATION = '/donante/invitaciones/7f21c3a0-1b2c-4d5e-8f90-0a1b2c3d4e51';
 async function scenario(view: HTMLElement, value: DemoScenario) {
   click(view.querySelector(`input[name="escenario-datos"][value="${value}"]`));
   await settle();
+}
+
+// Una sola vuelta: termina la escritura pero la revalidación sigue en curso.
+async function tick() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
 }
 
 const button = (view: HTMLElement, text: string) =>
@@ -111,12 +119,39 @@ describe('Escrituras del área del donante', () => {
     expect(view.querySelectorAll('ol > li')).toHaveLength(2);
   });
 
+  it('tras guardar no admite otra respuesta hasta revalidar la invitación', async () => {
+    const view = renderRoute(INVITATION);
+    await settle();
+    click(button(view, 'Confirmar intención de asistir'));
+    await tick();
+    // La escritura terminó y la invitación se está revalidando.
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Confirmaste tu intención de asistir.');
+    expect(button(view, 'No podré asistir')?.getAttribute('aria-disabled')).toBe('true');
+    click(button(view, 'No podré asistir'));
+    await settle();
+    expect(view.textContent).toContain('Tu respuesta: Intención confirmada');
+    expect(button(view, 'No podré asistir')?.getAttribute('aria-disabled')).toBe('false');
+    click(view.querySelector('main a[href="/donante/historial"]'));
+    await settle();
+    expect(view.querySelectorAll('ol > li')).toHaveLength(2);
+  });
+
+  it('una invitación inexistente y una sin permiso se ven igual', async () => {
+    const missing = renderRoute('/donante/invitaciones/no-existe');
+    await settle();
+    const missingText = missing.querySelector('main')?.textContent;
+    await scenario(missing, 'sin_permiso');
+    expect(missing.querySelector('main')?.textContent).toBe(missingText);
+  });
+
   it('un conflicto al guardar el perfil no marca los cambios como guardados', async () => {
     const view = renderRoute('/donante/perfil');
     await settle();
     await scenario(view, 'conflicto');
     click(view.querySelector('[role="switch"]'));
-    click(view.querySelector('button[form="perfil-formulario"]'));
+    const submit = view.querySelector('button[form="perfil-formulario"]');
+    click(submit);
+    expect(submit?.getAttribute('aria-disabled')).toBe('true');
     await settle();
     expect(view.querySelector('main [role="alert"]')?.textContent).toContain('El estado cambió');
     expect(view.querySelector('[aria-live="polite"]')?.textContent).not.toContain('Cambios guardados');

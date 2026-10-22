@@ -21,8 +21,9 @@ export function errorKindOf(error: unknown): ApiErrorKind {
  * - `normal`: responde bien.
  * - `cargando`: las lecturas no terminan nunca.
  * - `error`: lecturas y escrituras fallan como un corte de red (5xx o sin conexión).
- * - `sin_permiso`: las lecturas responden 403/404 neutro.
+ * - `sin_permiso`: lecturas y escrituras responden 403/404 neutro.
  * - `conflicto`: las escrituras responden 409; las lecturas funcionan.
+ * En `cargando` las escrituras responden con normalidad.
  */
 export type DemoScenario = 'normal' | 'cargando' | 'error' | 'sin_permiso' | 'conflicto';
 
@@ -46,6 +47,7 @@ export async function demoRead<T>(scenario: DemoScenario, run: () => T): Promise
 export async function demoWrite<T>(scenario: DemoScenario, run: () => T): Promise<T> {
   await wait();
   if (scenario === 'error') throw new ApiError('red');
+  if (scenario === 'sin_permiso') throw new ApiError('sin_permiso');
   if (scenario === 'conflicto') throw new ApiError('conflicto');
   return run();
 }
