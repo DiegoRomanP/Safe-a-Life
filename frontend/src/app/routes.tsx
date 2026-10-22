@@ -1,4 +1,4 @@
-import type { RouteObject } from 'react-router-dom';
+import { Navigate, type RouteObject } from 'react-router-dom';
 import { PublicLayout } from '../components/layout/PublicLayout.js';
 import { ActivateAccountPage } from '../features/auth/pages/ActivateAccountPage.js';
 import { LoginPage } from '../features/auth/pages/LoginPage.js';
@@ -6,6 +6,12 @@ import { RecoverAccessPage } from '../features/auth/pages/RecoverAccessPage.js';
 import { RegisterPage } from '../features/auth/pages/RegisterPage.js';
 import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage.js';
 import { VerifyIdentityPage } from '../features/auth/pages/VerifyIdentityPage.js';
+import { DonorLayout } from '../features/donor/DonorLayout.js';
+import { HistoryPage } from '../features/donor/pages/HistoryPage.js';
+import { InvitationDetailPage } from '../features/donor/pages/InvitationDetailPage.js';
+import { InvitationsPage } from '../features/donor/pages/InvitationsPage.js';
+import { ProfilePage } from '../features/donor/pages/ProfilePage.js';
+import { RequestsPage } from '../features/donor/pages/RequestsPage.js';
 import { HomePage } from '../features/public/pages/HomePage.js';
 import { NotFoundPage } from '../features/system/pages/NotFoundPage.js';
 
@@ -23,5 +29,18 @@ export const routes: RouteObject[] = [
   { path: 'recuperar-acceso', element: <RecoverAccessPage /> },
   { path: 'restablecer-contrasena', element: <ResetPasswordPage /> },
   { path: 'verificar-identidad', element: <VerifyIdentityPage /> },
+  // Área del donante. Sin backend (D-4) todavía no hay guard de sesión.
+  {
+    path: 'donante',
+    element: <DonorLayout />,
+    children: [
+      { index: true, element: <Navigate to="invitaciones" replace /> },
+      { path: 'invitaciones', element: <InvitationsPage /> },
+      { path: 'invitaciones/:invitationId', element: <InvitationDetailPage /> },
+      { path: 'perfil', element: <ProfilePage /> },
+      { path: 'historial', element: <HistoryPage /> },
+      { path: 'solicitudes', element: <RequestsPage /> },
+    ],
+  },
   { path: '*', element: <NotFoundPage /> },
 ];
