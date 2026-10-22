@@ -253,11 +253,7 @@ export function RequestDetailPage() {
       {isPending && (
         <Card title="Decisión">
           <form noValidate onSubmit={handleDecision} className="flex flex-col gap-4 sm:max-w-[560px]">
-            <fieldset
-              className="flex flex-col gap-2"
-              aria-invalid={choiceError ? true : undefined}
-              aria-describedby={choiceError ? 'decision-eleccion-error' : undefined}
-            >
+            <fieldset className="flex flex-col gap-2">
               <legend className="mb-1 text-sm font-semibold text-ink">Decisión (obligatorio)</legend>
               {(
                 [
@@ -273,6 +269,8 @@ export function RequestDetailPage() {
                     value={value}
                     checked={decision === value}
                     onChange={() => setDecision(value)}
+                    required
+                    aria-describedby={choiceError ? 'decision-eleccion-error' : undefined}
                     className="size-4 accent-petrol"
                   />
                   {label}
