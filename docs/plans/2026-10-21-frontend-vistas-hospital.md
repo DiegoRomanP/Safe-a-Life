@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | En curso |
+| Estado | Implementado; gate PASS de reviewer-front (segunda ronda) |
 | Fecha | 2026-10-21 |
 | Rama | `feat/frontend-vistas-hospital` (desde `feat/frontend-donante-secundarias`; se rebasa sobre `main` cuando ese PR se fusione) |
 | Plan padre | [`2026-10-20-frontend-estructura-por-componentes.md`](2026-10-20-frontend-estructura-por-componentes.md) |
@@ -52,6 +52,38 @@ datos son sintéticos y viven en memoria con la forma del contrato.
 - Minimización: el hospital solo ve la proyección permitida.
 - Pasan `npm run lint`, `npm run test` y `npm run build`.
 
-## 4. Bitácora
+## 4. Revisión
+
+`reviewer-front` (subagente independiente, solo lectura):
+
+1. **Primera ronda: BLOCKED.**
+   - **B-1:** NEC-0221 decía «5 de 5» sin respuestas en los datos de demo.
+2. **Corrección `562bbc9`.**
+   - NEC-0221 suma sus cinco confirmadas, y `demoData.test.ts` exige que
+     `confirmedIntentCount` coincida con las respuestas de cada necesidad.
+   - Observaciones aplicadas: la confirmación de cancelar usa tono de aviso,
+     sin «Error:» y sin afirmar comportamiento del backend; el progressbar
+     tiene `aria-valuetext`; un radio vacío usa los 10 km por defecto.
+3. **Segunda ronda: PASS** sobre los 5 commits del slice.
+
+Observaciones pendientes:
+
+- La confirmación de cancelar no se asocia a su pregunta para lectores de
+  pantalla (`role="group"` con `aria-labelledby`).
+- Falta una prueba del radio vacío.
+- «Vence:» de HOS-02 se calcula con la hora de apertura del formulario, no con
+  la del envío.
+- Las fechas de demo son de septiembre de 2026 y siguen como «Activa».
+- Tras cancelar, el texto dice «confirmaciones de intención vigentes».
+
+Verificación del autor: contenido de HOS-01 con `get_page_text`. El panel del
+navegador era pequeño, así que no se comprobó la composición a 1440 px. Las
+entradas de desarrollo no están en `dist`. No verificado: composición a
+1440 px, lector de pantalla real, E2E y gitleaks local.
+
+## 5. Bitácora
 
 - 2026-10-21: plan aprobado por la persona usuaria.
+- 2026-10-21: HOS-01, lista de necesidades, HOS-02, HOS-03 y HOS-05
+  implementadas, con 151 pruebas, lint y build en verde. Gate PASS en la
+  segunda ronda.
