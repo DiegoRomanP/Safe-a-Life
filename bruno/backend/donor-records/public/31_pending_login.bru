@@ -1,5 +1,5 @@
 meta {
-  name: Login de la cuenta recién verificada
+  name: Login de la cuenta pendiente de fijar contraseña
   type: http
   seq: 31
 }
@@ -19,9 +19,8 @@ body:json {
 }
 
 tests {
-  test("con la contraseña con la que se registró puede iniciar sesión (aún no es suya)", function () {
-    expect(res.getStatus()).to.equal(200);
-    expect(res.getBody().data.mfaRequired).to.equal(false);
-    expect(res.getBody().data.actor.role).to.equal("donante");
+  test("con la contraseña con la que se registró NO puede iniciar sesión (ADR-007: la barrera sigue abierta hasta el reset)", function () {
+    expect(res.getStatus()).to.equal(401);
+    expect(res.getBody().error.code).to.equal("AUTHENTICATION_REQUIRED");
   });
 }

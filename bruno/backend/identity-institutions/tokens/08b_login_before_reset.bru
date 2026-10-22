@@ -1,0 +1,28 @@
+meta {
+  name: Barrera: login previo al reset (contraseña original)
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/sessions
+  body: json
+  auth: none
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-barrier-login-1
+}
+
+body:json {
+  { "email": "{{donorEmail}}", "password": "Contrasena-Original-Bruno-2026" }
+}
+
+tests {
+  test("el login anterior al reset funciona", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  test("la cuenta entra como donante", function () {
+    expect(res.getBody().data.actor.role).to.equal("donante");
+  });
+}

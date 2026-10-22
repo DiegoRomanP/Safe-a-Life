@@ -12,6 +12,7 @@ import { createNeedDraftService } from './modules/need-records/application/creat
 import { createNeedsService } from './modules/need-records/application/needs-service.js';
 import { createNeedsRpcGateway } from './modules/need-records/infrastructure/needs-rpc-gateway.js';
 import { createActionTokensService } from './modules/identity-institutions/application/action-tokens-service.js';
+import { createSessionAdmissionRpcGateway } from './modules/identity-institutions/infrastructure/session-admission-rpc-gateway.js';
 import { createActionTokensRpcGateway } from './modules/identity-institutions/infrastructure/action-tokens-rpc-gateway.js';
 import { createSupabaseAuthAdmin } from './modules/identity-institutions/infrastructure/supabase-auth-admin.js';
 import { registerActionTokenRoutes } from './modules/identity-institutions/http/action-tokens.router.js';
@@ -73,10 +74,6 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
   const institutions = createInstitutionsService(institutionsRepository);
   const hmacKeys = deriveHmacKeyring(config.secrets.emailHmac);
   const ipHmac = hmacKeys.ip;
-  const auth = createAuthService(sessions, identity, {
-    keys: hmacKeys,
-    loginFailureFloorMs: 400,
-  });
   // Sesión técnica de la API (rol `api_technical`): la usan el webhook firmado y las RPC públicas de tokens de acción, que el
   // cliente anónimo no puede ejecutar. No es la del worker: la API no puede operar el outbox (F4 M-2).
   const technicalSession = createTechnicalSession({
@@ -84,6 +81,10 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
     refresh: (refreshToken) => sessions.refresh(refreshToken),
   });
   const technicalRpc = createTechnicalInvoker(rpc, () => technicalSession.accessToken(), () => technicalSession.invalidate());
+  const auth = createAuthService(sessions, { ...identity, admission: createSessionAdmissionRpcGateway(technicalRpc) }, {
+    keys: hmacKeys,
+    loginFailureFloorMs: 400,
+  });
   const webhookIngester = config.email.resendWebhookSecret === undefined
     ? undefined
     : createWebhookIngester({

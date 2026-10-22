@@ -22,8 +22,16 @@ export interface UserKeyGuard {
   consume(accessToken: string, operation: string, key: string, hash: string): Promise<KeyOutcome>;
 }
 
+/** Barrera de sesión (ADR-007): el ticket se emite ANTES de `signIn` y captura la generación de ese momento. */
+export interface SessionAdmission {
+  issueLoginTicket(email: string): Promise<string>;
+  /** `false` = rechazada (ticket de otra generación, con barrera abierta, caducado, ajeno o reutilizado). */
+  admitSession(ticketId: string, userId: string, sessionId: string): Promise<boolean>;
+}
+
 export type IdentityDependencies = Readonly<{
   actors: ActorResolver;
+  admission: SessionAdmission;
   limiter: RateLimiter;
   publicKeys: PublicIdempotency;
   userKeys: UserKeyGuard;

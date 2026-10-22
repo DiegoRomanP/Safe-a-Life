@@ -53,7 +53,7 @@ function assertKeyOk(outcome: KeyOutcome): void {
 
 export function createAuthService(
   sessions: SessionGateway,
-  { actors, limiter, publicKeys, userKeys }: IdentityDependencies,
+  { actors, admission, limiter, publicKeys, userKeys }: IdentityDependencies,
   { keys, loginFailureFloorMs = 0, sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)) }: AuthServiceConfig,
 ) {
   // Una clave por propósito: ningún valor derivado sirve de oráculo para otro uso.
@@ -81,8 +81,24 @@ export function createAuthService(
     // bloqueado por ellos no consuma cupo global, y antes de llamar a Auth.
     await requireAuthQuota(limiter, 'login');
 
+    // ADR-007: el ticket captura la generación de la barrera ANTES de que Auth emita la sesión.
+    const ticketId = await admission.issueLoginTicket(input.email.trim().toLowerCase());
     const tokens = await sessions.signIn(input.email, input.password);
     if (!tokens) throw new ApiError('AUTHENTICATION_REQUIRED');
+
+    // Los claims se obtienen verificando el token (nunca decodificándolo sin verificar).
+    let admitted = false;
+    try {
+      const claims = await sessions.verifyAccessToken(tokens.accessToken);
+      admitted = claims !== null && await admission.admitSession(ticketId, claims.userId, claims.sessionId);
+    } catch (error) {
+      await sessions.signOut(tokens.accessToken, 'local').catch(() => undefined);
+      throw error;
+    }
+    if (!admitted) {
+      await sessions.signOut(tokens.accessToken, 'local');
+      throw new ApiError('AUTHENTICATION_REQUIRED');
+    }
 
     // Se cierra solo la sesión recién creada (scope local), nunca las demás sesiones legítimas del usuario.
     const actor = await actors.currentActor(tokens.accessToken);

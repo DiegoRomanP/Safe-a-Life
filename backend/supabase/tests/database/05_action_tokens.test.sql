@@ -247,7 +247,7 @@ select is(api.consume_password_reset(repeat('9', 64)) ->> 'kind', 'not_found', '
 select is(api.consume_password_reset('no-hex') ->> 'kind', 'invalid', 'un token con formato inválido es invalid');
 create temp table consumed as select api.consume_password_reset(repeat('a', 64)) as r;
 grant select on consumed to authenticated;
-select is((select r ->> 'kind' || '|' || (r ->> 'userId') from consumed), 'ok|00000000-0000-4000-8000-0000000000f2', 'consumir devuelve el usuario al que cambiar la contraseña');
+select is((select r ->> 'kind' || '|' || (r ->> 'userId') || '|' || (r ->> 'generation') from consumed), 'ok|00000000-0000-4000-8000-0000000000f2|1', 'consumir devuelve el usuario al que cambiar la contraseña y la generación de la barrera');
 select is(api.consume_password_reset(repeat('a', 64)) ->> 'kind', 'gone', 'el segundo consumo es gone');
 reset role;
 update app.action_tokens set expires_at = now() - interval '1 second', created_at = now() - interval '2 hours', consumed_at = null, invalidated_at = null where token_hash = repeat('a', 64);

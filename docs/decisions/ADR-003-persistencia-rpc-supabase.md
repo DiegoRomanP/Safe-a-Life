@@ -106,6 +106,16 @@ otro driver ahora; su presencia no prueba que el scaffold legacy sea seguro.
        `requestPasswordRecovery` y `createDonorRegistration`; nunca devuelve la
        respuesta guardada. Tiene pruebas pgTAP de actor y operación no
        permitidos.
+   12. `api.issue_login_ticket`, `api.admit_session` y
+       `api.close_session_barrier` (añadidas el 2026-10-22 por
+       [ADR-007](ADR-007-barrera-de-sesion-tras-reset-de-contrasena.md)):
+       barrera de sesión tras el reset de contraseña. Son propiedad de
+       `app_privileged` (no de `postgres`), las ejecuta solo la sesión técnica
+       `api_technical` (`jwt_sub` no nulo y `app.is_api_technical()`; si no,
+       `unauthenticated` o `forbidden`) y escriben únicamente en
+       `app.session_barriers`, `app.admitted_sessions` y `app.login_tickets`.
+       Tienen pruebas pgTAP de privilegios, ticket ajeno, reutilizado o vencido
+       y emisión tardía.
 
    Nota: `api.consume_idempotency_key` (clave de un solo uso para MFA y
    step-up) **no** es DEFINER: es INVOKER, exige cuenta de aplicación con rol
