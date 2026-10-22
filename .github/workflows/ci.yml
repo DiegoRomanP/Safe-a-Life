@@ -1,0 +1,70 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# Una ejecución por rama o PR: la nueva cancela la anterior.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SCARF_ANALYTICS: "false"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # `engines` exige npm 12; el npm que trae Node 24 es anterior.
+      - run: npm install -g npm@12.0.2
+      # `npm ci` respeta allowScripts (ADR-002).
+      - run: npm ci
+      # Pruebas unitarias de los cuatro workspaces (mock-api, web, backend, frontend).
+      - run: npm test
+
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm install -g npm@12.0.2
+      - run: npm ci
+      - run: npm run openapi:lint
+      # Falla si los artefactos generados no coinciden con docs/openapi.json.
+      - run: npm run openapi:api:check
+      - run: npm run test:api:generator
+      # shortcut: test:contract (Prism) no arranca en la máquina local, falta verificarlo en CI antes de añadirlo.
+
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm install -g npm@12.0.2
+      - run: npm ci
+      - run: npm run build
