@@ -1,6 +1,6 @@
 ---
 name: save-a-life-matching-notifications
-description: Disena e implementa matching ABO/Rh, distancia Haversine, disponibilidad, ranking, invitaciones e email idempotente de Save a Life. Usar al tocar compatibilidad, radio, urgencia, bloqueos, confirmaciones o Resend.
+description: Disena e implementa matching ABO/Rh, distancia Haversine, disponibilidad, ranking, invitaciones e email idempotente de Save a Life. Usar al tocar compatibilidad, radio, urgencia, cuota, confirmaciones o Resend.
 ---
 
 # Matching y notificaciones de Save a Life
@@ -12,9 +12,11 @@ Implementa etapas puras y observables:
 1. Validar necesidad activa, tipo, radio y hospital.
 2. Obtener donantes potenciales sin exponerlos al cliente.
 3. Filtrar por compatibilidad donante a receptor.
-4. Filtrar disponibilidad y bloqueo vigente.
+4. Filtrar cuentas activas, perfil completo, disponibilidad vigente y ubicación
+   dentro del polígono; sin fecha ni filtro post-donación (RF-PRO-05).
 5. Calcular Haversine con coordenadas validadas.
-6. Filtrar por radio y ordenar de forma determinista por distancia e ID opaco.
+6. Filtrar por radio y ordenar: exactas primero, luego distancia ascendente e ID
+   opaco. Urgencia y reconocimientos no influyen (RF-NEC-04, RF-REC-03).
 7. Crear invitaciones unicas.
 8. Encolar emails mediante un outbox transaccional o mecanismo equivalente.
 
@@ -27,8 +29,9 @@ determinista satisface los criterios del prototipo.
 - Restriccion unica por `need_id + donor_id` para evitar invitaciones duplicadas.
 - Clave idempotente estable por invitacion y plantilla/version del mensaje.
 - Persiste la intencion antes de llamar al proveedor de email.
-- Distingue `pending`, `sent`, `delivered`, `failed` y `suppressed` cuando el
-  proveedor permita observarlos.
+- Mantén tres ejes independientes por invitación (RF-INV-01): vigencia (`activa`,
+  `invalidada`, `vencida`), entrega (`pendiente`, `enviada`, `entregada`,
+  `fallida`) y respuesta (`sin_respuesta`, `confirmada`, `rechazada`).
 - Reintenta fallos transitorios con backoff limitado; los permanentes no entran
   en bucle.
 - Una confirmacion usa control de concurrencia y no revive necesidades cerradas.
@@ -39,7 +42,7 @@ determinista satisface los criterios del prototipo.
 - Las 64 combinaciones ABO/Rh de la matriz.
 - Direccion correcta donante a receptor, especialmente O- y AB+.
 - Radio exacto, coordenadas iguales, hemisferios y coordenadas invalidas.
-- Donante no disponible, bloqueo en limite y fecha ausente.
+- Donante no disponible, fuera del polígono y que excede la cuota.
 - Orden estable para distancias iguales.
 - Publicacion y reintentos concurrentes sin emails duplicados.
 - Confirmacion repetida, expirada y posterior al cierre.
