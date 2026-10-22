@@ -76,6 +76,7 @@ describe('HOS-03 Detalle de necesidad', () => {
     const bar = view.querySelector('[role="progressbar"]');
     expect(bar?.getAttribute('aria-valuenow')).toBe('2');
     expect(bar?.getAttribute('aria-valuemax')).toBe('3');
+    expect(bar?.getAttribute('aria-valuetext')).toBe('2 de 3 intenciones');
     const rows = [...view.querySelectorAll('tbody tr')];
     expect(rows.map((row) => row.querySelector('th')?.textContent)).toEqual(['María Torres', 'Luis Ramírez']);
     expect(rows[0]?.textContent).toContain('24 sep 2026, 12:08 · Lima, UTC−5');
