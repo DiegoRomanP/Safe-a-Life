@@ -37,69 +37,80 @@ import { TasksPage } from '../features/superadmin/pages/TasksPage.js';
 import { InvitationLinkPage } from '../features/invitation/pages/InvitationLinkPage.js';
 import { HomePage } from '../features/public/pages/HomePage.js';
 import { NotFoundPage } from '../features/system/pages/NotFoundPage.js';
+import { DocumentTitle } from './DocumentTitle.js';
 
 // Rutas de la app. Se exportan como datos para montarlas con un router de
 // navegador en App.tsx y con uno en memoria en las pruebas.
+// Todas cuelgan de DocumentTitle, que pone el <title> de la pestaña a partir del
+// `handle` de cada ruta.
 export const routes: RouteObject[] = [
   {
-    element: <PublicLayout />,
-    children: [{ index: true, element: <HomePage /> }],
-  },
-  // Las vistas de acceso usan AuthShell (dos columnas), sin la cabecera pública.
-  { path: 'ingresar', element: <LoginPage /> },
-  { path: 'registro', element: <RegisterPage /> },
-  { path: 'activar-cuenta', element: <ActivateAccountPage /> },
-  { path: 'recuperar-acceso', element: <RecoverAccessPage /> },
-  { path: 'restablecer-contrasena', element: <ResetPasswordPage /> },
-  { path: 'verificar-identidad', element: <VerifyIdentityPage /> },
-  { path: 'verificar-correo', element: <VerifyEmailPage /> },
-  { path: 'cambiar-correo', element: <ConfirmEmailChangePage /> },
-  { path: 'invitacion-administrador', element: <AdminInvitationPage /> },
-  // Enlace de invitación del correo (LINK-01), fuera del área autenticada.
-  { path: 'invitaciones', element: <InvitationLinkPage /> },
-  // Área del donante. Sin backend (D-4) todavía no hay guard de sesión.
-  {
-    path: 'donante',
-    element: <DonorLayout />,
+    element: <DocumentTitle />,
     children: [
-      { index: true, element: <Navigate to="invitaciones" replace /> },
-      { path: 'invitaciones', element: <InvitationsPage /> },
-      { path: 'invitaciones/:invitationId', element: <InvitationDetailPage /> },
-      { path: 'bienvenida', element: <OnboardingPage /> },
-      { path: 'perfil', element: <ProfilePage /> },
-      { path: 'historial', element: <HistoryPage /> },
-      { path: 'solicitudes', element: <RequestsPage /> },
-      { path: 'solicitudes/nueva', element: <NewRequestPage /> },
+      {
+        element: <PublicLayout />,
+        children: [{ index: true, element: <HomePage />, handle: { title: 'Inicio' } }],
+      },
+      // Las vistas de acceso usan AuthShell (dos columnas), sin la cabecera pública.
+      { path: 'ingresar', element: <LoginPage />, handle: { title: 'Ingresar' } },
+      { path: 'registro', element: <RegisterPage />, handle: { title: 'Crear cuenta' } },
+      { path: 'activar-cuenta', element: <ActivateAccountPage />, handle: { title: 'Activar cuenta' } },
+      { path: 'recuperar-acceso', element: <RecoverAccessPage />, handle: { title: 'Recuperar acceso' } },
+      { path: 'restablecer-contrasena', element: <ResetPasswordPage />, handle: { title: 'Restablecer contraseña' } },
+      { path: 'verificar-identidad', element: <VerifyIdentityPage />, handle: { title: 'Verifica tu identidad' } },
+      { path: 'verificar-correo', element: <VerifyEmailPage />, handle: { title: 'Verificar correo' } },
+      { path: 'cambiar-correo', element: <ConfirmEmailChangePage />, handle: { title: 'Confirmar cambio de correo' } },
+      { path: 'invitacion-administrador', element: <AdminInvitationPage />, handle: { title: 'Invitación de administrador' } },
+      // Enlace de invitación del correo (LINK-01), fuera del área autenticada.
+      { path: 'invitaciones', element: <InvitationLinkPage />, handle: { title: 'Invitación' } },
+      // Área del donante. Sin backend (D-4) todavía no hay guard de sesión.
+      {
+        path: 'donante',
+        element: <DonorLayout />,
+        handle: { area: 'Donante' },
+        children: [
+          { index: true, element: <Navigate to="invitaciones" replace /> },
+          { path: 'invitaciones', element: <InvitationsPage />, handle: { title: 'Mis invitaciones' } },
+          { path: 'invitaciones/:invitationId', element: <InvitationDetailPage />, handle: { title: 'Detalle de invitación' } },
+          { path: 'bienvenida', element: <OnboardingPage />, handle: { title: 'Completa tu perfil' } },
+          { path: 'perfil', element: <ProfilePage />, handle: { title: 'Mi perfil' } },
+          { path: 'historial', element: <HistoryPage />, handle: { title: 'Historial de respuestas' } },
+          { path: 'solicitudes', element: <RequestsPage />, handle: { title: 'Mis solicitudes' } },
+          { path: 'solicitudes/nueva', element: <NewRequestPage />, handle: { title: 'Nueva solicitud' } },
+        ],
+      },
+      // Área del hospital. Sin backend (D-4) todavía no hay guard de sesión.
+      {
+        path: 'hospital',
+        element: <HospitalLayout />,
+        handle: { area: 'Hospital' },
+        children: [
+          { index: true, element: <SummaryPage />, handle: { title: 'Resumen' } },
+          { path: 'necesidades', element: <NeedsPage />, handle: { title: 'Necesidades' } },
+          { path: 'necesidades/nueva', element: <CreateNeedPage />, handle: { title: 'Crear necesidad' } },
+          { path: 'necesidades/:needId', element: <NeedDetailPage />, handle: { title: 'Detalle de necesidad' } },
+          { path: 'necesidades/:needId/respuestas', element: <ResponsesPage />, handle: { title: 'Respuestas' } },
+          { path: 'necesidades/:needId/lotes', element: <BatchesPage />, handle: { title: 'Lotes de invitación' } },
+          { path: 'altas', element: <AssistedSignupsPage />, handle: { title: 'Altas asistidas' } },
+        ],
+      },
+      // Área del superadmin. Sin backend (D-4) todavía no hay guard de sesión ni AAL2.
+      {
+        path: 'superadmin',
+        element: <SuperadminLayout />,
+        handle: { area: 'Superadmin' },
+        children: [
+          { index: true, element: <TasksPage />, handle: { title: 'Tareas' } },
+          { path: 'hospitales', element: <HospitalsPage />, handle: { title: 'Hospitales autorizados' } },
+          { path: 'sedes', element: <SitesPage />, handle: { title: 'Sedes' } },
+          { path: 'administradores', element: <AdminsPage />, handle: { title: 'Administradores y membresías' } },
+          { path: 'solicitudes', element: <AdminRequestsPage />, handle: { title: 'Solicitudes' } },
+          { path: 'solicitudes/:requestId', element: <RequestDetailPage />, handle: { title: 'Detalle de solicitud' } },
+          { path: 'configuracion', element: <ConfigurationPage />, handle: { title: 'Configuración' } },
+          { path: 'auditoria', element: <AuditPage />, handle: { title: 'Auditoría' } },
+        ],
+      },
+      { path: '*', element: <NotFoundPage />, handle: { title: 'Recurso no disponible' } },
     ],
   },
-  // Área del hospital. Sin backend (D-4) todavía no hay guard de sesión.
-  {
-    path: 'hospital',
-    element: <HospitalLayout />,
-    children: [
-      { index: true, element: <SummaryPage /> },
-      { path: 'necesidades', element: <NeedsPage /> },
-      { path: 'necesidades/nueva', element: <CreateNeedPage /> },
-      { path: 'necesidades/:needId', element: <NeedDetailPage /> },
-      { path: 'necesidades/:needId/respuestas', element: <ResponsesPage /> },
-      { path: 'necesidades/:needId/lotes', element: <BatchesPage /> },
-      { path: 'altas', element: <AssistedSignupsPage /> },
-    ],
-  },
-  // Área del superadmin. Sin backend (D-4) todavía no hay guard de sesión ni AAL2.
-  {
-    path: 'superadmin',
-    element: <SuperadminLayout />,
-    children: [
-      { index: true, element: <TasksPage /> },
-      { path: 'hospitales', element: <HospitalsPage /> },
-      { path: 'sedes', element: <SitesPage /> },
-      { path: 'administradores', element: <AdminsPage /> },
-      { path: 'solicitudes', element: <AdminRequestsPage /> },
-      { path: 'solicitudes/:requestId', element: <RequestDetailPage /> },
-      { path: 'configuracion', element: <ConfigurationPage /> },
-      { path: 'auditoria', element: <AuditPage /> },
-    ],
-  },
-  { path: '*', element: <NotFoundPage /> },
 ];
