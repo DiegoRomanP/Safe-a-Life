@@ -2,7 +2,7 @@ import { AppLayout } from '../../components/layout/AppLayout.js';
 import { HospitalDemoProvider } from './HospitalDemoContext.js';
 
 // Área del hospital: navegación de Penpot sobre el estado de demostración en
-// memoria (D-4). «Altas asistidas» llega con el slice secundario (HOS-06).
+// memoria (D-4).
 export function HospitalLayout() {
   return (
     <HospitalDemoProvider>
@@ -11,6 +11,7 @@ export function HospitalLayout() {
         navItems={[
           { to: '/hospital', label: 'Resumen', end: true },
           { to: '/hospital/necesidades', label: 'Necesidades' },
+          { to: '/hospital/altas', label: 'Altas asistidas' },
         ]}
         accountTitle="Hospital Nacional Central"
         accountRole="Hospital"

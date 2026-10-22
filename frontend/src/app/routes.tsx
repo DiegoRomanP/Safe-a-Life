@@ -17,6 +17,8 @@ import { OnboardingPage } from '../features/donor/pages/OnboardingPage.js';
 import { ProfilePage } from '../features/donor/pages/ProfilePage.js';
 import { RequestsPage } from '../features/donor/pages/RequestsPage.js';
 import { HospitalLayout } from '../features/hospital/HospitalLayout.js';
+import { AssistedSignupsPage } from '../features/hospital/pages/AssistedSignupsPage.js';
+import { BatchesPage } from '../features/hospital/pages/BatchesPage.js';
 import { CreateNeedPage } from '../features/hospital/pages/CreateNeedPage.js';
 import { NeedDetailPage } from '../features/hospital/pages/NeedDetailPage.js';
 import { NeedsPage } from '../features/hospital/pages/NeedsPage.js';
@@ -69,6 +71,8 @@ export const routes: RouteObject[] = [
       { path: 'necesidades/nueva', element: <CreateNeedPage /> },
       { path: 'necesidades/:needId', element: <NeedDetailPage /> },
       { path: 'necesidades/:needId/respuestas', element: <ResponsesPage /> },
+      { path: 'necesidades/:needId/lotes', element: <BatchesPage /> },
+      { path: 'altas', element: <AssistedSignupsPage /> },
     ],
   },
   { path: '*', element: <NotFoundPage /> },

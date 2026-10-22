@@ -1,4 +1,4 @@
-import type { HospitalNeed, HospitalSite, NeedResponse } from './types.js';
+import type { AssistedSignup, HospitalNeed, HospitalSite, InvitationBatch, NeedResponse } from './types.js';
 
 // Datos sintéticos de demostración, tomados de Penpot (HOS-01 a HOS-05). Solo
 // existen en memoria mientras no hay cliente HTTP (D-4).
@@ -120,3 +120,47 @@ export const demoResponses: Record<string, NeedResponse[]> = {
     opaque('R-C4E8-08', 'sin_respuesta'),
   ],
 };
+
+const delivered = (entregada: number) => ({ pendiente: 0, enviada: 0, entregada, fallida: 0 });
+
+// Lotes por necesidad. Las invitaciones de los lotes suman lo mismo que las
+// respuestas de la necesidad (lo comprueba demoData.test.ts).
+export const demoBatches: Record<string, InvitationBatch[]> = {
+  '02210d4e-2f3a-4b4c-9d5e-6f7a8b9c0d12': [
+    { batchId: '0a1b2c3d-0001-4e5f-8a6b-7c8d9e0f1a21', createdAt: '2026-09-24T13:10:00Z', createdInvitationCount: 6, deliveryCounts: delivered(6) },
+  ],
+  'a1040c3d-1e2f-4a3b-8c4d-5e6f7a8b9c01': [
+    { batchId: '0a1b2c3d-0002-4e5f-8a6b-7c8d9e0f1a32', createdAt: '2026-09-24T14:32:00Z', createdInvitationCount: 3, deliveryCounts: delivered(3) },
+    { batchId: '0a1b2c3d-0003-4e5f-8a6b-7c8d9e0f1a43', createdAt: '2026-09-24T18:08:00Z', createdInvitationCount: 1, deliveryCounts: delivered(1) },
+  ],
+  'b0870e5f-3a4b-4c5d-8e6f-7a8b9c0d1e23': [
+    { batchId: '0a1b2c3d-0004-4e5f-8a6b-7c8d9e0f1a54', createdAt: '2026-09-24T15:00:00Z', createdInvitationCount: 6, deliveryCounts: delivered(6) },
+    { batchId: '0a1b2c3d-0005-4e5f-8a6b-7c8d9e0f1a65', createdAt: '2026-09-24T19:40:00Z', createdInvitationCount: 2, deliveryCounts: delivered(2) },
+  ],
+};
+
+// Altas asistidas (HOS-06). Solo estado y fechas; el contrato no devuelve el
+// correo ni el nombre de la persona invitada.
+export const demoSignups: AssistedSignup[] = [
+  {
+    signupId: '771a2b3c-4d5e-4f6a-8b7c-9d0e1f2a3b41',
+    status: 'pendiente',
+    createdAt: '2026-09-24T15:02:00Z',
+    activationExpiresAt: '2026-09-25T15:02:00Z',
+    purgeAt: '2026-10-24T15:02:00Z',
+  },
+  {
+    signupId: '402b3c4d-5e6f-4a7b-9c8d-0e1f2a3b4c52',
+    status: 'reclamada_incompleta',
+    createdAt: '2026-09-23T21:40:00Z',
+    activationExpiresAt: '2026-09-24T21:40:00Z',
+    purgeAt: '2026-10-23T21:40:00Z',
+  },
+  {
+    signupId: '189c4d5e-6f7a-4b8c-8d9e-1f2a3b4c5d63',
+    status: 'activa',
+    createdAt: '2026-09-20T14:18:00Z',
+    activationExpiresAt: '2026-09-21T14:18:00Z',
+    purgeAt: '2026-10-20T14:18:00Z',
+  },
+];

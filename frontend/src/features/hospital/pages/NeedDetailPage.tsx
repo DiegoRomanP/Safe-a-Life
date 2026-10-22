@@ -190,9 +190,14 @@ export function NeedDetailPage() {
             </h2>
             <p className="text-sm text-muted">Solo se muestran nombre, código por necesidad, grupo declarado y hora.</p>
           </div>
+          <div className="flex flex-wrap gap-3">
+            <LinkButton to={`/hospital/necesidades/${need.needId}/lotes`} variant="ghost">
+              Ver lotes y entregas
+            </LinkButton>
           <LinkButton to={`/hospital/necesidades/${need.needId}/respuestas`} variant="secondary">
             Ver todas las respuestas
           </LinkButton>
+          </div>
         </div>
         {confirmed.length === 0 ? (
           <p className="rounded-xl border border-line bg-surface p-6 text-muted">Todavía no hay confirmaciones.</p>
