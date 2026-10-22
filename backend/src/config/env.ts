@@ -59,8 +59,78 @@ export class ConfigError extends Error {
   }
 }
 
-/** Qué proceso carga la configuración: cada uno exige solo la credencial técnica que usa (mínimo privilegio). */
-export type ConfigScope = 'api' | 'worker' | 'all';
+/**
+ * Configuración del proceso worker: sin secretos de la API (CSRF, cursor, borde, orígenes, proxies, service_role, JWKS,
+ * webhook ni credencial `api_technical`). Conserva `emailHmac` (clave derivada del ledger de purgas) y el keyring del outbox.
+ * Un `AppConfig` completo también la satisface (pruebas de integración).
+ */
+export interface WorkerConfig {
+  readonly supabase: Readonly<{ url: string; anonKey: string }>;
+  readonly secrets: Readonly<{ emailHmac: string; outboxKeyring: OutboxKeyring }>;
+  readonly production: boolean;
+  readonly worker: Readonly<{ email: string; password: string; pollMs: number }>;
+  readonly appPublicUrl: string;
+  readonly email: Readonly<{ provider: EmailProvider; from: string; resendApiKey: string | undefined; inboxAllowlist: readonly string[] }>;
+}
+
+/** Configuración de la API: es `AppConfig` con `scope: 'api'` (sin WORKER_*); `all` exige ambas identidades (pruebas). */
+export type ApiConfig = AppConfig;
+
+/** Qué configuración de la API se carga: cada proceso exige solo la credencial técnica que usa (mínimo privilegio). */
+export type ConfigScope = 'api' | 'all';
+
+function isProduction(source: Source): boolean {
+  // RENDER lo define la plataforma: fallar cerrado aunque falte NODE_ENV=production.
+  return read(source, 'NODE_ENV') === 'production' || read(source, 'RENDER') !== undefined;
+}
+
+/** Parser explícito del worker: valida solo lo que consume (ver `WorkerConfig`). Las reglas de producción aplican igual. */
+export function parseWorkerEnv(source: Source): WorkerConfig {
+  const failed: string[] = [];
+  const reject: Reject = (name) => {
+    if (!failed.includes(name)) failed.push(name);
+  };
+  const supabaseUrl = parseHttpUrl('SUPABASE_URL', required(source, 'SUPABASE_URL', reject), reject);
+  const anonKey = parseAnonKey(required(source, 'SUPABASE_ANON_KEY', reject), reject);
+  const emailHmac = parseSecret('EMAIL_HMAC_SECRET', required(source, 'EMAIL_HMAC_SECRET', reject), reject);
+  const outboxKeyring = parseOutboxKeyring(read(source, 'OUTBOX_KEYS'), read(source, 'OUTBOX_KEY_CURRENT'), reject);
+  const email = parseEmailSettings(source, reject);
+  const appPublicUrl = parseHttpUrl('APP_PUBLIC_URL', required(source, 'APP_PUBLIC_URL', reject), reject).replace(/\/$/, '');
+  const worker = Object.freeze({
+    email: parseEmail('WORKER_EMAIL', required(source, 'WORKER_EMAIL', reject), reject),
+    password: parseTechnicalPassword('WORKER_PASSWORD', required(source, 'WORKER_PASSWORD', reject), reject),
+    pollMs: parseBoundedInt('WORKER_POLL_MS', read(source, 'WORKER_POLL_MS'), 1000, 60000, DEFAULT_WORKER_POLL_MS, reject),
+  });
+  const production = isProduction(source);
+  if (production) {
+    if (!supabaseUrl.startsWith('https://')) reject('SUPABASE_URL');
+    if (!appPublicUrl.startsWith('https://')) reject('APP_PUBLIC_URL');
+    if (email.provider === 'fake') reject('EMAIL_PROVIDER');
+    if (worker.password.length < 32) reject('WORKER_PASSWORD');
+  }
+  if (failed.length > 0) throw new ConfigError(failed);
+  return Object.freeze({
+    supabase: Object.freeze({ url: supabaseUrl, anonKey }),
+    secrets: Object.freeze({ emailHmac, outboxKeyring }),
+    production,
+    worker,
+    appPublicUrl,
+    email: Object.freeze(email),
+  });
+}
+
+/** Parser explícito de la API (no exige WORKER_*). */
+export function parseApiEnv(source: Source): ApiConfig {
+  return parseEnv(source, 'api');
+}
+
+function parseEmailSettings(source: Source, reject: Reject) {
+  const provider = parseProvider(read(source, 'EMAIL_PROVIDER'), reject);
+  const resendApiKey = provider === 'resend' ? required(source, 'RESEND_API_KEY', reject) : undefined;
+  const inboxAllowlist = Object.freeze(parseEmailList(read(source, 'EMAIL_INBOX_ALLOWLIST'), reject));
+  const from = parseEmail('EMAIL_FROM', required(source, 'EMAIL_FROM', reject), reject);
+  return { provider, from, resendApiKey: resendApiKey || undefined, inboxAllowlist };
+}
 
 export function parseEnv(source: Source, scope: ConfigScope = 'all'): AppConfig {
   const failed: string[] = [];
@@ -86,20 +156,18 @@ export function parseEnv(source: Source, scope: ConfigScope = 'all'): AppConfig 
   if (edgeSecret && [csrf, emailHmac, cursor].includes(edgeSecret)) reject('EDGE_SHARED_SECRET');
   const outboxKeyring = parseOutboxKeyring(read(source, 'OUTBOX_KEYS'), read(source, 'OUTBOX_KEY_CURRENT'), reject);
 
-  const provider = parseProvider(read(source, 'EMAIL_PROVIDER'), reject);
-  const resendApiKey = provider === 'resend' ? required(source, 'RESEND_API_KEY', reject) : undefined;
-  const inboxAllowlist = parseEmailList(read(source, 'EMAIL_INBOX_ALLOWLIST'), reject);
-  const emailFrom = parseEmail('EMAIL_FROM', required(source, 'EMAIL_FROM', reject), reject);
+  const emailSettings = parseEmailSettings(source, reject);
+  const { provider } = emailSettings;
   // Obligatorio con Resend; en modo falso es opcional y, si se define, habilita el webhook (pruebas y demo local).
   const webhookRaw = provider === 'resend' ? required(source, 'RESEND_WEBHOOK_SECRET', reject) : read(source, 'RESEND_WEBHOOK_SECRET');
   const resendWebhookSecret = webhookRaw === undefined ? undefined : parseWebhookSecret(webhookRaw, reject);
   const appPublicUrl = parseHttpUrl('APP_PUBLIC_URL', required(source, 'APP_PUBLIC_URL', reject), reject).replace(/\/$/, '');
-  const wantsWorker = scope !== 'api';
-  const wantsApi = scope !== 'worker';
+  const wantsWorker = scope === 'all';
+  const wantsApi = true;
   const worker = Object.freeze({
     email: wantsWorker ? parseEmail('WORKER_EMAIL', required(source, 'WORKER_EMAIL', reject), reject) : '',
     password: wantsWorker ? parseTechnicalPassword('WORKER_PASSWORD', required(source, 'WORKER_PASSWORD', reject), reject) : '',
-    pollMs: parseBoundedInt('WORKER_POLL_MS', read(source, 'WORKER_POLL_MS'), 1000, 60000, DEFAULT_WORKER_POLL_MS, reject),
+    pollMs: wantsWorker ? parseBoundedInt('WORKER_POLL_MS', read(source, 'WORKER_POLL_MS'), 1000, 60000, DEFAULT_WORKER_POLL_MS, reject) : DEFAULT_WORKER_POLL_MS,
   });
   const apiTechnical = Object.freeze({
     email: wantsApi ? parseEmail('API_TECHNICAL_EMAIL', required(source, 'API_TECHNICAL_EMAIL', reject), reject) : '',
@@ -109,8 +177,7 @@ export function parseEnv(source: Source, scope: ConfigScope = 'all'): AppConfig 
   if (wantsWorker && wantsApi && worker.email !== '' && worker.email === apiTechnical.email) reject('API_TECHNICAL_EMAIL');
 
   // Producción: sin valores de desarrollo (HTTP, sin proxies enumerados, sin guard de borde).
-  // RENDER lo define la plataforma: fallar cerrado aunque falte NODE_ENV=production.
-  const production = read(source, 'NODE_ENV') === 'production' || read(source, 'RENDER') !== undefined;
+  const production = isProduction(source);
   if (production) {
     if (trustedProxies === false) reject('TRUSTED_PROXIES');
     if (allowedOrigins.length === 0 || !allowedOrigins.every((origin) => origin.startsWith('https://'))) reject('ALLOWED_ORIGINS');
@@ -139,10 +206,10 @@ export function parseEnv(source: Source, scope: ConfigScope = 'all'): AppConfig 
     appPublicUrl,
     email: Object.freeze({
       provider,
-      from: emailFrom,
-      resendApiKey: resendApiKey || undefined,
+      from: emailSettings.from,
+      resendApiKey: emailSettings.resendApiKey,
       resendWebhookSecret,
-      inboxAllowlist: Object.freeze(inboxAllowlist),
+      inboxAllowlist: emailSettings.inboxAllowlist,
     }),
   });
 }

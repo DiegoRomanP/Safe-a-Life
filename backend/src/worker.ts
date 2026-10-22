@@ -1,5 +1,5 @@
 import { buildWorker } from './composition-worker.js';
-import { ConfigError, parseEnv, type AppConfig } from './config/env.js';
+import { ConfigError, parseWorkerEnv, type WorkerConfig } from './config/env.js';
 import { createLogger } from './shared/observability/logger.js';
 
 const logger = createLogger((line) => process.stdout.write(`${line}\n`));
@@ -12,9 +12,9 @@ for (const event of ['unhandledRejection', 'uncaughtException'] as const) {
   });
 }
 
-function loadConfig(): AppConfig {
+function loadConfig(): WorkerConfig {
   try {
-    return parseEnv(process.env, 'worker');
+    return parseWorkerEnv(process.env);
   } catch (error) {
     if (error instanceof ConfigError) {
       process.stderr.write(`${error.message}\n`);
