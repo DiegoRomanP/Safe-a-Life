@@ -4,7 +4,7 @@
     "title": "Save a Life API (borrador)",
     "version": "0.2.0-draft",
     "summary": "Contrato inicial propuesto para revisar en Swagger Editor.",
-    "description": "Contrato Design-First para frontend y mocks, no una API productiva implementada. El estado global sigue en borrador y requiere aprobación para el inventario restante; solo POST /api/v1/hospitals/me/needs (createHospitalNeed) tiene ratificación acotada para implementación, registrada en la extensión de operación x-ratification. Esa ratificación no significa que el endpoint exista. Usa exclusivamente ejemplos sintéticos. AP-02, AP-04, AP-06, AP-07 y AP-08 siguen pendientes; no inferir resultados productivos para esas reglas.",
+    "description": "Contrato Design-First para frontend y mocks, no una API productiva implementada. El estado global sigue en borrador y requiere aprobación para el inventario restante; las operaciones ratificadas para implementación se registran en la extensión de operación x-ratification (ver docs/Backend-Contracts.md). Ratificar no significa que el endpoint exista. Usa exclusivamente ejemplos sintéticos. AP-02, AP-06, AP-07 y AP-08 están resueltas por ADR-005 (V5 para AP-02) y AP-04 por V6 y la ratificación F6; este contrato no las reabre ni infiere resultados productivos más allá de lo ratificado.",
     "license": { "name": "MIT", "identifier": "MIT" },
     "x-contract-status": "draft",
     "x-sprint0-approval-required": true
@@ -946,7 +946,7 @@
         "operationId": "recordInitialInvitationResponse",
         "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (recordInitialInvitationResponse)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Registra la primera respuesta mediante token de acción",
-        "description": "El token aleatorio está ligado a invitación y acción (confirmar o rechazar); no se acepta una acción distinta en el body. Es válido solo con invitación/necesidad activas y `now < need.expires_at`; no tiene TTL independiente. Consumo y respuesta son atómicos. El GET anterior no muta estado. No devuelve contacto ni ubicación del donante.",
+        "description": "El token aleatorio está ligado a invitación y acción (confirmar o rechazar); no se acepta una acción distinta en el body. Es válido solo con invitación/necesidad activas y `now < need.expires_at`; no tiene TTL independiente. Consumo y respuesta son atómicos. El GET anterior no muta estado. No devuelve contacto ni ubicación del donante. Responde 409 al confirmar cuando la meta de donantes ya fue alcanzada (V6) y también ante conflictos de idempotencia (clave reutilizada con otro payload o en curso); responde 410 cuando el token fue consumido o anulado o la necesidad está terminal o vencida. La repetición con la misma clave recibe 410 solo si la necesidad es terminal o está vencida; con la necesidad viva devuelve 200 con el resultado guardado.",
         "security": [],
         "parameters": [
           { "$ref": "#/components/parameters/ActionToken" },
@@ -2710,7 +2710,7 @@
           "batchId": { "type": "string", "format": "uuid" },
           "createdAt": { "type": "string", "format": "date-time" },
           "createdInvitationCount": { "type": "integer", "minimum": 0, "maximum": 50 },
-          "deliveryCounts": { "type": "object", "description": "Cuatro conteos de estado actual mutuamente excluyentes: cada invitación del lote pertenece a un solo estado y su suma es createdInvitationCount. enviada excluye las invitaciones ya entregadas; no son acumulados ni conteos de intentos. AP-02 sigue pendiente respecto de la relación operativa entre estado agregado e intentos y de cuándo un error transitorio pasa a fallida; esta proyección no define reintentos ni umbrales de fallo terminal.", "additionalProperties": false, "required": ["pendiente", "enviada", "entregada", "fallida"], "properties": { "pendiente": { "type": "integer", "minimum": 0 }, "enviada": { "type": "integer", "minimum": 0 }, "entregada": { "type": "integer", "minimum": 0 }, "fallida": { "type": "integer", "minimum": 0 } } }
+          "deliveryCounts": { "type": "object", "description": "Cuatro conteos de estado actual mutuamente excluyentes: cada invitación del lote pertenece a un solo estado y su suma es createdInvitationCount. enviada excluye las invitaciones ya entregadas; no son acumulados ni conteos de intentos. La relación entre estado agregado e intentos y el paso de un error transitorio a fallida están resueltos por ADR-005 (V5/AP-02); esta proyección solo los expone y no define reintentos ni umbrales de fallo terminal.", "additionalProperties": false, "required": ["pendiente", "enviada", "entregada", "fallida"], "properties": { "pendiente": { "type": "integer", "minimum": 0 }, "enviada": { "type": "integer", "minimum": 0 }, "entregada": { "type": "integer", "minimum": 0 }, "fallida": { "type": "integer", "minimum": 0 } } }
         }
       },
       "InvitationBatchListEnvelope": {

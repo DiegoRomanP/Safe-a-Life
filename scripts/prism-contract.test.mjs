@@ -854,44 +854,49 @@ test('C5 contract describes exclusive current-state buckets', () => {
   ], 'C5 semantics');
 });
 
-function assertAp02Open(text) {
+function assertAp02Resolved(text) {
   const clauses = documentClauses(text);
   // Restricted documentation forms: one AP or a comma/y enumeration directly
   // followed by its state predicate. Another AP's predicate cannot be borrowed.
   const subject = '(ap-\\d{2}(?:\\s*(?:,|y)\\s*ap-\\d{2})*)';
   const stateVerb = '(?:sigue[n]?|permanece[n]?|continua[n]?|esta[n]?)';
   const openState = '(?:abiert[ao]s?|pendientes?)';
-  const open = new RegExp(`\\b${subject}\\s+${stateVerb}\\s+${openState}\\b`, 'g');
-  const closed = new RegExp(`\\b${subject}\\s+(?:${stateVerb}\\s+(?:cerrad[ao]s?|resuelt[ao]s?|aprobad[ao]s?)|no\\s+${stateVerb}\\s+${openState}|deja[n]?\\s+de\\s+(?:estar|seguir)\\s+${openState})\\b`, 'g');
+  const open = new RegExp(`\\b${subject}\\s+(?:${stateVerb}\\s+${openState}|no\\s+${stateVerb}\\s+(?:cerrad|resuelt|aprobad)[ao]s?|deja[n]?\\s+de\\s+(?:estar|seguir)\\s+(?:cerrad|resuelt|aprobad)[ao]s?|vuelve[n]?\\s+a\\s+(?:estar|quedar)\\s+${openState})\\b`, 'g');
+  const resolved = new RegExp(`\\b${subject}\\s+${stateVerb}\\s+resuelt[ao]s?\\s+por\\s+adr-005\\b`, 'g');
   const hasAp02Subject = (pattern) => clauses.some((clause) =>
     [...clause.matchAll(pattern)].some((statement) => /\bap-02\b/.test(statement[1])));
-  assert.equal(hasAp02Subject(open), true, 'C5 AP-02 must be the subject of an explicit open predicate');
-  assert.equal(hasAp02Subject(closed), false, 'C5 AP-02 must not have a closing or negated predicate');
+  assert.equal(hasAp02Subject(resolved), true, 'C5 AP-02 must be the subject of an explicit "resuelta por ADR-005" predicate');
+  assert.equal(hasAp02Subject(open), false, 'C5 AP-02 must not have an open or negated-resolved predicate');
 }
 
-test('C5 AP-02 remains explicitly open in its own pending-policy clause', () => {
-  assertAp02Open(apiRules);
+test('C5 AP-02 is explicitly resolved by ADR-005 in Api-Rules', () => {
+  assertAp02Resolved(apiRules);
+  assert.match(apiRules, /ADR-005/);
 });
 
-test('E1d countermutation AP-02 rejects a closed clause while other policies remain pending', () => {
-  const control = 'AP-02 sigue abierta. AP-04 y AP-06 siguen pendientes.';
-  assertAp02Open(control);
-  assert.throws(() => assertAp02Open(control.replace('AP-02 sigue abierta', 'AP-02 está cerrada')), { code: 'ERR_ASSERTION' });
-  assert.throws(() => assertAp02Open('AP-02 está cerrada y AP-04 sigue pendiente.'), { code: 'ERR_ASSERTION' });
-  assert.throws(() => assertAp02Open('AP-02 no sigue abierta; AP-04 sigue pendiente.'), { code: 'ERR_ASSERTION' });
+test('E1d countermutation AP-02 rejects an open clause while other policies are resolved', () => {
+  const control = 'AP-02 está resuelta por ADR-005. AP-04 y AP-06 siguen pendientes.';
+  assertAp02Resolved(control);
+  assert.throws(() => assertAp02Resolved(control.replace('está resuelta por ADR-005', 'sigue abierta')), { code: 'ERR_ASSERTION' });
+  assert.throws(() => assertAp02Resolved('AP-02 sigue abierta y AP-04 está resuelta por ADR-005.'), { code: 'ERR_ASSERTION' });
+  assert.throws(() => assertAp02Resolved('AP-02 no está resuelta; AP-04 está resuelta por ADR-005.'), { code: 'ERR_ASSERTION' });
+  assert.throws(() => assertAp02Resolved('AP-02 está resuelta por V6.'), { code: 'ERR_ASSERTION' });
+  assert.throws(() => assertAp02Resolved('AP-02 está resuelta por ADR-005. AP-02 deja de estar resuelta.'), { code: 'ERR_ASSERTION' });
+  assert.throws(() => assertAp02Resolved('AP-02 está resuelta por ADR-005. AP-02 vuelve a estar pendiente.'), { code: 'ERR_ASSERTION' });
+  assert.throws(() => assertAp02Resolved('AP-02 está resuelta por ADR-005. AP-02 no está aprobada.'), { code: 'ERR_ASSERTION' });
 });
 
-test('E1e regression AP-02 cannot borrow another AP pending predicate after leaving pending state', () => {
-  assertAp02Open(apiRules); // Positive control: the actual AP-02/04/06/07/08 list remains pending.
-  const contradiction = 'AP-02 deja de estar pendiente y AP-04 sigue pendiente.';
-  assert.throws(() => assertAp02Open(contradiction), { code: 'ERR_ASSERTION' });
-  assert.throws(() => assertAp02Open(`AP-02 sigue pendiente. ${contradiction}`), { code: 'ERR_ASSERTION' });
+test('E1e regression AP-02 cannot borrow another AP resolved predicate after reopening', () => {
+  assertAp02Resolved(apiRules); // Positive control: the actual Api-Rules text resolves AP-02 by ADR-005.
+  const contradiction = 'AP-02 vuelve a estar pendiente y AP-04 está resuelta por ADR-005.';
+  assert.throws(() => assertAp02Resolved(contradiction), { code: 'ERR_ASSERTION' });
+  assert.throws(() => assertAp02Resolved(`AP-02 está resuelta por ADR-005. ${contradiction}`), { code: 'ERR_ASSERTION' });
 });
 
-test('E1e control AP-02 accepts its actual pending enumeration and independent states of other APs', () => {
-  assertAp02Open(apiRules);
-  assertAp02Open('AP-02, AP-04, AP-06, AP-07 y AP-08 siguen pendientes.');
-  assertAp02Open('AP-02 sigue abierta y AP-04 está cerrada.');
+test('E1e control AP-02 accepts its actual resolved enumeration and independent states of other APs', () => {
+  assertAp02Resolved(apiRules);
+  assertAp02Resolved('AP-02, AP-06, AP-07 y AP-08 están resueltas por ADR-005.');
+  assertAp02Resolved('AP-02 está resuelta por ADR-005 y AP-04 sigue abierta.');
 });
 
 test('C6 CSRF response token is readOnly and is never writeOnly', () => {
