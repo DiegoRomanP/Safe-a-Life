@@ -60,6 +60,9 @@ export function LoginPage() {
             <LinkButton to="/hospital" variant="ghost" fullWidth>
               Entrar como hospital de prueba
             </LinkButton>
+            <LinkButton to="/superadmin" variant="ghost" fullWidth>
+              Entrar como superadmin de prueba
+            </LinkButton>
           </div>
         )}
       </AuthCard>
