@@ -612,3 +612,21 @@ en el mismo commit documental, revisadas por `security-privacy-auditor`.
    1. Sin cambios de schema; solo la aclaración textual de 409/410 en
       `recordInitialInvitationResponse`. **(Recomendada)**
    2. Ningún cambio.
+
+### 8.1 Evaluación de variaciones por punto (2026-10-22)
+
+Petición de la persona usuaria: confirmar si la opción 1 sirve a todos los
+participantes en todos los casos y, si no, dejar una condición o una decisión.
+Participantes: donante, admin de hospital, superadmin, worker y quien abre un
+enlace del email. Resultado: la opción 1 vale en los siete puntos; dos llevan
+una **condición de salida** medible o revisable.
+
+| Punto | ¿Opción 1 para todos? | Condición o decisión |
+| --- | --- | --- |
+| A4.1 Tokens | Sí. Refuerzo: el email de D1 (`2026-10-22-f6-textos-donante.md`) ahora necesita dirección y coordenadas de la sede; salen del `claim` (siempre vigentes) y no se guardan selladas en el payload. | `display` del `claim` = `{hospitalName, sitePublicName, siteAddress, siteLatitude, siteLongitude}`; el enlace de mapa se arma en la plantilla. Sin condición de salida. |
+| A4.2 Replay / 409 / 410 | Sí. La opción 2 contradice RF-INV-08 y RF-INV-02/03. | Ninguna. |
+| A4.3 Locks y cuota | Sí para el prototipo (500 donantes), pero el lock global **serializa** lotes de todos los hospitales. | **Puerta en F6-6:** con 5 lotes concurrentes sobre 500 donantes, p95 ≤ 1 s y ningún `55P03` ni `statement_timeout`. Si no se cumple, vuelve a la persona usuaria para elegir la opción 2. El umbral es una propuesta del asistente, no un requisito. |
+| A4.4 Entrega | Sí. La opción 2 expone el outbox a más rutas (peor para privacidad). | Ninguna. |
+| A4.5 Allowlist | Sí. La opción 2 congela datos duplicados y no sirve a D3: el texto del donante depende del estado vigente de la necesidad. | `security-privacy-auditor` revisa las enmiendas (ítems 14 y 15) antes de F6-2. Si las rechaza, solo las **lecturas** del donante pasan a la opción 2 y el reintento del superadmin sigue DEFINER. |
+| A4.6 Menores | Sí, en bloque. S0 es seguro: ADR-005 está aceptado y AP-02 ya no está abierto. | Si te opones a uno, dímelo y lo aparto; los demás no dependen entre sí. |
+| A4.7 OpenAPI | Sí. | Ninguna. |
