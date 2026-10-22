@@ -2,11 +2,11 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | En curso |
+| Estado | Listo para PR |
 | Fecha | 2026-10-22 |
-| Rama | `feat/frontend-titulos-a11y` (desde `fix/frontend-revisiones-seguridad-clinica`) |
+| Rama | `feat/frontend-titulos-a11y` (rebasada sobre `main` en `92a22f4`) |
 | Origen | Lista de pendientes externa, punto 9 |
-| Gates | `reviewer-front` (pendiente) |
+| Gates | `reviewer-front`: PASS con observaciones (corregidas) |
 
 ## 1. Alcance
 
@@ -50,3 +50,14 @@
 ## 4. Bitácora
 
 - 2026-10-22: títulos por ruta y verificación en navegador.
+- 2026-10-22: `reviewer-front` (subagente independiente de solo lectura que no
+  escribió el código): **PASS con observaciones**. 210/210 tests, ESLint y
+  typecheck sin errores; cumple WCAG 2.4.2. El PASS cubre el código y los
+  tests del diff, no la verificación en navegador de la sección 2, que hizo
+  quien escribió el código.
+  - Se corrigió: el test de títulos cubre cualquier hoja (`element`,
+    `Component` o `lazy`) y hay un test de cambio de título al navegar.
+  - El título de `verificar-identidad` coincide con su `<h1>` («Verifica tu
+    identidad»).
+  - Se acepta: en `/donante` se ve «Donante · Save a Life» un instante antes de
+    redirigir.
