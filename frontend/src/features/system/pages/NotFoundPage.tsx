@@ -2,10 +2,15 @@ import { Brand } from '../../../components/layout/Brand.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { Button } from '../../../components/ui/Button.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
+import { useFragmentToken } from '../../auth/useFragmentToken.js';
 
 // SYS-01 Acceso neutro. Mismo mensaje si el recurso no existe, cambió o no hay
 // permiso, para no revelar información. No muestra datos de la ruta pedida.
 export function NotFoundPage() {
+  // Una ruta mal escrita puede traer el #token de un correo: se borra de la
+  // dirección y del historial de la pestaña aunque esta vista no lo use.
+  useFragmentToken();
+
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
       <header className="flex flex-wrap items-center justify-between gap-3 px-4 py-5 sm:px-10">
