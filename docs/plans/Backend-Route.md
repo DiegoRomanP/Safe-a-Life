@@ -330,7 +330,7 @@ No ejecutar `npm run test:e2e` aquí (es de la demo y exige parar `npm run dev`)
 | V0–V6 | Verificación baseline | Completada | Senior | n/a | `docs/plans/2026-10-21-verificacion-backend.md` (V4 y V5 con una corrida fallida previa; ver plan) |
 | V7 | Contrato Prism + Ajv | Completada | Senior | n/a | Inventario del runner actualizado (510 errores, 617 casos); 72/72 |
 | V8 (B1, B2, B3, B4, SP-04) | Correcciones | Completada | subagentes sonnet | reviewer-back PASS; security **pendiente** | `docs/plans/2026-10-21-verificacion-backend.md` |
-| V8 (SP-01, P-12 V15) | Seguridad | Completada | subagentes sonnet | reviewer-back PASS; security PASS | `a9193aa`, `c4aab53`; purgas del worker siguen abiertas |
+| V8 (SP-01, P-12 V15) | Seguridad | Completada | subagentes sonnet | reviewer-back PASS; security PASS | `a9193aa`, `c4aab53`, `d9c3046` (purgas b2 y MFA de donantes) |
 | V9 | Gates independientes F5/F7 | Completada (clinical pendiente) | subagentes opus | F5 PASS, F7 PASS tras documentar el 409 (`c864044`); security PASS | clinical-safety-reviewer no ejecutado |
 | C0, C1 | Reconciliar P-11; gate clínico | Pendiente | — | — | — |
 | F6-2 … F6-6 | Slices F6 | Bloqueada (A4; Fase A/B cerrada salvo purgas del worker) | — | — | — |
@@ -345,6 +345,7 @@ No ejecutar `npm run test:e2e` aquí (es de la demo y exige parar `npm run dev`)
 | 2026-10-21 | Senior / redacción | Plan creado; sin ejecución ni cambios al repositorio |
 | 2026-10-21 | Senior / Fase A | V0–V7 ejecutados y V1 clasificado: B1–B4, SP-01, SP-04 y P-12 siguen abiertos. V8/V9 esperan A1–A3. Detalle en `docs/plans/2026-10-21-verificacion-backend.md` |
 | 2026-10-22 | Senior / Fase A y B | V7–V9 cerradas; SP-01 (ADR-007) y P-12 (a) implementados y commiteados; ver `2026-10-21-verificacion-backend.md` |
+| 2026-10-22 | Senior / cierre Fase B | Purgas del worker (b2), ADR-006 corregido y MFA de donantes en el reset (`d9c3046`); arrancan C0 y C1 de F6 |
 
 ---
 
