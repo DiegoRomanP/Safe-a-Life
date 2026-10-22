@@ -8,15 +8,14 @@ import { Input } from '../../../components/ui/Input.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { AuthCard, AuthShell } from '../components/AuthShell.js';
 import { StepList } from '../components/StepList.js';
+import { registrationSteps } from '../registrationSteps.js';
 import { emailError, newPasswordError, PASSWORD_HINT } from '../validation.js';
-
-const steps = ['Cuenta y correo', 'Datos declarados', 'Disponibilidad', 'Revisión'];
 
 type Errors = { email?: string; password?: string };
 
 // AUTH-02 Registro, paso 1 de 4 (Penpot «+»). El contrato
 // (createDonorRegistration) solo recibe correo y contraseña; los pasos 2 a 4
-// son el onboarding (DON-01) tras verificar el correo. Sin backend (D-4) no se
+// son verificar el correo y el onboarding (DON-01). Sin backend (D-4) no se
 // envía nada: se muestra el resultado neutral que daría la API (202).
 export function RegisterPage() {
   const [email, setEmail] = useState('');
@@ -45,7 +44,7 @@ export function RegisterPage() {
     <AuthShell
       asideTitle="Crea tu cuenta de donante"
       asideDetail="Completa tu perfil con datos sintéticos para participar en la demostración."
-      asideContent={<StepList label="Pasos del registro" steps={steps} current={1} />}
+      asideContent={<StepList label="Pasos del registro" steps={registrationSteps} current={1} />}
     >
       {sent ? (
         <AuthCard labelledBy="registro-resultado" className="max-w-[640px]">
