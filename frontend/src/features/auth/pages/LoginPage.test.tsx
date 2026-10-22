@@ -26,6 +26,7 @@ describe('AUTH-01 Inicio de sesión', () => {
   it('en desarrollo ofrece entrar al recorrido del donante de prueba', () => {
     const view = renderRoute('/ingresar');
     expect(view.querySelector('a[href="/donante"]')?.textContent).toBe('Entrar como donante de prueba');
+    expect(view.querySelector('a[href="/donante/bienvenida"]')?.textContent).toBe('Entrar como donante nuevo');
   });
 
   it('ofrece crear cuenta de donante', () => {

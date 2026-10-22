@@ -42,7 +42,8 @@ export function formatDateTime(iso: string): string {
   return `${formatDateTimeShort(iso)} · ${LIMA_ZONE_LABEL}`;
 }
 
-export type BloodType = 'O_NEG' | 'O_POS' | 'A_NEG' | 'A_POS' | 'B_NEG' | 'B_POS' | 'AB_NEG' | 'AB_POS';
+export const BLOOD_TYPES = ['O_NEG', 'O_POS', 'A_NEG', 'A_POS', 'B_NEG', 'B_POS', 'AB_NEG', 'AB_POS'] as const;
+export type BloodType = (typeof BLOOD_TYPES)[number];
 
 /** Grupo declarado con su símbolo habitual: «A_POS» → «A+». */
 export function bloodTypeLabel(value: BloodType): string {

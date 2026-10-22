@@ -1,4 +1,4 @@
-import type { SelectHTMLAttributes } from 'react';
+import { forwardRef, type SelectHTMLAttributes } from 'react';
 import { cx } from './cx.js';
 import { controlClass } from './Input.js';
 
@@ -10,13 +10,18 @@ export type SelectProps = SelectHTMLAttributes<HTMLSelectElement> & {
   invalid?: boolean;
 };
 
-export function Select({ options, placeholder, invalid = false, className, ...props }: SelectProps) {
+// forwardRef permite que un formulario lleve el foco al campo con error.
+export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select(
+  { options, placeholder, invalid = false, className, ...props },
+  ref,
+) {
   // Sin valor inicial, el navegador elegiría la primera opción real. Con
   // placeholder se arranca vacío para exigir una elección explícita.
   const initial =
     placeholder && props.value === undefined && props.defaultValue === undefined ? { defaultValue: '' } : {};
   return (
     <select
+      ref={ref}
       className={cx(controlClass, invalid ? 'border-danger' : 'border-line', className)}
       {...initial}
       {...props}
@@ -33,4 +38,4 @@ export function Select({ options, placeholder, invalid = false, className, ...pr
       ))}
     </select>
   );
-}
+});
