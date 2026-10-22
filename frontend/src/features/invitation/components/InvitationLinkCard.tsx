@@ -19,18 +19,21 @@ const copy = {
     title: '¿Deseas registrar tu intención de asistir?',
     action: 'Confirmar intención de asistir',
     done: 'Registramos tu intención de asistir.',
+    note: 'Abrir este enlace no registra una respuesta. Confirmar expresa únicamente intención de asistir.',
   },
   rechazar: {
     title: '¿Confirmas que no podrás asistir?',
     action: 'Confirmar que no podré asistir',
     done: 'Registramos que no podrás asistir.',
+    note: 'Abrir este enlace no registra una respuesta. Solo se registra al confirmar.',
   },
 } as const;
 
-// Tarjeta de LINK-01 (Penpot «+») para un enlace válido. El token ya trae la
-// acción y recordInitialInvitationResponse no acepta otra, así que hay un solo
-// botón; cambiar la respuesta se hace desde la cuenta. Abrir la tarjeta no
-// registra nada. Sin backend (D-4) la respuesta no se envía.
+// Tarjeta de LINK-01 (Penpot «+») para un enlace válido. Muestra solo los
+// campos de InvitationActionPreview, una vista previa mínima sin sesión. El
+// token ya trae la acción y recordInitialInvitationResponse no acepta otra, así
+// que hay un solo botón; cambiar la respuesta se hace desde la cuenta. Abrir la
+// tarjeta no registra nada. Sin backend (D-4) la respuesta no se envía.
 export function InvitationLinkCard({ preview }: { preview: InvitationActionPreview }) {
   const [done, setDone] = useState(false);
   const doneRef = useRef<HTMLHeadingElement>(null);
@@ -80,11 +83,9 @@ export function InvitationLinkCard({ preview }: { preview: InvitationActionPrevi
       <dl className="grid gap-x-8 gap-y-6 sm:grid-cols-[120px_minmax(0,1fr)]">
         <dt className="text-sm font-semibold text-muted">Plazo</dt>
         <dd className="text-ink">{formatDateTime(preview.expiresAt)}</dd>
-        <dt className="text-sm font-semibold text-muted">Componente</dt>
-        <dd className="text-ink">Glóbulos rojos (RBC)</dd>
       </dl>
       <Alert tone="info" title="Antes de responder">
-        Abrir este enlace no registra una respuesta. Confirmar expresa únicamente intención de asistir.
+        {text.note}
       </Alert>
       <div className="flex flex-wrap gap-4">
         <Button onClick={() => setDone(true)}>{text.action}</Button>

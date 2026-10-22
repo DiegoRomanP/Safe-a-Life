@@ -25,6 +25,11 @@ describe('LINK-01 desde el correo', () => {
     expect(actions).toEqual(['Confirmar intención de asistir']);
   });
 
+  it('solo muestra los campos de la vista previa del contrato', () => {
+    const terms = [...renderRoute(`/invitaciones#${TOKEN}`).querySelectorAll('dt')].map((dt) => dt.textContent);
+    expect(terms).toEqual(['Plazo']);
+  });
+
   it('al responder enfoca el resultado y ofrece ingresar a la cuenta', () => {
     const view = renderRoute(`/invitaciones#${TOKEN}`);
     click([...view.querySelectorAll('button')].find((b) => b.textContent === 'Confirmar intención de asistir') ?? null);
@@ -47,6 +52,7 @@ describe('LINK-01 desde el correo', () => {
     );
     expect(view.querySelector('h1')?.textContent).toBe('¿Confirmas que no podrás asistir?');
     expect(view.querySelector('button')?.textContent).toBe('Confirmar que no podré asistir');
+    expect(view.textContent).not.toContain('intención de asistir');
   });
 
   it('el enlace vencido aclara que no hace falta hacer nada', () => {

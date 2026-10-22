@@ -5,8 +5,26 @@ import { DevStatusPicker } from '../components/DevStatusPicker.js';
 import { StepList } from '../components/StepList.js';
 import { registrationSteps } from '../registrationSteps.js';
 import { TokenConfirmCard } from '../components/TokenConfirmCard.js';
-import { TokenStatusView, type TokenStatus } from '../components/TokenStatusView.js';
+import {
+  defaultTokenStatusCopy,
+  TokenStatusView,
+  type TokenStatus,
+  type TokenStatusCopy,
+} from '../components/TokenStatusView.js';
 import { useFragmentToken } from '../useFragmentToken.js';
+
+// En el registro propio no interviene un hospital: un enlace vencido se renueva
+// registrándose otra vez (createDonorRegistration responde igual exista o no la
+// cuenta) y no hay operación de reenvío.
+const verifyCopy: TokenStatusCopy = {
+  ...defaultTokenStatusCopy,
+  used: { ...defaultTokenStatusCopy.used, badge: 'Usado' },
+  expired: {
+    ...defaultTokenStatusCopy.expired,
+    badge: 'Vencido',
+    detail: 'Vuelve a registrarte con tu correo para recibir un nuevo enlace.',
+  },
+};
 
 // AUTH-02 paso 2 (`/verificar-correo#token`). Vista previa con
 // getDonorEmailVerificationPreview; el botón corresponde a verifyDonorEmail.
@@ -30,6 +48,7 @@ export function VerifyEmailPage() {
         {import.meta.env.DEV && <DevStatusPicker value={status} onChange={setStatus} />}
         <TokenStatusView
           status={status}
+          copy={verifyCopy}
           validContent={
             <TokenConfirmCard
               idPrefix="verificar-correo"

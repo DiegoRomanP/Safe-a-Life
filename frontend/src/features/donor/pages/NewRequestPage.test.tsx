@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
+import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
-import { click, setupRender, type } from '../../../test/render.js';
+import { routes } from '../../../app/routes.js';
+import { click, render, setupRender, type } from '../../../test/render.js';
 import { renderRoute } from '../../../test/renderRoute.js';
 
 setupRender();
@@ -56,6 +58,14 @@ describe('DON-05 Nueva solicitud', () => {
     const first = view.querySelector('tbody tr');
     expect(first?.textContent).toContain('Corrección de nombre');
     expect(first?.textContent).toContain('Pendiente');
+  });
+
+  it('un tipo desconocido en el estado de navegación vuelve a la corrección', () => {
+    const router = createMemoryRouter(routes, {
+      initialEntries: [{ pathname: '/donante/solicitudes/nueva', state: { kind: 'otro' } }],
+    });
+    const view = render(<RouterProvider router={router} />);
+    expect((view.querySelector('input[value="correccion"]') as HTMLInputElement).checked).toBe(true);
   });
 
   it('el perfil abre la solicitud con el tipo ya elegido', () => {
