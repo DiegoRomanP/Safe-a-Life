@@ -21,10 +21,14 @@ function harness(options: {
   factors?: Array<{ factorId: string; verified: boolean }>;
   verified?: TokenPair | null;
   floorMs?: number;
+  admit?: boolean | Error;
+  ticketError?: Error;
+  claims?: null;
 } = {}) {
   const calls: string[] = [];
   const recorded: Array<{ actorRef: string; hash: string }> = [];
   const slept: number[] = [];
+  const admitted: unknown[][] = [];
   const sessions = {
     signIn: async () => { calls.push('signIn'); return options.signIn === undefined ? TOKENS : options.signIn; },
     signOut: async (_token: string, scope?: string) => { calls.push(`signOut:${scope ?? 'global'}`); },
@@ -34,7 +38,10 @@ function harness(options: {
     challenge: async () => 'c1',
     verify: async () => options.verified === undefined ? ELEVATED : options.verified,
     challengeAndVerify: async () => options.verified === undefined ? ELEVATED : options.verified,
-    verifyAccessToken: async () => ({ userId: 'u', sessionId: 's', aal: 'aal2' as const, amr: [{ method: 'totp', timestamp: 1_000_000 }] }),
+    verifyAccessToken: async () => {
+      calls.push('verify');
+      return options.claims === null ? null : { userId: 'u', sessionId: 's', aal: 'aal2' as const, amr: [{ method: 'totp', timestamp: 1_000_000 }] };
+    },
     refresh: async () => null,
   } as unknown as SessionGateway;
   const deps: IdentityDependencies = {
@@ -47,13 +54,21 @@ function harness(options: {
     },
     publicKeys: { record: async (actorRef, _op, _key, hash) => { calls.push('record'); recorded.push({ actorRef, hash }); return options.record ?? 'ok'; } },
     userKeys: { consume: async () => { calls.push('consume'); return options.consume ?? 'ok'; } },
+    admission: {
+      issueLoginTicket: async (email) => { calls.push(`ticket:${email}`); if (options.ticketError) throw options.ticketError; return 'ticket-1'; },
+      admitSession: async (...args) => {
+        calls.push('admit'); admitted.push(args);
+        if (options.admit instanceof Error) throw options.admit;
+        return options.admit ?? true;
+      },
+    },
   };
   const service = createAuthService(sessions, deps, {
     keys: deriveHmacKeyring(SECRET),
     loginFailureFloorMs: options.floorMs ?? 0,
     sleep: async (ms) => { slept.push(ms); },
   });
-  return { service, calls, recorded, slept };
+  return { service, calls, recorded, slept, admitted };
 }
 
 const principal = (overrides: Partial<Principal> = {}): Principal => ({
@@ -64,6 +79,53 @@ const principal = (overrides: Partial<Principal> = {}): Principal => ({
 async function codeOf(promise: Promise<unknown>): Promise<string | undefined> {
   try { await promise; return undefined; } catch (error) { return error instanceof ApiError ? error.code : 'OTRO'; }
 }
+
+describe('createSession: barrera de sesión (ADR-007)', () => {
+  it('emite el ticket (correo normalizado) DESPUÉS de las cuotas y ANTES de signIn, y admite con los claims verificados', async () => {
+    const { service, calls, admitted } = harness();
+
+    await service.createSession({ email: ' A@Example.test ', password: 'x' }, META);
+
+    expect(calls.indexOf('ticket:a@example.test')).toBeGreaterThan(calls.indexOf('limit:authquota:login'));
+    expect(calls.indexOf('ticket:a@example.test')).toBeLessThan(calls.indexOf('signIn'));
+    expect(calls.indexOf('verify')).toBeGreaterThan(calls.indexOf('signIn'));
+    expect(calls.indexOf('admit')).toBeGreaterThan(calls.indexOf('verify'));
+    expect(calls.indexOf('actor')).toBeGreaterThan(calls.indexOf('admit'));
+    expect(admitted).toEqual([['ticket-1', 'u', 's']]);
+  });
+
+  it('admisión rechazada: signOut local, 401 y el mismo suelo de tiempo; no resuelve el actor', async () => {
+    const { service, calls, slept } = harness({ admit: false, floorMs: 400 });
+
+    expect(await codeOf(service.createSession({ email: 'a@example.test', password: 'x' }, META))).toBe('AUTHENTICATION_REQUIRED');
+    expect(calls).toContain('signOut:local');
+    expect(calls).not.toContain('signOut:global');
+    expect(calls).not.toContain('actor');
+    expect(slept).toHaveLength(1);
+  });
+
+  it('claims no verificables: 401, signOut local y no se llama a admit_session', async () => {
+    const { service, calls } = harness({ claims: null });
+
+    expect(await codeOf(service.createSession({ email: 'a@example.test', password: 'x' }, META))).toBe('AUTHENTICATION_REQUIRED');
+    expect(calls).toContain('signOut:local');
+    expect(calls).not.toContain('admit');
+  });
+
+  it('fallo al emitir el ticket: 503 sin llamar a signIn', async () => {
+    const { service, calls } = harness({ ticketError: new ApiError('SERVICE_UNAVAILABLE') });
+
+    expect(await codeOf(service.createSession({ email: 'a@example.test', password: 'x' }, META))).toBe('SERVICE_UNAVAILABLE');
+    expect(calls).not.toContain('signIn');
+  });
+
+  it('si admit_session falla (503) se descarta la sesión recién creada y se propaga el error', async () => {
+    const { service, calls } = harness({ admit: new ApiError('SERVICE_UNAVAILABLE') });
+
+    expect(await codeOf(service.createSession({ email: 'a@example.test', password: 'x' }, META))).toBe('SERVICE_UNAVAILABLE');
+    expect(calls).toContain('signOut:local');
+  });
+});
 
 describe('createSession', () => {
   it('limita por IP y por email ANTES de tocar Auth y responde 429 con la espera mayor', async () => {

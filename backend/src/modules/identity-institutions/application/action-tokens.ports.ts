@@ -38,6 +38,8 @@ export interface ActionTokensRepository {
   /** Con la sesión del propio invitado (recién creada con signUp). */
   linkAdminAccount(accessToken: string, envelope: Envelope, tokenHash: string): Promise<Readonly<{ hospitalName: string }>>;
   requestRecovery(command: RecoveryCommand): Promise<void>;
-  /** Consume el token de recuperación y devuelve el usuario al que cambiar la contraseña. */
-  consumePasswordReset(tokenHash: string): Promise<Readonly<{ userId: string }>>;
+  /** Consume el token de recuperación y abre la barrera de sesión (ADR-007); devuelve el usuario y la generación abierta. */
+  consumePasswordReset(tokenHash: string): Promise<Readonly<{ userId: string; generation: number }>>;
+  /** Cierra la barrera de esa generación (`conflict` = un reset posterior ya abrió otra). */
+  closeSessionBarrier(userId: string, generation: number): Promise<'ok' | 'conflict'>;
 }

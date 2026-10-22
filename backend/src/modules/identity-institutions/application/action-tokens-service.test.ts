@@ -15,18 +15,26 @@ const PREVIEW: AdminInvitationPreview = { hospitalName: 'Hospital Demo Uno', exp
 function harness(options: {
   signUp?: SignUpResult; preview?: AdminInvitationPreview | Error; linkError?: Error; allowed?: (bucket: string) => boolean;
   hospitalError?: Error; updateError?: Error; consumeError?: Error; signUps?: SignUpResult[]; failRevokeAt?: number[]; deleteInert?: boolean; hookError?: Error;
+  closeResults?: Array<'ok' | 'conflict' | Error>;
 } = {}) {
   const calls: string[] = [];
   const sleeps: number[] = [];
   const seen = { invite: [] as unknown[], recovery: [] as unknown[], sealed: [] as unknown[], signUp: [] as unknown[], buckets: [] as Array<[string, number, number]> };
   let revokes = 0;
   let signUpCalls = 0;
+  let closes = 0;
   const repository: ActionTokensRepository = {
     inviteAdmin: async (...args) => { calls.push('inviteAdmin'); seen.invite.push(args); },
     adminInvitationPreview: async () => { calls.push('preview'); if (options.preview instanceof Error) throw options.preview; return options.preview ?? PREVIEW; },
     linkAdminAccount: async () => { calls.push('link'); if (options.linkError) throw options.linkError; return { hospitalName: 'Hospital Demo Uno' }; },
     requestRecovery: async (command) => { calls.push('requestRecovery'); seen.recovery.push(command); },
-    consumePasswordReset: async () => { calls.push('consume'); if (options.consumeError) throw options.consumeError; return { userId: 'u-1' }; },
+    consumePasswordReset: async () => { calls.push('consume'); if (options.consumeError) throw options.consumeError; return { userId: 'u-1', generation: 3 }; },
+    closeSessionBarrier: async (userId, generation) => {
+      calls.push(`closeBarrier:${userId}:${generation}`);
+      const next = options.closeResults?.[closes++] ?? 'ok';
+      if (next instanceof Error) throw next;
+      return next;
+    },
   };
   const service = createActionTokensService({
     repository,
@@ -217,7 +225,7 @@ describe('completePasswordReset', () => {
 
     await service.completePasswordReset(TOKEN, 'otra-contrasena-larga');
 
-    expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'passwordChanged:u-1', 'revokeAllSessions']);
+    expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'passwordChanged:u-1', 'revokeAllSessions', 'closeBarrier:u-1:3']);
   });
 
   it('si el gancho que levanta el bloqueo falla, cierra igualmente las sesiones y responde 503', async () => {
@@ -254,7 +262,7 @@ describe('completePasswordReset', () => {
 
     await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).resolves.toBeUndefined();
 
-    expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'passwordChanged:u-1', 'revokeAllSessions', 'revokeAllSessions']);
+    expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'passwordChanged:u-1', 'revokeAllSessions', 'revokeAllSessions', 'closeBarrier:u-1:3']);
   });
 
   it('si la segunda revocación falla también al reintentar no se responde éxito en silencio (503)', async () => {
@@ -263,5 +271,36 @@ describe('completePasswordReset', () => {
     await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
 
     expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'passwordChanged:u-1', 'revokeAllSessions', 'revokeAllSessions']);
+  });
+
+  it('si el gancho o la revocación final fallan NO se cierra la barrera (queda abierta: falla cerrado)', async () => {
+    const hook = harness({ hookError: new Error('canario-base') });
+    await expect(hook.service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+    const revoke = harness({ failRevokeAt: [2, 3] });
+    await expect(revoke.service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+
+    expect(hook.calls.some((call) => call.startsWith('closeBarrier'))).toBe(false);
+    expect(revoke.calls.some((call) => call.startsWith('closeBarrier'))).toBe(false);
+  });
+
+  it('un fallo del cierre se reintenta una vez; si el reintento funciona el reset termina', async () => {
+    const { service, calls } = harness({ closeResults: [new Error('canario-base'), 'ok'] });
+
+    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).resolves.toBeUndefined();
+    expect(calls.filter((call) => call.startsWith('closeBarrier'))).toEqual(['closeBarrier:u-1:3', 'closeBarrier:u-1:3']);
+  });
+
+  it('si el cierre falla dos veces responde 503', async () => {
+    const { service, calls } = harness({ closeResults: [new Error('canario-base'), new Error('canario-base')] });
+
+    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+    expect(calls.filter((call) => call.startsWith('closeBarrier'))).toHaveLength(2);
+  });
+
+  it('conflict (un reset posterior ya abrió otra generación) cuenta como éxito de esta operación, sin reintentar', async () => {
+    const { service, calls } = harness({ closeResults: ['conflict'] });
+
+    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).resolves.toBeUndefined();
+    expect(calls.filter((call) => call.startsWith('closeBarrier'))).toHaveLength(1);
   });
 });

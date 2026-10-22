@@ -3,7 +3,7 @@ import { parseClaims } from './claims.js';
 
 const VALID = {
   sub: '0f8fad5b-d9cb-469f-a165-70867728950e',
-  session_id: 'sesion-1',
+  session_id: '4a1d6c7e-1b2f-4c3a-9d4e-5f6a7b8c9d01',
   role: 'authenticated',
   aal: 'aal2',
   amr: [{ method: 'password', timestamp: 1 }, { method: 'totp', timestamp: 2 }],
@@ -12,7 +12,7 @@ const VALID = {
 describe('parseClaims', () => {
   it('extrae usuario, sesión, nivel y métodos de autenticación', () => {
     expect(parseClaims(VALID)).toEqual({
-      userId: VALID.sub, sessionId: 'sesion-1', aal: 'aal2',
+      userId: VALID.sub, sessionId: '4a1d6c7e-1b2f-4c3a-9d4e-5f6a7b8c9d01', aal: 'aal2',
       amr: [{ method: 'password', timestamp: 1 }, { method: 'totp', timestamp: 2 }],
     });
   });
@@ -23,7 +23,7 @@ describe('parseClaims', () => {
 
   it('rechaza claims incompletos, de otro rol o con formas inesperadas', () => {
     const bad: unknown[] = [
-      null, 'x', {}, { ...VALID, sub: 'no-uuid' }, { ...VALID, session_id: '' }, { ...VALID, role: 'anon' },
+      null, 'x', {}, { ...VALID, sub: 'no-uuid' }, { ...VALID, session_id: '' }, { ...VALID, session_id: 'sesion-rara' }, { ...VALID, role: 'anon' },
       { ...VALID, aal: 'aal3' }, { ...VALID, amr: 'totp' }, { ...VALID, amr: [{ method: 'totp' }] },
       { ...VALID, amr: [null] },
     ];

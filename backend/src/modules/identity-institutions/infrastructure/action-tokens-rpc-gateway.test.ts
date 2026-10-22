@@ -25,18 +25,35 @@ describe('gateway de tokens de acción', () => {
 
   it('valida con guards cerrados: una respuesta con campos de más o de menos es un fallo de persistencia', async () => {
     await expect(harness({ kind: 'ok', hospitalName: 'H', expiresAt: 'x', email: 'a@example.test' }).gateway.adminInvitationPreview('h'.repeat(64))).rejects.toBeInstanceOf(PersistenceError);
-    await expect(harness({ kind: 'ok', userId: 'u', extra: 1 }).gateway.consumePasswordReset('h'.repeat(64))).rejects.toBeInstanceOf(PersistenceError);
+    await expect(harness({ kind: 'ok', userId: 'u', generation: 1, extra: 1 }).gateway.consumePasswordReset('h'.repeat(64))).rejects.toBeInstanceOf(PersistenceError);
     await expect(harness({ kind: 'created' }).gateway.linkAdminAccount('jwt', { key: 'k'.repeat(16), hash: 'x' }, 'h'.repeat(64))).rejects.toBeInstanceOf(PersistenceError);
   });
 
   it('consumePasswordReset y requestRecovery llaman a sus RPC con argumentos p_*', async () => {
-    const consume = harness({ kind: 'ok', userId: '00000000-0000-4000-8000-0000000000f2' });
+    const consume = harness({ kind: 'ok', userId: '00000000-0000-4000-8000-0000000000f2', generation: 2 });
     const recovery = harness({ kind: 'ok' });
 
-    expect(await consume.gateway.consumePasswordReset('h'.repeat(64))).toEqual({ userId: '00000000-0000-4000-8000-0000000000f2' });
+    expect(await consume.gateway.consumePasswordReset('h'.repeat(64))).toEqual({ userId: '00000000-0000-4000-8000-0000000000f2', generation: 2 });
     await recovery.gateway.requestRecovery({ email: 'a@example.test', tokenHash: 'h'.repeat(64), outboxId: 'o', sealed: 's', actorRef: `email:${'a'.repeat(64)}`, key: 'clave-de-prueba-0001', hash: 'b'.repeat(64) });
 
     expect(consume.calls[0]).toEqual({ accessToken: null, name: 'consume_password_reset', args: { p_token_hash: 'h'.repeat(64) }, via: 'tecnica' });
     expect(recovery.calls[0]).toMatchObject({ via: 'tecnica', name: 'request_password_recovery', args: { p_email: 'a@example.test', p_outbox_id: 'o', p_sealed: 's', p_key: 'clave-de-prueba-0001', p_hash: 'b'.repeat(64) } });
+  });
+
+  it('consumePasswordReset exige generation entera >= 1', async () => {
+    for (const generation of [0, 1.5, '2', null, -1]) {
+      await expect(harness({ kind: 'ok', userId: 'u', generation: generation as number }).gateway.consumePasswordReset('h'.repeat(64))).rejects.toBeInstanceOf(PersistenceError);
+    }
+    await expect(harness({ kind: 'ok', userId: 'u' }).gateway.consumePasswordReset('h'.repeat(64))).rejects.toBeInstanceOf(PersistenceError);
+  });
+
+  it('closeSessionBarrier va por la sesión técnica con argumentos p_* y devuelve ok o conflict', async () => {
+    const ok = harness({ kind: 'ok' });
+    const conflict = harness({ kind: 'conflict' });
+
+    expect(await ok.gateway.closeSessionBarrier('u-1', 4)).toBe('ok');
+    expect(await conflict.gateway.closeSessionBarrier('u-1', 4)).toBe('conflict');
+    expect(ok.calls[0]).toEqual({ accessToken: null, name: 'close_session_barrier', args: { p_user_id: 'u-1', p_generation: 4 }, via: 'tecnica' });
+    await expect(harness({ kind: 'ok', extra: 1 }).gateway.closeSessionBarrier('u-1', 4)).rejects.toBeInstanceOf(PersistenceError);
   });
 });
