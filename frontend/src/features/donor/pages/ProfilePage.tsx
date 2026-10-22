@@ -11,16 +11,9 @@ import { Input } from '../../../components/ui/Input.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { bloodTypeLabel } from '../../../lib/format.js';
 import { useDonorDemo } from '../DonorDemoContext.js';
+import { latitudeError, longitudeError } from '../location.js';
 
 type Errors = { latitude?: string; longitude?: string };
-
-const DECIMALS = /^-?\d{1,3}(\.\d{1,3})?$/;
-
-function coordinateError(value: string, limit: number, name: string): string | undefined {
-  if (!DECIMALS.test(value.trim())) return `Ingresa la ${name} con hasta tres decimales.`;
-  if (Math.abs(Number(value)) > limit) return `La ${name} debe estar entre −${limit} y ${limit}.`;
-  return undefined;
-}
 
 const protectedChanges = [
   { title: 'Corregir nombre o grupo', detail: 'Crea una solicitud para revisión.', variant: 'secondary' as const },
@@ -44,8 +37,8 @@ export function ProfilePage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const found: Errors = {
-      latitude: coordinateError(latitude, 90, 'latitud'),
-      longitude: coordinateError(longitude, 180, 'longitud'),
+      latitude: latitudeError(latitude),
+      longitude: longitudeError(longitude),
     };
     flushSync(() => {
       setErrors(found);

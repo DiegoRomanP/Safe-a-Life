@@ -9,6 +9,7 @@ type DonorDemo = {
   requests: CorrectionRequest[];
   respond: (invitationId: string, response: 'confirmada' | 'rechazada') => void;
   updateParticipation: (patch: Pick<DonorProfile, 'isAvailable' | 'approximateLocation'>) => void;
+  completeOnboarding: (data: Omit<DonorProfile, 'email'>) => void;
 };
 
 const DonorDemoContext = createContext<DonorDemo | null>(null);
@@ -35,6 +36,8 @@ export function DonorDemoProvider({ children, now = () => new Date().toISOString
         setHistory((current) => [{ invitationId, response, changedAt: now() }, ...current]);
       },
       updateParticipation: (patch) => setProfile((current) => ({ ...current, ...patch })),
+      // completeDonorOnboarding: fija los campos obligatorios; el correo no cambia.
+      completeOnboarding: (data) => setProfile((current) => ({ ...current, ...data })),
     }),
     [invitations, history, profile, now],
   );

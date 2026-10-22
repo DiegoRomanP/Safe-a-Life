@@ -12,6 +12,7 @@ import { DonorLayout } from '../features/donor/DonorLayout.js';
 import { HistoryPage } from '../features/donor/pages/HistoryPage.js';
 import { InvitationDetailPage } from '../features/donor/pages/InvitationDetailPage.js';
 import { InvitationsPage } from '../features/donor/pages/InvitationsPage.js';
+import { OnboardingPage } from '../features/donor/pages/OnboardingPage.js';
 import { ProfilePage } from '../features/donor/pages/ProfilePage.js';
 import { RequestsPage } from '../features/donor/pages/RequestsPage.js';
 import { HomePage } from '../features/public/pages/HomePage.js';
@@ -41,6 +42,7 @@ export const routes: RouteObject[] = [
       { index: true, element: <Navigate to="invitaciones" replace /> },
       { path: 'invitaciones', element: <InvitationsPage /> },
       { path: 'invitaciones/:invitationId', element: <InvitationDetailPage /> },
+      { path: 'bienvenida', element: <OnboardingPage /> },
       { path: 'perfil', element: <ProfilePage /> },
       { path: 'historial', element: <HistoryPage /> },
       { path: 'solicitudes', element: <RequestsPage /> },

@@ -54,6 +54,9 @@ export function LoginPage() {
             <LinkButton to="/donante" variant="ghost" fullWidth>
               Entrar como donante de prueba
             </LinkButton>
+            <LinkButton to="/donante/bienvenida" variant="ghost" fullWidth>
+              Entrar como donante nuevo
+            </LinkButton>
           </div>
         )}
       </AuthCard>
