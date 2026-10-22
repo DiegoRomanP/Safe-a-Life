@@ -75,8 +75,16 @@ export function BatchesPage() {
           <div ref={resultRef} tabIndex={-1} className="rounded-xl focus-visible:outline-focus">
             <SuccessNotice
               announce={false}
-              message={`Lote solicitado: ${result.created} invitaciones nuevas`}
-              detail={`${result.queued} correos quedaron en cola de envío.`}
+              message={
+                result.created === 0
+                  ? 'Lote solicitado: no hubo invitaciones nuevas'
+                  : `Lote solicitado: ${result.created} ${result.created === 1 ? 'invitación nueva' : 'invitaciones nuevas'}`
+              }
+              detail={
+                result.created === 0
+                  ? 'No hay más posibles donantes que cumplan la preselección en el radio.'
+                  : `${result.queued} ${result.queued === 1 ? 'correo quedó' : 'correos quedaron'} en cola de envío.`
+              }
             />
           </div>
         )}
