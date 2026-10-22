@@ -84,6 +84,7 @@ function harness(options: Options = {}) {
       updatePassword: async () => undefined,
       updateEmail: async (id, email) => { calls.push(`updateEmail:${id}:${email}`); if (options.updateEmailError) throw options.updateEmailError; },
       deleteInertUser: async (id) => { calls.push(`deleteInert:${id}`); return options.deleteInert ?? true; },
+      deleteAccount: async () => undefined,
       revokeAllSessions: async () => { calls.push('revokeAllSessions'); revokes += 1; if (options.failRevokeAt?.includes(revokes)) throw new Error('canario-auth'); },
     },
     limiter: { consume: async (bucket, _subject, limit, window) => { seen.buckets.push([bucket, limit, window]); return { allowed: options.allowed?.(bucket) ?? true, retryAfterSeconds: 33 }; } },

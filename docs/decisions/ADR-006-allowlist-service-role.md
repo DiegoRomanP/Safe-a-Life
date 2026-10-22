@@ -19,9 +19,11 @@ revocar todas sus sesiones.
 
 1. `service_role` se usa **solo** en
    `backend/src/modules/identity-institutions/infrastructure/supabase-auth-admin.ts`
-   (adaptador del puerto `AuthAdmin`), con exactamente cuatro métodos:
+   (adaptador del puerto `AuthAdmin`), con exactamente **cinco** métodos:
    `updatePassword`, `updateEmail`, `deleteInertUser` (borrado condicional y atómico mediante
-   `api.worker_delete_inert_user`, ADR-003) y `revokeAllSessions`.
+   `api.worker_delete_inert_user`, ADR-003), `revokeAllSessions` y `deleteAccount` (borrado
+   definitivo de la cuenta de Auth de una donante cuya eliminación V15 está `en_ejecucion`; el
+   id sale de `api.get_execution_subject`, nunca de la petición; un 404 es éxito).
 2. La clave llega por `SUPABASE_SERVICE_ROLE_KEY` (requerida y distinta de la
    anon key) y solo la leen `config/env.ts`, `composition.ts` y el adaptador.
    Una prueba estática (`service-role-allowlist.test.ts`) recorre
@@ -32,6 +34,13 @@ revocar todas sus sesiones.
    revisión de seguridad.
 4. Ampliar la lista (p. ej. `createUser`) requiere decisión de la persona
    usuaria y una revisión de `security-privacy-auditor`.
+
+## Registro de decisiones
+
+- Aprobado el 2026-10-22 por la persona usuaria, solo V15: `deleteAccount`
+  (opción (a) de `docs/plans/2026-10-21-p12-opciones-borrado-auth.md`). Las purgas del
+  worker siguen abiertas (P-12 parcial) y el worker no recibe `service_role`.
+- Pendiente: revisión de `security-privacy-auditor` sobre este punto.
 
 ## Consecuencias
 
