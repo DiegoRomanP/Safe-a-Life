@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | En curso |
+| Estado | Listo para PR |
 | Fecha | 2026-10-22 |
 | Rama | `fix/frontend-revisiones-seguridad-clinica` (desde `main` en `2371c9c`) |
 | Origen | Lista de pendientes externa (punto 10) y gates de AGENTS.md |
@@ -84,3 +84,27 @@ código.
 ## 4. Bitácora
 
 - 2026-10-22: revisiones ejecutadas y alcance aprobado por la persona usuaria.
+- 2026-10-22: M-1 (`3306440`), M-2 con M3 y `maxLength` 8 (`4af03a3`) y
+  clínica M1, M2 y B1 a B7 (`7f8f265`).
+- 2026-10-22: re-revisión con tres subagentes independientes de solo lectura
+  que no escribieron el código:
+  - **`security-privacy-auditor`: PASS con observaciones.** M-1 y M-2
+    cerrados, sin Critical/High/Medium nuevos.
+    - Low: el fragmento se borra en `useEffect`, tras el primer render. Con
+      backend, conviene borrarlo antes de montar el router.
+  - **`clinical-safety-reviewer`: PASS con observaciones.** M1, M2, el aviso
+    M3 y B1 a B7 cerrados, sin texto que implique aptitud, cita ni grupo
+    verificado.
+    - O1: la ayuda de HOS-02 debe hablar de compatibilidad.
+    - O2: «instituciones verificadas» en SA-02.
+  - **`reviewer-front`: PASS con observaciones.** 202/202 tests, ESLint y
+    typecheck sin errores.
+    - `aria-describedby`/`aria-invalid` del fieldset no llegan al radio.
+    - El test de Enter no comprobaba el botón único sin `value`.
+    - Info: el vencimiento de la demo de invitación de administrador es una
+      fecha pasada.
+- 2026-10-22: se corrigieron O1, O2, el `aria-describedby` en cada radio
+  (`aria-invalid` no aplica al rol radio) y el test del botón único. Se acepta
+  la fecha de demo de la invitación de administrador, coherente con el resto de
+  los datos sintéticos (septiembre de 2026). Queda pendiente el borrado
+  temprano del fragmento, que va con el cliente HTTP (punto 5 / D-4).
