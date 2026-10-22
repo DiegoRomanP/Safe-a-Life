@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../../components/layout/PageHeader.js';
+import { SaveErrorNotice } from '../../../components/states/SaveErrorNotice.js';
 import { Alert } from '../../../components/ui/Alert.js';
 import { Button } from '../../../components/ui/Button.js';
 import { Card } from '../../../components/ui/Card.js';
@@ -10,6 +11,7 @@ import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
 import { Select } from '../../../components/ui/Select.js';
 import { BLOOD_TYPES, bloodTypeLabel, type BloodType } from '../../../lib/format.js';
+import { useDemoMutation } from '../../../lib/useDemoMutation.js';
 import { emailError } from '../../auth/validation.js';
 import { useDonorDemo, type NewCorrectionRequest } from '../DonorDemoContext.js';
 import { requestCode } from '../labels.js';
@@ -36,6 +38,7 @@ type Errors = { correction?: string; email?: string; confirm?: string };
 // memoria y se vuelve a «Mis solicitudes» con el aviso del resultado.
 export function NewRequestPage() {
   const { createRequest } = useDonorDemo();
+  const save = useDemoMutation(createRequest);
   const navigate = useNavigate();
   // Solo se aceptan los tres tipos conocidos; un estado de historial distinto
   // vuelve a la corrección.
@@ -50,9 +53,11 @@ export function NewRequestPage() {
   const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
   const confirmRef = useRef<HTMLInputElement>(null);
+  const submitRef = useRef<HTMLButtonElement>(null);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (save.pending) return;
     const found: Errors = {};
     if (kind === 'correccion') {
       if (!name.trim() && !bloodType) found.correction = 'Indica un nombre o un grupo nuevo.';
@@ -77,8 +82,14 @@ export function NewRequestPage() {
                 ...(bloodType ? { declaredBloodType: bloodType as BloodType } : {}),
               },
             };
-    const created = createRequest(body);
-    navigate('/donante/solicitudes', { state: { created: requestCode(created.requestId) } });
+    const created = await save.run(body);
+    if (created.ok) navigate('/donante/solicitudes', { state: { created: requestCode(created.value.requestId) } });
+  }
+
+  // El aviso de conflicto desaparece al revisarlo: el foco vuelve al envío.
+  function review() {
+    flushSync(save.reset);
+    submitRef.current?.focus();
   }
 
   return (
@@ -179,10 +190,19 @@ export function NewRequestPage() {
             </div>
           )}
 
-          <div>
-            <Button type="submit" variant={kind === 'eliminacion' ? 'danger' : 'primary'}>
+          <SaveErrorNotice error={save.error} onReview={review} />
+          <div className="flex flex-wrap items-center gap-4">
+            <Button
+              ref={submitRef}
+              type="submit"
+              variant={kind === 'eliminacion' ? 'danger' : 'primary'}
+              aria-disabled={save.pending}
+            >
               Enviar solicitud
             </Button>
+            <p aria-live="polite" className="text-sm text-muted">
+              {save.pending ? 'Enviando solicitud…' : ''}
+            </p>
           </div>
         </form>
       </Card>

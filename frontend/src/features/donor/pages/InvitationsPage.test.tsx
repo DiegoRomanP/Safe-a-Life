@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { click, setupRender } from '../../../test/render.js';
+import { click, settle, setupRender } from '../../../test/render.js';
 import { renderRoute } from '../../../test/renderRoute.js';
 
 setupRender();
@@ -10,15 +10,17 @@ function buttonByText(view: HTMLElement, text: string) {
 }
 
 describe('DON-03 Mis invitaciones', () => {
-  it('/donante lleva a invitaciones con la navegación del donante', () => {
+  it('/donante lleva a invitaciones con la navegación del donante', async () => {
     const view = renderRoute('/donante');
+    await settle();
     expect(view.querySelector('h1')?.textContent).toBe('Mis invitaciones');
     const active = view.querySelector('nav[aria-label="Cuenta del donante"] [aria-current="page"]');
     expect(active?.textContent).toBe('Invitaciones');
   });
 
-  it('lista cada invitación con hospital, urgencia, respuesta y plazo en hora de Lima', () => {
+  it('lista cada invitación con hospital, urgencia, respuesta y plazo en hora de Lima', async () => {
     const view = renderRoute('/donante/invitaciones');
+    await settle();
     const rows = [...view.querySelectorAll('section[aria-label="Invitaciones"] li')];
     expect(rows).toHaveLength(3);
     expect(rows[0]?.textContent).toContain('Hospital Nacional Central');
@@ -29,8 +31,9 @@ describe('DON-03 Mis invitaciones', () => {
     expect(view.textContent).toContain('1 respondida');
   });
 
-  it('cada enlace «Ver invitación» tiene un nombre accesible distinto', () => {
+  it('cada enlace «Ver invitación» tiene un nombre accesible distinto', async () => {
     const view = renderRoute('/donante/invitaciones');
+    await settle();
     const names = [...view.querySelectorAll('section[aria-label="Invitaciones"] a')].map((a) => a.textContent);
     expect(new Set(names).size).toBe(3);
     expect(names[0]).toBe('Ver invitación de Hospital Nacional Central');
@@ -38,18 +41,21 @@ describe('DON-03 Mis invitaciones', () => {
 });
 
 describe('Detalle de invitación', () => {
-  it('muestra la invitación sin datos de otras personas', () => {
+  it('muestra la invitación sin datos de otras personas', async () => {
     const view = renderRoute('/donante/invitaciones/7f21c3a0-1b2c-4d5e-8f90-0a1b2c3d4e51');
+    await settle();
     expect(view.querySelector('h1')?.textContent).toBe('¿Deseas registrar tu intención de asistir?');
     expect(view.textContent).toContain('Sede San Borja');
     expect(view.textContent).toContain('Abrir esta invitación no registra una respuesta.');
   });
 
-  it('confirmar registra la intención, lo anuncia y la refleja en la lista', () => {
+  it('confirmar registra la intención, lo anuncia y la refleja en la lista', async () => {
     const view = renderRoute('/donante/invitaciones/7f21c3a0-1b2c-4d5e-8f90-0a1b2c3d4e51');
+    await settle();
     const confirm = buttonByText(view, 'Confirmar intención de asistir');
     confirm?.focus();
     click(confirm);
+    await settle();
     expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Confirmaste tu intención de asistir.');
     expect(view.querySelector('[aria-live="polite"] [role]')).toBeNull();
     expect(view.textContent).toContain('Tu respuesta: Intención confirmada');
@@ -58,11 +64,13 @@ describe('Detalle de invitación', () => {
     expect(confirm?.disabled).toBe(false);
     expect(document.activeElement).toBe(confirm);
     click(view.querySelector('a[href="/donante/invitaciones"]'));
+    await settle();
     expect(view.textContent).toContain('2 respondidas');
   });
 
-  it('una invitación inexistente muestra un mensaje neutral', () => {
+  it('una invitación inexistente muestra un mensaje neutral', async () => {
     const view = renderRoute('/donante/invitaciones/no-existe');
+    await settle();
     expect(view.querySelector('h1')?.textContent).toBe('No pudimos abrir esta invitación');
     expect(view.textContent).not.toContain('no-existe');
   });
