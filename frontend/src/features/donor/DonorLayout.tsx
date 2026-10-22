@@ -1,5 +1,6 @@
+import { DevScenarioPicker } from '../../components/dev/DevScenarioPicker.js';
 import { AppLayout } from '../../components/layout/AppLayout.js';
-import { DonorDemoProvider } from './DonorDemoContext.js';
+import { DonorDemoProvider, useDonorDemo } from './DonorDemoContext.js';
 
 // Área del donante: navegación de Penpot (Invitaciones, Mi perfil, Historial,
 // Mis solicitudes) sobre el estado de demostración en memoria (D-4).
@@ -17,7 +18,13 @@ export function DonorLayout() {
         accountTitle="Cuenta personal"
         accountRole="Donante"
         initials="DP"
+        devTools={import.meta.env.DEV && <DonorScenarioPicker />}
       />
     </DonorDemoProvider>
   );
+}
+
+function DonorScenarioPicker() {
+  const { scenario, setScenario } = useDonorDemo();
+  return <DevScenarioPicker value={scenario} onChange={setScenario} />;
 }

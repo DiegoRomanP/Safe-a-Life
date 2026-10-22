@@ -1,4 +1,5 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { demoRead, demoWrite, type DemoScenario } from '../../lib/demoApi.js';
 import type { BloodType } from '../../lib/format.js';
 import { demoHistory, demoInvitations, demoProfile, demoRequests } from './demoData.js';
 import type { CorrectionRequest, DonorInvitation, DonorProfile, ResponseHistoryItem } from './types.js';
@@ -8,15 +9,26 @@ export type NewCorrectionRequest =
   | { type: 'correccion'; changes: { name?: string; newEmail?: string; declaredBloodType?: BloodType } }
   | { type: 'eliminacion' };
 
+export type HistoryEntry = ResponseHistoryItem & { hospitalName: string };
+
+type ParticipationPatch = Pick<DonorProfile, 'isAvailable' | 'approximateLocation'>;
+
+// Operaciones del contrato que usa el área del donante. Todas son asíncronas,
+// como lo serán con el cliente HTTP. Cada lectura cambia de identidad cuando
+// cambian sus datos, para que la vista se revalide tras una escritura.
 type DonorDemo = {
-  invitations: DonorInvitation[];
-  history: ResponseHistoryItem[];
-  profile: DonorProfile;
-  requests: CorrectionRequest[];
-  respond: (invitationId: string, response: 'confirmada' | 'rechazada') => void;
-  updateParticipation: (patch: Pick<DonorProfile, 'isAvailable' | 'approximateLocation'>) => void;
-  completeOnboarding: (data: Omit<DonorProfile, 'email'>) => void;
-  createRequest: (request: NewCorrectionRequest) => CorrectionRequest;
+  scenario: DemoScenario;
+  setScenario: (scenario: DemoScenario) => void;
+  listInvitations: () => Promise<DonorInvitation[]>;
+  /** null si no existe o no es de la persona: la vista lo trata como sin acceso. */
+  getInvitation: (invitationId: string) => Promise<DonorInvitation | null>;
+  listHistory: () => Promise<HistoryEntry[]>;
+  getProfile: () => Promise<DonorProfile>;
+  listRequests: () => Promise<CorrectionRequest[]>;
+  respond: (invitationId: string, response: 'confirmada' | 'rechazada') => Promise<void>;
+  updateParticipation: (patch: ParticipationPatch) => Promise<void>;
+  completeOnboarding: (data: Omit<DonorProfile, 'email'>) => Promise<void>;
+  createRequest: (request: NewCorrectionRequest) => Promise<CorrectionRequest>;
 };
 
 const DonorDemoContext = createContext<DonorDemo | null>(null);
@@ -35,27 +47,49 @@ function requestedFieldsOf(request: NewCorrectionRequest): CorrectionRequest['re
 // agrega una entrada al historial), updateOwnDonorParticipation (marcarse no
 // disponible invalida las invitaciones activas sin respuesta),
 // completeDonorOnboarding y createOwnCorrectionRequest (la solicitud queda
-// pendiente; los valores nuevos no se guardan en el navegador). Recargar la
-// página vuelve a los datos iniciales; nada se guarda en el navegador.
+// pendiente; los valores nuevos no se guardan en el navegador). Las respuestas
+// pasan por demoRead/demoWrite, que simulan la latencia y los fallos del
+// escenario elegido en desarrollo. Recargar la página vuelve a los datos
+// iniciales; nada se guarda en el navegador.
 export function DonorDemoProvider({ children, now = () => new Date().toISOString() }: { children: ReactNode; now?: () => string }) {
+  const [scenario, setScenario] = useState<DemoScenario>('normal');
   const [invitations, setInvitations] = useState(demoInvitations);
   const [history, setHistory] = useState(demoHistory);
   const [profile, setProfile] = useState(demoProfile);
   const [requests, setRequests] = useState(demoRequests);
 
-  const value = useMemo<DonorDemo>(
-    () => ({
-      invitations,
-      history,
-      profile,
-      requests,
-      respond: (invitationId, response) => {
+  const listInvitations = useCallback(() => demoRead(scenario, () => invitations), [scenario, invitations]);
+  const getInvitation = useCallback(
+    (invitationId: string) =>
+      demoRead(scenario, () => invitations.find((item) => item.invitationId === invitationId) ?? null),
+    [scenario, invitations],
+  );
+  const listHistory = useCallback(
+    () =>
+      demoRead(scenario, () =>
+        history.map((item) => ({
+          ...item,
+          hospitalName: invitations.find((invitation) => invitation.invitationId === item.invitationId)?.hospitalName ?? 'Invitación',
+        })),
+      ),
+    [scenario, history, invitations],
+  );
+  const getProfile = useCallback(() => demoRead(scenario, () => profile), [scenario, profile]);
+  const listRequests = useCallback(() => demoRead(scenario, () => requests), [scenario, requests]);
+
+  const respond = useCallback(
+    (invitationId: string, response: 'confirmada' | 'rechazada') =>
+      demoWrite(scenario, () => {
         setInvitations((current) =>
           current.map((item) => (item.invitationId === invitationId ? { ...item, response } : item)),
         );
         setHistory((current) => [{ invitationId, response, changedAt: now() }, ...current]);
-      },
-      updateParticipation: (patch) => {
+      }),
+    [scenario, now],
+  );
+  const updateParticipation = useCallback(
+    (patch: ParticipationPatch) =>
+      demoWrite(scenario, () => {
         setProfile((current) => ({ ...current, ...patch }));
         if (!patch.isAvailable) {
           setInvitations((current) =>
@@ -64,10 +98,17 @@ export function DonorDemoProvider({ children, now = () => new Date().toISOString
             ),
           );
         }
-      },
-      // completeDonorOnboarding: fija los campos obligatorios; el correo no cambia.
-      completeOnboarding: (data) => setProfile((current) => ({ ...current, ...data })),
-      createRequest: (request) => {
+      }),
+    [scenario],
+  );
+  // completeDonorOnboarding: fija los campos obligatorios; el correo no cambia.
+  const completeOnboarding = useCallback(
+    (data: Omit<DonorProfile, 'email'>) => demoWrite(scenario, () => setProfile((current) => ({ ...current, ...data }))),
+    [scenario],
+  );
+  const createRequest = useCallback(
+    (request: NewCorrectionRequest) =>
+      demoWrite(scenario, () => {
         const createdAt = now();
         const created: CorrectionRequest = {
           requestId: crypto.randomUUID(),
@@ -79,9 +120,25 @@ export function DonorDemoProvider({ children, now = () => new Date().toISOString
         };
         setRequests((current) => [created, ...current]);
         return created;
-      },
+      }),
+    [scenario, now],
+  );
+
+  const value = useMemo<DonorDemo>(
+    () => ({
+      scenario,
+      setScenario,
+      listInvitations,
+      getInvitation,
+      listHistory,
+      getProfile,
+      listRequests,
+      respond,
+      updateParticipation,
+      completeOnboarding,
+      createRequest,
     }),
-    [invitations, history, profile, requests, now],
+    [scenario, listInvitations, getInvitation, listHistory, getProfile, listRequests, respond, updateParticipation, completeOnboarding, createRequest],
   );
 
   return <DonorDemoContext.Provider value={value}>{children}</DonorDemoContext.Provider>;

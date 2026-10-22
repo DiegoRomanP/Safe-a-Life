@@ -2,7 +2,7 @@
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { routes } from '../../../app/routes.js';
-import { click, render, setupRender, type } from '../../../test/render.js';
+import { click, settle, render, setupRender, type } from '../../../test/render.js';
 import { renderRoute } from '../../../test/renderRoute.js';
 
 setupRender();
@@ -15,42 +15,50 @@ function control(view: HTMLElement, label: string) {
 const submit = (view: HTMLElement) => click(view.querySelector('button[type="submit"]'));
 
 describe('DON-05 Nueva solicitud', () => {
-  it('ofrece los tres tipos de Penpot como opciones', () => {
+  it('ofrece los tres tipos de Penpot como opciones', async () => {
     const view = renderRoute('/donante/solicitudes/nueva');
+    await settle();
     expect(view.querySelector('h1')?.textContent).toBe('Nueva solicitud');
     const options = [...view.querySelectorAll('input[name="tipo-solicitud"]')] as HTMLInputElement[];
     expect(options.map((input) => input.value)).toEqual(['correccion', 'correo', 'eliminacion']);
     expect(options[0]?.checked).toBe(true);
   });
 
-  it('una corrección sin cambios pide al menos un valor nuevo', () => {
+  it('una corrección sin cambios pide al menos un valor nuevo', async () => {
     const view = renderRoute('/donante/solicitudes/nueva');
+    await settle();
     submit(view);
     expect(view.textContent).toContain('Indica un nombre o un grupo nuevo.');
     expect(document.activeElement).toBe(control(view, 'Nombre nuevo'));
   });
 
-  it('el cambio de correo valida el correo nuevo', () => {
+  it('el cambio de correo valida el correo nuevo', async () => {
     const view = renderRoute('/donante/solicitudes/nueva');
+    await settle();
     click(view.querySelector('input[value="correo"]'));
+    await settle();
     type(control(view, 'Correo nuevo'), 'sin-arroba');
     submit(view);
     expect(view.textContent).toContain('Ingresa un correo válido.');
   });
 
-  it('la eliminación exige confirmar antes de enviar', () => {
+  it('la eliminación exige confirmar antes de enviar', async () => {
     const view = renderRoute('/donante/solicitudes/nueva');
+    await settle();
     click(view.querySelector('input[value="eliminacion"]'));
+    await settle();
     submit(view);
     const checkbox = view.querySelector('input[type="checkbox"]');
     expect(checkbox?.getAttribute('aria-invalid')).toBe('true');
     expect(document.activeElement).toBe(checkbox);
   });
 
-  it('al enviar vuelve a Mis solicitudes, enfoca el aviso y lista la nueva solicitud primero', () => {
+  it('al enviar vuelve a Mis solicitudes, enfoca el aviso y lista la nueva solicitud primero', async () => {
     const view = renderRoute('/donante/solicitudes/nueva');
+    await settle();
     type(control(view, 'Nombre nuevo'), 'Persona Demo');
     submit(view);
+    await settle();
     expect(view.querySelector('h1')?.textContent).toBe('Mis solicitudes');
     const live = view.querySelector('[aria-live="polite"]');
     expect(live?.textContent).toMatch(/Solicitud SOL-[0-9A-F]{4} enviada/);
@@ -60,7 +68,7 @@ describe('DON-05 Nueva solicitud', () => {
     expect(first?.textContent).toContain('Pendiente');
   });
 
-  it('un tipo desconocido en el estado de navegación vuelve a la corrección', () => {
+  it('un tipo desconocido en el estado de navegación vuelve a la corrección', async () => {
     const router = createMemoryRouter(routes, {
       initialEntries: [{ pathname: '/donante/solicitudes/nueva', state: { kind: 'otro' } }],
     });
@@ -68,10 +76,12 @@ describe('DON-05 Nueva solicitud', () => {
     expect((view.querySelector('input[value="correccion"]') as HTMLInputElement).checked).toBe(true);
   });
 
-  it('el perfil abre la solicitud con el tipo ya elegido', () => {
+  it('el perfil abre la solicitud con el tipo ya elegido', async () => {
     const view = renderRoute('/donante/perfil');
+    await settle();
     const link = [...view.querySelectorAll('main a')].find((a) => a.textContent?.includes('eliminar mis datos'));
     click(link ?? null);
+    await settle();
     expect((view.querySelector('input[value="eliminacion"]') as HTMLInputElement).checked).toBe(true);
   });
 });

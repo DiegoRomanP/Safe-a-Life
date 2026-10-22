@@ -1,13 +1,18 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { QueryView } from '../../../components/states/QueryView.js';
+import { SaveErrorNotice } from '../../../components/states/SaveErrorNotice.js';
 import { SuccessNotice } from '../../../components/states/SuccessNotice.js';
 import { Alert } from '../../../components/ui/Alert.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { Button } from '../../../components/ui/Button.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { formatDateTime } from '../../../lib/format.js';
+import { useDemoMutation } from '../../../lib/useDemoMutation.js';
+import { useDemoQuery } from '../../../lib/useDemoQuery.js';
 import { useDonorDemo } from '../DonorDemoContext.js';
 import { responseLabel, urgencyLabel } from '../labels.js';
+import type { DonorInvitation } from '../types.js';
 
 const backLink = (
   <Link to="/donante/invitaciones" className="self-start rounded font-semibold text-petrol underline underline-offset-4">
@@ -20,38 +25,57 @@ const backLink = (
 // changeOwnInvitationResponse, que permite confirmar o rechazar y cambiar la
 // respuesta mientras la invitación siga activa.
 export function InvitationDetailPage() {
-  const { invitationId } = useParams();
-  const { invitations, respond } = useDonorDemo();
-  const [result, setResult] = useState<'confirmada' | 'rechazada' | null>(null);
-  const invitation = invitations.find((item) => item.invitationId === invitationId);
-
-  if (!invitation) {
-    return (
-      <>
-        {backLink}
-        <section className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-8">
-          <h1 className="text-3xl font-bold text-ink">No pudimos abrir esta invitación</h1>
-          <p className="text-muted">Puede que no exista o que ya no esté disponible para tu cuenta.</p>
-        </section>
-      </>
-    );
-  }
-
-  const urgency = urgencyLabel[invitation.urgency];
-  const current = responseLabel[invitation.response];
-  const canRespond = invitation.validity === 'activa';
-
-  // La respuesta vigente se marca con aria-disabled y no con disabled: un botón
-  // enfocado que se deshabilita suelta el foco al body.
-  function answer(response: 'confirmada' | 'rechazada') {
-    if (invitation!.response === response) return;
-    respond(invitation!.invitationId, response);
-    setResult(response);
-  }
+  const { invitationId = '' } = useParams();
+  const { scenario, getInvitation } = useDonorDemo();
+  const load = useCallback(() => getInvitation(invitationId), [getInvitation, invitationId]);
+  const query = useDemoQuery(load, `${scenario}:${invitationId}`);
 
   return (
     <>
       {backLink}
+      <QueryView query={query} loadingMessage="Cargando la invitación…" backTo="/donante/invitaciones" backLabel="Ir a mis invitaciones">
+        {(invitation, reload) =>
+          invitation ? <InvitationDetail invitation={invitation} onReload={reload} /> : <InvitationNotFound />
+        }
+      </QueryView>
+    </>
+  );
+}
+
+function InvitationNotFound() {
+  return (
+    <section className="flex flex-col gap-3 rounded-2xl border border-line bg-surface p-8">
+      <h1 className="text-3xl font-bold text-ink">No pudimos abrir esta invitación</h1>
+      <p className="text-muted">Puede que no exista o que ya no esté disponible para tu cuenta.</p>
+    </section>
+  );
+}
+
+function InvitationDetail({ invitation, onReload }: { invitation: DonorInvitation; onReload: () => void }) {
+  const { respond } = useDonorDemo();
+  const save = useDemoMutation(respond);
+  const [result, setResult] = useState<'confirmada' | 'rechazada' | null>(null);
+  const urgency = urgencyLabel[invitation.urgency];
+  const current = responseLabel[invitation.response];
+  const canRespond = invitation.validity === 'activa';
+
+  // La respuesta vigente y el envío en curso se marcan con aria-disabled y no
+  // con disabled: un botón enfocado que se deshabilita suelta el foco al body.
+  async function answer(response: 'confirmada' | 'rechazada') {
+    if (save.pending || invitation.response === response) return;
+    setResult(null);
+    const saved = await save.run(invitation.invitationId, response);
+    if (saved.ok) setResult(response);
+  }
+
+  // Tras un conflicto se recarga la invitación para responder sobre el estado actual.
+  function review() {
+    save.reset();
+    onReload();
+  }
+
+  return (
+    <>
       <section
         aria-labelledby="invitacion-titulo"
         className="mx-auto flex w-full max-w-[796px] flex-col gap-6 rounded-2xl border border-line bg-surface p-6 sm:p-12"
@@ -85,7 +109,9 @@ export function InvitationDetailPage() {
               detail="Puedes cambiar tu respuesta mientras la invitación siga activa."
             />
           )}
+          {save.pending && <p className="text-sm text-muted">Guardando tu respuesta…</p>}
         </div>
+        <SaveErrorNotice error={save.error} onReview={review} />
 
         {canRespond ? (
           <>
@@ -93,10 +119,17 @@ export function InvitationDetailPage() {
               Abrir esta invitación no registra una respuesta. Confirmar expresa únicamente intención de asistir. El hospital verificará tu identidad, grupo y elegibilidad antes de cualquier donación.
             </Alert>
             <div className="flex flex-wrap gap-4">
-              <Button onClick={() => answer('confirmada')} aria-disabled={invitation.response === 'confirmada'}>
+              <Button
+                onClick={() => answer('confirmada')}
+                aria-disabled={save.pending || invitation.response === 'confirmada'}
+              >
                 Confirmar intención de asistir
               </Button>
-              <Button variant="ghost" onClick={() => answer('rechazada')} aria-disabled={invitation.response === 'rechazada'}>
+              <Button
+                variant="ghost"
+                onClick={() => answer('rechazada')}
+                aria-disabled={save.pending || invitation.response === 'rechazada'}
+              >
                 No podré asistir
               </Button>
             </div>
