@@ -24,6 +24,8 @@ import { NeedDetailPage } from '../features/hospital/pages/NeedDetailPage.js';
 import { NeedsPage } from '../features/hospital/pages/NeedsPage.js';
 import { ResponsesPage } from '../features/hospital/pages/ResponsesPage.js';
 import { SummaryPage } from '../features/hospital/pages/SummaryPage.js';
+import { SuperadminLayout } from '../features/superadmin/SuperadminLayout.js';
+import { TasksPage } from '../features/superadmin/pages/TasksPage.js';
 import { InvitationLinkPage } from '../features/invitation/pages/InvitationLinkPage.js';
 import { HomePage } from '../features/public/pages/HomePage.js';
 import { NotFoundPage } from '../features/system/pages/NotFoundPage.js';
@@ -74,6 +76,12 @@ export const routes: RouteObject[] = [
       { path: 'necesidades/:needId/lotes', element: <BatchesPage /> },
       { path: 'altas', element: <AssistedSignupsPage /> },
     ],
+  },
+  // Área del superadmin. Sin backend (D-4) todavía no hay guard de sesión ni AAL2.
+  {
+    path: 'superadmin',
+    element: <SuperadminLayout />,
+    children: [{ index: true, element: <TasksPage /> }],
   },
   { path: '*', element: <NotFoundPage /> },
 ];
