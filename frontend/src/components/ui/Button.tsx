@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from 'react';
+import { forwardRef, type ButtonHTMLAttributes } from 'react';
 import { cx } from './cx.js';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -26,18 +26,11 @@ export function buttonClass(variant: ButtonVariant = 'primary', fullWidth = fals
   );
 }
 
-export function Button({
-  variant = 'primary',
-  fullWidth = false,
-  type = 'button',
-  className,
-  ...props
-}: ButtonProps) {
-  return (
-    <button
-      type={type}
-      className={buttonClass(variant, fullWidth, className)}
-      {...props}
-    />
-  );
-}
+// forwardRef permite devolver el foco a un botón cuando desaparece el que se
+// pulsó (p. ej. al abrir o cerrar una confirmación).
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  { variant = 'primary', fullWidth = false, type = 'button', className, ...props },
+  ref,
+) {
+  return <button ref={ref} type={type} className={buttonClass(variant, fullWidth, className)} {...props} />;
+});
