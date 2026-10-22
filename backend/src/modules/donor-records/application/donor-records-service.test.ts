@@ -19,7 +19,7 @@ const LIMA = { latitude: -12.046, longitude: -77.043 };
 
 type Options = {
   signUp?: SignUpResult; signUps?: SignUpResult[]; preview?: ActivationPreview; linkError?: Error; deleteInert?: boolean;
-  allowed?: (bucket: string) => boolean; updateEmailError?: Error; issueError?: Error; recipientError?: Error; reissueVerificationError?: Error; failRevokeAt?: number[]; openError?: boolean;
+  allowed?: (bucket: string) => boolean; updateEmailError?: Error; issueError?: Error; recipientError?: Error; reissueVerificationError?: Error; failRevokeAt?: number[]; openError?: boolean; finishError?: Error;
   passwordSetupRequired?: boolean; verifiedEmail?: string;
 };
 
@@ -49,7 +49,7 @@ function harness(options: Options = {}) {
     linkAssistedAccount: async (userId, hash) => { calls.push(`linkAssisted:${userId}`); seen.hashes.push(hash); if (options.linkError) throw options.linkError; return { status: 'reclamada_incompleta', emailVerified: true }; },
     emailChangePreview: async () => ({ expiresAt: '2026-10-14T00:00:00Z' }),
     consumeEmailChange: async () => ({ userId: 'u-donante', sealedEmail: 'sellado' }),
-    finishEmailChange: async (_hash, changed) => { calls.push(`finishEmailChange:${changed}`); },
+    finishEmailChange: async (_hash, changed) => { calls.push(`finishEmailChange:${changed}`); if (options.finishError && changed) throw options.finishError; },
     reissueDonorVerification: async (command) => { calls.push('reissueVerification'); seen.links.push(command); if (options.reissueVerificationError) throw options.reissueVerificationError; },
     createAssistedSignup: async (_token, envelope, command) => {
       calls.push('createSignup');
@@ -293,6 +293,35 @@ describe('verifyEmailChange', () => {
 
     await expect(service.verifyEmailChange(TOKEN, 'ip')).rejects.toMatchObject({ code: 'STATE_CONFLICT' });
     expect(calls).toContain('finishEmailChange:false');
+  });
+
+  it('si Auth falla con resultado incierto revoca las sesiones y propaga el error original', async () => {
+    const boom = new Error('timeout-auth');
+    const { service, calls } = harness({ updateEmailError: boom });
+
+    await expect(service.verifyEmailChange(TOKEN, 'ip')).rejects.toBe(boom);
+    expect(calls).toEqual(['updateEmail:u-donante:nuevo@example.test', 'revokeAllSessions']);
+  });
+
+  it('si finishEmailChange(true) falla revoca las sesiones y propaga el error original', async () => {
+    const boom = new Error('fallo-db');
+    const { service, calls } = harness({ finishError: boom });
+
+    await expect(service.verifyEmailChange(TOKEN, 'ip')).rejects.toBe(boom);
+    expect(calls).toContain('revokeAllSessions');
+  });
+
+  it('si el resultado es incierto y la revocación también falla responde 503, no el error original', async () => {
+    const { service } = harness({ updateEmailError: new Error('timeout-auth'), failRevokeAt: [1, 2] });
+
+    await expect(service.verifyEmailChange(TOKEN, 'ip')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+  });
+
+  it('un correo ocupado no revoca sesiones', async () => {
+    const { service, calls } = harness({ updateEmailError: new PersistenceError('rejected') });
+
+    await expect(service.verifyEmailChange(TOKEN, 'ip')).rejects.toMatchObject({ code: 'STATE_CONFLICT' });
+    expect(calls).not.toContain('revokeAllSessions');
   });
 
   it('si no se puede abrir el correo sellado es un error interno genérico', async () => {
