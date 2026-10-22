@@ -47,3 +47,20 @@ export type NewNeed = {
   urgency: Urgency;
   expiresInHours: number;
 };
+
+export type DeliveryCounts = { pendiente: number; enviada: number; entregada: number; fallida: number };
+
+export type InvitationBatch = {
+  batchId: string;
+  createdAt: string;
+  createdInvitationCount: number;
+  deliveryCounts: DeliveryCounts;
+};
+
+export type AssistedSignup = {
+  signupId: string;
+  status: 'pendiente' | 'vencida' | 'reclamada_incompleta' | 'activa';
+  createdAt: string;
+  activationExpiresAt: string;
+  purgeAt: string;
+};
