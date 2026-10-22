@@ -11,7 +11,7 @@ const steps = [
 const commitments = [
   { title: 'Privacidad por diseño', detail: 'Cada rol ve únicamente la información necesaria.' },
   { title: 'Decisión informada', detail: 'Confirmar significa intención de asistir.' },
-  { title: 'Hospitales autorizados', detail: 'La coordinación siempre está mediada por una institución.' },
+  { title: 'Hospitales autorizados', detail: 'La coordinación siempre está mediada por una institución. El hospital verifica identidad, grupo y elegibilidad.' },
 ];
 
 export function HomePage() {

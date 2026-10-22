@@ -17,7 +17,7 @@ export function InvitationsPage() {
     <>
       <PageHeader
         title="Mis invitaciones"
-        description="Consulta solicitudes de hospitales verificados y administra tu respuesta."
+        description="Consulta solicitudes de hospitales autorizados y administra tu respuesta."
       />
       <Alert tone="info" title="Preselección académica">
         Tu grupo declarado se usa solo para preselección. El hospital debe verificar identidad, grupo y
@@ -47,7 +47,7 @@ export function InvitationsPage() {
                       <p className="text-sm text-muted">{item.publicSiteName}</p>
                     </div>
                     <Badge tone={urgency.tone} className="self-start">
-                      {urgency.label}
+                      {`${urgency.label} · informativa`}
                     </Badge>
                     <Badge tone={response.tone} className="self-start">
                       {response.label}

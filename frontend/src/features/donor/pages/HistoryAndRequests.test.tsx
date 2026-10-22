@@ -13,7 +13,7 @@ describe('DON-04 Historial de respuestas', () => {
     expect(items).toHaveLength(1);
     expect(items[0]?.textContent).toContain('Intención de asistir confirmada');
     expect(items[0]?.textContent).toContain('Hospital Metropolitano Sur');
-    expect(items[0]?.textContent).toContain('25 sep 2026, 10:32 · Lima, UTC−5');
+    expect(items[0]?.textContent).toContain('25 sep 2026, 08:32 · Lima, UTC−5');
     expect(view.textContent).toContain('no confirma asistencia ni donación');
   });
 
