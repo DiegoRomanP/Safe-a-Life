@@ -57,7 +57,7 @@ export const routes: RouteObject[] = [
       { path: 'activar-cuenta', element: <ActivateAccountPage />, handle: { title: 'Activar cuenta' } },
       { path: 'recuperar-acceso', element: <RecoverAccessPage />, handle: { title: 'Recuperar acceso' } },
       { path: 'restablecer-contrasena', element: <ResetPasswordPage />, handle: { title: 'Restablecer contraseña' } },
-      { path: 'verificar-identidad', element: <VerifyIdentityPage />, handle: { title: 'Verificación en dos pasos' } },
+      { path: 'verificar-identidad', element: <VerifyIdentityPage />, handle: { title: 'Verifica tu identidad' } },
       { path: 'verificar-correo', element: <VerifyEmailPage />, handle: { title: 'Verificar correo' } },
       { path: 'cambiar-correo', element: <ConfirmEmailChangePage />, handle: { title: 'Confirmar cambio de correo' } },
       { path: 'invitacion-administrador', element: <AdminInvitationPage />, handle: { title: 'Invitación de administrador' } },
