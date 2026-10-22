@@ -1,10 +1,12 @@
 import { Navigate, type RouteObject } from 'react-router-dom';
 import { PublicLayout } from '../components/layout/PublicLayout.js';
 import { ActivateAccountPage } from '../features/auth/pages/ActivateAccountPage.js';
+import { ConfirmEmailChangePage } from '../features/auth/pages/ConfirmEmailChangePage.js';
 import { LoginPage } from '../features/auth/pages/LoginPage.js';
 import { RecoverAccessPage } from '../features/auth/pages/RecoverAccessPage.js';
 import { RegisterPage } from '../features/auth/pages/RegisterPage.js';
 import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage.js';
+import { VerifyEmailPage } from '../features/auth/pages/VerifyEmailPage.js';
 import { VerifyIdentityPage } from '../features/auth/pages/VerifyIdentityPage.js';
 import { DonorLayout } from '../features/donor/DonorLayout.js';
 import { HistoryPage } from '../features/donor/pages/HistoryPage.js';
@@ -29,6 +31,8 @@ export const routes: RouteObject[] = [
   { path: 'recuperar-acceso', element: <RecoverAccessPage /> },
   { path: 'restablecer-contrasena', element: <ResetPasswordPage /> },
   { path: 'verificar-identidad', element: <VerifyIdentityPage /> },
+  { path: 'verificar-correo', element: <VerifyEmailPage /> },
+  { path: 'cambiar-correo', element: <ConfirmEmailChangePage /> },
   // Área del donante. Sin backend (D-4) todavía no hay guard de sesión.
   {
     path: 'donante',
