@@ -243,9 +243,16 @@ export function createDonorRecordsService({
           await repository.finishEmailChange(tokenHash, false).catch(() => undefined);
           throw new ApiError('STATE_CONFLICT');
         }
+        // Resultado incierto: Auth pudo aplicar el cambio. Fail-closed: se revocan las sesiones (JWT con el correo viejo).
+        await revokeSessions(userId);
         throw error;
       }
-      await repository.finishEmailChange(tokenHash, true);
+      try {
+        await repository.finishEmailChange(tokenHash, true);
+      } catch (error) {
+        await revokeSessions(userId); // Auth ya cambió el correo: no deben sobrevivir sesiones con el correo viejo.
+        throw error;
+      }
       await revokeSessions(userId);
     },
 
