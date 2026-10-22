@@ -16,6 +16,9 @@ import { NewRequestPage } from '../features/donor/pages/NewRequestPage.js';
 import { OnboardingPage } from '../features/donor/pages/OnboardingPage.js';
 import { ProfilePage } from '../features/donor/pages/ProfilePage.js';
 import { RequestsPage } from '../features/donor/pages/RequestsPage.js';
+import { HospitalLayout } from '../features/hospital/HospitalLayout.js';
+import { NeedsPage } from '../features/hospital/pages/NeedsPage.js';
+import { SummaryPage } from '../features/hospital/pages/SummaryPage.js';
 import { InvitationLinkPage } from '../features/invitation/pages/InvitationLinkPage.js';
 import { HomePage } from '../features/public/pages/HomePage.js';
 import { NotFoundPage } from '../features/system/pages/NotFoundPage.js';
@@ -51,6 +54,15 @@ export const routes: RouteObject[] = [
       { path: 'historial', element: <HistoryPage /> },
       { path: 'solicitudes', element: <RequestsPage /> },
       { path: 'solicitudes/nueva', element: <NewRequestPage /> },
+    ],
+  },
+  // Área del hospital. Sin backend (D-4) todavía no hay guard de sesión.
+  {
+    path: 'hospital',
+    element: <HospitalLayout />,
+    children: [
+      { index: true, element: <SummaryPage /> },
+      { path: 'necesidades', element: <NeedsPage /> },
     ],
   },
   { path: '*', element: <NotFoundPage /> },
