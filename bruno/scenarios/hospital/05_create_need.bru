@@ -13,7 +13,7 @@ post {
 headers {
   Origin: {{appOrigin}}
   X-CSRF-Token: {{csrfToken}}
-  Idempotency-Key: 55555555-5555-4555-8555-555555555555
+  Idempotency-Key: {{idempotencyKey}}-create
 }
 
 body:json {
@@ -22,18 +22,55 @@ body:json {
     "requiredBloodType": "A_POS",
     "targetConfirmations": 3,
     "siteId": "{{demoSiteId}}",
-    "radiusKm": 8,
     "urgency": "Normal",
     "expiresInHours": 12
   }
 }
 
 tests {
-  test("hospital creates an unannounced draft need", function () {
-    const need = res.getBody().data;
-    expect(res.getStatus()).to.equal(201);
-    expect(need.status).to.equal("borrador");
-    expect(need.confirmedIntentCount).to.equal(0);
-    expect(need.targetConfirmations).to.equal(3);
+  test("draft creation returns 201 and JSON content type", function () {
+    const contentType = res.getHeader("content-type");
+    expect(res.getStatus() === 201, "creation status").to.equal(true);
+    expect(typeof contentType === "string"
+      && contentType.split(";")[0].trim().toLowerCase() === "application/json",
+      "creation content type").to.equal(true);
+  });
+
+  test("omitted radius creates only the approved draft projection", function () {
+    const envelope = res.getBody();
+    const isRecord = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+    expect(isRecord(envelope) && Object.keys(envelope).length === 1
+      && Object.keys(envelope)[0] === "data", "closed creation envelope").to.equal(true);
+
+    const need = envelope.data;
+    const fields = [
+      "needId", "component", "requiredBloodType", "targetConfirmations", "confirmedIntentCount",
+      "siteId", "radiusKm", "urgency", "status", "expiresAt",
+    ];
+    expect(isRecord(need) && Object.keys(need).length === fields.length
+      && fields.every((field) => Object.prototype.hasOwnProperty.call(need, field)),
+      "exact creation allowlist").to.equal(true);
+
+    const uuid = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i;
+    const bloodTypes = ["O_NEG", "O_POS", "A_NEG", "A_POS", "B_NEG", "B_POS", "AB_NEG", "AB_POS"];
+    expect(typeof need.needId === "string" && uuid.test(need.needId), "opaque creation ID").to.equal(true);
+    expect(need.component === "RBC", "creation component").to.equal(true);
+    expect(bloodTypes.includes(need.requiredBloodType) && need.requiredBloodType === "A_POS",
+      "declared request enum preserved").to.equal(true);
+    expect(Number.isInteger(need.targetConfirmations) && need.targetConfirmations === 3,
+      "creation target preserved").to.equal(true);
+    expect(Number.isInteger(need.confirmedIntentCount) && need.confirmedIntentCount === 0,
+      "initial confirmation count").to.equal(true);
+    expect(typeof need.siteId === "string" && uuid.test(need.siteId)
+      && need.siteId === bru.getEnvVar("demoSiteId"), "creation site preserved").to.equal(true);
+    expect(Number.isInteger(need.radiusKm) && need.radiusKm === 10, "omitted radius default").to.equal(true);
+    expect(need.urgency === "Normal", "creation urgency preserved").to.equal(true);
+    expect(need.status === "borrador", "creation draft state").to.equal(true);
+    expect(typeof need.expiresAt === "string"
+      && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/.test(need.expiresAt)
+      && Number.isFinite(Date.parse(need.expiresAt)), "creation UTC expiry").to.equal(true);
+
+    bru.setVar("t4qCreatedNeedId", need.needId);
+    bru.setVar("t4qCreatedNeedExpiresAt", need.expiresAt);
   });
 }

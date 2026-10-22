@@ -1,0 +1,31 @@
+meta {
+  name: Revocar membresía
+  type: http
+  seq: 14
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/superadmin/memberships/{{membershipId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-revoke
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {
+    "status": "revocada",
+    "reason": "Baja de prueba Bruno"
+  }
+}
+
+tests {
+  test("la revocación con step-up vigente responde 200", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.status).to.equal("revocada");
+  });
+}

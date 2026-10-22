@@ -1,0 +1,32 @@
+meta {
+  name: Crear hospital
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/superadmin/hospitals
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {
+    "publicName": "Hospital Bruno",
+    "legalName": "Hospital Bruno S.A. (sintético)"
+  }
+}
+
+tests {
+  test("crea el hospital con la clave de idempotencia", function () {
+    expect(res.getStatus()).to.equal(201);
+    expect(res.getBody().data.publicName).to.equal("Hospital Bruno");
+    bru.setVar("createdHospitalId", res.getBody().data.hospitalId);
+  });
+}

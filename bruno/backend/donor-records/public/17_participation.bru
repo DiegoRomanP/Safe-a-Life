@@ -1,0 +1,31 @@
+meta {
+  name: Cambiar la participación
+  type: http
+  seq: 17
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/donors/me/profile
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-part
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  { "isAvailable": false, "approximateLocation": { "latitude": -12.1, "longitude": -77.1 } }
+}
+
+tests {
+  test("cambia disponibilidad y ubicación sin tocar la identidad", function () {
+    expect(res.getStatus()).to.equal(200);
+    var data = res.getBody().data;
+    expect(data.isAvailable).to.equal(false);
+    expect(data.approximateLocation).to.deep.equal({ latitude: -12.1, longitude: -77.1 });
+    expect(data.name).to.equal("Donante Bruno");
+  });
+}

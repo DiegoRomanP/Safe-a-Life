@@ -4,7 +4,7 @@
     "title": "Save a Life API (borrador)",
     "version": "0.2.0-draft",
     "summary": "Contrato inicial propuesto para revisar en Swagger Editor.",
-    "description": "Contrato Design-First completo propuesto para frontend y mocks, no una API productiva implementada. Sus rutas y convenciones son borrador de Sprint 0. Usa exclusivamente ejemplos sintéticos. AP-02, AP-04, AP-06, AP-07 y AP-08 siguen pendientes; no inferir resultados productivos para esas reglas.",
+    "description": "Contrato Design-First para frontend y mocks, no una API productiva implementada. El estado global sigue en borrador y requiere aprobación para el inventario restante; solo POST /api/v1/hospitals/me/needs (createHospitalNeed) tiene ratificación acotada para implementación, registrada en la extensión de operación x-ratification. Esa ratificación no significa que el endpoint exista. Usa exclusivamente ejemplos sintéticos. AP-02, AP-04, AP-06, AP-07 y AP-08 siguen pendientes; no inferir resultados productivos para esas reglas.",
     "license": { "name": "MIT", "identifier": "MIT" },
     "x-contract-status": "draft",
     "x-sprint0-approval-required": true
@@ -25,6 +25,7 @@
   ],
   "tags": [
     { "name": "Health", "description": "Comprobaciones operativas sin datos sensibles." },
+    { "name": "Email delivery", "description": "Eventos firmados del proveedor de correo; sin sesión ni datos personales." },
     { "name": "Authentication", "description": "Sesiones mediadas por Express y autenticación Supabase." },
     { "name": "Donor", "description": "Recursos propios del donante autenticado." },
     { "name": "Invitation action", "description": "Consulta informativa y primera respuesta con token de acción de un solo uso." },
@@ -41,6 +42,7 @@
       "get": {
         "tags": ["Health"],
         "operationId": "getLiveness",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Solo esta operación de plataforma; liveness sin dependencias externas y readiness que comprueba la conexión y la versión de migraciones (503 si fallan). No ratifica otras operaciones (getLiveness)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §5.6; decisión de la persona usuaria de aceptar todos los votos de §2.3 (2026-10-12)"]},
         "summary": "Comprueba que el proceso está activo",
         "description": "No consulta Supabase, Resend ni Mapbox (RNF-OPS-01).",
         "security": [],
@@ -54,6 +56,7 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "500": { "$ref": "#/components/responses/InternalServerError" }
         }
@@ -63,6 +66,7 @@
       "get": {
         "tags": ["Health"],
         "operationId": "getReadiness",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Solo esta operación de plataforma; liveness sin dependencias externas y readiness que comprueba la conexión y la versión de migraciones (503 si fallan). No ratifica otras operaciones (getReadiness)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §5.6; decisión de la persona usuaria de aceptar todos los votos de §2.3 (2026-10-12)"]},
         "summary": "Comprueba si la API puede aceptar trabajo",
         "description": "Readiness valida configuración obligatoria, conexión DB y migraciones vigentes. Devuelve 503 sin detalles sensibles cuando no está lista (RNF-OPS-02).",
         "security": [],
@@ -76,7 +80,33 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/api/v1/email-delivery/webhooks/resend": {
+      "post": {
+        "tags": ["Email delivery"],
+        "operationId": "receiveResendWebhook",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo email-delivery F4 (C-1): recepción del webhook firmado de Resend con firma estilo Svix (HMAC-SHA256 sobre svix-id, svix-timestamp y el cuerpo crudo), antigüedad máxima de 300 s, deduplicación por svix-id y avance monótono del estado de entrega. Ratifica solo esta operación. Puede responder 429 si Auth limita la renovación de la sesión técnica","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F4 y C-1; ADR-005; votos V5, V7 y V13 aceptados por la persona usuaria (2026-10-12)"]},
+        "summary": "Recibe un evento firmado del proveedor de correo",
+        "description": "Pública y sin cookie: la autenticidad la da la firma. El cuerpo se verifica crudo antes de interpretarlo. Una firma inválida o con más de 300 s de diferencia responde 401 sin detalle. El mismo svix-id no vuelve a tener efecto. Los eventos email.sent, email.delivered, email.bounced y email.failed avanzan el estado sin retroceder; los demás se aceptan y se ignoran. No guarda ni devuelve destinatarios.",
+        "security": [],
+        "parameters": [
+          { "name": "svix-id", "in": "header", "required": true, "description": "Identificador único del evento; sirve para deduplicar.", "example": "msg_sintetico_0001", "schema": { "type": "string", "minLength": 1, "maxLength": 255 } },
+          { "name": "svix-timestamp", "in": "header", "required": true, "description": "Segundos desde la época en que el proveedor firmó el evento.", "example": "1760356800", "schema": { "type": "string", "pattern": "^[0-9]{1,12}$" } },
+          { "name": "svix-signature", "in": "header", "required": true, "description": "Lista de firmas `v1,<base64>` separadas por espacios; basta con que una coincida.", "example": "v1,c2ludGV0aWNvc2ludGV0aWNvc2ludGV0aWNvc2ludGV0aWNv", "schema": { "type": "string", "minLength": 1, "maxLength": 1024 } }
+        ],
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ResendWebhookEvent" }, "example": { "type": "email.delivered", "created_at": "2026-10-13T12:00:00.000Z", "data": { "email_id": "00000000-0000-4000-8000-000000000001" } } } } },
+        "responses": {
+          "204": { "description": "Evento aceptado, duplicado o ignorado." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
           "500": { "$ref": "#/components/responses/InternalServerError" },
           "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
@@ -86,12 +116,17 @@
       "get": {
         "tags": ["Authentication"],
         "operationId": "getCsrfToken",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (getCsrfToken)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Obtiene token CSRF para mutaciones de la sesión actual",
         "description": "Token ligado a la sesión; el cliente lo conserva en memoria y lo envía en X-CSRF-Token. No registrar su valor. Header/mecanismo final pendiente de ratificación Sprint 0.",
         "responses": {
           "200": { "description": "Token CSRF para la sesión actual.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CsrfTokenEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -99,14 +134,19 @@
       "get": {
         "tags": ["Authentication"],
         "operationId": "getCurrentSession",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (getCurrentSession)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Obtiene el actor asociado a la sesión actual",
         "responses": {
           "200": {
             "description": "Sesión vigente; el rol y la membresía vienen de la fuente protegida.",
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthSessionEnvelope" } } }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -114,6 +154,7 @@
       "post": {
         "tags": ["Authentication"],
         "operationId": "createSession",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (createSession)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Inicia sesión mediante Express y Supabase Auth",
         "description": "La respuesta no enumera cuentas; administradores deben completar MFA/AAL2 antes de operaciones administrativas.",
         "security": [],
@@ -130,9 +171,11 @@
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "429": { "$ref": "#/components/responses/TooManyRequests" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -140,6 +183,7 @@
       "delete": {
         "tags": ["Authentication"],
         "operationId": "deleteCurrentSession",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (deleteCurrentSession)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Cierra la sesión actual",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
@@ -148,7 +192,9 @@
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -156,6 +202,7 @@
       "post": {
         "tags": ["Authentication"],
         "operationId": "requestPasswordRecovery",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo identity-institutions F2b: invitación de admins hospitalarios y recuperación de contraseña por token de un solo uso. Ratifica solo esta operación (requestPasswordRecovery)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2b; ADR-004 y ADR-006; votos F4 y V18 aceptados por la persona usuaria (2026-10-12)"]},
         "summary": "Solicita recuperación de contraseña sin enumerar cuentas",
         "security": [],
         "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
@@ -163,8 +210,11 @@
         "responses": {
           "202": { "description": "Respuesta neutra exista o no la cuenta.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NeutralMessageEnvelope" }, "example": { "data": { "message": "Si la solicitud puede procesarse, recibirás instrucciones." } } } } },
           "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" },
           "429": { "$ref": "#/components/responses/TooManyRequests" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -172,17 +222,22 @@
       "post": {
         "tags": ["Authentication"],
         "operationId": "completePasswordReset",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo identity-institutions F2b: invitación de admins hospitalarios y recuperación de contraseña por token de un solo uso. Ratifica solo esta operación (completePasswordReset)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2b; ADR-004 y ADR-006; votos F4 y V18 aceptados por la persona usuaria (2026-10-12)"]},
         "summary": "Completa recuperación con token de un solo uso",
         "security": [],
         "parameters": [{ "$ref": "#/components/parameters/RecoveryToken" }, { "$ref": "#/components/parameters/IdempotencyKey" }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PasswordResetRequest" }, "example": { "newPassword": "synthetic-password-placeholder" } } } },
         "responses": {
           "200": { "description": "Contraseña cambiada; sesiones anteriores revocadas.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NeutralMessageEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "410": { "$ref": "#/components/responses/Gone" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -190,16 +245,92 @@
       "post": {
         "tags": ["Authentication"],
         "operationId": "verifyMfaChallenge",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (verifyMfaChallenge)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Completa MFA para alcanzar AAL2",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MfaVerificationRequest" }, "example": { "challengeId": "cb6ad07d-04d3-4e94-9534-4c0b4d1530f8", "code": "000000" } } } },
         "responses": {
           "200": { "description": "Nivel AAL2 verificado.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthSessionEnvelope" }, "example": { "data": { "actor": { "role": "admin_hospitalario", "displayName": "Admin Demo", "hospitalName": "Hospital Demo" }, "aal": 2, "mfaRequired": false, "expiresAt": "2026-10-04T12:00:00Z" } } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "429": { "$ref": "#/components/responses/TooManyRequests" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/api/v1/auth/mfa-enrollments": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "operationId": "enrollMfaFactor",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (enrollMfaFactor)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
+        "summary": "Enrola el factor TOTP de un admin o superadmin",
+        "description": "Solo admin hospitalario o superadmin con sesión AAL1 y sin factor verificado. Devuelve el secreto del autenticador (otpauthUri) y un reto que se completa con verifyMfaChallenge. La respuesta es no-store.",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Factor creado pendiente de verificación.",
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-store"
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "const": "no-referrer"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaEnrollmentEnvelope"
+                },
+                "example": {
+                  "data": {
+                    "factorId": "6f1c2c1e-9f47-4b0c-8d6a-2f6a3a5c1e01",
+                    "otpauthUri": "otpauth://totp/Save%20a%20Life:admin@example.test?secret=EJEMPLOSINTETICO&issuer=Save%20a%20Life",
+                    "challengeId": "cb6ad07d-04d3-4e94-9534-4c0b4d1530f8"
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "429": {
+            "$ref": "#/components/responses/TooManyRequests"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalServerError"
+          },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -207,16 +338,20 @@
       "post": {
         "tags": ["Authentication"],
         "operationId": "verifyStepUp",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (verifyStepUp)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Valida step-up para una acción privilegiada",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StepUpVerificationRequest" }, "example": { "code": "000000" } } } },
         "responses": {
           "200": { "description": "Step-up vigente por el tiempo definido en RNF-SEC-05.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/StepUpEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" },
           "429": { "$ref": "#/components/responses/TooManyRequests" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -224,6 +359,7 @@
       "post": {
         "tags": ["Donor"],
         "operationId": "createDonorRegistration",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (createDonorRegistration)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Inicia autorregistro y verificación de email",
         "description": "La cuenta no participa en matching hasta verificar email y completar el perfil. No se solicita fecha/historial de donación.",
         "security": [],
@@ -232,9 +368,12 @@
         "responses": {
           "202": { "description": "Registro pendiente con respuesta no enumerable.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NeutralMessageEnvelope" }, "example": { "data": { "message": "Si el registro puede continuar, recibirás instrucciones para verificar tu email." } } } } },
           "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "409": { "$ref": "#/components/responses/Conflict" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
           "429": { "$ref": "#/components/responses/TooManyRequests" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -242,27 +381,39 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "getDonorEmailVerificationPreview",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (getDonorEmailVerificationPreview)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Consulta enlace de verificación sin mutar",
         "security": [],
         "parameters": [{ "$ref": "#/components/parameters/ActionToken" }],
         "responses": {
           "200": { "description": "Información mínima y headers no-store/no-referrer.", "headers": { "Cache-Control": { "schema": { "type": "string", "const": "no-store" } }, "Referrer-Policy": { "schema": { "type": "string", "const": "no-referrer" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmailActionPreviewEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "410": { "$ref": "#/components/responses/Gone" }
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "post": {
         "tags": ["Donor"],
         "operationId": "verifyDonorEmail",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (verifyDonorEmail)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Consume token de verificación y habilita completar perfil",
         "description": "El token es de un uso. La cuenta sigue inactiva hasta completar los campos obligatorios.",
         "security": [],
         "parameters": [{ "$ref": "#/components/parameters/ActionToken" }, { "$ref": "#/components/parameters/IdempotencyKey" }],
         "responses": {
-          "200": { "description": "Email verificado; inicia sesión de onboarding.", "headers": { "Set-Cookie": { "description": "Cookie de sesión Secure/HttpOnly; el nombre definitivo se fija en Sprint 0.", "schema": { "type": "string" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DonorOnboardingEnvelope" } } } },
+          "200": { "description": "Correo verificado. No inicia sesión (la operación no recibe contraseña): la persona inicia sesión con la que eligió y completa el perfil.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DonorOnboardingEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "410": { "$ref": "#/components/responses/Gone" }
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -270,13 +421,19 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "getAssistedActivationPreview",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (getAssistedActivationPreview)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Consulta invitación asistida sin consumir token",
         "security": [],
         "parameters": [{ "$ref": "#/components/parameters/ActionToken" }],
         "responses": {
           "200": { "description": "Vista previa mínima con política no-store/no-referrer.", "headers": { "Cache-Control": { "schema": { "type": "string", "const": "no-store" } }, "Referrer-Policy": { "schema": { "type": "string", "const": "no-referrer" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmailActionPreviewEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "410": { "$ref": "#/components/responses/Gone" }
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -284,6 +441,7 @@
       "post": {
         "tags": ["Donor"],
         "operationId": "claimAssistedRegistration",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (claimAssistedRegistration)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Reclama alta asistida y crea perfil incompleto propio",
         "description": "El token dura 24 h y es de un uso. El hospital no completa perfil ni contraseña por el donante.",
         "security": [],
@@ -292,10 +450,14 @@
         "responses": {
           "201": { "description": "Alta reclamada; el donante completa perfil autenticado.", "headers": { "Set-Cookie": { "description": "Cookie de sesión Secure/HttpOnly; el nombre definitivo se fija en Sprint 0.", "schema": { "type": "string" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DonorOnboardingEnvelope" } } } },
           "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "410": { "$ref": "#/components/responses/Gone" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -303,6 +465,7 @@
       "put": {
         "tags": ["Donor"],
         "operationId": "completeDonorOnboarding",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (completeDonorOnboarding)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Completa el perfil obligatorio inicial",
         "description": "Solo disponible para cuenta verificada/incompleta. En perfiles activos, nombre y grupo se cambian mediante solicitud; no aceptar historial de donación.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
@@ -310,9 +473,15 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DonorOnboardingRequest" }, "example": { "name": "Donante Demo", "declaredBloodType": "O_POS", "isAvailable": true, "approximateLocation": { "latitude": -12.046, "longitude": -77.043 } } } } },
         "responses": {
           "200": { "description": "Perfil completo y cuenta activa.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OwnDonorProfileEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -320,6 +489,7 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "getOwnDonorProfile",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (getOwnDonorProfile)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Consulta el perfil propio",
         "description": "Solo devuelve el perfil del donante de la sesión validada; no permite consultar perfiles ajenos.",
         "responses": {
@@ -340,15 +510,19 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "patch": {
         "tags": ["Donor"],
         "operationId": "updateOwnDonorParticipation",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (updateOwnDonorParticipation)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Actualiza disponibilidad y ubicación aproximada propias",
         "description": "Únicamente admite disponibilidad y ubicación sintética aproximada dentro del polígono versionado de Lima, con hasta tres decimales. Nombre, email y grupo declarado siguen un flujo de solicitud. No aceptar fecha ni historial de donación (RF-PRO-01, RF-PRO-05).",
         "security": [
@@ -387,7 +561,9 @@
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -395,6 +571,7 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "listOwnInvitations",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (listOwnInvitations)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Lista las invitaciones propias",
         "description": "No incluye datos de otros donantes, pacientes ni información clínica. La colección usa cursor opaco y límite de servidor.",
         "parameters": [
@@ -436,9 +613,12 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -446,14 +626,18 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "getOwnInvitation",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (getOwnInvitation)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Consulta detalle de una invitación propia",
         "parameters": [{ "$ref": "#/components/parameters/InvitationId" }],
         "responses": {
           "200": { "description": "Detalle operativo mínimo.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OwnInvitationDetailEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -461,6 +645,7 @@
       "patch": {
         "tags": ["Donor"],
         "operationId": "changeOwnInvitationResponse",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (changeOwnInvitationResponse)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Cambia la respuesta propia mientras la necesidad no sea terminal",
         "description": "Solo cambia la respuesta del donante autenticado. Conserva historial y no crea un nuevo lote; el hospital pierde los campos identificables cuando el estado vigente pasa a rechazada.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
@@ -474,7 +659,9 @@
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -482,6 +669,7 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "listOwnResponseHistory",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (listOwnResponseHistory)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Consulta historial inmutable de respuestas propias",
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
         "responses": {
@@ -512,10 +700,13 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -523,6 +714,7 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "listOwnCorrectionRequests",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (listOwnCorrectionRequests)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Lista solicitudes propias de corrección/eliminación",
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
         "responses": {
@@ -556,15 +748,19 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "post": {
         "tags": ["Donor"],
         "operationId": "createOwnCorrectionRequest",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (createOwnCorrectionRequest)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Solicita corrección o eliminación de datos propios",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
@@ -576,7 +772,9 @@
           "403": { "$ref": "#/components/responses/Forbidden" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -584,14 +782,18 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "getOwnCorrectionRequest",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (getOwnCorrectionRequest)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Consulta una solicitud propia",
         "parameters": [{ "$ref": "#/components/parameters/RequestId" }],
         "responses": {
           "200": { "description": "Solicitud propia.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CorrectionRequestEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -599,26 +801,38 @@
       "get": {
         "tags": ["Donor"],
         "operationId": "getEmailChangePreview",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (getEmailChangePreview)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Consulta enlace de verificación de email sin mutar",
         "security": [],
         "parameters": [{ "$ref": "#/components/parameters/ActionToken" }],
         "responses": {
           "200": { "description": "Vista previa mínima con headers no-store/no-referrer.", "headers": { "Cache-Control": { "schema": { "type": "string", "const": "no-store" } }, "Referrer-Policy": { "schema": { "type": "string", "const": "no-referrer" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/EmailActionPreviewEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "410": { "$ref": "#/components/responses/Gone" }
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "post": {
         "tags": ["Donor"],
         "operationId": "verifyEmailChange",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (verifyEmailChange)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Verifica email nuevo con token de un uso de 24 horas",
         "security": [],
         "parameters": [{ "$ref": "#/components/parameters/ActionToken" }, { "$ref": "#/components/parameters/IdempotencyKey" }],
         "responses": {
           "200": { "description": "Email actualizado tras verificar la dirección nueva.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NeutralMessageEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "410": { "$ref": "#/components/responses/Gone" }
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -682,6 +896,7 @@
       "get": {
         "tags": ["Invitation action"],
         "operationId": "getInvitationActionPreview",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (getInvitationActionPreview)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Consulta información mínima del enlace de acción",
         "description": "Lectura informativa: nunca consume el token ni cambia estado. No cachear, cargar terceros, registrar el token ni registrar la URL completa (RF-INV-03, RNF-SEC-13).",
         "security": [],
@@ -715,9 +930,13 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "410": { "$ref": "#/components/responses/Gone" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -725,6 +944,7 @@
       "post": {
         "tags": ["Invitation action"],
         "operationId": "recordInitialInvitationResponse",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (recordInitialInvitationResponse)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Registra la primera respuesta mediante token de acción",
         "description": "El token aleatorio está ligado a invitación y acción (confirmar o rechazar); no se acepta una acción distinta en el body. Es válido solo con invitación/necesidad activas y `now < need.expires_at`; no tiene TTL independiente. Consumo y respuesta son atómicos. El GET anterior no muta estado. No devuelve contacto ni ubicación del donante.",
         "security": [],
@@ -749,12 +969,57 @@
             }
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "410": { "$ref": "#/components/responses/Gone" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
           "429": { "$ref": "#/components/responses/TooManyRequests" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/api/v1/hospitals/me/sites": {
+      "get": {
+        "tags": ["Hospital"],
+        "operationId": "listOwnHospitalSites",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (listOwnHospitalSites)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
+        "summary": "Lista sedes activas propias para seleccionar una necesidad",
+        "description": "Solo un admin_hospitalario autenticado en AAL2 con membresía protegida vigente puede consultar esta colección. El servidor deriva el hospital de la identidad actual y la membresía; el hospital debe estar activo y autorizado. Solo devuelve sedes propias activas y aprobadas, filtradas por esa institución en la consulta, sin selectores de hospital del cliente. Revalida la membresía en cada lectura y al crear una necesidad, junto con la pertenencia y vigencia de la sede elegida; esta consulta no sustituye esa revalidación ni cambia el catálogo existente de createHospitalNeed, incluido su 422 uniforme para sede inexistente, ajena o inactiva (RF-ORG-01, RF-NEC-05, RNF-SEC-05/07/08). Solo admite limit y cursor; parámetros desconocidos o inválidos producen 400. El orden estable es siteId ascendente; el cursor es opaco, sin PII y scoped por el servidor al hospital autorizado y a ese orden. Sin sedes elegibles devuelve 200 con items vacío y nextCursor null. Operación draft, no ratificada ni implementada.",
+        "security": [{ "sessionCookie": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
+        "responses": {
+          "200": {
+            "description": "Página minimizada de sedes propias activas y aprobadas; la ausencia de sedes devuelve una página vacía, no un error.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OwnHospitalSiteListEnvelope" },
+                "examples": {
+                  "vacio": {
+                    "summary": "Sin sedes propias activas y aprobadas",
+                    "value": { "data": { "items": [], "pagination": { "nextCursor": null } } }
+                  },
+                  "pagina": {
+                    "summary": "Página de sedes propias seleccionables",
+                    "value": {
+                      "data": {
+                        "items": [{ "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261", "publicName": "Sede Centro Demo" }],
+                        "pagination": { "nextCursor": "cursor-sintetico-sedes-siguiente" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -762,6 +1027,7 @@
       "get": {
         "tags": ["Hospital"],
         "operationId": "listOwnHospitalNeeds",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo need-records F3: necesidades propias del hospital (listado, consulta y transición manual). Ratifica solo esta operación; createHospitalNeed ya estaba ratificada","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F3; votos V1 y V8 y matriz C-8 aceptados por la persona usuaria (2026-10-12)"]},
         "summary": "Lista necesidades de la institución autenticada",
         "description": "El hospital se deriva de la membresía vigente; no se recibe hospitalId desde el cliente.",
         "parameters": [
@@ -810,17 +1076,29 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "post": {
         "tags": ["Hospital"],
         "operationId": "createHospitalNeed",
         "summary": "Crea una necesidad de glóbulos rojos",
-        "description": "El componente permitido es RBC. targetConfirmations representa una meta de intenciones de asistir, nunca unidades ni donaciones realizadas. La sede debe estar activa y pertenecer al hospital autenticado. La urgencia es informativa y no altera la selección (RF-NEC-01 a RF-NEC-05).",
+        "description": "Operación ratificada únicamente para implementar la creación de una necesidad en borrador; no ratifica las demás operaciones ni implica que exista una API real. El componente permitido es RBC. targetConfirmations representa una meta de intenciones de asistir, nunca unidades ni donaciones realizadas. La sede debe estar activa y pertenecer al hospital autenticado. La urgencia es informativa y no altera la selección (RF-NEC-01 a RF-NEC-05). El cuerpo es cerrado: no admite hospital, rol, propietario, status, datos de paciente ni fecha/historial de donación. Si se omite radiusKm, la intención se normaliza a 10 antes de calcular el hash canónico; omitirlo y enviar 10 son equivalentes para idempotencia. expiresAt se calcula desde la creación con el reloj UTC de PostgreSQL; activar después no lo extiende. Un replay de la misma clave e intención normalizada devuelve el resultado original, incluido expiresAt, sin recalcular el plazo.",
+        "x-ratification": {
+          "status": "ratified-for-implementation",
+          "date": "2026-10-04",
+          "scope": "Solo POST /api/v1/hospitals/me/needs (createHospitalNeed): cuerpo cerrado indicado por el schema, sitio activo del hospital derivado de la identidad, radio entero opcional normalizado a 10, creación en borrador, salida de creación con confirmedIntentCount=0 y expiresAt desde creación UTC de PostgreSQL con replay original. No ratifica GET de necesidades ni otra operación; no afirma implementación ni decide sesión, TTL de sesión, CSRF, CORS, driver, RLS ni persistencia concreta.",
+          "references": [
+            "docs/plans/2026-10-04-backend-inside-out.md — decisión T3 y alcance T4a (2026-10-04)",
+            "Decisión explícita de usuario registrada en T3: necesidades en borrador, apps/api con Supabase local y vencimiento desde creación"
+          ]
+        },
         "security": [
           {
             "sessionCookie": [],
@@ -849,10 +1127,34 @@
         },
         "responses": {
           "201": {
-            "description": "Necesidad creada en borrador.",
+            "description": "Creación idempotente de una necesidad en borrador. expiresAt es una fecha-hora RFC 3339 en UTC calculada desde la creación por PostgreSQL; activar no extiende el plazo y replay devuelve este resultado original.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/NeedEnvelope" },
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/NeedEnvelope" },
+                    {
+                      "type": "object",
+                      "required": ["data"],
+                      "properties": {
+                        "data": {
+                          "allOf": [
+                            { "$ref": "#/components/schemas/Need" },
+                            {
+                              "type": "object",
+                              "required": ["status", "confirmedIntentCount"],
+                              "properties": {
+                                "status": { "type": "string", "const": "borrador" },
+                                "confirmedIntentCount": { "type": "integer", "const": 0 },
+                                "expiresAt": { "type": "string", "format": "date-time", "pattern": "Z$" }
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
                 "example": {
                   "data": {
                     "needId": "6f01119f-152e-46d6-b997-cb7de7c64211",
@@ -875,7 +1177,9 @@
           "403": { "$ref": "#/components/responses/Forbidden" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -886,6 +1190,7 @@
       "get": {
         "tags": ["Hospital"],
         "operationId": "getOwnHospitalNeed",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo need-records F3: necesidades propias del hospital (listado, consulta y transición manual). Ratifica solo esta operación; createHospitalNeed ya estaba ratificada","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F3; votos V1 y V8 y matriz C-8 aceptados por la persona usuaria (2026-10-12)"]},
         "summary": "Consulta una necesidad propia",
         "responses": {
           "200": {
@@ -896,15 +1201,19 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "patch": {
         "tags": ["Hospital"],
         "operationId": "transitionOwnHospitalNeed",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo need-records F3: necesidades propias del hospital (listado, consulta y transición manual). Ratifica solo esta operación; createHospitalNeed ya estaba ratificada","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F3; votos V1 y V8 y matriz C-8 aceptados por la persona usuaria (2026-10-12)"]},
         "summary": "Solicita una transición permitida de necesidad",
         "description": "Solo admite las transiciones manuales aprobadas. meta_alcanzada y vencida son estados calculados, no valores asignables por el cliente. Las terminales no se reabren (RF-NEC-06 a RF-NEC-08).",
         "security": [
@@ -940,7 +1249,9 @@
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -951,6 +1262,7 @@
       "get": {
         "tags": ["Hospital"],
         "operationId": "listOwnInvitationBatches",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (listOwnInvitationBatches)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Lista historial de lotes y conteos de entrega",
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
         "responses": {
@@ -972,7 +1284,7 @@
                           "batchId": "e2eaec30-1f23-40c7-b986-21395b46a531",
                           "createdAt": "2026-10-01T18:00:00Z",
                           "createdInvitationCount": 8,
-                          "deliveryCounts": { "pendiente": 0, "enviada": 8, "entregada": 6, "fallida": 0 }
+                          "deliveryCounts": { "pendiente": 0, "enviada": 2, "entregada": 6, "fallida": 0 }
                         }],
                         "pagination": { "nextCursor": "cursor-sintetico-pagina-siguiente" }
                       }
@@ -986,12 +1298,15 @@
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "post": {
         "tags": ["Hospital"],
         "operationId": "requestInvitationBatch",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (requestInvitationBatch)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Solicita manualmente un lote de invitaciones",
         "description": "El hospital solicita el lote, pero no elige donantes individuales. El servidor aplica los filtros documentados de preselección académica para RBC, radio, orden y cuotas; no determina elegibilidad médica. Invitaciones, outbox y auditoría se confirman en una transacción. No se devuelve identidad de candidatos (RF-MAT/RF-BAT).",
         "security": [
@@ -1026,7 +1341,8 @@
           "409": { "$ref": "#/components/responses/Conflict" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
           "429": { "$ref": "#/components/responses/TooManyRequests" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1039,6 +1355,7 @@
       "get": {
         "tags": ["Hospital"],
         "operationId": "listOwnNeedResponses",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (listOwnNeedResponses)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
         "summary": "Consulta conteos y respuestas permitidas de una necesidad propia",
         "description": "Los registros no confirmados y rechazados usan código y estados opacos. Solo una confirmación afirmativa vigente incluye nombre, grupo declarado, respuesta y hora. Si el donante cambia confirmada a rechazada, esta proyección oculta inmediatamente nombre y grupo.",
         "responses": {
@@ -1090,7 +1407,9 @@
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1098,6 +1417,7 @@
       "get": {
         "tags": ["Hospital"],
         "operationId": "listOwnAssistedSignups",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (listOwnAssistedSignups)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Lista altas asistidas iniciadas por el hospital actual",
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
         "responses": {
@@ -1130,14 +1450,18 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "post": {
         "tags": ["Hospital"],
         "operationId": "createAssistedSignup",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (createAssistedSignup)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Inicia alta asistida mínima",
         "description": "Solo email y nombre opcional. La respuesta es neutra aunque el email ya exista; el hospital nunca crea contraseña, grupo ni ubicación por el donante.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
@@ -1150,7 +1474,9 @@
           "403": { "$ref": "#/components/responses/Forbidden" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "429": { "$ref": "#/components/responses/TooManyRequests" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1158,13 +1484,18 @@
       "get": {
         "tags": ["Hospital"],
         "operationId": "getOwnAssistedSignup",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (getOwnAssistedSignup)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Consulta estado mínimo de un alta iniciada por la institución",
         "parameters": [{ "$ref": "#/components/parameters/SignupId" }],
         "responses": {
           "200": { "description": "Estado/fechas mínimas de la solicitud propia.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AssistedSignupCreatedEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1173,17 +1504,22 @@
       "post": {
         "tags": ["Hospital"],
         "operationId": "reissueAssistedActivationLink",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo donor-records F5: registro y perfil del donante, altas asistidas por hospitales, verificación de correo y cambio de correo. Ratifica solo esta operación (reissueAssistedActivationLink)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F5 (C-12); ADR-003, ADR-004 y ADR-006; autonomía concedida por la persona usuaria (2026-10-13)"]},
         "summary": "Reemite enlace antes de la purga original",
         "description": "Token de 24 h; reemitir invalida tokens anteriores, retorna estado a pendiente y no reinicia createdAt/purgeAt (AP-01). Respuesta no enumerable.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
         "responses": {
           "202": { "description": "Solicitud de reemisión aceptada de forma neutra.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NeutralMessageEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1218,10 +1554,21 @@
         "tags": ["Hospital"],
         "operationId": "withdrawOwnRecognitionPolicy",
         "summary": "Retira la oferta pública",
+        "description": "Solo retira la política del hospital derivado de la identidad vigente y mientras no esté suspendida. Sin cuerpo: expectedVersion es un query requerido, entero no negativo; ausente o inválido responde 400 uniforme. El retiro aplicado compara expectedVersion con la versión vigente, incrementa la versión y rechaza una versión obsoleta con 409. La intención canónica idempotente incluye expectedVersion y se vincula a actor, operación e Idempotency-Key: misma clave e intención reproducen el 204 original sin incrementar otra vez; intención distinta o ejecución en curso responde 409.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
-        "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
+        "parameters": [
+          { "$ref": "#/components/parameters/IdempotencyKey" },
+          {
+            "name": "expectedVersion",
+            "in": "query",
+            "required": true,
+            "description": "Versión esperada de la política propia para el retiro con control de concurrencia optimista.",
+            "schema": { "type": "integer", "minimum": 0 }
+          }
+        ],
         "responses": {
           "204": { "description": "Oferta retirada; conserva auditoría/versionado." },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "409": { "$ref": "#/components/responses/Conflict" }
@@ -1232,13 +1579,19 @@
       "get": {
         "tags": ["Authentication"],
         "operationId": "getHospitalAdminInvitationPreview",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo identity-institutions F2b: invitación de admins hospitalarios y recuperación de contraseña por token de un solo uso. Ratifica solo esta operación (getHospitalAdminInvitationPreview)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2b; ADR-004 y ADR-006; votos F4 y V18 aceptados por la persona usuaria (2026-10-12)"]},
         "summary": "Consulta invitación administrativa sin mutar estado",
         "security": [],
         "parameters": [{ "$ref": "#/components/parameters/ActionToken" }],
         "responses": {
           "200": { "description": "Información institucional mínima del enlace.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AdminInvitationPreviewEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "410": { "$ref": "#/components/responses/Gone" }
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1246,6 +1599,7 @@
       "post": {
         "tags": ["Authentication"],
         "operationId": "claimHospitalAdminInvitation",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo identity-institutions F2b: invitación de admins hospitalarios y recuperación de contraseña por token de un solo uso. Ratifica solo esta operación (claimHospitalAdminInvitation)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2b; ADR-004 y ADR-006; votos F4 y V18 aceptados por la persona usuaria (2026-10-12)"]},
         "summary": "Acepta una invitación de admin hospitalario",
         "description": "Hospital/rol vienen de la invitación protegida. La nueva cuenta administrativa requiere MFA/AAL2 antes de operar.",
         "security": [],
@@ -1254,10 +1608,14 @@
         "responses": {
           "201": { "description": "Invitación reclamada; sesión administrativa queda pendiente de MFA.", "headers": { "Set-Cookie": { "description": "Cookie de sesión Secure/HttpOnly; nombre definitivo pendiente de Sprint 0.", "schema": { "type": "string" } } }, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthSessionEnvelope" }, "example": { "data": { "actor": { "role": "admin_hospitalario", "displayName": "Admin Demo", "hospitalName": "Hospital Demo" }, "aal": 1, "mfaRequired": true, "mfaChallengeId": "cb6ad07d-04d3-4e94-9534-4c0b4d1530f8" } } } } },
           "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
           "410": { "$ref": "#/components/responses/Gone" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1265,6 +1623,7 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "listSuperadminTasks",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (listSuperadminTasks)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Lista tareas administrativas sin exponer el padrón",
         "responses": {
           "200": {
@@ -1294,9 +1653,12 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1304,6 +1666,7 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "listHospitals",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (listHospitals)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Lista hospitales autorizados",
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
         "responses": {
@@ -1336,15 +1699,19 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "post": {
         "tags": ["Superadmin"],
         "operationId": "createHospital",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (createHospital)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Crea hospital autorizado",
         "description": "Solo superadmin; no existe autorregistro hospitalario.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
@@ -1352,10 +1719,14 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateHospitalRequest" }, "example": { "publicName": "Hospital Demo", "legalName": "Hospital Académico Demo" } } } },
         "responses": {
           "201": { "description": "Hospital creado.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HospitalEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1364,17 +1735,23 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "getHospital",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (getHospital)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Consulta datos maestros del hospital",
         "responses": {
           "200": { "description": "Hospital.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HospitalEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "patch": {
         "tags": ["Superadmin"],
         "operationId": "updateHospital",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (updateHospital)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Actualiza datos maestros de un hospital",
         "description": "AAL2 y step-up reciente para cambios privilegiados; guardar evento de auditoría minimizado.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
@@ -1382,11 +1759,15 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateHospitalRequest" }, "example": { "publicName": "Hospital Demo Actualizado" } } } },
         "responses": {
           "200": { "description": "Hospital actualizado.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HospitalEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1395,6 +1776,7 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "listHospitalSites",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (listHospitalSites)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Lista sedes del hospital",
         "responses": {
           "200": {
@@ -1417,7 +1799,12 @@
                           "publicName": "Sede Centro",
                           "publicAddress": "Lima Metropolitana",
                           "isActive": true,
-                          "isApproved": true
+                          "isApproved": true,
+                          "coordinates": {
+                            "latitude": -12.046374,
+                            "longitude": -77.042793
+                          },
+                          "publicInstructions": null
                         }]
                       }
                     }
@@ -1426,24 +1813,43 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "post": {
         "tags": ["Superadmin"],
         "operationId": "createHospitalSite",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (createHospitalSite)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Crea una sede para el hospital",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
-        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateSiteRequest" }, "example": { "publicName": "Sede Centro Demo", "publicAddress": "Lima Metropolitana" } } } },
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateSiteRequest" }, "example": {
+          "publicName": "Sede Centro Demo",
+          "publicAddress": "Lima Metropolitana",
+          "coordinates": {
+            "latitude": -12.046374,
+            "longitude": -77.042793
+          }
+        } } } },
         "responses": {
           "201": { "description": "Sede creada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SiteEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1451,16 +1857,24 @@
       "patch": {
         "tags": ["Superadmin"],
         "operationId": "updateHospitalSite",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (updateHospitalSite)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Actualiza o aprueba una sede",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/SiteId" }, { "$ref": "#/components/parameters/IdempotencyKey" }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UpdateSiteRequest" }, "example": { "isActive": true } } } },
         "responses": {
           "200": { "description": "Sede actualizada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SiteEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": {
+            "$ref": "#/components/responses/UnprocessableEntity"
+          },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1468,6 +1882,7 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "listHospitalMemberships",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (listHospitalMemberships)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Lista membresías administrativas minimizadas",
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
         "responses": {
@@ -1500,8 +1915,13 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1509,6 +1929,7 @@
       "post": {
         "tags": ["Superadmin"],
         "operationId": "inviteHospitalAdmin",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo identity-institutions F2b: invitación de admins hospitalarios y recuperación de contraseña por token de un solo uso. Ratifica solo esta operación (inviteHospitalAdmin)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2b; ADR-004 y ADR-006; votos F4 y V18 aceptados por la persona usuaria (2026-10-12)"]},
         "summary": "Invita admin y asigna un hospital",
         "description": "AAL2 + step-up de máximo 5 min. Una persona admin pertenece exactamente a un hospital; nunca acepta rol propio.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
@@ -1516,10 +1937,37 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/InviteHospitalAdminRequest" }, "example": { "email": "admin.demo@example.test", "hospitalId": "a8b51767-5c30-41fb-bf7a-f90250f9649c" } } } },
         "responses": {
           "202": { "description": "Invitación administrativa iniciada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NeutralMessageEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
+        }
+      }
+    },
+    "/api/v1/superadmin/invitations/{invitationId}/delivery-retries": {
+      "post": {
+        "tags": ["Superadmin"],
+        "operationId": "retryInvitationDelivery",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-13","scope":"Módulo invitation-coordination F6: lotes de invitaciones, respuestas por token y por sesión, historial y reintento manual de entrega. Ratifica solo esta operación (retryInvitationDelivery)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F6 y Anexo A (C-4); ADR-003, ADR-004 y ADR-006; decisiones de la persona usuaria (2026-10-13)"]},
+        "summary": "Reintenta manualmente la entrega de una invitación fallida",
+        "description": "AAL2 + step-up de máximo 5 min (C-4, V5). Solo si la entrega de la invitación quedó en fallida, la invitación sigue activa y la necesidad vigente; renueva los enlaces anteriores y encola un correo nuevo. Responde con un mensaje neutro.",
+        "security": [{ "sessionCookie": [], "csrfToken": [] }],
+        "parameters": [{ "$ref": "#/components/parameters/InvitationId" }, { "$ref": "#/components/parameters/IdempotencyKey" }],
+        "responses": {
+          "202": { "description": "Reintento aceptado.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/NeutralMessageEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1527,16 +1975,23 @@
       "patch": {
         "tags": ["Superadmin"],
         "operationId": "revokeHospitalMembership",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (revokeHospitalMembership)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Revoca membresía hospitalaria",
+        "description": "AAL2 y step-up reciente (RNF-SEC-05); la revocación se audita y la sesión del admin pierde acceso en la petición siguiente.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/MembershipId" }, { "$ref": "#/components/parameters/IdempotencyKey" }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RevokeMembershipRequest" }, "example": { "status": "revocada", "reason": "Baja sintética para ejemplo." } } } },
         "responses": {
           "200": { "description": "Membresía revocada y auditada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MembershipEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "409": { "$ref": "#/components/responses/Conflict" }
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1544,6 +1999,7 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "listCorrectionRequests",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (listCorrectionRequests)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Lista solicitudes con datos minimizados",
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
         "responses": {
@@ -1577,8 +2033,12 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1587,28 +2047,38 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "getCorrectionRequest",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (getCorrectionRequest)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Consulta estado de solicitud sin datos identificables",
         "responses": {
           "200": { "description": "Solicitud minimizada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CorrectionRequestEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "patch": {
         "tags": ["Superadmin"],
         "operationId": "decideCorrectionRequest",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (decideCorrectionRequest)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Aprueba o rechaza una solicitud",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/IdempotencyKey" }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CorrectionDecisionRequest" }, "example": { "decision": "aprobada", "reason": "Solicitud sintética verificada para el ejemplo." } } } },
         "responses": {
           "200": { "description": "Decisión auditada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CorrectionRequestEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1616,16 +2086,21 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "getContextualDonorData",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (getContextualDonorData)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Lee PII exclusivamente bajo grant contextual",
-        "description": "No permite búsqueda general. Grant debe estar vigente y ligado a superadmin, solicitud, campos y acción.",
+        "description": "No permite búsqueda general. currentValues se limita al grant vigente ligado al actor superadmin, solicitud, donante, acción concreta y campos autorizados, en intersección con los campos necesarios para esa solicitud. proposedValues se limita al grant vigente ligado al actor superadmin, solicitud, donante, acción concreta y campos autorizados, en intersección con los campos necesarios para esa solicitud. El servidor resuelve al actor desde la identidad validada y al donante desde la solicitud, sin aceptar un selector alternativo de donante. El acceso conserva los controles privilegiados de RNF-SEC-05/06 y la vigencia máxima de 10 minutos del grant; esta proyección no fija un mapping nuevo GET→review o POST→execute ni cambia los endpoints de grants o ejecuciones. Cada proyección solo permite name, email y declaredBloodType como campos opcionales autorizados; sin propuesta, incluida una eliminación sin valores propuestos, proposedValues es un objeto vacío. newEmail de la propuesta se proyecta como email, sin añadir otra categoría ni propiedad al DTO. Resúmenes, auditoría, errores y telemetría permanecen sin valores PII anteriores o propuestos.",
         "security": [{ "sessionCookie": [] }],
         "parameters": [{ "$ref": "#/components/parameters/RequestId" }, { "$ref": "#/components/parameters/AccessGrantHeader" }],
         "responses": {
           "200": { "description": "Solo los campos autorizados por el grant.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ContextualDonorDataEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "410": { "$ref": "#/components/responses/Gone" }
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1633,17 +2108,22 @@
       "post": {
         "tags": ["Superadmin"],
         "operationId": "executeApprovedCorrectionRequest",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (executeApprovedCorrectionRequest)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Ejecuta una solicitud aprobada",
         "description": "AAL2, step-up reciente, grant contextual y solicitud aprobada obligatorios. Efecto idempotente y auditado.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/RequestId" }, { "$ref": "#/components/parameters/AccessGrantHeader" }, { "$ref": "#/components/parameters/IdempotencyKey" }],
         "responses": {
           "200": { "description": "Ejecución registrada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CorrectionRequestEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "410": { "$ref": "#/components/responses/Gone" }
+          "410": { "$ref": "#/components/responses/Gone" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1651,6 +2131,7 @@
       "post": {
         "tags": ["Superadmin"],
         "operationId": "createContextualAccessGrant",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-20","scope":"Módulo privacy-requests F7: solicitudes de corrección y eliminación, grants contextuales y ejecución. Ratifica solo esta operación (createContextualAccessGrant)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §F7 (V12, V15, V19, C-7); ADR-003, ADR-004 y ADR-006; solicitud explícita de la persona usuaria (2026-10-20)"]},
         "summary": "Crea grant limitado a solicitud/campos/acción",
         "description": "Requiere AAL2 y step-up de hasta 5 min. El grant expira en máximo 10 min; registrar motivo y auditoría minimizada.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
@@ -1658,10 +2139,14 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateAccessGrantRequest" }, "example": { "requestId": "b30c64a0-488c-4a10-8df5-7411ecb44cc8", "action": "review", "allowedFields": ["name"], "reason": "Revisión sintética de ejemplo." } } } },
         "responses": {
           "201": { "description": "Grant contextual emitido.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AccessGrantEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1669,17 +2154,22 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "getSuperadminConfiguration",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (getSuperadminConfiguration)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Consulta configuración permitida",
         "responses": {
           "200": { "description": "Configuración versionada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ConfigurationEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       },
       "patch": {
         "tags": ["Superadmin"],
         "operationId": "setFinalDemoAt",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (setFinalDemoAt)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Fija una vez la fecha final de demo",
         "description": "AAL2 + step-up reciente; no permite modificar final_demo_at después de fijarlo.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
@@ -1687,10 +2177,14 @@
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SetFinalDemoAtRequest" }, "example": { "finalDemoAt": "2026-12-31T23:59:59Z" } } } },
         "responses": {
           "200": { "description": "Fecha fijada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ConfigurationEnvelope" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "409": { "$ref": "#/components/responses/Conflict" },
-          "422": { "$ref": "#/components/responses/UnprocessableEntity" }
+          "422": { "$ref": "#/components/responses/UnprocessableEntity" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1698,6 +2192,7 @@
       "get": {
         "tags": ["Superadmin"],
         "operationId": "listAuditEvents",
+        "x-ratification": {"status":"ratified-for-implementation","date":"2026-10-12","scope":"Módulo identity-institutions F2a: sesión por cookie, MFA TOTP, step-up, instituciones, membresías, configuración, auditoría y tareas del superadmin. Ratifica solo esta operación; ADR-004 define cookie, CSRF y vida de sesión (listAuditEvents)","references":["docs/plans/2026-10-12-especificacion-faltante-backend.md §6 F2a y Anexo A; decisión de la persona usuaria de aceptar los votos de §2.3 (2026-10-12)"]},
         "summary": "Consulta auditoría append-only minimizada",
         "parameters": [{ "$ref": "#/components/parameters/Limit" }, { "$ref": "#/components/parameters/Cursor" }],
         "responses": {
@@ -1731,10 +2226,13 @@
               }
             }
           },
+          "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "422": { "$ref": "#/components/responses/UnprocessableEntity" },
-          "500": { "$ref": "#/components/responses/InternalServerError" }
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalServerError" },
+          "503": { "$ref": "#/components/responses/ServiceUnavailable" }
         }
       }
     },
@@ -1785,11 +2283,35 @@
         "tags": ["Superadmin"],
         "operationId": "moderateRecognitionPolicy",
         "summary": "Suspende o levanta suspensión con motivo auditable",
+        "description": "Solo el superadmin puede aplicar publicada -> suspendida o suspendida -> sin_publicar con motivo auditable. Levantar la suspensión no republica la oferta; una nueva publicación corresponde al admin del hospital. Cada mutación compara expectedVersion con la versión vigente, incrementa la versión y rechaza una versión obsoleta con 409.",
         "security": [{ "sessionCookie": [], "csrfToken": [] }],
         "parameters": [{ "$ref": "#/components/parameters/HospitalId" }, { "$ref": "#/components/parameters/IdempotencyKey" }],
         "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ModerateRecognitionPolicyRequest" }, "example": { "status": "suspendida", "reason": "Revisión sintética para el ejemplo.", "expectedVersion": 2 } } } },
         "responses": {
-          "200": { "description": "Moderación aplicada y auditada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RecognitionPolicyEnvelope" } } } },
+          "200": {
+            "description": "Moderación aplicada y auditada; estado suspendida o sin_publicar, nunca una republicación.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    { "$ref": "#/components/schemas/RecognitionPolicyEnvelope" },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "status": { "type": "string", "enum": ["suspendida", "sin_publicar"] }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": { "data": { "hospitalId": "a8b51767-5c30-41fb-bf7a-f90250f9649c", "hospitalName": "Hospital Demo", "status": "suspendida", "offeredItems": ["refrigerio", "diploma"], "version": 3, "updatedAt": "2026-10-01T18:10:00Z" } }
+              }
+            }
+          },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" },
@@ -1804,16 +2326,14 @@
       "sessionCookie": {
         "type": "apiKey",
         "in": "cookie",
-        "name": "session",
-        "description": "Nombre placeholder. En producción será Secure y HttpOnly; el nombre definitivo se fija en Sprint 0. No pegar una cookie real en Swagger Editor.",
-        "x-pending-sprint0": true
+        "name": "__Host-sal_at",
+        "description": "Cookie de acceso HttpOnly, Secure, SameSite=Lax y Path=/ con el JWT de Supabase (ADR-004). La renovación usa la cookie __Host-sal_rt, que nunca aparece en el contrato. No pegar una cookie real en Swagger Editor."
       },
       "csrfToken": {
         "type": "apiKey",
         "in": "header",
         "name": "X-CSRF-Token",
-        "description": "Header placeholder para documentar la protección CSRF; nombre/mecanismo definitivo pendiente de Sprint 0.",
-        "x-pending-sprint0": true
+        "description": "Token CSRF firmado y ligado a la sesión, obtenido con getCsrfToken. Toda mutación con cookie exige además un Origin presente y permitido (ADR-004)."
       }
     },
     "parameters": {
@@ -1937,6 +2457,22 @@
       "BloodType": {
         "type": "string",
         "enum": ["O_NEG", "O_POS", "A_NEG", "A_POS", "B_NEG", "B_POS", "AB_NEG", "AB_POS"]
+      },
+      "ResendWebhookEvent": {
+        "type": "object",
+        "description": "Evento del proveedor de correo. Objeto abierto: solo se leen type, created_at y data.email_id.",
+        "required": ["type", "data"],
+        "additionalProperties": true,
+        "properties": {
+          "type": { "type": "string", "minLength": 1, "maxLength": 100 },
+          "created_at": { "type": "string", "maxLength": 64 },
+          "data": {
+            "type": "object",
+            "required": ["email_id"],
+            "additionalProperties": true,
+            "properties": { "email_id": { "type": "string", "minLength": 1, "maxLength": 255 } }
+          }
+        }
       },
       "NeedStatus": {
         "type": "string",
@@ -2080,13 +2616,14 @@
       "CreateNeedRequest": {
         "type": "object",
         "additionalProperties": false,
+        "description": "Cuerpo de creación cerrado. El servidor deriva actor, rol, hospital y propietario; no se aceptan status, datos de paciente ni fecha/historial de donación.",
         "required": ["component", "requiredBloodType", "targetConfirmations", "siteId", "urgency", "expiresInHours"],
         "properties": {
           "component": { "type": "string", "const": "RBC" },
           "requiredBloodType": { "$ref": "#/components/schemas/BloodType" },
           "targetConfirmations": { "type": "integer", "minimum": 1, "maximum": 50, "description": "Meta de intenciones de asistir; no son unidades, volumen ni donaciones realizadas." },
           "siteId": { "type": "string", "format": "uuid", "description": "Debe identificar una sede activa del hospital autenticado." },
-          "radiusKm": { "type": "integer", "minimum": 1, "maximum": 50, "default": 10 },
+          "radiusKm": { "type": "integer", "minimum": 1, "maximum": 50, "description": "Opcional; si se omite se normaliza a 10 antes del hash idempotente, igual que enviar 10 explícitamente." },
           "urgency": { "$ref": "#/components/schemas/Urgency" },
           "expiresInHours": { "type": "integer", "minimum": 1, "maximum": 72 }
         }
@@ -2164,18 +2701,19 @@
       },
       "InvitationBatchRecord": {
         "type": "object",
+        "description": "Registro mínimo de un lote con conteos de entrega por estado actual; no contiene intentos acumulados ni datos de donantes.",
         "additionalProperties": false,
         "required": ["batchId", "createdAt", "createdInvitationCount", "deliveryCounts"],
         "properties": {
           "batchId": { "type": "string", "format": "uuid" },
           "createdAt": { "type": "string", "format": "date-time" },
           "createdInvitationCount": { "type": "integer", "minimum": 0, "maximum": 50 },
-          "deliveryCounts": { "type": "object", "additionalProperties": false, "required": ["pendiente", "enviada", "entregada", "fallida"], "properties": { "pendiente": { "type": "integer", "minimum": 0 }, "enviada": { "type": "integer", "minimum": 0 }, "entregada": { "type": "integer", "minimum": 0 }, "fallida": { "type": "integer", "minimum": 0 } } }
+          "deliveryCounts": { "type": "object", "description": "Cuatro conteos de estado actual mutuamente excluyentes: cada invitación del lote pertenece a un solo estado y su suma es createdInvitationCount. enviada excluye las invitaciones ya entregadas; no son acumulados ni conteos de intentos. AP-02 sigue pendiente respecto de la relación operativa entre estado agregado e intentos y de cuándo un error transitorio pasa a fallida; esta proyección no define reintentos ni umbrales de fallo terminal.", "additionalProperties": false, "required": ["pendiente", "enviada", "entregada", "fallida"], "properties": { "pendiente": { "type": "integer", "minimum": 0 }, "enviada": { "type": "integer", "minimum": 0 }, "entregada": { "type": "integer", "minimum": 0 }, "fallida": { "type": "integer", "minimum": 0 } } }
         }
       },
       "InvitationBatchListEnvelope": {
         "type": "object", "additionalProperties": false, "required": ["data"],
-        "example": { "data": { "items": [{ "batchId": "e2eaec30-1f23-40c7-b986-21395b46a531", "createdAt": "2026-10-01T18:00:00Z", "createdInvitationCount": 8, "deliveryCounts": { "pendiente": 0, "enviada": 8, "entregada": 6, "fallida": 0 } }], "pagination": { "nextCursor": null } } },
+        "example": { "data": { "items": [{ "batchId": "e2eaec30-1f23-40c7-b986-21395b46a531", "createdAt": "2026-10-01T18:00:00Z", "createdInvitationCount": 8, "deliveryCounts": { "pendiente": 0, "enviada": 2, "entregada": 6, "fallida": 0 } }], "pagination": { "nextCursor": null } } },
         "properties": { "data": { "type": "object", "additionalProperties": false, "required": ["items", "pagination"], "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/InvitationBatchRecord" } }, "pagination": { "$ref": "#/components/schemas/Pagination" } } } }
       },
       "OpaqueHospitalResponse": {
@@ -2237,7 +2775,7 @@
       "CsrfTokenEnvelope": {
         "type": "object", "additionalProperties": false, "required": ["data"],
         "example": { "data": { "token": "synthetic-csrf-token-for-local-demo-only" } },
-        "properties": { "data": { "type": "object", "additionalProperties": false, "required": ["token"], "properties": { "token": { "type": "string", "minLength": 32, "maxLength": 512, "writeOnly": true } } } }
+        "properties": { "data": { "type": "object", "additionalProperties": false, "required": ["token"], "properties": { "token": { "type": "string", "minLength": 32, "maxLength": 512, "readOnly": true } } } }
       },
       "ActorRole": {
         "type": "string",
@@ -2300,6 +2838,43 @@
         "properties": {
           "challengeId": { "type": "string", "format": "uuid" },
           "code": { "type": "string", "pattern": "^[0-9]{6,8}$" }
+        }
+      },
+      "MfaEnrollment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "factorId",
+          "otpauthUri",
+          "challengeId"
+        ],
+        "properties": {
+          "factorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "otpauthUri": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 512,
+            "description": "URI otpauth:// para el código QR o la clave del autenticador. Es un secreto: respuesta no-store."
+          },
+          "challengeId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "MfaEnrollmentEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "$ref": "#/components/schemas/MfaEnrollment"
+          }
         }
       },
       "StepUpVerificationRequest": {
@@ -2524,7 +3099,7 @@
       },
       "SuperadminTask": {
         "type": "object", "additionalProperties": false, "required": ["taskId", "kind", "createdAt"],
-        "properties": { "taskId": { "type": "string", "format": "uuid" }, "kind": { "type": "string", "enum": ["correction_request", "hospital_review", "recognition_policy"] }, "createdAt": { "type": "string", "format": "date-time" }, "resourceCode": { "type": "string", "maxLength": 64 } }
+        "properties": { "taskId": { "type": "string", "format": "uuid" }, "kind": { "type": "string", "enum": ["correction_request", "hospital_review", "recognition_policy", "delivery_failure"] }, "createdAt": { "type": "string", "format": "date-time" }, "resourceCode": { "type": "string", "maxLength": 64 } }
       },
       "SuperadminTasksEnvelope": {
         "type": "object", "example": { "data": { "items": [{ "taskId": "14fc3c52-96b8-4aad-88b7-4e213c17bc97", "kind": "correction_request", "createdAt": "2026-10-01T18:00:00Z", "resourceCode": "request-51a8f2" }] } }, "additionalProperties": false, "required": ["data"],
@@ -2551,23 +3126,106 @@
         "properties": { "data": { "type": "object", "additionalProperties": false, "required": ["items", "pagination"], "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Hospital" } }, "pagination": { "$ref": "#/components/schemas/Pagination" } } } }
       },
       "Site": {
-        "type": "object", "additionalProperties": false, "required": ["siteId", "hospitalId", "publicName", "isActive", "isApproved"],
-        "properties": { "siteId": { "type": "string", "format": "uuid" }, "hospitalId": { "type": "string", "format": "uuid" }, "publicName": { "type": "string", "minLength": 1, "maxLength": 160 }, "publicAddress": { "type": "string", "maxLength": 240 }, "isActive": { "type": "boolean" }, "isApproved": { "type": "boolean" } }
+        "type": "object", "additionalProperties": false, "required": [
+          "siteId",
+          "hospitalId",
+          "publicName",
+          "coordinates",
+          "isActive",
+          "isApproved"
+        ],
+        "properties": { "siteId": { "type": "string", "format": "uuid" }, "hospitalId": { "type": "string", "format": "uuid" }, "publicName": { "type": "string", "minLength": 1, "maxLength": 160 }, "publicAddress": { "type": "string", "maxLength": 240 }, "coordinates": {"$ref": "#/components/schemas/SiteCoordinates"}, "publicInstructions": {"type": ["string", "null"], "maxLength": 1000, "description": "Instrucciones públicas para el donante; si es null se muestra un texto neutral fijo."}, "isActive": { "type": "boolean" }, "isApproved": { "type": "boolean" } }
+      },
+      "SiteCoordinates": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "latitude",
+          "longitude"
+        ],
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90,
+            "multipleOf": 1e-06
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180,
+            "multipleOf": 1e-06
+          }
+        }
       },
       "CreateSiteRequest": {
-        "type": "object", "additionalProperties": false, "required": ["publicName", "publicAddress"],
-        "properties": { "publicName": { "type": "string", "minLength": 1, "maxLength": 160 }, "publicAddress": { "type": "string", "minLength": 1, "maxLength": 240 } }
+        "type": "object", "additionalProperties": false, "required": [
+          "publicName",
+          "publicAddress",
+          "coordinates"
+        ],
+        "properties": { "publicName": { "type": "string", "minLength": 1, "maxLength": 160 }, "publicAddress": { "type": "string", "minLength": 1, "maxLength": 240 }, "coordinates": {"$ref": "#/components/schemas/SiteCoordinates"}, "publicInstructions": {"type": "string", "maxLength": 1000, "description": "Instrucciones públicas para el donante; si se omite se muestra un texto neutral fijo."} }
       },
       "UpdateSiteRequest": {
         "type": "object", "additionalProperties": false, "minProperties": 1,
-        "properties": { "publicName": { "type": "string", "minLength": 1, "maxLength": 160 }, "publicAddress": { "type": "string", "minLength": 1, "maxLength": 240 }, "isActive": { "type": "boolean" }, "isApproved": { "type": "boolean" } }
+        "properties": { "publicName": { "type": "string", "minLength": 1, "maxLength": 160 }, "publicAddress": { "type": "string", "minLength": 1, "maxLength": 240 }, "isActive": { "type": "boolean" }, "isApproved": { "type": "boolean" }, "coordinates": {"$ref": "#/components/schemas/SiteCoordinates"}, "publicInstructions": {"type": "string", "maxLength": 1000, "description": "Instrucciones públicas para el donante; si se omite se muestra un texto neutral fijo."} }
       },
       "SiteEnvelope": {
-        "type": "object", "example": { "data": { "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261", "hospitalId": "a8b51767-5c30-41fb-bf7a-f90250f9649c", "publicName": "Sede Centro", "publicAddress": "Lima Metropolitana", "isActive": true, "isApproved": true } }, "additionalProperties": false, "required": ["data"],
+        "type": "object", "example": { "data": {
+          "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261",
+          "hospitalId": "a8b51767-5c30-41fb-bf7a-f90250f9649c",
+          "publicName": "Sede Centro",
+          "publicAddress": "Lima Metropolitana",
+          "isActive": true,
+          "isApproved": true,
+          "coordinates": {
+            "latitude": -12.046374,
+            "longitude": -77.042793
+          },
+          "publicInstructions": null
+        } }, "additionalProperties": false, "required": ["data"],
         "properties": { "data": { "$ref": "#/components/schemas/Site" } }
       },
+      "OwnHospitalSite": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["siteId", "publicName"],
+        "description": "Proyección mínima para el admin del hospital: solo una sede propia activa y aprobada, no la entidad administrativa Site.",
+        "properties": {
+          "siteId": { "type": "string", "format": "uuid" },
+          "publicName": { "type": "string", "minLength": 1, "maxLength": 160 }
+        }
+      },
+      "OwnHospitalSiteListEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["items", "pagination"],
+            "properties": {
+              "items": { "type": "array", "maxItems": 100, "items": { "$ref": "#/components/schemas/OwnHospitalSite" } },
+              "pagination": { "$ref": "#/components/schemas/Pagination" }
+            }
+          }
+        }
+      },
       "SiteListEnvelope": {
-        "type": "object", "example": { "data": { "items": [{ "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261", "hospitalId": "a8b51767-5c30-41fb-bf7a-f90250f9649c", "publicName": "Sede Centro", "publicAddress": "Lima Metropolitana", "isActive": true, "isApproved": true }] } }, "additionalProperties": false, "required": ["data"],
+        "type": "object", "example": { "data": { "items": [{
+          "siteId": "1d1258c3-b8ab-4cc6-9120-27df68452261",
+          "hospitalId": "a8b51767-5c30-41fb-bf7a-f90250f9649c",
+          "publicName": "Sede Centro",
+          "publicAddress": "Lima Metropolitana",
+          "isActive": true,
+          "isApproved": true,
+          "coordinates": {
+            "latitude": -12.046374,
+            "longitude": -77.042793
+          },
+          "publicInstructions": null
+        }] } }, "additionalProperties": false, "required": ["data"],
         "properties": { "data": { "type": "object", "additionalProperties": false, "required": ["items"], "properties": { "items": { "type": "array", "items": { "$ref": "#/components/schemas/Site" } } } } }
       },
       "Membership": {
@@ -2608,8 +3266,41 @@
         "properties": { "data": { "type": "object", "additionalProperties": false, "required": ["grantId", "requestId", "action", "allowedFields", "expiresAt"], "properties": { "grantId": { "type": "string", "format": "uuid" }, "requestId": { "type": "string", "format": "uuid" }, "action": { "type": "string", "enum": ["review", "execute"] }, "allowedFields": { "type": "array", "items": { "type": "string", "enum": ["name", "email", "declaredBloodType"] } }, "expiresAt": { "type": "string", "format": "date-time" } } } }
       },
       "ContextualDonorDataEnvelope": {
-        "type": "object", "example": { "data": { "name": "Donante Demo", "declaredBloodType": "O_POS" } }, "additionalProperties": false, "required": ["data"],
-        "properties": { "data": { "type": "object", "additionalProperties": false, "properties": { "name": { "type": "string", "maxLength": 120 }, "email": { "type": "string", "format": "email", "maxLength": 254 }, "declaredBloodType": { "$ref": "#/components/schemas/BloodType" } } } }
+        "type": "object",
+        "description": "Comparación contextual minimizada para una solicitud concreta; no agrega identificadores ni categorías de datos y no se reutiliza en resúmenes o auditoría.",
+        "example": { "data": { "currentValues": { "name": "Donante Demo" }, "proposedValues": { "name": "Donante Demo Corregido" } } },
+        "additionalProperties": false,
+        "required": ["data"],
+        "properties": {
+          "data": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["currentValues", "proposedValues"],
+            "description": "Ambas proyecciones se incluyen siempre como objetos cerrados; solo contienen la intersección de campos autorizados y necesarios para la solicitud.",
+            "properties": {
+              "currentValues": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "currentValues se limita al grant vigente ligado al actor superadmin, solicitud, donante, acción concreta y campos autorizados, en intersección con los campos necesarios para la solicitud: valores actuales persistidos, solo de campos autorizados presentes.",
+                "properties": {
+                  "name": { "type": "string", "maxLength": 120 },
+                  "email": { "type": "string", "format": "email", "maxLength": 254 },
+                  "declaredBloodType": { "$ref": "#/components/schemas/BloodType" }
+                }
+              },
+              "proposedValues": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "proposedValues se limita al grant vigente ligado al actor superadmin, solicitud, donante, acción concreta y campos autorizados, en intersección con los campos necesarios para la solicitud: solo valores propuestos presentes, proyectando newEmail como email y devolviendo un objeto vacío cuando no hay propuesta, incluida una eliminación sin valores propuestos.",
+                "properties": {
+                  "name": { "type": "string", "maxLength": 120 },
+                  "email": { "type": "string", "format": "email", "maxLength": 254 },
+                  "declaredBloodType": { "$ref": "#/components/schemas/BloodType" }
+                }
+              }
+            }
+          }
+        }
       },
       "ConfigurationEnvelope": {
         "type": "object", "example": { "data": { "finalDemoAt": null, "isImmutable": false } }, "additionalProperties": false, "required": ["data"],
@@ -2629,7 +3320,8 @@
       },
       "ModerateRecognitionPolicyRequest": {
         "type": "object", "additionalProperties": false, "required": ["status", "reason", "expectedVersion"],
-        "properties": { "status": { "type": "string", "enum": ["suspendida", "publicada"] }, "reason": { "type": "string", "minLength": 1, "maxLength": 300 }, "expectedVersion": { "type": "integer", "minimum": 0 } }
+        "description": "suspendida solicita publicada -> suspendida; sin_publicar solicita suspendida -> sin_publicar. Levantar la suspensión no republica la oferta. La publicación posterior corresponde al admin del hospital, no a esta moderación.",
+        "properties": { "status": { "type": "string", "enum": ["suspendida", "sin_publicar"] }, "reason": { "type": "string", "minLength": 1, "maxLength": 300 }, "expectedVersion": { "type": "integer", "minimum": 0 } }
       }
     },
     "responses": {
@@ -2642,7 +3334,7 @@
         "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" }, "example": { "error": { "code": "AUTHENTICATION_REQUIRED", "message": "La sesión no está vigente.", "correlationId": "00000000-0000-4000-8000-000000000401" } } } }
       },
       "Forbidden": {
-        "description": "Actor autenticado sin permiso; no revelar datos del recurso ajeno.",
+        "description": "Actor sin permiso, o petición directa sin el secreto de borde (X-Edge-Secret); no revelar datos del recurso ajeno.",
         "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" }, "example": { "error": { "code": "ACCESS_DENIED", "message": "La acción no está permitida.", "correlationId": "00000000-0000-4000-8000-000000000403" } } } }
       },
       "NotFound": {

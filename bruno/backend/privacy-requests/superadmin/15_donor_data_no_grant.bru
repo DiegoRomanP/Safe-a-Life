@@ -1,0 +1,17 @@
+meta {
+  name: Sin cabecera de grant
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/correction-requests/{{privacyRequestId}}/donor-data
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("responde 4xx", function () {
+    expect(res.getStatus()).to.be.oneOf([400, 403]);
+  });
+}

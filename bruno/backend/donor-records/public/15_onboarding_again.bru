@@ -1,0 +1,27 @@
+meta {
+  name: Un perfil activo no se completa de nuevo
+  type: http
+  seq: 15
+}
+
+put {
+  url: {{baseUrl}}/api/v1/donors/me/onboarding-profile
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-onb-2
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  { "name": "Donante Bruno", "declaredBloodType": "O_POS", "isAvailable": true, "approximateLocation": { "latitude": -12.046, "longitude": -77.043 } }
+}
+
+tests {
+  test("con otra clave es 409", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+}

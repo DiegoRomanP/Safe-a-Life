@@ -1,0 +1,18 @@
+meta {
+  name: CSRF de la cuenta con contraseña pendiente
+  type: http
+  seq: 32
+}
+
+get {
+  url: {{baseUrl}}/api/v1/auth/csrf-token
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("la sesión recibe un token CSRF", function () {
+    expect(res.getStatus()).to.equal(200);
+    bru.setVar("csrfToken", res.getBody().data.token);
+  });
+}

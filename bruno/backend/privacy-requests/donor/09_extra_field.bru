@@ -1,0 +1,27 @@
+meta {
+  name: Campo desconocido
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donors/me/correction-requests
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-extra
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+body:json {
+  {"type":"correccion","changes":{"name":"X","donorId":"otro"}}
+}
+
+tests {
+  test("el cuerpo es cerrado: 4xx de validación", function () {
+    expect(res.getStatus()).to.be.oneOf([400, 422]);
+  });
+}

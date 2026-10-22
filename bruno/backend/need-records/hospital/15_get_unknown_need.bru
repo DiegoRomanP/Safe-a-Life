@@ -1,0 +1,18 @@
+meta {
+  name: Una necesidad inexistente o ajena es 404
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/99999999-9999-4999-8999-999999999999
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("responde 404 RESOURCE_NOT_FOUND", function () {
+    expect(res.getStatus()).to.equal(404);
+    expect(res.getBody().error.code).to.equal("RESOURCE_NOT_FOUND");
+  });
+}

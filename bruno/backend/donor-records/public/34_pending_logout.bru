@@ -1,0 +1,23 @@
+meta {
+  name: Cerrar la sesión de la cuenta pendiente
+  type: http
+  seq: 34
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/auth/sessions/current
+  body: none
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{$guid}}
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+}
+
+tests {
+  test("el logout responde 204", function () {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

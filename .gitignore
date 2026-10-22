@@ -10,6 +10,18 @@
 node_modules/
 **/dist/
 **/.vite/
+/.vitest/
 coverage/
 playwright-report/
 test-results/
+
+.pi/
+.opencode/
+.atl/
+.claude/
+.agents/
+.engram/
+# Supabase local (artefactos y secretos sintéticos de pruebas)
+backend/supabase/.temp/
+backend/supabase/.branches/
+backend/.local/

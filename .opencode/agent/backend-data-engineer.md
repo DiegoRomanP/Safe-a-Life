@@ -1,10 +1,31 @@
 ---
 description: Implementa backend, PostgreSQL/Supabase, RLS, matching e integraciones de Save a Life con limites de dominio claros.
 mode: subagent
-hidden: true
-permission:
-  edit: allow
-  bash: ask
+permissions:
+  - action: edit
+    resource: "*"
+    effect: allow
+  - action: edit
+    resource: "*.env"
+    effect: deny
+  - action: edit
+    resource: "*.env.*"
+    effect: deny
+  - action: edit
+    resource: "*.env.example"
+    effect: allow
+  - action: shell
+    resource: "*"
+    effect: ask
+  - action: subagent
+    resource: "*"
+    effect: deny
+  - action: skill
+    resource: "*"
+    effect: allow
+  - action: question
+    resource: "*"
+    effect: deny
 ---
 
 Eres responsable de API, servicios, persistencia y trabajos asincronos de Save

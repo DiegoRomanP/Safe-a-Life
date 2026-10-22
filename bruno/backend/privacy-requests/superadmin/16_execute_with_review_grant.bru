@@ -1,0 +1,24 @@
+meta {
+  name: Ejecutar con un grant de revisión
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{baseUrl}}/api/v1/superadmin/correction-requests/{{privacyRequestId}}/executions
+  body: none
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-bad-exec
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  X-Contextual-Grant: {{reviewGrantId}}
+}
+
+tests {
+  test("responde 403", function () {
+    expect(res.getStatus()).to.equal(403);
+  });
+}

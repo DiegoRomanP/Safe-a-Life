@@ -10,16 +10,30 @@ const Ajv2020 = validatorRequire('ajv/dist/2020.js');
 const addFormats = validatorRequire('ajv-formats');
 const schemaId = 'urn:save-a-life:contract';
 const methods = new Set(['get', 'put', 'post', 'delete', 'options', 'head', 'patch', 'trace']);
-// Frozen T4a inventory: 69 success + 32 variants (15 media collections) + 268
-// declared errors = 369 HTTP cases. Updating coverage requires explicit review.
-const expected = { operations: 69, json: 67, empty: 2, bodies: 26, variants: 32, variantCollections: 15, errors: 268 };
+// Frozen final E2/E3 inventory: 71 success + 34 variants (16 media collections)
+// + 280 declared errors = 385 HTTP cases (before the F2a review hardening below). The sites GET adds one operation,
+// two media variants and four errors to T4a; DELETE adds its uniform 400 in E3.
+// F2a (2026-10-12) adds enrollMfaFactor (1 success, 5 errors) and the 422 of
+// createHospitalSite/updateHospitalSite (2 errors).
+// F2a review hardening (2026-10-12) declares 42 more errors (400 on the typed inputs, 503 on every
+// non-health operation, and the specific 403/409/422 that the backend really returns): 322 / 427.
+// Second review round adds 29 more (429, 500, the 403 of createSession and two 422): 351 / 456.
+// F4 (2026-10-13) adds receiveResendWebhook (1 empty 204, 1 body, 6 errors incl. the 429 of the technical session): 72 operations, 371 errors.
+// F2b (2026-10-13) declares 20 more errors on its five operations (incl. the 409 of the recovery idempotency): 391 / 497.
+// Third review round adds 4 more (403 of csrf-token and session, 400 of the health pair): 355 / 460.
+// F3 (2026-10-13) adds 10 more (400, 429 and 503 on the need list/get/transition and 429/503 on the create): 365 / 470.
+// F5 (2026-10-13) declares 56 more errors on its 14 donor and assisted-signup operations: 447 / 553.
+// F6 (2026-10-13) ratifies nine invitation operations (31 more errors) and adds retryInvitationDelivery (1 JSON, 9 errors): 73 operations, 478 errors, 585 cases.
+// Updating coverage requires explicit review; never derive it from the candidate.
+const expected = { operations: 73, json: 70, empty: 3, bodies: 27, variants: 34, variantCollections: 16, errors: 478 };
 
-// Reviewed T4a coverage fixture (method, path template, operationId), not a second
+// Reviewed E2/E3 coverage fixture (method, path template, operationId), not a second
 // contract: NO payloads, schemas or behavior. Never derive/refresh it from the
 // candidate spec at runtime; any reviewed scope change must update this fixture.
 const reviewedOperations = Object.freeze([
   ['get', '/health/live', 'getLiveness'],
   ['get', '/health/ready', 'getReadiness'],
+  ['post', '/api/v1/email-delivery/webhooks/resend', 'receiveResendWebhook'],
   ['get', '/api/v1/auth/csrf-token', 'getCsrfToken'],
   ['get', '/api/v1/auth/session', 'getCurrentSession'],
   ['post', '/api/v1/auth/sessions', 'createSession'],
@@ -27,6 +41,7 @@ const reviewedOperations = Object.freeze([
   ['post', '/api/v1/auth/password-recovery-requests', 'requestPasswordRecovery'],
   ['post', '/api/v1/auth/password-reset-actions/{token}', 'completePasswordReset'],
   ['post', '/api/v1/auth/mfa-verifications', 'verifyMfaChallenge'],
+  ['post', '/api/v1/auth/mfa-enrollments', 'enrollMfaFactor'],
   ['post', '/api/v1/auth/step-up-verifications', 'verifyStepUp'],
   ['post', '/api/v1/donor-registrations', 'createDonorRegistration'],
   ['get', '/api/v1/donor-email-verification-actions/{token}', 'getDonorEmailVerificationPreview'],
@@ -49,6 +64,7 @@ const reviewedOperations = Object.freeze([
   ['get', '/api/v1/legal-information/donation-work', 'getDonationWorkInformation'],
   ['get', '/api/v1/invitation-actions/{token}', 'getInvitationActionPreview'],
   ['post', '/api/v1/invitation-actions/{token}/response', 'recordInitialInvitationResponse'],
+  ['get', '/api/v1/hospitals/me/sites', 'listOwnHospitalSites'],
   ['get', '/api/v1/hospitals/me/needs', 'listOwnHospitalNeeds'],
   ['post', '/api/v1/hospitals/me/needs', 'createHospitalNeed'],
   ['get', '/api/v1/hospitals/me/needs/{needId}', 'getOwnHospitalNeed'],
@@ -75,6 +91,7 @@ const reviewedOperations = Object.freeze([
   ['patch', '/api/v1/superadmin/sites/{siteId}', 'updateHospitalSite'],
   ['get', '/api/v1/superadmin/memberships', 'listHospitalMemberships'],
   ['post', '/api/v1/superadmin/hospital-admin-invitations', 'inviteHospitalAdmin'],
+  ['post', '/api/v1/superadmin/invitations/{invitationId}/delivery-retries', 'retryInvitationDelivery'],
   ['patch', '/api/v1/superadmin/memberships/{membershipId}', 'revokeHospitalMembership'],
   ['get', '/api/v1/superadmin/correction-requests', 'listCorrectionRequests'],
   ['get', '/api/v1/superadmin/correction-requests/{requestId}', 'getCorrectionRequest'],

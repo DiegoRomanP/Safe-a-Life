@@ -1,0 +1,29 @@
+meta {
+  name: Forma inválida pero firmado
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/email-delivery/webhooks/resend
+  body: text
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+  svix-id: {{svixIdBadShape}}
+  svix-timestamp: {{svixTimestamp}}
+  svix-signature: {{sigBadShape}}
+}
+
+body:text {
+  {"type":"email.sent"}
+}
+
+tests {
+  test("responde 400", function () {
+    expect(res.getStatus()).to.equal(400);
+    expect(res.getBody().error.code).to.equal("BAD_REQUEST");
+  });
+}

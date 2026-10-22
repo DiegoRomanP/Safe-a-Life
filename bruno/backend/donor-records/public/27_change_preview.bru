@@ -1,0 +1,19 @@
+meta {
+  name: Vista previa del cambio de correo
+  type: http
+  seq: 27
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donor-email-change-actions/{{changeToken}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("muestra la acción sin el correo nuevo", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.action).to.equal("cambiar_email");
+    expect(JSON.stringify(res.getBody())).to.not.contain("@");
+  });
+}

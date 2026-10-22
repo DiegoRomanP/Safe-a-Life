@@ -1,0 +1,18 @@
+meta {
+  name: Sedes de un hospital
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/v1/superadmin/hospitals/{{demoHospitalId}}/sites
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("lista las sedes del hospital semilla", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.items.length).to.be.at.least(2);
+  });
+}

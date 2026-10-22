@@ -1,0 +1,25 @@
+meta {
+  name: Sin CSRF
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/v1/donors/me/correction-requests
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-nocsrf
+}
+
+body:json {
+  {"type":"eliminacion"}
+}
+
+tests {
+  test("responde 403", function () {
+    expect(res.getStatus()).to.equal(403);
+  });
+}

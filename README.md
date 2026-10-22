@@ -10,7 +10,14 @@ Los requisitos y decisiones se conservan en [`Save_a_Life.xlsx`](Save_a_Life.xls
 la línea base funcional en [`docs/1_Primeros_Alcances.md`](docs/1_Primeros_Alcances.md)
 y una ERS en borrador en [`docs/2_Especificaciones_De_Software.md`](docs/2_Especificaciones_De_Software.md).
 El frontend local se desarrolla Design-First sobre [`docs/openapi.json`](docs/openapi.json),
-un borrador de Sprint 0, no una API productiva ratificada.
+un borrador global de Sprint 0. Únicamente el contrato `POST
+/api/v1/hospitals/me/needs` (`createHospitalNeed`) está ratificado para
+implementación; las otras 69 operaciones siguen en borrador, incluido el GET de
+necesidades. El workspace `backend` ya contiene los tipos, snapshot y validadores
+runtime de los DTO de esa operación; todavía no hay handler HTTP productivo para
+`createHospitalNeed`, ni autenticación/AAL2, autorización/RLS o persistencia reales
+para esa API. El alcance contractual se describe en
+[`docs/Backend-Contracts.md`](docs/Backend-Contracts.md).
 
 El corte ejecutable incluye vistas públicas y de demostración para donante,
 hospital y superadmin; un mock Express con estado sintético en memoria; Prism
@@ -23,10 +30,16 @@ estático con Prism, no como flujos con estado.
 
 La [guía de entrega frontend](docs/Frontend-Handoff.md) reúne el setup humano,
 Swagger Editor 5, sincronización JSON→tipos→Bruno, matriz exacta y paquetes de
-trabajo siguientes. Inventario: **54 paths/69 operaciones/94 schemas**, **25 en
-Express y 44 solo Prism**, cliente **21 operaciones** y escenarios Bruno **18**.
-Es un paquete habilitador; no declara terminado el producto ni aprobado el API
-productivo. La documentación y el alcance local tienen revisiones independientes;
+trabajo siguientes. El inventario canónico OpenAPI tiene **57 paths, 72
+operaciones y 100 schemas**. Están ratificadas para implementación
+las catorce de donantes y altas asistidas (F5), las cinco de invitación de admins y recuperación de contraseña (F2b), el webhook de Resend (F4), las cuatro de necesidades (F3: `createHospitalNeed` y listar, consultar y transicionar las
+propias), las dos de salud y las 21 de identidad (F2a), es decir
+**47**; las otras **25** siguen en borrador y se ratifican módulo por módulo. El inventario no representa
+cuántas operaciones están implementadas por el mock, cliente o backend. El mock
+Express, sus comprobaciones de readiness y auth siguen siendo demos, no un backend
+real. El paquete es habilitador; no declara
+terminado el producto ni implementada la API productiva. La documentación y el
+alcance local tienen revisiones independientes;
 la importación visual en Swagger Editor 5 sigue pendiente de comprobación humana.
 
 ## Stack
@@ -41,10 +54,43 @@ la importación visual en Swagger Editor 5 sigue pendiente de comprobación huma
 
 Java/Spring Boot fue evaluado y descartado para esta fase.
 
+## Arquitectura y límites del backend
+
+- El workspace npm del backend es `backend`, con los DTO de
+  `need-records` en `backend/src/modules/need-records/dto/`. `validators.ts`
+  valida y proyecta entrada/salida con AJV 2020; no implementa transporte HTTP,
+  casos de uso, acceso a datos ni autorización, ni determina elegibilidad clínica.
+- `docs/openapi.json` es la fuente contractual. `npm run openapi:types` genera
+  desde ella los tipos y snapshot del DTO backend, además de los tipos de web y
+  mock; `npm run openapi:api:check` comprueba que estén sincronizados.
+- `apps/web` y `apps/mock-api` siguen siendo workspaces separados de tooling.
+  `npm run dev` inicia Vite y el mock; no inicia el backend.
+- `frontend/` es el workspace del frontend real (`@save-a-life/frontend`:
+  TypeScript, React 18, Vite y Tailwind). Por ahora solo tiene la base, sin
+  vistas. `npm run dev:frontend` lo sirve en `127.0.0.1:5174` con proxy de `/api`
+  y `/health` al backend en `127.0.0.1:3000`. Ver [`frontend/README.md`](frontend/README.md).
+- `backend/src/server.ts` es el punto de entrada del backend: valida el entorno
+  (`backend/.env.example` lista los nombres) y compone `createApp` mediante
+  `backend/src/composition.ts`. Hoy expone salud (`/health/live`, `/health/ready`)
+  y los módulos `identity-institutions` (sesión, MFA, instituciones; F2a),
+  `need-records` (necesidades del hospital; F3) y `email-delivery` (outbox cifrado, worker y
+  webhook de Resend; F4, con `npm run dev:worker`). El resto
+  de las operaciones se implementa por módulo tras su ratificación.
+  `backend/supabase/` contiene el proyecto Supabase local (migraciones, siembra
+  y pruebas pgTAP). `backend/index.js` y `backend/config/` fueron retirados por
+  inseguros (CORS abierto, cliente global con la anon key).
+- La instalación se hace desde la raíz, cuyo `package-lock.json` es el único
+  lockfile npm activo. Los pins exactos del manifiesto `backend` se conservan; el
+  traslado no actualizó dependencias. Puede quedar una carpeta local ignorada
+  `apps/api` con outputs residuales; no es un workspace ni una segunda fuente y
+  no debe limpiarse como parte del setup.
+
 ## Ejecutar localmente
 
 Requiere Node `24.19.0`, npm `12.0.2` y Bruno CLI `4.2.0` disponible en `PATH`.
 Con nvm disponible, `nvm use`; comprobar versiones antes de instalar.
+Ejecutar la instalación en la raíz del repositorio: `npm ci` usa el único
+`package-lock.json`; no instalar desde `backend/`.
 
 ```bash
 node --version
@@ -54,12 +100,13 @@ SCARF_ANALYTICS=false npm ci
 npm run dev
 ```
 
-`npm ci` conserva el lockfile y la policy `allowScripts` de ADR-002: solo
+`npm ci` conserva el lockfile raíz y la policy `allowScripts` de ADR-002: solo
 `esbuild@0.28.2` aprobado, Scarf/protobufjs denegados. No habilitar scripts
 globalmente ni añadir claves Supabase/Resend; el mock no necesita secretos.
 
 Abrir <http://127.0.0.1:5173>. El comando inicia Vite y el mock Express en
-`127.0.0.1:4011`. Prism se ejecuta por separado en `127.0.0.1:4010`:
+`127.0.0.1:4011`, no el backend legacy. Prism se ejecuta por separado en
+`127.0.0.1:4010`:
 
 ```bash
 npm run mock:prism
@@ -67,22 +114,36 @@ npm run mock:prism
 
 El proxy web `/api` apunta fijo a **4011**, sin selector de destino ni fallback.
 Prism se usa por separado con Bruno o runner contractual; iniciar Prism no habilita
-sus 44 operaciones faltantes en la web stateful.
+operaciones adicionales en la web stateful.
 
 ## Verificación
 
 ```bash
-npm test                         # Vitest de mock API y cliente web
+npm test                         # Incluye pruebas de mock/web y DTO backend
+npm run test:backend:dto         # Validación runtime de DTO need-records
+npm run test:backend:db          # pgTAP (requiere `supabase start --workdir backend`)
+npm run test:backend:integration # Integración contra Supabase local (reinicia y siembra la base)
+npm run test:bruno:backend       # Bruno CLI contra el backend real
+npm run test:api:generator       # Pruebas del generador OpenAPI
+npm run openapi:api:check        # Comprueba artefactos generados sin escribirlos
 npm run test:api                 # Integración del mock con Supertest
-npm run test:contract            # 27 tests runner + 369 checks HTTP estáticos Prism/Ajv
+npm run test:contract            # Runner Prism + Ajv2020 contra el contrato estático
 npm run test:bruno               # Arranca/resetea/cierra el mock y ejecuta escenarios
 npm run test:e2e -- --trace=off   # Playwright Chromium sin guardar trazas de red
 npm run typecheck
-npm run lint                     # Actualmente equivale a tsc --noEmit
+npm run typecheck --workspace backend
+npm run build --workspace backend
+npm run lint --workspace backend
+npm run lint                     # ESLint 9 (eslint.config.mjs) + tsc --noEmit en cada workspace
 npm run build
 npm run openapi:lint
 npm run audit:production
 ```
+
+En la aceptación Q1 registrada el 2026-10-12 se observaron 72 tests del runner de
+contrato, 377 checks HTTP y 35 ejemplos schema auditados; Bruno ejecutó 24
+requests/29 tests y E2E 10/10. Son conteos de esa ejecución, no cobertura de auth,
+RLS ni handlers productivos.
 
 Si el navegador de Playwright no está instalado, ejecutar `npx playwright install chromium`.
 Detener `npm run dev` antes de E2E: sus servidores se inician de forma aislada.
@@ -95,20 +156,21 @@ dev de Prism documentado en ADR-002.
 
 - [`docs/Api-Rules.md`](docs/Api-Rules.md): reglas de contrato, seguridad,
   validación y consulta.
+- [`docs/Backend-Contracts.md`](docs/Backend-Contracts.md): contrato acotado y
+  criterios de aceptación de `createHospitalNeed`; no implica implementación.
 - [`docs/openapi.json`](docs/openapi.json): único contrato OpenAPI 3.1 canónico
-  del borrador.
+  del borrador global, con esa única ratificación contractual acotada.
 - `bruno/`: colección importada y escenarios sintéticos de los tres roles.
 - `npm run test:bruno`: inicia el mock en un puerto local efímero, reinicia el
   estado entre escenarios y suprime cuerpos/headers en el reporte.
-- `npm run openapi:types`: regenera tipos de cliente web y DTO HTTP del mock
-  desde el JSON canónico.
-- `npm run test:contract`: modo normal Prism + Ajv2020, 69 éxitos (67 JSON y 2
-  vacíos 204), 32 variantes, 268 errores forzados y 35 ejemplos schema auditados;
-  checks fail-closed de inventario/ejemplos y deriva de tipos, sin demostrar auth real.
-- Las 69 plantillas principales Bruno/26 bodies están canonizadas; 11 paths token
-  y 2 grants necesitan valores sintéticos runtime. Env Prism solo aporta baseUrl.
-  Examples secundarios heredados no canonizados pueden contener apiKey placeholder
-  o bodies incompletos: no usarlos como auth ni entradas canónicas.
+- `npm run openapi:types`: regenera el snapshot y los tipos del DTO backend,
+  además de los tipos de cliente web y DTO HTTP del mock, desde el JSON canónico.
+- `npm run test:contract`: ejecuta el runner Prism + Ajv2020 y sus checks
+  fail-closed de inventario/ejemplos y deriva de tipos, sin demostrar auth real.
+- La colección Bruno contiene requests sintéticos; las rutas con tokens o grants
+  requieren valores sintéticos runtime. Env Prism solo aporta baseUrl. Examples
+  secundarios heredados no canonizados pueden contener apiKey placeholder o
+  bodies incompletos: no usarlos como auth ni entradas canónicas.
 - Swagger Editor **5** soporta OAS 3.1; importación/renderizado visual **pendiente
   humano**, no efectuado ni tooling local instalado. Try it out alojado no garantiza
   Origin/cookies/CSRF y no justifica ampliar CORS. Pasos completos en la guía.

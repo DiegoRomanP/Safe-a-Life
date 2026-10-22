@@ -44,6 +44,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/email-delivery/webhooks/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recibe un evento firmado del proveedor de correo
+         * @description Pública y sin cookie: la autenticidad la da la firma. El cuerpo se verifica crudo antes de interpretarlo. Una firma inválida o con más de 300 s de diferencia responde 401 sin detalle. El mismo svix-id no vuelve a tener efecto. Los eventos email.sent, email.delivered, email.bounced y email.failed avanzan el estado sin retroceder; los demás se aceptan y se ignoran. No guarda ni devuelve destinatarios.
+         */
+        post: operations["receiveResendWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/csrf-token": {
         parameters: {
             query?: never;
@@ -163,6 +183,26 @@ export interface paths {
         put?: never;
         /** Completa MFA para alcanzar AAL2 */
         post: operations["verifyMfaChallenge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa-enrollments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enrola el factor TOTP de un admin o superadmin
+         * @description Solo admin hospitalario o superadmin con sesión AAL1 y sin factor verificado. Devuelve el secreto del autenticador (otpauthUri) y un reto que se completa con verifyMfaChallenge. La respuesta es no-store.
+         */
+        post: operations["enrollMfaFactor"];
         delete?: never;
         options?: never;
         head?: never;
@@ -512,6 +552,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/hospitals/me/sites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lista sedes activas propias para seleccionar una necesidad
+         * @description Solo un admin_hospitalario autenticado en AAL2 con membresía protegida vigente puede consultar esta colección. El servidor deriva el hospital de la identidad actual y la membresía; el hospital debe estar activo y autorizado. Solo devuelve sedes propias activas y aprobadas, filtradas por esa institución en la consulta, sin selectores de hospital del cliente. Revalida la membresía en cada lectura y al crear una necesidad, junto con la pertenencia y vigencia de la sede elegida; esta consulta no sustituye esa revalidación ni cambia el catálogo existente de createHospitalNeed, incluido su 422 uniforme para sede inexistente, ajena o inactiva (RF-ORG-01, RF-NEC-05, RNF-SEC-05/07/08). Solo admite limit y cursor; parámetros desconocidos o inválidos producen 400. El orden estable es siteId ascendente; el cursor es opaco, sin PII y scoped por el servidor al hospital autorizado y a ese orden. Sin sedes elegibles devuelve 200 con items vacío y nextCursor null. Operación draft, no ratificada ni implementada.
+         */
+        get: operations["listOwnHospitalSites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/hospitals/me/needs": {
         parameters: {
             query?: never;
@@ -527,7 +587,7 @@ export interface paths {
         put?: never;
         /**
          * Crea una necesidad de glóbulos rojos
-         * @description El componente permitido es RBC. targetConfirmations representa una meta de intenciones de asistir, nunca unidades ni donaciones realizadas. La sede debe estar activa y pertenecer al hospital autenticado. La urgencia es informativa y no altera la selección (RF-NEC-01 a RF-NEC-05).
+         * @description Operación ratificada únicamente para implementar la creación de una necesidad en borrador; no ratifica las demás operaciones ni implica que exista una API real. El componente permitido es RBC. targetConfirmations representa una meta de intenciones de asistir, nunca unidades ni donaciones realizadas. La sede debe estar activa y pertenecer al hospital autenticado. La urgencia es informativa y no altera la selección (RF-NEC-01 a RF-NEC-05). El cuerpo es cerrado: no admite hospital, rol, propietario, status, datos de paciente ni fecha/historial de donación. Si se omite radiusKm, la intención se normaliza a 10 antes de calcular el hash canónico; omitirlo y enviar 10 son equivalentes para idempotencia. expiresAt se calcula desde la creación con el reloj UTC de PostgreSQL; activar después no lo extiende. Un replay de la misma clave e intención normalizada devuelve el resultado original, incluido expiresAt, sin recalcular el plazo.
          */
         post: operations["createHospitalNeed"];
         delete?: never;
@@ -687,7 +747,10 @@ export interface paths {
          */
         put: operations["publishOwnRecognitionPolicy"];
         post?: never;
-        /** Retira la oferta pública */
+        /**
+         * Retira la oferta pública
+         * @description Solo retira la política del hospital derivado de la identidad vigente y mientras no esté suspendida. Sin cuerpo: expectedVersion es un query requerido, entero no negativo; ausente o inválido responde 400 uniforme. El retiro aplicado compara expectedVersion con la versión vigente, incrementa la versión y rechaza una versión obsoleta con 409. La intención canónica idempotente incluye expectedVersion y se vincula a actor, operación e Idempotency-Key: misma clave e intención reproducen el 204 original sin incrementar otra vez; intención distinta o ejecución en curso responde 409.
+         */
         delete: operations["withdrawOwnRecognitionPolicy"];
         options?: never;
         head?: never;
@@ -866,6 +929,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/superadmin/invitations/{invitationId}/delivery-retries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reintenta manualmente la entrega de una invitación fallida
+         * @description AAL2 + step-up de máximo 5 min (C-4, V5). Solo si la entrega de la invitación quedó en fallida, la invitación sigue activa y la necesidad vigente; renueva los enlaces anteriores y encola un correo nuevo. Responde con un mensaje neutro.
+         */
+        post: operations["retryInvitationDelivery"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/superadmin/memberships/{membershipId}": {
         parameters: {
             query?: never;
@@ -879,7 +962,10 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Revoca membresía hospitalaria */
+        /**
+         * Revoca membresía hospitalaria
+         * @description AAL2 y step-up reciente (RNF-SEC-05); la revocación se audita y la sesión del admin pierde acceso en la petición siguiente.
+         */
         patch: operations["revokeHospitalMembership"];
         trace?: never;
     };
@@ -929,7 +1015,7 @@ export interface paths {
         };
         /**
          * Lee PII exclusivamente bajo grant contextual
-         * @description No permite búsqueda general. Grant debe estar vigente y ligado a superadmin, solicitud, campos y acción.
+         * @description No permite búsqueda general. currentValues se limita al grant vigente ligado al actor superadmin, solicitud, donante, acción concreta y campos autorizados, en intersección con los campos necesarios para esa solicitud. proposedValues se limita al grant vigente ligado al actor superadmin, solicitud, donante, acción concreta y campos autorizados, en intersección con los campos necesarios para esa solicitud. El servidor resuelve al actor desde la identidad validada y al donante desde la solicitud, sin aceptar un selector alternativo de donante. El acceso conserva los controles privilegiados de RNF-SEC-05/06 y la vigencia máxima de 10 minutos del grant; esta proyección no fija un mapping nuevo GET→review o POST→execute ni cambia los endpoints de grants o ejecuciones. Cada proyección solo permite name, email y declaredBloodType como campos opcionales autorizados; sin propuesta, incluida una eliminación sin valores propuestos, proposedValues es un objeto vacío. newEmail de la propuesta se proyecta como email, sin añadir otra categoría ni propiedad al DTO. Resúmenes, auditoría, errores y telemetría permanecen sin valores PII anteriores o propuestos.
          */
         get: operations["getContextualDonorData"];
         put?: never;
@@ -1048,7 +1134,10 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Suspende o levanta suspensión con motivo auditable */
+        /**
+         * Suspende o levanta suspensión con motivo auditable
+         * @description Solo el superadmin puede aplicar publicada -> suspendida o suspendida -> sin_publicar con motivo auditable. Levantar la suspensión no republica la oferta; una nueva publicación corresponde al admin del hospital. Cada mutación compara expectedVersion con la versión vigente, incrementa la versión y rechaza una versión obsoleta con 409.
+         */
         patch: operations["moderateRecognitionPolicy"];
         trace?: never;
     };
@@ -1072,6 +1161,18 @@ export interface components {
         };
         /** @enum {string} */
         BloodType: "O_NEG" | "O_POS" | "A_NEG" | "A_POS" | "B_NEG" | "B_POS" | "AB_NEG" | "AB_POS";
+        /** @description Evento del proveedor de correo. Objeto abierto: solo se leen type, created_at y data.email_id. */
+        ResendWebhookEvent: {
+            type: string;
+            created_at?: string;
+            data: {
+                email_id: string;
+            } & {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
+        };
         /**
          * @description meta_alcanzada y vencida son estados calculados por el sistema; cerrada/cancelada/vencida son terminales.
          * @enum {string}
@@ -1200,6 +1301,7 @@ export interface components {
                 needStatus: components["schemas"]["NeedStatus"];
             };
         };
+        /** @description Cuerpo de creación cerrado. El servidor deriva actor, rol, hospital y propietario; no se aceptan status, datos de paciente ni fecha/historial de donación. */
         CreateNeedRequest: {
             /** @constant */
             component: "RBC";
@@ -1211,8 +1313,8 @@ export interface components {
              * @description Debe identificar una sede activa del hospital autenticado.
              */
             siteId: string;
-            /** @default 10 */
-            radiusKm: number;
+            /** @description Opcional; si se omite se normaliza a 10 antes del hash idempotente, igual que enviar 10 explícitamente. */
+            radiusKm?: number;
             urgency: components["schemas"]["Urgency"];
             expiresInHours: number;
         };
@@ -1305,12 +1407,14 @@ export interface components {
                 queuedEmailCount: number;
             };
         };
+        /** @description Registro mínimo de un lote con conteos de entrega por estado actual; no contiene intentos acumulados ni datos de donantes. */
         InvitationBatchRecord: {
             /** Format: uuid */
             batchId: string;
             /** Format: date-time */
             createdAt: string;
             createdInvitationCount: number;
+            /** @description Cuatro conteos de estado actual mutuamente excluyentes: cada invitación del lote pertenece a un solo estado y su suma es createdInvitationCount. enviada excluye las invitaciones ya entregadas; no son acumulados ni conteos de intentos. AP-02 sigue pendiente respecto de la relación operativa entre estado agregado e intentos y de cuándo un error transitorio pasa a fallida; esta proyección no define reintentos ni umbrales de fallo terminal. */
             deliveryCounts: {
                 pendiente: number;
                 enviada: number;
@@ -1328,7 +1432,7 @@ export interface components {
          *             "createdInvitationCount": 8,
          *             "deliveryCounts": {
          *               "pendiente": 0,
-         *               "enviada": 8,
+         *               "enviada": 2,
          *               "entregada": 6,
          *               "fallida": 0
          *             }
@@ -1416,7 +1520,7 @@ export interface components {
          */
         CsrfTokenEnvelope: {
             data: {
-                token: string;
+                readonly token: string;
             };
         };
         /** @enum {string} */
@@ -1469,6 +1573,20 @@ export interface components {
             /** Format: uuid */
             challengeId: string;
             code: string;
+        };
+        MfaEnrollment: {
+            /** Format: uuid */
+            factorId: string;
+            /**
+             * Format: uri
+             * @description URI otpauth:// para el código QR o la clave del autenticador. Es un secreto: respuesta no-store.
+             */
+            otpauthUri: string;
+            /** Format: uuid */
+            challengeId: string;
+        };
+        MfaEnrollmentEnvelope: {
+            data: components["schemas"]["MfaEnrollment"];
         };
         StepUpVerificationRequest: {
             code: string;
@@ -1844,7 +1962,7 @@ export interface components {
             /** Format: uuid */
             taskId: string;
             /** @enum {string} */
-            kind: "correction_request" | "hospital_review" | "recognition_policy";
+            kind: "correction_request" | "hospital_review" | "recognition_policy" | "delivery_failure";
             /** Format: date-time */
             createdAt: string;
             resourceCode?: string;
@@ -1931,18 +2049,31 @@ export interface components {
             hospitalId: string;
             publicName: string;
             publicAddress?: string;
+            coordinates: components["schemas"]["SiteCoordinates"];
+            /** @description Instrucciones públicas para el donante; si es null se muestra un texto neutral fijo. */
+            publicInstructions?: string | null;
             isActive: boolean;
             isApproved: boolean;
+        };
+        SiteCoordinates: {
+            latitude: number;
+            longitude: number;
         };
         CreateSiteRequest: {
             publicName: string;
             publicAddress: string;
+            coordinates: components["schemas"]["SiteCoordinates"];
+            /** @description Instrucciones públicas para el donante; si se omite se muestra un texto neutral fijo. */
+            publicInstructions?: string;
         };
         UpdateSiteRequest: {
             publicName?: string;
             publicAddress?: string;
             isActive?: boolean;
             isApproved?: boolean;
+            coordinates?: components["schemas"]["SiteCoordinates"];
+            /** @description Instrucciones públicas para el donante; si se omite se muestra un texto neutral fijo. */
+            publicInstructions?: string;
         };
         /**
          * @example {
@@ -1952,12 +2083,29 @@ export interface components {
          *         "publicName": "Sede Centro",
          *         "publicAddress": "Lima Metropolitana",
          *         "isActive": true,
-         *         "isApproved": true
+         *         "isApproved": true,
+         *         "coordinates": {
+         *           "latitude": -12.046374,
+         *           "longitude": -77.042793
+         *         },
+         *         "publicInstructions": null
          *       }
          *     }
          */
         SiteEnvelope: {
             data: components["schemas"]["Site"];
+        };
+        /** @description Proyección mínima para el admin del hospital: solo una sede propia activa y aprobada, no la entidad administrativa Site. */
+        OwnHospitalSite: {
+            /** Format: uuid */
+            siteId: string;
+            publicName: string;
+        };
+        OwnHospitalSiteListEnvelope: {
+            data: {
+                items: components["schemas"]["OwnHospitalSite"][];
+                pagination: components["schemas"]["Pagination"];
+            };
         };
         /**
          * @example {
@@ -1969,7 +2117,12 @@ export interface components {
          *             "publicName": "Sede Centro",
          *             "publicAddress": "Lima Metropolitana",
          *             "isActive": true,
-         *             "isApproved": true
+         *             "isApproved": true,
+         *             "coordinates": {
+         *               "latitude": -12.046374,
+         *               "longitude": -77.042793
+         *             },
+         *             "publicInstructions": null
          *           }
          *         ]
          *       }
@@ -2081,19 +2234,35 @@ export interface components {
             };
         };
         /**
+         * @description Comparación contextual minimizada para una solicitud concreta; no agrega identificadores ni categorías de datos y no se reutiliza en resúmenes o auditoría.
          * @example {
          *       "data": {
-         *         "name": "Donante Demo",
-         *         "declaredBloodType": "O_POS"
+         *         "currentValues": {
+         *           "name": "Donante Demo"
+         *         },
+         *         "proposedValues": {
+         *           "name": "Donante Demo Corregido"
+         *         }
          *       }
          *     }
          */
         ContextualDonorDataEnvelope: {
+            /** @description Ambas proyecciones se incluyen siempre como objetos cerrados; solo contienen la intersección de campos autorizados y necesarios para la solicitud. */
             data: {
-                name?: string;
-                /** Format: email */
-                email?: string;
-                declaredBloodType?: components["schemas"]["BloodType"];
+                /** @description currentValues se limita al grant vigente ligado al actor superadmin, solicitud, donante, acción concreta y campos autorizados, en intersección con los campos necesarios para la solicitud: valores actuales persistidos, solo de campos autorizados presentes. */
+                currentValues: {
+                    name?: string;
+                    /** Format: email */
+                    email?: string;
+                    declaredBloodType?: components["schemas"]["BloodType"];
+                };
+                /** @description proposedValues se limita al grant vigente ligado al actor superadmin, solicitud, donante, acción concreta y campos autorizados, en intersección con los campos necesarios para la solicitud: solo valores propuestos presentes, proyectando newEmail como email y devolviendo un objeto vacío cuando no hay propuesta, incluida una eliminación sin valores propuestos. */
+                proposedValues: {
+                    name?: string;
+                    /** Format: email */
+                    email?: string;
+                    declaredBloodType?: components["schemas"]["BloodType"];
+                };
             };
         };
         /**
@@ -2152,9 +2321,10 @@ export interface components {
                 pagination: components["schemas"]["Pagination"];
             };
         };
+        /** @description suspendida solicita publicada -> suspendida; sin_publicar solicita suspendida -> sin_publicar. Levantar la suspensión no republica la oferta. La publicación posterior corresponde al admin del hospital, no a esta moderación. */
         ModerateRecognitionPolicyRequest: {
             /** @enum {string} */
-            status: "suspendida" | "publicada";
+            status: "suspendida" | "sin_publicar";
             reason: string;
             expectedVersion: number;
         };
@@ -2196,7 +2366,7 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
-        /** @description Actor autenticado sin permiso; no revelar datos del recurso ajeno. */
+        /** @description Actor sin permiso, o petición directa sin el secreto de borde (X-Edge-Secret); no revelar datos del recurso ajeno. */
         Forbidden: {
             headers: {
                 [name: string]: unknown;
@@ -2395,6 +2565,7 @@ export interface operations {
                     "application/json": components["schemas"]["HealthEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
             500: components["responses"]["InternalServerError"];
         };
@@ -2424,7 +2595,61 @@ export interface operations {
                     "application/json": components["schemas"]["HealthEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    receiveResendWebhook: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Identificador único del evento; sirve para deduplicar.
+                 * @example msg_sintetico_0001
+                 */
+                "svix-id": string;
+                /**
+                 * @description Segundos desde la época en que el proveedor firmó el evento.
+                 * @example 1760356800
+                 */
+                "svix-timestamp": string;
+                /**
+                 * @description Lista de firmas `v1,<base64>` separadas por espacios; basta con que una coincida.
+                 * @example v1,c2ludGV0aWNvc2ludGV0aWNvc2ludGV0aWNvc2ludGV0aWNv
+                 */
+                "svix-signature": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "type": "email.delivered",
+                 *       "created_at": "2026-10-13T12:00:00.000Z",
+                 *       "data": {
+                 *         "email_id": "00000000-0000-4000-8000-000000000001"
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["ResendWebhookEvent"];
+            };
+        };
+        responses: {
+            /** @description Evento aceptado, duplicado o ignorado. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
             503: components["responses"]["ServiceUnavailable"];
         };
@@ -2447,8 +2672,12 @@ export interface operations {
                     "application/json": components["schemas"]["CsrfTokenEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getCurrentSession: {
@@ -2469,8 +2698,12 @@ export interface operations {
                     "application/json": components["schemas"]["AuthSessionEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createSession: {
@@ -2521,9 +2754,11 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     deleteCurrentSession: {
@@ -2548,7 +2783,9 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     requestPasswordRecovery: {
@@ -2589,8 +2826,11 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     completePasswordReset: {
@@ -2626,11 +2866,15 @@ export interface operations {
                     "application/json": components["schemas"]["NeutralMessageEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             410: components["responses"]["Gone"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     verifyMfaChallenge: {
@@ -2678,10 +2922,54 @@ export interface operations {
                     "application/json": components["schemas"]["AuthSessionEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    enrollMfaFactor: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave estable para reintentos de la misma intención. El servidor la liga a actor, operación y hash canónico del payload; no registrar su valor. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Factor creado pendiente de verificación. */
+            201: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    "Referrer-Policy"?: "no-referrer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "factorId": "6f1c2c1e-9f47-4b0c-8d6a-2f6a3a5c1e01",
+                     *         "otpauthUri": "otpauth://totp/Save%20a%20Life:admin@example.test?secret=EJEMPLOSINTETICO&issuer=Save%20a%20Life",
+                     *         "challengeId": "cb6ad07d-04d3-4e94-9534-4c0b4d1530f8"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["MfaEnrollmentEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     verifyStepUp: {
@@ -2714,10 +3002,13 @@ export interface operations {
                     "application/json": components["schemas"]["StepUpEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createDonorRegistration: {
@@ -2759,9 +3050,12 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getDonorEmailVerificationPreview: {
@@ -2787,8 +3081,13 @@ export interface operations {
                     "application/json": components["schemas"]["EmailActionPreviewEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             410: components["responses"]["Gone"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     verifyDonorEmail: {
@@ -2806,20 +3105,23 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Email verificado; inicia sesión de onboarding. */
+            /** @description Correo verificado. No inicia sesión (la operación no recibe contraseña): la persona inicia sesión con la que eligió y completa el perfil. */
             200: {
                 headers: {
-                    /** @description Cookie de sesión Secure/HttpOnly; el nombre definitivo se fija en Sprint 0. */
-                    "Set-Cookie"?: string;
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["DonorOnboardingEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             410: components["responses"]["Gone"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getAssistedActivationPreview: {
@@ -2845,8 +3147,13 @@ export interface operations {
                     "application/json": components["schemas"]["EmailActionPreviewEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             410: components["responses"]["Gone"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     claimAssistedRegistration: {
@@ -2885,10 +3192,14 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             410: components["responses"]["Gone"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     completeDonorOnboarding: {
@@ -2927,9 +3238,15 @@ export interface operations {
                     "application/json": components["schemas"]["OwnDonorProfileEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getOwnDonorProfile: {
@@ -2964,10 +3281,13 @@ export interface operations {
                     "application/json": components["schemas"]["OwnDonorProfileEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     updateOwnDonorParticipation: {
@@ -3010,7 +3330,9 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listOwnInvitations: {
@@ -3036,9 +3358,12 @@ export interface operations {
                     "application/json": components["schemas"]["OwnInvitationsEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getOwnInvitation: {
@@ -3061,10 +3386,13 @@ export interface operations {
                     "application/json": components["schemas"]["OwnInvitationDetailEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     changeOwnInvitationResponse: {
@@ -3105,7 +3433,9 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listOwnResponseHistory: {
@@ -3131,10 +3461,13 @@ export interface operations {
                     "application/json": components["schemas"]["OwnResponseHistoryEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listOwnCorrectionRequests: {
@@ -3160,10 +3493,13 @@ export interface operations {
                     "application/json": components["schemas"]["CorrectionRequestListEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createOwnCorrectionRequest: {
@@ -3204,7 +3540,9 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getOwnCorrectionRequest: {
@@ -3227,10 +3565,13 @@ export interface operations {
                     "application/json": components["schemas"]["CorrectionRequestEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getEmailChangePreview: {
@@ -3256,8 +3597,13 @@ export interface operations {
                     "application/json": components["schemas"]["EmailActionPreviewEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             410: components["responses"]["Gone"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     verifyEmailChange: {
@@ -3284,9 +3630,14 @@ export interface operations {
                     "application/json": components["schemas"]["NeutralMessageEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             410: components["responses"]["Gone"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listPublishedRecognitionPolicies: {
@@ -3373,9 +3724,13 @@ export interface operations {
                     "application/json": components["schemas"]["InvitationActionPreviewEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             410: components["responses"]["Gone"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     recordInitialInvitationResponse: {
@@ -3412,12 +3767,46 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             410: components["responses"]["Gone"];
             422: components["responses"]["UnprocessableEntity"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    listOwnHospitalSites: {
+        parameters: {
+            query?: {
+                /** @description Límite por página propuesto; el máximo debe aplicarse también en servidor. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Cursor opaco devuelto por la página anterior; no contiene PII. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Página minimizada de sedes propias activas y aprobadas; la ausencia de sedes devuelve una página vacía, no un error. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnHospitalSiteListEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listOwnHospitalNeeds: {
@@ -3445,10 +3834,13 @@ export interface operations {
                     "application/json": components["schemas"]["NeedListEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createHospitalNeed: {
@@ -3478,7 +3870,7 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Necesidad creada en borrador. */
+            /** @description Creación idempotente de una necesidad en borrador. expiresAt es una fecha-hora RFC 3339 en UTC calculada desde la creación por PostgreSQL; activar no extiende el plazo y replay devuelve este resultado original. */
             201: {
                 headers: {
                     [name: string]: unknown;
@@ -3500,7 +3892,16 @@ export interface operations {
                      *       }
                      *     }
                      */
-                    "application/json": components["schemas"]["NeedEnvelope"];
+                    "application/json": components["schemas"]["NeedEnvelope"] & {
+                        data: components["schemas"]["Need"] & {
+                            /** @constant */
+                            status: "borrador";
+                            /** @constant */
+                            confirmedIntentCount: 0;
+                            /** Format: date-time */
+                            expiresAt?: string;
+                        };
+                    };
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -3508,7 +3909,9 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getOwnHospitalNeed: {
@@ -3532,10 +3935,13 @@ export interface operations {
                     "application/json": components["schemas"]["NeedEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     transitionOwnHospitalNeed: {
@@ -3577,7 +3983,9 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listOwnInvitationBatches: {
@@ -3610,7 +4018,9 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     requestInvitationBatch: {
@@ -3654,6 +4064,7 @@ export interface operations {
             422: components["responses"]["UnprocessableEntity"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listOwnNeedResponses: {
@@ -3686,7 +4097,9 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listOwnAssistedSignups: {
@@ -3712,9 +4125,12 @@ export interface operations {
                     "application/json": components["schemas"]["AssistedSignupListEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createAssistedSignup: {
@@ -3765,6 +4181,8 @@ export interface operations {
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
             429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getOwnAssistedSignup: {
@@ -3787,9 +4205,13 @@ export interface operations {
                     "application/json": components["schemas"]["AssistedSignupCreatedEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     reissueAssistedActivationLink: {
@@ -3815,11 +4237,15 @@ export interface operations {
                     "application/json": components["schemas"]["NeutralMessageEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getOwnRecognitionPolicy: {
@@ -3886,7 +4312,10 @@ export interface operations {
     };
     withdrawOwnRecognitionPolicy: {
         parameters: {
-            query?: never;
+            query: {
+                /** @description Versión esperada de la política propia para el retiro con control de concurrencia optimista. */
+                expectedVersion: number;
+            };
             header: {
                 /** @description Clave estable para reintentos de la misma intención. El servidor la liga a actor, operación y hash canónico del payload; no registrar su valor. */
                 "Idempotency-Key": components["parameters"]["IdempotencyKey"];
@@ -3903,6 +4332,7 @@ export interface operations {
                 };
                 content?: never;
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
@@ -3929,8 +4359,13 @@ export interface operations {
                     "application/json": components["schemas"]["AdminInvitationPreviewEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             410: components["responses"]["Gone"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     claimHospitalAdminInvitation: {
@@ -3983,10 +4418,14 @@ export interface operations {
                 };
             };
             400: components["responses"]["BadRequest"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             410: components["responses"]["Gone"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listSuperadminTasks: {
@@ -4007,9 +4446,12 @@ export interface operations {
                     "application/json": components["schemas"]["SuperadminTasksEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listHospitals: {
@@ -4035,10 +4477,13 @@ export interface operations {
                     "application/json": components["schemas"]["HospitalListEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createHospital: {
@@ -4072,10 +4517,14 @@ export interface operations {
                     "application/json": components["schemas"]["HospitalEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getHospital: {
@@ -4098,9 +4547,13 @@ export interface operations {
                     "application/json": components["schemas"]["HospitalEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     updateHospital: {
@@ -4135,11 +4588,15 @@ export interface operations {
                     "application/json": components["schemas"]["HospitalEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listHospitalSites: {
@@ -4162,9 +4619,13 @@ export interface operations {
                     "application/json": components["schemas"]["SiteListEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createHospitalSite: {
@@ -4184,7 +4645,11 @@ export interface operations {
                 /**
                  * @example {
                  *       "publicName": "Sede Centro Demo",
-                 *       "publicAddress": "Lima Metropolitana"
+                 *       "publicAddress": "Lima Metropolitana",
+                 *       "coordinates": {
+                 *         "latitude": -12.046374,
+                 *         "longitude": -77.042793
+                 *       }
                  *     }
                  */
                 "application/json": components["schemas"]["CreateSiteRequest"];
@@ -4200,10 +4665,15 @@ export interface operations {
                     "application/json": components["schemas"]["SiteEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     updateHospitalSite: {
@@ -4238,10 +4708,15 @@ export interface operations {
                     "application/json": components["schemas"]["SiteEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listHospitalMemberships: {
@@ -4267,8 +4742,13 @@ export interface operations {
                     "application/json": components["schemas"]["MembershipListEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     inviteHospitalAdmin: {
@@ -4302,10 +4782,48 @@ export interface operations {
                     "application/json": components["schemas"]["NeutralMessageEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    retryInvitationDelivery: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Clave estable para reintentos de la misma intención. El servidor la liga a actor, operación y hash canónico del payload; no registrar su valor. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                invitationId: components["parameters"]["InvitationId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reintento aceptado. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NeutralMessageEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            410: components["responses"]["Gone"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     revokeHospitalMembership: {
@@ -4341,10 +4859,15 @@ export interface operations {
                     "application/json": components["schemas"]["MembershipEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listCorrectionRequests: {
@@ -4370,8 +4893,12 @@ export interface operations {
                     "application/json": components["schemas"]["CorrectionRequestListEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getCorrectionRequest: {
@@ -4394,9 +4921,13 @@ export interface operations {
                     "application/json": components["schemas"]["CorrectionRequestEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     decideCorrectionRequest: {
@@ -4432,11 +4963,15 @@ export interface operations {
                     "application/json": components["schemas"]["CorrectionRequestEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getContextualDonorData: {
@@ -4462,10 +4997,14 @@ export interface operations {
                     "application/json": components["schemas"]["ContextualDonorDataEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             410: components["responses"]["Gone"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     executeApprovedCorrectionRequest: {
@@ -4493,11 +5032,15 @@ export interface operations {
                     "application/json": components["schemas"]["CorrectionRequestEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             410: components["responses"]["Gone"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createContextualAccessGrant: {
@@ -4535,10 +5078,14 @@ export interface operations {
                     "application/json": components["schemas"]["AccessGrantEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getSuperadminConfiguration: {
@@ -4559,9 +5106,12 @@ export interface operations {
                     "application/json": components["schemas"]["ConfigurationEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     setFinalDemoAt: {
@@ -4594,10 +5144,14 @@ export interface operations {
                     "application/json": components["schemas"]["ConfigurationEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listAuditEvents: {
@@ -4623,10 +5177,13 @@ export interface operations {
                     "application/json": components["schemas"]["AuditEventListEnvelope"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listRecognitionPoliciesForModeration: {
@@ -4681,13 +5238,33 @@ export interface operations {
             };
         };
         responses: {
-            /** @description Moderación aplicada y auditada. */
+            /** @description Moderación aplicada y auditada; estado suspendida o sin_publicar, nunca una republicación. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RecognitionPolicyEnvelope"];
+                    /**
+                     * @example {
+                     *       "data": {
+                     *         "hospitalId": "a8b51767-5c30-41fb-bf7a-f90250f9649c",
+                     *         "hospitalName": "Hospital Demo",
+                     *         "status": "suspendida",
+                     *         "offeredItems": [
+                     *           "refrigerio",
+                     *           "diploma"
+                     *         ],
+                     *         "version": 3,
+                     *         "updatedAt": "2026-10-01T18:10:00Z"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["RecognitionPolicyEnvelope"] & {
+                        data?: {
+                            /** @enum {string} */
+                            status?: "suspendida" | "sin_publicar";
+                        };
+                    };
                 };
             };
             401: components["responses"]["Unauthorized"];

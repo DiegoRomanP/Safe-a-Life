@@ -78,6 +78,7 @@ export async function withPrism(task, { signal = AbortSignal.timeout(totalMs), r
     if (child.exitCode === null && child.signalCode === null) child.kill('SIGTERM');
     if (!await waitForClose(closed, 2000)) {
       child.kill('SIGKILL');
+      // eslint-disable-next-line no-unsafe-finally -- un cierre fallido debe prevalecer sobre el resultado de la tarea
       if (!await waitForClose(closed, 2000)) throw new ContractError('CLEANUP_TIMEOUT');
     }
   }
@@ -157,7 +158,17 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     if (process.argv.length !== 2) throw new ContractError('CLI_ARGUMENTS');
     const stats = await runContract(AbortSignal.any([controller.signal, AbortSignal.timeout(totalMs)]));
-    process.stdout.write(`Contract: ${stats.operations}/69 operations; ${stats.json}/67 JSON; ${stats.empty}/2 empty 204; ${stats.bodies}/26 media bodies; ${stats.variants}/32 selectable variants (${stats.variantCollections} collections); ${stats.errors} forced declared errors; ${stats.requests} HTTP checks; ${stats.schemaExamples} schema examples audited. Reviewed tuple inventory, license XOR and type drift checked.\n`);
+    const summary = [
+      `${stats.operations} operations in inventory`,
+      `${stats.json} JSON success responses`,
+      `${stats.empty} empty 204 responses`,
+      `${stats.bodies} operations with request bodies`,
+      `${stats.variants} named response variants across ${stats.variantCollections} collections`,
+      `${stats.errors} declared error responses`,
+      `${stats.requests} HTTP checks completed`,
+      `${stats.schemaExamples} schema examples audited`,
+    ].join('; ');
+    process.stdout.write(`Contract: ${summary}. Reviewed tuple inventory, license XOR and type drift checked.\n`);
   } catch (error) {
     process.stderr.write(`${error instanceof ContractError ? error.message : 'Contract runner failed (details suppressed).'}\n`);
     process.exitCode = exitSignal === 'SIGINT' ? 130 : exitSignal === 'SIGTERM' ? 143 : 1;

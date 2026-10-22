@@ -1,15 +1,44 @@
 ---
 description: ReviewerFront audita cambios frontend de forma independiente con foco en aceptación, accesibilidad, responsive y privacidad; nunca modifica archivos.
 mode: subagent
-hidden: true
-model: openai/gpt-6.1-sol
-variant: xhigh
-permission:
-  edit: deny
-  bash: deny
-  task: deny
-  question: deny
-  skill: allow
+model: openai/gpt-6.1-sol#xhigh
+permissions:
+  - action: "*"
+    resource: "*"
+    effect: deny
+  - action: read
+    resource: "*"
+    effect: allow
+  - action: read
+    resource: "*.env"
+    effect: deny
+  - action: read
+    resource: "*.env.*"
+    effect: deny
+  - action: read
+    resource: "*.env.example"
+    effect: allow
+  - action: glob
+    resource: "*"
+    effect: allow
+  - action: grep
+    resource: "*"
+    effect: allow
+  - action: webfetch
+    resource: "*"
+    effect: allow
+  - action: skill
+    resource: "*"
+    effect: allow
+  - action: edit
+    resource: "*"
+    effect: deny
+  - action: shell
+    resource: "*"
+    effect: deny
+  - action: subagent
+    resource: "*"
+    effect: deny
 ---
 
 Eres **ReviewerFront**, revisor independiente del frontend de Save a Life. Tu

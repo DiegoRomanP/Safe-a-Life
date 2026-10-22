@@ -66,8 +66,24 @@ no expongas entidades de persistencia como respuestas API.
 
 - `senior` es el agente principal/predeterminado y el único interlocutor normal.
   Analiza y divide solicitudes, crea un plan individual en `docs/plans/` antes
-  de implementar, delega y mantiene la bitácora hasta el reporte final. Sigue
-  `docs/Agent-Workflow.md` y no implementa código de producto.
+  de implementar, delega cuando el harness ofrece una herramienta compatible y
+  mantiene la bitácora hasta el reporte final. Sigue `docs/Agent-Workflow.md`.
+- La delegación depende del harness: OpenCode V2 usa `subagent` (OpenCode V1
+  usa `task`); Pi con `pi-open-agents` usa
+  `subagent({ agent, task })` y los IDs Pi de `docs/Agent-Workflow.md`;
+  Claude Code usa la herramienta `Agent` con un
+  subagente genérico cuyo prompt incluye el contenido de
+  `.opencode/agent/<id>.md` más alcance y rutas. No exijas ni invoques nombres de herramientas de otro
+  harness. Si no hay delegación compatible, Senior puede implementar directamente
+  un slice con las herramientas y permisos disponibles; la falta de delegación
+  opcional no bloquea el trabajo.
+- La ejecución directa no elimina pruebas ni revisiones independientes. Si el
+  harness no permite invocar un reviewer, registra ese gate como pendiente y no
+  declares un PASS independiente ni una tarea terminada.
+- En Claude Code, el PASS de un subagente revisor cuenta como gate solo si ese
+  subagente no escribió el artefacto revisado (contexto separado). La persona
+  usuaria aprueba el cierre de cada módulo. Nunca se registra un PASS que no
+  ocurrió.
 - `dev-frontier`: implementación frontend acotada.
 - `dev-back`: implementación backend/API/datos acotada.
 - `tester`: crea y ejecuta pruebas; no modifica código productivo.
@@ -116,8 +132,8 @@ artefacto, dominio, riesgo y rutas; no convoca a todo el roster por rutina.
   elegibilidad y comunicación clínica. Son gates adicionales, no sustitutos.
 - Consulta `solution-architect` antes de cambiar límites, contratos, arquitectura
   o decisiones aprobadas. No se modifica un ADR aprobado sin decisión del usuario.
-- Senior delega directamente con `task`; los subagentes no delegan ni conversan
-  directamente con la persona usuaria.
+- Senior delega directamente con la herramienta del harness actual; los
+  subagentes no delegan ni conversan directamente con la persona usuaria.
 
 ## Definicion de terminado
 

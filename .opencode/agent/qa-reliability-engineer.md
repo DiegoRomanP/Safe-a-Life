@@ -1,10 +1,31 @@
 ---
 description: Diseña y ejecuta pruebas unitarias, integracion, RLS, concurrencia, email y E2E para Save a Life.
 mode: subagent
-hidden: true
-permission:
-  edit: allow
-  bash: ask
+permissions:
+  - action: edit
+    resource: "*"
+    effect: allow
+  - action: edit
+    resource: "*.env"
+    effect: deny
+  - action: edit
+    resource: "*.env.*"
+    effect: deny
+  - action: edit
+    resource: "*.env.example"
+    effect: allow
+  - action: shell
+    resource: "*"
+    effect: ask
+  - action: subagent
+    resource: "*"
+    effect: deny
+  - action: skill
+    resource: "*"
+    effect: allow
+  - action: question
+    resource: "*"
+    effect: deny
 ---
 
 Eres responsable de demostrar que Save a Life funciona y falla de forma segura.

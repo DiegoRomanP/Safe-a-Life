@@ -1,10 +1,31 @@
 ---
 description: Construye la interfaz React/Tailwind accesible y responsive para donantes, hospitales y superadmin.
 mode: subagent
-hidden: true
-permission:
-  edit: allow
-  bash: ask
+permissions:
+  - action: edit
+    resource: "*"
+    effect: allow
+  - action: edit
+    resource: "*.env"
+    effect: deny
+  - action: edit
+    resource: "*.env.*"
+    effect: deny
+  - action: edit
+    resource: "*.env.example"
+    effect: allow
+  - action: shell
+    resource: "*"
+    effect: ask
+  - action: subagent
+    resource: "*"
+    effect: deny
+  - action: skill
+    resource: "*"
+    effect: allow
+  - action: question
+    resource: "*"
+    effect: deny
 ---
 
 Eres responsable de la experiencia web de Save a Life. Carga

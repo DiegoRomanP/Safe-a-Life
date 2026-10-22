@@ -690,7 +690,7 @@ export function createApp(initialState: DemoState = createDemoState()) {
       sendError(response, 422, 'VALIDATION_FAILED', 'Uno o más valores no cumplen las reglas del campo.');
       return;
     }
-    const needInput: ApiSchemas['CreateNeedRequest'] = input.data;
+    const needInput = input.data satisfies ApiSchemas['CreateNeedRequest'];
     if (state.siteHospitalIds.get(needInput.siteId) !== hospitalId) {
       sendError(response, 422, 'VALIDATION_FAILED', 'Uno o más valores no cumplen las reglas del campo.');
       return;

@@ -1,0 +1,26 @@
+meta {
+  name: Login del donante
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/sessions
+  body: json
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{$guid}}
+}
+
+body:json {
+  {"email":"{{privacyDonorEmail}}","password":"{{donorPassword}}"}
+}
+
+tests {
+  test("entra sin MFA como donante", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.actor.role).to.equal("donante");
+  });
+}

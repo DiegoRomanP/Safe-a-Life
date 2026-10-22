@@ -1,0 +1,21 @@
+meta {
+  name: Listar las altas propias
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/assisted-signups?limit=100
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("lista la proyección operativa sin correos", function () {
+    expect(res.getStatus()).to.equal(200);
+    var items = res.getBody().data.items;
+    expect(items.some(function (item) { return item.signupId === bru.getVar("signupId"); })).to.equal(true);
+    expect(JSON.stringify(res.getBody())).to.not.contain("@");
+    expect(res.getBody().data.pagination).to.have.property("nextCursor");
+  });
+}
