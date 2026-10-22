@@ -60,7 +60,7 @@ describe('HOS-06 Altas asistidas', () => {
   it('valida el correo y enfoca el campo', () => {
     const view = renderRoute('/hospital/altas');
     click(button(view, 'Enviar invitación'));
-    expect(view.textContent).toContain('Ingresa tu correo.');
+    expect(view.textContent).toContain('Ingresa el correo de la persona.');
     expect(document.activeElement).toBe(control(view, 'Correo'));
   });
 
@@ -78,6 +78,6 @@ describe('HOS-06 Altas asistidas', () => {
   it('reenviar un enlace pendiente lo anuncia con el código de la alta', () => {
     const view = renderRoute('/hospital/altas');
     click([...view.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Reenviar enlace')) ?? null);
-    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Enlace reenviado para ALT-771A');
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Solicitud de reenvío procesada para ALT-771A');
   });
 });

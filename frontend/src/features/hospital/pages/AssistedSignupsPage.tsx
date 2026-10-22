@@ -47,7 +47,8 @@ export function AssistedSignupsPage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const found = {
-      email: emailError(email),
+      // El correo es de otra persona: el mensaje no dice «tu correo».
+      email: email.trim() ? emailError(email) : 'Ingresa el correo de la persona.',
       name: name.trim().length > 120 ? 'El nombre puede tener como máximo 120 caracteres.' : undefined,
     };
     flushSync(() => setErrors(found));
@@ -65,8 +66,8 @@ export function AssistedSignupsPage() {
   function handleReissue(signup: AssistedSignup) {
     reissueSignup(signup.signupId);
     setNotice({
-      message: `Enlace reenviado para ${signupCode(signup.signupId)}`,
-      detail: 'El enlace anterior deja de servir y el nuevo dura 24 horas.',
+      message: `Solicitud de reenvío procesada para ${signupCode(signup.signupId)}`,
+      detail: 'Si corresponde, se emite un enlace nuevo de 24 horas y el anterior deja de servir.',
     });
   }
 

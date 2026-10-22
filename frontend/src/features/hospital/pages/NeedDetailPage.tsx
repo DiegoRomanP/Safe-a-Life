@@ -194,9 +194,9 @@ export function NeedDetailPage() {
             <LinkButton to={`/hospital/necesidades/${need.needId}/lotes`} variant="ghost">
               Ver lotes y entregas
             </LinkButton>
-          <LinkButton to={`/hospital/necesidades/${need.needId}/respuestas`} variant="secondary">
-            Ver todas las respuestas
-          </LinkButton>
+            <LinkButton to={`/hospital/necesidades/${need.needId}/respuestas`} variant="secondary">
+              Ver todas las respuestas
+            </LinkButton>
           </div>
         </div>
         {confirmed.length === 0 ? (
