@@ -56,11 +56,14 @@ export function RequestDetailPage() {
   const [accessError, setAccessError] = useState<string>();
   const [decisionReason, setDecisionReason] = useState('');
   const [decisionError, setDecisionError] = useState<string>();
+  const [decision, setDecision] = useState<'aprobada' | 'rechazada' | null>(null);
+  const [choiceError, setChoiceError] = useState<string>();
   const [executeReason, setExecuteReason] = useState('');
   const [executeError, setExecuteError] = useState<string>();
   const [notice, setNotice] = useState<Notice | null>(null);
   const accessRef = useRef<HTMLInputElement>(null);
   const decisionRef = useRef<HTMLInputElement>(null);
+  const approveRef = useRef<HTMLInputElement>(null);
   const executeRef = useRef<HTMLInputElement>(null);
   const request = requests.find((item) => item.requestId === requestId);
 
@@ -96,14 +99,23 @@ export function RequestDetailPage() {
     });
   }
 
+  // La decisión se elige de forma explícita (radio obligatorio) y hay un solo
+  // botón de envío: pulsar Enter en el motivo nunca aprueba por defecto.
   function handleDecision(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const decision = (event.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'aprobada' ? 'aprobada' : 'rechazada';
-    const found = reasonError(decisionReason, 'Indica el motivo de la decisión.');
-    flushSync(() => setDecisionError(found));
-    if (found) return decisionRef.current?.focus();
+    const found = {
+      choice: decision ? undefined : 'Elige si apruebas o rechazas la solicitud.',
+      reason: reasonError(decisionReason, 'Indica el motivo de la decisión.'),
+    };
+    flushSync(() => {
+      setChoiceError(found.choice);
+      setDecisionError(found.reason);
+    });
+    if (found.choice) return approveRef.current?.focus();
+    if (found.reason || !decision) return decisionRef.current?.focus();
     decideRequest(request!.requestId, decision, decisionReason.trim());
     setDecisionReason('');
+    setDecision(null);
     setNotice({
       message: decision === 'aprobada' ? `${code} aprobada` : `${code} rechazada`,
       detail: decision === 'aprobada' ? 'Ahora puede ejecutarse.' : 'La persona verá el estado en sus solicitudes.',
@@ -241,6 +253,37 @@ export function RequestDetailPage() {
       {isPending && (
         <Card title="Decisión">
           <form noValidate onSubmit={handleDecision} className="flex flex-col gap-4 sm:max-w-[560px]">
+            <fieldset
+              className="flex flex-col gap-2"
+              aria-invalid={choiceError ? true : undefined}
+              aria-describedby={choiceError ? 'decision-eleccion-error' : undefined}
+            >
+              <legend className="mb-1 text-sm font-semibold text-ink">Decisión (obligatorio)</legend>
+              {(
+                [
+                  ['aprobada', 'Aprobar'],
+                  ['rechazada', 'Rechazar'],
+                ] as const
+              ).map(([value, label]) => (
+                <label key={value} className="flex min-h-11 items-center gap-3 text-ink">
+                  <input
+                    ref={value === 'aprobada' ? approveRef : undefined}
+                    type="radio"
+                    name="decision"
+                    value={value}
+                    checked={decision === value}
+                    onChange={() => setDecision(value)}
+                    className="size-4 accent-petrol"
+                  />
+                  {label}
+                </label>
+              ))}
+              {choiceError && (
+                <p id="decision-eleccion-error" className="text-sm text-danger">
+                  {choiceError}
+                </p>
+              )}
+            </fieldset>
             <Field
               label="Motivo de la decisión"
               hint="Queda en la solicitud y en la auditoría. No incluyas datos personales."
@@ -257,13 +300,14 @@ export function RequestDetailPage() {
                 />
               )}
             </Field>
-            <div className="flex flex-wrap gap-3">
-              <Button type="submit" name="decision" value="aprobada">
-                Aprobar
-              </Button>
-              <Button type="submit" name="decision" value="rechazada" variant="danger">
-                Rechazar
-              </Button>
+            {isCorrection && request.requestedFields.includes('declaredBloodType') && (
+              <Alert tone="warning" title="Aprobar no verifica el grupo">
+                Aprobar actualiza el grupo declarado; no constituye verificación de grupo. La verificación de identidad,
+                grupo y elegibilidad corresponde al hospital.
+              </Alert>
+            )}
+            <div>
+              <Button type="submit">Registrar decisión</Button>
             </div>
           </form>
         </Card>
