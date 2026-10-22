@@ -56,7 +56,19 @@ Determinado por lectura de código y `git log`; **ninguno tiene prueba de regres
 - F7: **BLOCKED.** `createContextualAccessGrant` y `getContextualDonorData` devuelven 409 (`privacy_requests.sql:358-366,419-427`) y `docs/openapi.json` no lo documenta; la prueba de integración `privacy-requests.integration.ts:133` fija esa desviación. Requiere decisión: añadir 409 al contrato (cambio sobre operaciones ratificadas) o remapear. Obs. baja: el worker marca `fallida` una solicitud cuyo correo sí cambió (`privacy_execution.sql:258`); `get_contextual_donor_data` es DEFINER de lectura no enumerada en ADR-003.
 - `security-privacy-auditor` sobre F5/F7 y `clinical-safety-reviewer`: **pendientes**.
 
-## Pendiente
+## Actualización 2026-10-22: F7, SP-01, P-12 y gates
+
+Decisiones de la persona usuaria: A1 (B1–B4, SP-04), F7 opción (a), A2 (ADR-007 aceptado) y P-12 opción (a) solo para V15. Commits: `da618cd`, `a5110eb`, `1e0bbd3`, `86afd2f`, `f58ab8e`, `0dd60f9`, `83c1f7b`, `48ca797`, `c864044` (409 de F7), `a9193aa` (SP-01) y `c4aab53` (P-12).
+
+- **F7:** 409 documentado en `createContextualAccessGrant` y `getContextualDonorData`; runner de contrato 512 errores y 619 casos. El `reviewer-back` pasó de BLOCKED a resuelto (sin re-revisión formal del cambio de contrato; verificado por lint, `api:check` y `test:contract`).
+- **SP-01:** ADR-007 aceptado e implementado (migración `20261022000000_session_barrier.sql`, 3 RPC técnicas, Express con ticket y admisión, 95 aserciones pgTAP). S1 (refresh y AAL2 conservan `session_id`) **confirmado** en integración real; S2 confirmado; S3 (`signOut` local con sesión no admitida) solo mockeado.
+- **P-12 (a):** `AuthAdmin.deleteAccount` para la eliminación V15 (ADR-006, cinco métodos). Un resultado incierto de Auth deja la solicitud `en_ejecucion` (503) en vez de `fallida`. **Siguen abiertas** las purgas del worker (`reclamada_incompleta` > 30 días, inertes > 24 h); la purga de inertes a las 24 h descrita en ADR-006 no existe en el código.
+- **Gates:** V8 → `reviewer-back` PASS, `security-privacy-auditor` PASS. F5 → ambos PASS. F7 → `security` PASS; `reviewer-back` BLOCKED resuelto con el 409. SP-01/P-12 → `reviewer-back` PASS en código (BLOCKED en pruebas, corregido: refresh real, pgTAP tabla por tabla, Bruno 12 eliminado por no discriminar, aserción débil) y `security` PASS con re-revisión del delta. **`clinical-safety-reviewer`: no ejecutado** (F5–F7 no tocan copia clínica nueva en esta fase; se hará con F6).
+- **Regresión final (BD reseteada):** `api:check`, typecheck, lint y build exit 0; pgTAP 788; integración 218 (dos pasadas); Bruno backend 152 requests; Bruno mock verde; contrato 72/72.
+
+**Abiertos para decisión:** (1) purgas del worker (b2 recomendada); (2) corregir en ADR-006 la consecuencia sobre la purga de inertes; (3) factores TOTP creados antes del reset sobreviven a `completePasswordReset` (hallazgo Low del auditor); (4) separación de funciones del superadmin en F7 (cuatro ojos); (5) conciliar con Auth antes de marcar `fallida` una solicitud F7 cuyo cambio de correo quedó incierto.
+
+## Pendiente (histórico de la primera pasada)
 
 - **SP-01 (A2) y P-12 (A3):** el ADR propuesto y las opciones aún no están redactados (lanzamiento del arquitecto denegado por el clasificador). Siguen bloqueados.
 - **Gate de seguridad** (`security-privacy-auditor`) sobre V8, F5 y F7: no ejecutado.
