@@ -68,6 +68,16 @@ Decisiones de la persona usuaria: A1 (B1–B4, SP-04), F7 opción (a), A2 (ADR-0
 
 **Abiertos para decisión:** (1) purgas del worker (b2 recomendada); (2) corregir en ADR-006 la consecuencia sobre la purga de inertes; (3) factores TOTP creados antes del reset sobreviven a `completePasswordReset` (hallazgo Low del auditor); (4) separación de funciones del superadmin en F7 (cuatro ojos); (5) conciliar con Auth antes de marcar `fallida` una solicitud F7 cuyo cambio de correo quedó incierto.
 
+## Actualización 2026-10-22 (tarde): purgas del worker y MFA
+
+Decisiones de la persona usuaria: purgas del worker con la opción (b2); la purga de inertes a las 24 h debe existir (ADR-006 corregido); el reset de contraseña debe borrar factores MFA. Commit: `d9c3046`.
+
+- **Purgas (b2):** `api.worker_purge_auth_accounts` con el JWT del worker, sin `service_role` ni eraser; helpers de `postgres` con `for update` sobre `auth.users` antes de revalidar (patrón B1). Borra también las `correction_requests` de la cuenta purgada. ADR-003 ampliado (ítem 13, regla 6; siete DEFINER de `postgres`), ADR-006 con el estado real.
+- **MFA:** el auditor y el `reviewer-back` hallaron (Alta) que borrar todos los factores dejaba el correo como único factor de admin y superadmin. Se corrigió: el reset borra factores **solo de cuentas `donante`** (el riesgo era el autorregistro ajeno); admin y superadmin conservan el suyo. Enmienda en ADR-007.
+- **Gates:** `security-privacy-auditor` y `reviewer-back` sobre el delta: BLOCKED en la primera pasada (MFA y docs), resuelto y verificado por ejecución; **no se repitió la revisión formal del delta corregido**.
+- **Regresión final:** `api:check`, typecheck, lint y build exit 0; unitarias en verde; pgTAP 833; integración 220; Bruno backend y mock exit 0; contrato 72/72.
+- **Cerrado:** B1–B4, SP-04, SP-01, P-12 (V15 y purgas). **Abiertos:** separación de funciones del superadmin en F7 (aceptado como riesgo a documentar), conciliar con Auth antes de marcar `fallida` un cambio de correo incierto, umbral de 30 días contado desde `assisted_signups.created_at` (semántica V8), runbook: cuentas técnicas o de superadmin deben tener fila en `user_accounts` antes de 24 h.
+
 ## Pendiente (histórico de la primera pasada)
 
 - **SP-01 (A2) y P-12 (A3):** el ADR propuesto y las opciones aún no están redactados (lanzamiento del arquitecto denegado por el clasificador). Siguen bloqueados.
