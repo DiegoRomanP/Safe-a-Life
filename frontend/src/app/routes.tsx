@@ -12,6 +12,7 @@ import { DonorLayout } from '../features/donor/DonorLayout.js';
 import { HistoryPage } from '../features/donor/pages/HistoryPage.js';
 import { InvitationDetailPage } from '../features/donor/pages/InvitationDetailPage.js';
 import { InvitationsPage } from '../features/donor/pages/InvitationsPage.js';
+import { NewRequestPage } from '../features/donor/pages/NewRequestPage.js';
 import { OnboardingPage } from '../features/donor/pages/OnboardingPage.js';
 import { ProfilePage } from '../features/donor/pages/ProfilePage.js';
 import { RequestsPage } from '../features/donor/pages/RequestsPage.js';
@@ -46,6 +47,7 @@ export const routes: RouteObject[] = [
       { path: 'perfil', element: <ProfilePage /> },
       { path: 'historial', element: <HistoryPage /> },
       { path: 'solicitudes', element: <RequestsPage /> },
+      { path: 'solicitudes/nueva', element: <NewRequestPage /> },
     ],
   },
   { path: '*', element: <NotFoundPage /> },

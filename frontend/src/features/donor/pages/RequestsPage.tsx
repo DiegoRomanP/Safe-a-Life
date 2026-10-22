@@ -1,22 +1,50 @@
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { PageHeader } from '../../../components/layout/PageHeader.js';
 import { EmptyState } from '../../../components/states/EmptyState.js';
+import { SuccessNotice } from '../../../components/states/SuccessNotice.js';
 import { Alert } from '../../../components/ui/Alert.js';
+import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { formatDate, formatDateTime } from '../../../lib/format.js';
 import { useDonorDemo } from '../DonorDemoContext.js';
 import { requestCode, requestStatusLabel, requestTypeLabel } from '../labels.js';
 
 // DON-05 Mis solicitudes (Penpot «+»). Datos de listOwnCorrectionRequests.
-// Crear una solicitud (createOwnCorrectionRequest) queda para un slice
-// posterior, por eso no se muestra «Nueva solicitud».
+// Al volver de «Nueva solicitud» muestra el código creado y lleva el foco al
+// aviso; el estado de navegación se limpia para que no reaparezca al recargar.
 export function RequestsPage() {
   const { requests } = useDonorDemo();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [created] = useState(() => (location.state as { created?: string } | null)?.created);
+  const noticeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!created) return;
+    noticeRef.current?.focus();
+    navigate(location.pathname, { replace: true, state: null });
+    // Solo al montar: el aviso corresponde a la navegación que trajo aquí.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
       <PageHeader
         title="Mis solicitudes"
         description="Consulta el estado de solicitudes de corrección o eliminación."
+        actions={<LinkButton to="/donante/solicitudes/nueva">Nueva solicitud</LinkButton>}
       />
+      <div aria-live="polite">
+        {created && (
+          <div ref={noticeRef} tabIndex={-1} className="rounded-xl focus-visible:outline-focus">
+            <SuccessNotice
+              announce={false}
+              message={`Solicitud ${created} enviada`}
+              detail="Quedó pendiente de revisión. Verás aquí cada cambio de estado."
+            />
+          </div>
+        )}
+      </div>
       {requests.length === 0 ? (
         <EmptyState
           message="No tienes solicitudes"
