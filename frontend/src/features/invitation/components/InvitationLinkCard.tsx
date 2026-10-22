@@ -19,7 +19,7 @@ const copy = {
     title: '¿Deseas registrar tu intención de asistir?',
     action: 'Confirmar intención de asistir',
     done: 'Registramos tu intención de asistir.',
-    note: 'Abrir este enlace no registra una respuesta. Confirmar expresa únicamente intención de asistir.',
+    note: 'Abrir este enlace no registra una respuesta. Confirmar expresa únicamente intención de asistir. El hospital verificará tu identidad, grupo y elegibilidad antes de cualquier donación.',
   },
   rechazar: {
     title: '¿Confirmas que no podrás asistir?',

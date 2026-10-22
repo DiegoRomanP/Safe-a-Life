@@ -52,7 +52,7 @@ export function ResponsesPage() {
       />
       <section aria-label="Resumen de respuestas" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard value={items.length} label="Invitaciones" accent="petrol" />
-        <StatCard value={count('confirmada')} label="Confirmadas" accent="success" />
+        <StatCard value={count('confirmada')} label="Intenciones confirmadas" accent="success" />
         <StatCard value={count('rechazada')} label="Rechazadas" accent="muted" />
         <StatCard value={count('sin_respuesta')} label="Sin respuesta" accent="warning" />
       </section>
@@ -89,6 +89,10 @@ export function ResponsesPage() {
           </table>
         </div>
       )}
+      <Alert tone="warning" title="Verificación profesional externa">
+        Una intención confirmada no es aptitud para donar. El hospital verifica identidad, grupo y elegibilidad con
+        sus procedimientos.
+      </Alert>
       <Alert tone="brand" title="Minimización de datos">
         Nunca se muestra correo, teléfono, ID global, ubicación, coordenadas ni distancia.
       </Alert>

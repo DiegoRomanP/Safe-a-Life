@@ -90,7 +90,7 @@ export function InvitationDetailPage() {
         {canRespond ? (
           <>
             <Alert tone="info" title="Antes de responder">
-              Abrir esta invitación no registra una respuesta. Confirmar expresa únicamente intención de asistir.
+              Abrir esta invitación no registra una respuesta. Confirmar expresa únicamente intención de asistir. El hospital verificará tu identidad, grupo y elegibilidad antes de cualquier donación.
             </Alert>
             <div className="flex flex-wrap gap-4">
               <Button onClick={() => answer('confirmada')} aria-disabled={invitation.response === 'confirmada'}>
