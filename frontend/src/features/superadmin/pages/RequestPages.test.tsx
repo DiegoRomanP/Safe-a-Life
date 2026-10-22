@@ -74,6 +74,10 @@ describe('SA-05 Solicitudes', () => {
 
   it('enviar el formulario sin elegir decisión no aprueba (Enter en el motivo)', () => {
     const view = renderRoute(`/superadmin/solicitudes/${CORRECTION}`);
+    // Un solo botón de envío y sin valor: el envío implícito no elige nada.
+    const submits = view.querySelectorAll('form button[type="submit"]');
+    expect([...submits].map((item) => item.textContent)).toContain('Registrar decisión');
+    expect(button(view, 'Registrar decisión')?.hasAttribute('value')).toBe(false);
     expect(button(view, 'Aprobar')).toBeNull();
     const reason = control(view, 'Motivo de la decisión');
     type(reason, 'Corrección documentada.');
@@ -83,6 +87,7 @@ describe('SA-05 Solicitudes', () => {
     });
     expect(view.textContent).toContain('Elige si apruebas o rechazas la solicitud.');
     expect(document.activeElement).toBe(choice(view, 'aprobada'));
+    expect(choice(view, 'aprobada')?.getAttribute('aria-describedby')).toBe('decision-eleccion-error');
     expect(live(view)).not.toContain('aprobada');
     expect(view.querySelector('h1')?.parentElement?.textContent).toContain('Pendiente');
   });

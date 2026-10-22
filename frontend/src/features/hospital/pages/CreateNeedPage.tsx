@@ -101,7 +101,7 @@ export function CreateNeedPage() {
               <Field label="Componente" hint="El componente es fijo para este prototipo.">
                 {(control) => <Input {...control} readOnly value="Glóbulos rojos (RBC)" />}
               </Field>
-              <Field label="Grupo requerido" hint="Grupo que necesita el paciente. La preselección se basa en el grupo declarado por cada persona." error={errors.bloodType} required>
+              <Field label="Grupo requerido" hint="Grupo que necesita el paciente. La preselección busca donantes compatibles según el grupo declarado por cada persona." error={errors.bloodType} required>
                 {(control) => (
                   <Select
                     {...control}
