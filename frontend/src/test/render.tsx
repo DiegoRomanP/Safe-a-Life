@@ -47,3 +47,14 @@ export function type(element: Element | null, value: string) {
     element.dispatchEvent(new Event('input', { bubbles: true }));
   });
 }
+
+// Deja terminar las respuestas de la capa de datos demo (latencia 0 en
+// pruebas) y aplica sus actualizaciones de estado. Da varias vueltas porque
+// una escritura dispara después la revalidación de la vista.
+export async function settle() {
+  for (let turn = 0; turn < 3; turn += 1) {
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+  }
+}
