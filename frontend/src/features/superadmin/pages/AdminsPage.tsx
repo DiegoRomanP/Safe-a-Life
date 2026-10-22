@@ -70,7 +70,7 @@ export function AdminsPage() {
     if (found) return reasonRef.current?.focus();
     const target = revoking!;
     requireStepUp('revocar una membresía', () => {
-      revokeMembership(target.membershipId);
+      revokeMembership(target.membershipId, reason.trim());
       setRevoking(null);
       setReason('');
       setNotice({

@@ -23,7 +23,7 @@ export function StepUpPanel({ purpose, onVerified, onCancel }: StepUpPanelProps)
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const clean = code.replace(/\s/g, '');
-    const found = CODE_SHAPE.test(clean) ? undefined : 'Ingresa el código de 6 dígitos de tu aplicación.';
+    const found = CODE_SHAPE.test(clean) ? undefined : 'Ingresa el código numérico de 6 a 8 dígitos de tu aplicación.';
     flushSync(() => setError(found));
     if (found) return codeRef.current?.focus();
     onVerified();
@@ -41,13 +41,17 @@ export function StepUpPanel({ purpose, onVerified, onCancel }: StepUpPanelProps)
         <h2 id="step-up-titulo" className="text-xl font-semibold text-ink">
           Verificación requerida
         </h2>
-        <p className="text-muted">{`Confirma tu segundo factor para ${purpose}. La verificación vale 5 minutos.`}</p>
+        <p id="step-up-proposito" className="text-muted">
+          {`Confirma tu segundo factor para ${purpose}. La verificación vale 5 minutos.`}
+        </p>
       </div>
       <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4 sm:max-w-[420px]">
         <Field label="Código de 6 dígitos" hint="El código cambia cada 30 segundos." error={error}>
           {(control) => (
             <Input
               {...control}
+              // El propósito se lee junto al campo, que es lo que recibe el foco.
+              aria-describedby={['step-up-proposito', control['aria-describedby']].filter(Boolean).join(' ')}
               ref={codeRef}
               inputMode="numeric"
               autoComplete="one-time-code"

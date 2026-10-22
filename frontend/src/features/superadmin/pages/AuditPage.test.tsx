@@ -48,7 +48,7 @@ describe('SA-07 Auditoría', () => {
     click(view.querySelector('nav a[href="/superadmin/auditoria"]'));
     const first = view.querySelector('tbody tr');
     expect(first?.textContent).toContain('sede.aprobada');
-    expect(first?.textContent).toContain('SED-B1D2');
+    expect(first?.textContent).toContain('SED-B4D2');
     expect(first?.textContent).not.toContain('Villa El Salvador');
   });
 
