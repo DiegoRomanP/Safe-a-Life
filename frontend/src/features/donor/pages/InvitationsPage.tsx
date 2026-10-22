@@ -1,17 +1,19 @@
 import { PageHeader } from '../../../components/layout/PageHeader.js';
 import { EmptyState } from '../../../components/states/EmptyState.js';
+import { QueryView } from '../../../components/states/QueryView.js';
 import { Alert } from '../../../components/ui/Alert.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { formatDateTime } from '../../../lib/format.js';
+import { useDemoQuery } from '../../../lib/useDemoQuery.js';
 import { useDonorDemo } from '../DonorDemoContext.js';
 import { responseLabel, urgencyLabel } from '../labels.js';
+import type { DonorInvitation } from '../types.js';
 
 // DON-03 Mis invitaciones (Penpot «+»). Datos de listOwnInvitations.
 export function InvitationsPage() {
-  const { invitations } = useDonorDemo();
-  const active = invitations.filter((item) => item.validity === 'activa').length;
-  const answered = invitations.filter((item) => item.response !== 'sin_respuesta').length;
+  const { scenario, listInvitations } = useDonorDemo();
+  const query = useDemoQuery(listInvitations, scenario);
 
   return (
     <>
@@ -24,6 +26,19 @@ export function InvitationsPage() {
         elegibilidad mediante sus procesos.
       </Alert>
 
+      <QueryView query={query} loadingMessage="Cargando tus invitaciones…" backTo="/donante/perfil" backLabel="Ir a mi perfil">
+        {(invitations) => <InvitationList invitations={invitations} />}
+      </QueryView>
+    </>
+  );
+}
+
+function InvitationList({ invitations }: { invitations: DonorInvitation[] }) {
+  const active = invitations.filter((item) => item.validity === 'activa').length;
+  const answered = invitations.filter((item) => item.response !== 'sin_respuesta').length;
+
+  return (
+    <>
       {invitations.length === 0 ? (
         <EmptyState message="No hay invitaciones activas" detail="Cuando un hospital envíe una, aparecerá aquí." />
       ) : (

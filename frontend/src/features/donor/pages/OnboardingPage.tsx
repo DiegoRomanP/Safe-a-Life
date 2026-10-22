@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { PageHeader } from '../../../components/layout/PageHeader.js';
+import { SaveErrorNotice } from '../../../components/states/SaveErrorNotice.js';
 import { SuccessNotice } from '../../../components/states/SuccessNotice.js';
 import { Alert } from '../../../components/ui/Alert.js';
 import { Badge } from '../../../components/ui/Badge.js';
@@ -12,6 +13,7 @@ import { Input } from '../../../components/ui/Input.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { Select } from '../../../components/ui/Select.js';
 import { BLOOD_TYPES, bloodTypeLabel, type BloodType } from '../../../lib/format.js';
+import { useDemoMutation } from '../../../lib/useDemoMutation.js';
 import { useDonorDemo } from '../DonorDemoContext.js';
 import { latitudeError, longitudeError } from '../location.js';
 
@@ -25,6 +27,7 @@ const bloodTypeOptions = BLOOD_TYPES.map((value) => ({ value, label: bloodTypeLa
 // resultado queda en el estado en memoria del área del donante.
 export function OnboardingPage() {
   const { completeOnboarding } = useDonorDemo();
+  const save = useDemoMutation(completeOnboarding);
   const [name, setName] = useState('');
   const [bloodType, setBloodType] = useState('');
   const [latitude, setLatitude] = useState('');
@@ -33,6 +36,7 @@ export function OnboardingPage() {
   const [errors, setErrors] = useState<Errors>({});
   const [done, setDone] = useState(false);
   const resultRef = useRef<HTMLDivElement>(null);
+  const submitRef = useRef<HTMLButtonElement>(null);
   // Al terminar desaparece el formulario: el foco pasa al resultado para no
   // quedar en el body.
   useEffect(() => {
@@ -45,8 +49,9 @@ export function OnboardingPage() {
     longitude: useRef<HTMLInputElement>(null),
   };
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (save.pending) return;
     const found: Errors = {
       name: name.trim() ? (name.trim().length > 120 ? 'Usa como máximo 120 caracteres.' : undefined) : 'Ingresa tu nombre.',
       bloodType: bloodType ? undefined : 'Selecciona tu grupo declarado.',
@@ -56,13 +61,19 @@ export function OnboardingPage() {
     flushSync(() => setErrors(found));
     const first = (Object.keys(refs) as Array<keyof Errors>).find((key) => found[key]);
     if (first) return refs[first].current?.focus();
-    completeOnboarding({
+    const result = await save.run({
       name: name.trim(),
       declaredBloodType: bloodType as BloodType,
       isAvailable,
       approximateLocation: { latitude: Number(latitude), longitude: Number(longitude) },
     });
-    setDone(true);
+    if (result.ok) setDone(true);
+  }
+
+  // El aviso de conflicto desaparece al revisarlo: el foco vuelve al envío.
+  function review() {
+    flushSync(save.reset);
+    submitRef.current?.focus();
   }
 
   const steps = [
@@ -187,8 +198,14 @@ export function OnboardingPage() {
                 {isAvailable ? 'Disponible' : 'No disponible'}
               </button>
             </div>
-            <div>
-              <Button type="submit">Completar perfil</Button>
+            <SaveErrorNotice error={save.error} onReview={review} />
+            <div className="flex flex-wrap items-center gap-4">
+              <Button ref={submitRef} type="submit" aria-disabled={save.pending}>
+                Completar perfil
+              </Button>
+              <p aria-live="polite" className="text-sm text-muted">
+                {save.pending ? 'Guardando tu perfil…' : ''}
+              </p>
             </div>
           </form>
         </Card>

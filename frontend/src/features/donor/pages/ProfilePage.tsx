@@ -1,6 +1,8 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { PageHeader } from '../../../components/layout/PageHeader.js';
+import { QueryView } from '../../../components/states/QueryView.js';
+import { SaveErrorNotice } from '../../../components/states/SaveErrorNotice.js';
 import { SuccessNotice } from '../../../components/states/SuccessNotice.js';
 import { Alert } from '../../../components/ui/Alert.js';
 import { Button } from '../../../components/ui/Button.js';
@@ -10,8 +12,11 @@ import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { bloodTypeLabel } from '../../../lib/format.js';
+import { useDemoMutation, type Mutation } from '../../../lib/useDemoMutation.js';
+import { useDemoQuery } from '../../../lib/useDemoQuery.js';
 import { useDonorDemo } from '../DonorDemoContext.js';
 import { latitudeError, longitudeError } from '../location.js';
+import type { DonorProfile } from '../types.js';
 import type { RequestKind } from './NewRequestPage.js';
 
 type Errors = { latitude?: string; longitude?: string };
@@ -32,7 +37,52 @@ const protectedChanges: Array<{
 // disponibilidad y ubicación aproximada (updateOwnDonorParticipation); nombre,
 // correo y grupo requieren una solicitud de corrección.
 export function ProfilePage() {
-  const { profile, updateParticipation } = useDonorDemo();
+  const { scenario, getProfile, updateParticipation } = useDonorDemo();
+  const query = useDemoQuery(getProfile, scenario);
+  // La escritura vive aquí para que el botón de la cabecera refleje el envío.
+  const save = useDemoMutation(updateParticipation);
+
+  return (
+    <>
+      <PageHeader
+        title="Mi perfil"
+        description="Administra tu disponibilidad y ubicación sintética aproximada."
+        actions={
+          query.status === 'ready' && (
+            <Button type="submit" form="perfil-formulario" aria-disabled={save.pending}>
+              Guardar cambios
+            </Button>
+          )
+        }
+      />
+      <Alert tone="brand" title="Tus datos están protegidos">
+        Nombre, correo y grupo declarado requieren una solicitud de corrección.
+      </Alert>
+      <QueryView query={query} loadingMessage="Cargando tu perfil…" backTo="/donante/invitaciones" backLabel="Ir a mis invitaciones">
+        {(profile, reload) => (
+          // Revisar un conflicto vuelve a «Cargando», así que el formulario se
+          // monta de nuevo con los datos que llegan del reintento.
+          <ProfileForm
+            profile={profile}
+            save={save}
+            onReload={() => {
+              save.reset();
+              reload();
+            }}
+          />
+        )}
+      </QueryView>
+    </>
+  );
+}
+
+type ProfileFormProps = {
+  profile: DonorProfile;
+  save: Mutation<[Pick<DonorProfile, 'isAvailable' | 'approximateLocation'>], void>;
+  onReload: () => void;
+};
+
+function ProfileForm({ profile, save, onReload }: ProfileFormProps) {
   const [isAvailable, setIsAvailable] = useState(profile.isAvailable);
   const [latitude, setLatitude] = useState(String(profile.approximateLocation.latitude));
   const [longitude, setLongitude] = useState(String(profile.approximateLocation.longitude));
@@ -41,8 +91,9 @@ export function ProfilePage() {
   const latitudeRef = useRef<HTMLInputElement>(null);
   const longitudeRef = useRef<HTMLInputElement>(null);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (save.pending) return;
     const found: Errors = {
       latitude: latitudeError(latitude),
       longitude: longitudeError(longitude),
@@ -53,30 +104,20 @@ export function ProfilePage() {
     });
     if (found.latitude) return latitudeRef.current?.focus();
     if (found.longitude) return longitudeRef.current?.focus();
-    updateParticipation({
+    const result = await save.run({
       isAvailable,
       approximateLocation: { latitude: Number(latitude), longitude: Number(longitude) },
     });
-    setSaved(true);
+    if (result.ok) setSaved(true);
   }
 
   return (
     <>
-      <PageHeader
-        title="Mi perfil"
-        description="Administra tu disponibilidad y ubicación sintética aproximada."
-        actions={
-          <Button type="submit" form="perfil-formulario">
-            Guardar cambios
-          </Button>
-        }
-      />
-      <Alert tone="brand" title="Tus datos están protegidos">
-        Nombre, correo y grupo declarado requieren una solicitud de corrección.
-      </Alert>
       <div aria-live="polite">
         {saved && <SuccessNotice announce={false} message="Cambios guardados" detail="Tu disponibilidad y ubicación quedaron actualizadas." />}
+        {save.pending && <p className="text-sm text-muted">Guardando cambios…</p>}
       </div>
+      <SaveErrorNotice error={save.error} onReview={onReload} />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <Card title="Datos declarados">
