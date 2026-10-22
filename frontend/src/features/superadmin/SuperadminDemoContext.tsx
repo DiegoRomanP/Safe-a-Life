@@ -26,6 +26,11 @@ const GRANT_MINUTES = 10;
 
 export type NewSite = Pick<Site, 'hospitalId' | 'publicName' | 'publicAddress' | 'coordinates'>;
 
+// Campos de CreateAccessGrantRequest.allowedFields.
+export type GrantField = 'name' | 'email' | 'declaredBloodType';
+
+type Grant = { action: 'review' | 'execute'; allowedFields: GrantField[]; expiresAt: number };
+
 type SuperadminDemo = {
   tasks: SuperadminTask[];
   hospitals: Hospital[];
@@ -42,12 +47,15 @@ type SuperadminDemo = {
   createSite: (input: NewSite) => Site;
   approveSite: (siteId: string) => void;
   inviteAdmin: (input: { email: string; hospitalId: string }) => void;
-  revokeMembership: (membershipId: string) => void;
-  // Grant contextual (createContextualAccessGrant): vigente 10 minutos.
-  grantAccess: (requestId: string) => void;
+  revokeMembership: (membershipId: string, reason: string) => void;
+  // Grant contextual de revisión (createContextualAccessGrant, action review):
+  // vigente 10 minutos, con campos y motivo.
+  grantReview: (requestId: string, allowedFields: GrantField[], reason: string) => void;
   donorDataFor: (requestId: string) => ContextualDonorData | null;
   decideRequest: (requestId: string, decision: 'aprobada' | 'rechazada', reason: string) => void;
-  executeRequest: (requestId: string) => void;
+  // Grant de ejecución (action execute) y ejecución de una solicitud aprobada
+  // (executeApprovedCorrectionRequest), en ese orden.
+  executeRequest: (requestId: string, allowedFields: GrantField[], reason: string) => void;
   setFinalDemoAt: (iso: string) => void;
 };
 
@@ -72,15 +80,30 @@ export function SuperadminDemoProvider({ children, now = () => Date.now() }: { c
   const [configuration, setConfiguration] = useState(demoConfiguration);
   const [auditEvents, setAuditEvents] = useState(demoAuditEvents);
   const [stepUpUntil, setStepUpUntil] = useState(0);
-  const [grants, setGrants] = useState<Record<string, number>>({});
+  const [grants, setGrants] = useState<Record<string, Grant>>({});
 
   const value = useMemo<SuperadminDemo>(() => {
     const iso = () => new Date(now()).toISOString();
-    const audit = (event: string, resourceCode: string) =>
+    const audit = (event: string, resourceCode: string, reason?: string) =>
       setAuditEvents((current) => [
-        { eventId: crypto.randomUUID(), actorCode: 'ACT-SA01', event, resourceCode, result: 'ok', occurredAt: iso() },
+        {
+          eventId: crypto.randomUUID(),
+          actorCode: 'ACT-SA01',
+          event,
+          resourceCode,
+          result: 'ok',
+          occurredAt: iso(),
+          ...(reason ? { reason } : {}),
+        },
         ...current,
       ]);
+    // Un grant vale para una acción y vence a los 10 minutos; cambiar el estado
+    // de la solicitud lo revoca.
+    const dropGrant = (requestId: string) =>
+      setGrants((current) => {
+        const { [requestId]: _dropped, ...rest } = current;
+        return rest;
+      });
     const code = (prefix: string, id: string) => `${prefix}-${id.slice(0, 4).toUpperCase()}`;
     const touch = (requestId: string, patch: Partial<AdminCorrectionRequest>) =>
       setRequests((current) =>
@@ -132,24 +155,36 @@ export function SuperadminDemoProvider({ children, now = () => Date.now() }: { c
         ]);
         audit('admin.invitado', code('MEM', membershipId));
       },
-      revokeMembership: (membershipId) => {
+      revokeMembership: (membershipId, reason) => {
         setMemberships((current) =>
           current.map((item) => (item.membershipId === membershipId ? { ...item, status: 'revocada' } : item)),
         );
-        audit('membresia.revocada', code('MEM', membershipId));
+        audit('membresia.revocada', code('MEM', membershipId), reason);
       },
-      grantAccess: (requestId) => {
-        setGrants((current) => ({ ...current, [requestId]: now() + GRANT_MINUTES * MINUTE }));
-        audit('acceso.contextual', code('SOL', requestId));
+      grantReview: (requestId, allowedFields, reason) => {
+        setGrants((current) => ({
+          ...current,
+          [requestId]: { action: 'review', allowedFields, expiresAt: now() + GRANT_MINUTES * MINUTE },
+        }));
+        audit('acceso.contextual.revision', code('SOL', requestId), reason);
       },
-      donorDataFor: (requestId) => ((grants[requestId] ?? 0) > now() ? (demoDonorData[requestId] ?? null) : null),
+      donorDataFor: (requestId) => {
+        const grant = grants[requestId];
+        return grant?.action === 'review' && grant.expiresAt > now() ? (demoDonorData[requestId] ?? null) : null;
+      },
       decideRequest: (requestId, decision, reason) => {
         touch(requestId, { status: decision, decisionReason: reason });
+        dropGrant(requestId);
         closeTask(code('SOL', requestId));
-        audit(decision === 'aprobada' ? 'solicitud.aprobada' : 'solicitud.rechazada', code('SOL', requestId));
+        audit(decision === 'aprobada' ? 'solicitud.aprobada' : 'solicitud.rechazada', code('SOL', requestId), reason);
       },
-      executeRequest: (requestId) => {
+      // En la demo el grant de ejecución se registra en la auditoría y se usa en
+      // el acto; los campos solo acompañan la forma del contrato.
+      executeRequest: (requestId, _allowedFields, reason) => {
+        if (requests.find((item) => item.requestId === requestId)?.status !== 'aprobada') return;
+        audit('acceso.contextual.ejecucion', code('SOL', requestId), reason);
         touch(requestId, { status: 'completada' });
+        dropGrant(requestId);
         audit('solicitud.ejecutada', code('SOL', requestId));
       },
       setFinalDemoAt: (finalDemoAt) => {

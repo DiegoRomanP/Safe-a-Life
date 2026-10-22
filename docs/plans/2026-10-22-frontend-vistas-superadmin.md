@@ -52,6 +52,20 @@ minutos en memoria.
   creó. Los valores actuales y propuestos solo se ven tras step-up y grant
   contextual (10 minutos). Aprobar o rechazar exige motivo; ejecutar solo
   aplica a solicitudes aprobadas.
+- **SA-05, grants:** se sigue `CreateAccessGrantRequest`.
+  - Ver los valores de una corrección pendiente pide motivo, step-up y un
+    grant `review` con los campos pedidos.
+  - Ejecutar una solicitud aprobada pide motivo, step-up y un grant `execute`
+    antes de `executeApprovedCorrectionRequest`.
+  - En estados terminales no se ofrece consultar datos, y decidir o ejecutar
+    revoca el grant.
+  - **Punto abierto:** el contrato exige al menos un campo en `allowedFields`
+    y no define cuál usar para una eliminación. La demo usa los tres (`name`,
+    `email`, `declaredBloodType`); hay que confirmarlo con el responsable del
+    backend.
+- **SA-01, fallos de entrega:** la demo no siembra tareas
+  `delivery_failure`, porque reintentar el envío (`retryInvitationDelivery`)
+  no tiene vista todavía.
 - **SA-06:** solo `finalDemoAt` e `isImmutable`. Los textos de matriz, entorno
   y límites de Penpot no se pueden verificar contra el contrato y quedan
   fuera.

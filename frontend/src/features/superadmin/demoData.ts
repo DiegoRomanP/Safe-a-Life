@@ -14,28 +14,28 @@ import type {
 // .example.test y solo aparecen como pista enmascarada o tras step-up.
 export const demoHospitals: Hospital[] = [
   {
-    hospitalId: 'a0c1d2e3-0001-4f5a-8b6c-7d8e9f0a1b11',
+    hospitalId: 'a1c1d2e3-0001-4f5a-8b6c-7d8e9f0a1b11',
     publicName: 'Hospital Nacional Central',
     legalName: 'Hospital Nacional Central S.A. (demo)',
     isAuthorized: true,
     createdAt: '2026-09-01T13:30:00Z',
   },
   {
-    hospitalId: 'a0c1d2e3-0002-4f5a-8b6c-7d8e9f0a1b22',
+    hospitalId: 'a2c1d2e3-0002-4f5a-8b6c-7d8e9f0a1b22',
     publicName: 'Hospital Metropolitano Sur',
     legalName: 'Hospital Metropolitano Sur (demo)',
     isAuthorized: true,
     createdAt: '2026-09-03T21:12:00Z',
   },
   {
-    hospitalId: 'a0c1d2e3-0003-4f5a-8b6c-7d8e9f0a1b33',
+    hospitalId: 'a3c1d2e3-0003-4f5a-8b6c-7d8e9f0a1b33',
     publicName: 'Instituto Regional Lima',
     legalName: 'Instituto Regional Lima (demo)',
     isAuthorized: true,
     createdAt: '2026-09-05T16:45:00Z',
   },
   {
-    hospitalId: 'a0c1d2e3-0004-4f5a-8b6c-7d8e9f0a1b44',
+    hospitalId: 'a4c1d2e3-0004-4f5a-8b6c-7d8e9f0a1b44',
     publicName: 'Clínica Norte Demo',
     legalName: 'Clínica Norte Demo S.A.C.',
     isAuthorized: false,
@@ -56,7 +56,7 @@ export const demoSites: Site[] = [
     isApproved: true,
   },
   {
-    siteId: 'b1d2e3f4-0002-4a5b-8c6d-7e8f9a0b1c22',
+    siteId: 'b2d2e3f4-0002-4a5b-8c6d-7e8f9a0b1c22',
     hospitalId: hnc.hospitalId,
     publicName: 'Sede Cercado',
     publicAddress: 'Jr. Muestra 450',
@@ -65,7 +65,7 @@ export const demoSites: Site[] = [
     isApproved: true,
   },
   {
-    siteId: 'b1d2e3f4-0003-4a5b-8c6d-7e8f9a0b1c33',
+    siteId: 'b3d2e3f4-0003-4a5b-8c6d-7e8f9a0b1c33',
     hospitalId: hms.hospitalId,
     publicName: 'Sede Barranco',
     publicAddress: 'Av. Demo 300',
@@ -74,7 +74,7 @@ export const demoSites: Site[] = [
     isApproved: true,
   },
   {
-    siteId: 'b1d2e3f4-0004-4a5b-8c6d-7e8f9a0b1c44',
+    siteId: 'b4d2e3f4-0004-4a5b-8c6d-7e8f9a0b1c44',
     hospitalId: hms.hospitalId,
     publicName: 'Sede Villa El Salvador',
     publicAddress: 'Dirección minimizada',
@@ -83,7 +83,7 @@ export const demoSites: Site[] = [
     isApproved: false,
   },
   {
-    siteId: 'b1d2e3f4-0005-4a5b-8c6d-7e8f9a0b1c55',
+    siteId: 'b5d2e3f4-0005-4a5b-8c6d-7e8f9a0b1c55',
     hospitalId: irl.hospitalId,
     publicName: 'Sede Cercado de Lima',
     publicAddress: 'Av. Prueba 77',
@@ -94,9 +94,9 @@ export const demoSites: Site[] = [
 ];
 
 export const demoMemberships: Membership[] = [
-  { membershipId: 'c2e3f4a5-0001-4b6c-9d7e-8f9a0b1c2d11', hospitalId: hnc.hospitalId, role: 'admin_hospitalario', status: 'activa', emailHint: 'a***@example.test' },
+  { membershipId: 'c1e3f4a5-0001-4b6c-9d7e-8f9a0b1c2d11', hospitalId: hnc.hospitalId, role: 'admin_hospitalario', status: 'activa', emailHint: 'a***@example.test' },
   { membershipId: 'c2e3f4a5-0002-4b6c-9d7e-8f9a0b1c2d22', hospitalId: hms.hospitalId, role: 'admin_hospitalario', status: 'activa', emailHint: 'j***@example.test' },
-  { membershipId: 'c2e3f4a5-0003-4b6c-9d7e-8f9a0b1c2d33', hospitalId: irl.hospitalId, role: 'admin_hospitalario', status: 'pendiente', emailHint: 'c***@example.test' },
+  { membershipId: 'c3e3f4a5-0003-4b6c-9d7e-8f9a0b1c2d33', hospitalId: irl.hospitalId, role: 'admin_hospitalario', status: 'pendiente', emailHint: 'c***@example.test' },
 ];
 
 export const demoRequests: AdminCorrectionRequest[] = [
@@ -136,12 +136,12 @@ export const demoDonorData: Record<string, ContextualDonorData> = {
   },
 };
 
-// Una tarea por cada pendiente real de los datos anteriores.
+// Una tarea por cada pendiente real de los datos anteriores. No hay fallos de
+// entrega: reintentarlos (retryInvitationDelivery) no tiene vista todavía.
 export const demoTasks: SuperadminTask[] = [
   { taskId: 'd3f4a5b6-0001-4c7d-8e9f-0a1b2c3d4e11', kind: 'correction_request', createdAt: '2026-09-24T16:06:00Z', resourceCode: 'SOL-91A2' },
-  { taskId: 'd3f4a5b6-0002-4c7d-8e9f-0a1b2c3d4e22', kind: 'hospital_review', createdAt: '2026-09-24T14:42:00Z', resourceCode: 'SED-B1D2' },
+  { taskId: 'd3f4a5b6-0002-4c7d-8e9f-0a1b2c3d4e22', kind: 'hospital_review', createdAt: '2026-09-24T14:42:00Z', resourceCode: 'SED-B4D2' },
   { taskId: 'd3f4a5b6-0003-4c7d-8e9f-0a1b2c3d4e33', kind: 'correction_request', createdAt: '2026-09-22T15:14:00Z', resourceCode: 'SOL-7F21' },
-  { taskId: 'd3f4a5b6-0004-4c7d-8e9f-0a1b2c3d4e44', kind: 'delivery_failure', createdAt: '2026-09-24T17:42:00Z', resourceCode: 'INV-4C91' },
 ];
 
 export const demoConfiguration: SuperadminConfiguration = { finalDemoAt: null, isImmutable: false };
@@ -151,5 +151,5 @@ export const demoAuditEvents: AuditEvent[] = [
   { eventId: 'e4a5b6c7-0002-4d8e-9f0a-1b2c3d4e5f22', actorCode: 'ACT-12A0', event: 'solicitud.creada', resourceCode: 'SOL-91A2', result: 'ok', occurredAt: '2026-09-24T16:06:00Z' },
   { eventId: 'e4a5b6c7-0003-4d8e-9f0a-1b2c3d4e5f33', actorCode: 'ACT-470B', event: 'necesidad.activada', resourceCode: 'NEC-A104', result: 'ok', occurredAt: '2026-09-24T15:44:00Z' },
   { eventId: 'e4a5b6c7-0004-4d8e-9f0a-1b2c3d4e5f44', actorCode: 'ACT-470B', event: 'lote.creado', resourceCode: 'LOT-001', result: 'ok', occurredAt: '2026-09-24T14:32:00Z' },
-  { eventId: 'e4a5b6c7-0005-4d8e-9f0a-1b2c3d4e5f55', actorCode: 'ACT-9C3E', event: 'membresia.revocar', resourceCode: 'MEM-C2E3', result: 'denegado', occurredAt: '2026-09-24T13:05:00Z', reason: 'Sin step-up reciente.' },
+  { eventId: 'e4a5b6c7-0005-4d8e-9f0a-1b2c3d4e5f55', actorCode: 'ACT-9C3E', event: 'membresia.revocada', resourceCode: 'MEM-C9E3', result: 'denegado', occurredAt: '2026-09-24T13:05:00Z', reason: 'Sin step-up reciente.' },
 ];

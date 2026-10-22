@@ -53,7 +53,7 @@ describe('SA-03 Sedes autorizadas', () => {
     click(button(view, 'Crear sede'));
     expect(view.textContent).toContain('Selecciona el hospital.');
     const form = 'form';
-    choose(control(view, 'Hospital', form), 'a0c1d2e3-0003-4f5a-8b6c-7d8e9f0a1b33');
+    choose(control(view, 'Hospital', form), 'a3c1d2e3-0003-4f5a-8b6c-7d8e9f0a1b33');
     type(control(view, 'Nombre de la sede', form), 'Sede Breña');
     type(control(view, 'Dirección pública', form), 'Av. Demo 9');
     type(control(view, 'Latitud', form), '-12.06');

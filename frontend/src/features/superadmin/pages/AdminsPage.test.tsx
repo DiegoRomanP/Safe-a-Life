@@ -41,7 +41,7 @@ describe('SA-04 Administradores y membresías', () => {
     click(button(view, 'Enviar invitación'));
     expect(view.textContent).toContain('Ingresa el correo de la persona.');
     type(control(view, 'Correo'), 'nueva.admin@example.test');
-    choose(control(view, 'Hospital'), 'a0c1d2e3-0001-4f5a-8b6c-7d8e9f0a1b11');
+    choose(control(view, 'Hospital'), 'a1c1d2e3-0001-4f5a-8b6c-7d8e9f0a1b11');
     click(button(view, 'Enviar invitación'));
     stepUp(view);
     const live = view.querySelector('[aria-live="polite"]');
