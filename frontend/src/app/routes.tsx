@@ -16,6 +16,7 @@ import { NewRequestPage } from '../features/donor/pages/NewRequestPage.js';
 import { OnboardingPage } from '../features/donor/pages/OnboardingPage.js';
 import { ProfilePage } from '../features/donor/pages/ProfilePage.js';
 import { RequestsPage } from '../features/donor/pages/RequestsPage.js';
+import { InvitationLinkPage } from '../features/invitation/pages/InvitationLinkPage.js';
 import { HomePage } from '../features/public/pages/HomePage.js';
 import { NotFoundPage } from '../features/system/pages/NotFoundPage.js';
 
@@ -35,6 +36,8 @@ export const routes: RouteObject[] = [
   { path: 'verificar-identidad', element: <VerifyIdentityPage /> },
   { path: 'verificar-correo', element: <VerifyEmailPage /> },
   { path: 'cambiar-correo', element: <ConfirmEmailChangePage /> },
+  // Enlace de invitación del correo (LINK-01), fuera del área autenticada.
+  { path: 'invitaciones', element: <InvitationLinkPage /> },
   // Área del donante. Sin backend (D-4) todavía no hay guard de sesión.
   {
     path: 'donante',
