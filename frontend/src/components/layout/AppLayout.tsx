@@ -3,7 +3,9 @@ import { Badge } from '../ui/Badge.js';
 import { cx } from '../ui/cx.js';
 import { Brand } from './Brand.js';
 
-export type AppNavItem = { to: string; label: string };
+// end: la ruta solo está activa cuando coincide exacta (p. ej. «Resumen» en
+// /hospital no debe marcarse en /hospital/necesidades).
+export type AppNavItem = { to: string; label: string; end?: boolean };
 
 export type AppLayoutProps = {
   navLabel: string;
@@ -55,6 +57,7 @@ export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initi
                 <li key={item.to}>
                   <NavLink
                     to={item.to}
+                    end={item.end}
                     className={({ isActive }) =>
                       cx(
                         'block border-l-4 px-5 py-3 focus-visible:outline-white focus-visible:-outline-offset-4',
