@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 | --- | --- |
-| Estado | En curso |
+| Estado | Implementado; gate PASS de reviewer-front (segunda ronda) |
 | Fecha | 2026-10-22 |
 | Rama | `feat/frontend-vistas-superadmin` (desde `main` en `438a66b`) |
 | Plan padre | [`2026-10-20-frontend-estructura-por-componentes.md`](2026-10-20-frontend-estructura-por-componentes.md) |
@@ -81,6 +81,41 @@ minutos en memoria.
 - El superadmin no navega el padrón de donantes (Frontend-Design.md).
 - Pasan `npm run lint`, `npm run test` y `npm run build`.
 
-## 5. Bitácora
+## 5. Revisión
+
+`reviewer-front` (subagente independiente, solo lectura):
+
+1. **Primera ronda: BLOCKED.**
+   - **B1:** el grant y la ejecución no seguían `CreateAccessGrantRequest`.
+     Faltaban motivo, acción y campos, y se ejecutaba sin grant `execute`.
+   - **B2:** una solicitud cerrada ofrecía consultar datos y el aviso no se
+     correspondía con la vista.
+   - **B3:** la tarea «Fallo de entrega» no se podía resolver.
+2. **Corrección `be26c58`.** Grants con motivo, campos y acción; sin consulta
+   en estados terminales; sin fallos de entrega en la demo. Observaciones
+   aplicadas:
+   - el propósito del step-up se asocia al código;
+   - los motivos quedan en la auditoría;
+   - los códigos opacos de la demo son únicos.
+3. **Segunda ronda: PASS** sobre los 9 commits. Después del PASS se aplicaron,
+   sin revisión aparte, en `d44e68b`: el motivo de consulta obligatorio con su
+   ayuda, dos aserciones restituidas y un código de demo alineado.
+
+Observaciones pendientes:
+
+- El grant vence solo cuando la vista vuelve a renderizar.
+- Una segunda acción con el panel de step-up abierto reemplaza a la primera.
+- SA-06 acepta una fecha final en el pasado.
+- SA-01 no genera tareas para lo que se crea.
+- SA-03 permite crear sedes de hospitales no autorizados.
+- Faltan pruebas de vencimiento (5 y 10 minutos) y de cancelar el step-up en
+  SA-04, SA-05 y SA-06.
+
+No verificado: composición a 1440 px (el panel del navegador era pequeño),
+lector de pantalla real y E2E.
+
+## 6. Bitácora
 
 - 2026-10-22: plan aprobado por la persona usuaria.
+- 2026-10-22: SA-01 a SA-07 implementadas, con 190 pruebas, lint y build en
+  verde. Gate PASS en la segunda ronda.
