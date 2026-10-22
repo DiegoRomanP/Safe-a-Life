@@ -1,9 +1,11 @@
 # 2026-10-22 — F6 `invitation-coordination`: contrato reconciliado (C0 / P-11)
 
-**Estado:** PROPUESTA del rol `solution-architect` (tarea C0 de
-[`Backend-Route.md`](Backend-Route.md) §8.1). No ratifica, no implementa y no
-modifica OpenAPI, ADR, migraciones ni código. Bloquea F6-2 en adelante hasta la
-decisión **A4** de la persona usuaria (§8). Sin revisión independiente todavía.
+**Estado:** propuesta del rol `solution-architect` (tarea C0 de
+[`Backend-Route.md`](Backend-Route.md) §8.1), con la decisión **A4** aprobada por
+la persona usuaria el 2026-10-22 (§8). Las enmiendas de ADR-003 y ADR-005 están
+redactadas y revisadas por `security-privacy-auditor` (PASS con correcciones
+M1–M3 aplicadas). Este documento no ratifica, no implementa y no modifica
+OpenAPI, migraciones ni código; F6-2 puede empezar.
 
 **Punto de partida:** el backend actual, no la spec original: SP-01/ADR-007
 (barrera de sesión, `20261022000000_session_barrier.sql`), P-12 (borrado de
@@ -64,7 +66,7 @@ F6 solo tiene dominio puro (`backend/src/modules/invitation-coordination/domain/
   Solo secretos; sin destinatario (sale de `recipient_user_id`, ya
   implementado en `worker_claim_due_outbox`, `email_delivery.sql:159`).
 - `api.worker_claim_due_outbox` añade, solo para `kind='invitacion'`, un
-  objeto `display: {hospitalName, sitePublicName}` (join invitación → necesidad
+  objeto `display: {hospitalName, sitePublicName, siteAddress, siteLatitude, siteLongitude}` (join invitación → necesidad
   → sede/hospital; `app_privileged` ya tiene políticas sobre esas tablas). El
   plazo es `notAfter` (= `needs.expires_at`), que el claim ya devuelve.
 - Consumidor: `EmailPayload` admite `rejectToken` (obligatorio para
@@ -509,11 +511,11 @@ Recomendados, solo texto (regenerar con `openapi:types` y comprobar
 
 | Función | Cambio |
 | --- | --- |
-| `api.transition_own_need` | INVOKER → DEFINER (`d_require` + `d_admin_hospital_id`, `d_audit`). Al pasar a `cerrada`/`cancelada`: invitaciones `activa`/`sin_respuesta` → `invalidada`; outbox `pendiente` → `cancelado`, payload NULL. Mismo orden FOR UPDATE → peek → estado → claim |
+| `api.transition_own_need` | INVOKER → DEFINER (`d_require` + `d_admin_hospital_id`, `d_audit`). Al pasar a `cerrada`/`cancelada`: invitaciones `activa`/`sin_respuesta` → `invalidada`; outbox `pendiente` → `cancelado`, payload NULL. Mismo orden: bloqueos de necesidad, invitaciones y outbox (D3) → peek → estado → claim; los bloqueos de invitaciones y outbox van antes del claim |
 | `api.update_own_participation` | INVOKER → DEFINER (`d_require(donante)`; email desde `app.jwt_claims()`, no `auth.jwt()`). Si pasa a no disponible: lock de cuota; invitaciones del donante `activa`/`sin_respuesta` → `invalidada`; outbox cancelado. No toca confirmaciones ni necesidades (RF-INV-07) |
 | `api.worker_expire_needs(p_limit int)` | **Nueva.** `is_worker()`; necesidades `borrador`/`activa`/`meta_alcanzada` con `expires_at <= now()`, `order by need_id for update skip locked limit p_limit` → `vencida`; invitaciones `activa`/`sin_respuesta` → `vencida` (O4); outbox → `vencido`, payload NULL; devuelve conteos. El worker la llama en su ciclo |
 | `app.need_json` (usada por `list_own_needs`/`get_own_need`/transición) | `confirmedIntentCount = count(*)` de invitaciones `confirmada` de la necesidad (RLS admin en INVOKER; política privilegiada en DEFINER), incluidas las anonimizadas |
-| `api.worker_claim_due_outbox` | Para `kind='invitacion'`: `display {hospitalName, sitePublicName}` |
+| `api.worker_claim_due_outbox` | Para `kind='invitacion'`: `display {hospitalName, sitePublicName, siteAddress, siteLatitude, siteLongitude}` |
 | `api.worker_record_attempt` | Orden invitación → outbox; actualiza `invitations.delivery` solo si es la fila vigente; invitación no activa + fallo → `cancelado` |
 | `api.ingest_email_event` | Busca la fila por `provider_message_id`, bloquea la invitación vigente y después el outbox; proyecta solo si es la fila vigente |
 | `api.worker_expire_outbox` (y el barrido de leases de `claim`) | `FOR UPDATE SKIP LOCKED` en los barridos multi-fila |
@@ -532,10 +534,10 @@ Cada slice: un escritor, TDD, ≤ 5 archivos salvo SQL, pgTAP e integración con
 | **S0** (opcional, docs) | `docs/openapi.json` (texto), generados, `docs/Api-Rules.md`, `scripts/prism-contract.test.mjs` | `openapi:lint`, `openapi:api:check`, `test:contract`, `test:api:generator` | reviewer-back |
 | **F6-2** Esquema | `backend/supabase/migrations/<ts>_invitation_coordination.sql`; `backend/supabase/tests/database/13_invitation_coordination.test.sql`; `backend/test/integration/invitation-parity.integration.ts`; `backend/src/shared/persistence/schema-version.ts` | 27 filas y paridad TS↔SQL de la matriz; Haversine TS↔SQL ≤ 1e-6 m y borde `==`; `unique` (necesidad, donante) y (necesidad, código); historial: UPDATE falla, DELETE falla con perfil y pasa sin él; privilegios por columna (hashes, `donor_id`, `need_donor_code` invisibles a `authenticated`); RLS admin/otro hospital/superadmin/donante; siete DEFINER de `postgres` | reviewer-back, security |
 | **F6-3** RPC | migración `…_invitation_rpc.sql`; `14_invitation_rpc.test.sql`; `backend/test/integration/invitation-coordination.integration.ts` | pgTAP: admin de otro hospital no lanza lote; donante no lee ajenas; cuarta invitación en 24 h excluida; borde del radio incluido; fuera de polígono / no disponible / alta asistida excluidos; `batchSize` y slots ≠ n → `invalid`; matriz §2.3 completa (404/409/410, replay); barrera abierta → `unauthenticated` en cada DEFINER de usuario; llamador no técnico en token → `forbidden`. Integración: dos lotes concurrentes de hospitales distintos respetan la cuota y no se interbloquean; 20 POST del mismo token → un efecto; última plaza en carrera → un solo `meta_alcanzada`; confirmar tras meta → 409 | reviewer-back, security, clinical (instrucciones), QA (carreras) |
-| **F6-4** Cascadas | migración `…_invitation_cascades.sql`; `15_invitation_cascades.test.sql` + ajustes de versión en pgTAP previas; ampliar `invitation-coordination.integration.ts` y `privacy-requests.integration.ts` | cerrar/cancelar → invitaciones `invalidada` y outbox `cancelado`; vencer → `vencida`/`vencido`; no disponible → solo `sin_respuesta` invalidadas; `confirmedIntentCount` real; evento tardío de fila anterior no cambia `delivery`; `en_curso` + transitorio tras cerrar → `cancelado`; V15 anonimiza, borra historial y conserva conteos; carreras sin interbloqueo: transición vs token, participación vs lote, worker vs transición, borrado de Auth vs lote (FK → 500 reintentable) | reviewer-back, security, QA |
+| **F6-4** Cascadas | migración `…_invitation_cascades.sql`; `15_invitation_cascades.test.sql` + ajustes de versión en pgTAP previas; ampliar `invitation-coordination.integration.ts` y `privacy-requests.integration.ts` | cerrar/cancelar → invitaciones `invalidada` y outbox `cancelado`; vencer → `vencida`/`vencido`; no disponible → solo `sin_respuesta` invalidadas; `confirmedIntentCount` real; evento tardío de fila anterior no cambia `delivery`; `en_curso` + transitorio tras cerrar → `cancelado`; V15 anonimiza, borra historial y conserva conteos; carreras sin interbloqueo: transición vs token, participación vs lote, worker vs transición, borrado de Auth vs lote (FK → 500 reintentable) y borrado de Auth vs participación o vencimiento (`40P01` → 500 reintentable); lease agotado → invitación `fallida`, directa o por el barrido de conciliación | reviewer-back, security, QA |
 | **F6-5a** Consumidor de correo | `email-delivery/application/email-payload.ts`, `templates/invitacion.ts`, `application/process-outbox.ts`, `infrastructure/outbox-rpc-gateway.ts`, `src/worker.ts` (vencimiento) + sus `.test.ts` | payload con `rejectToken` solo en `invitacion`; dos enlaces con token en el fragmento; plantilla sin grupo, ubicación, distancia ni reconocimientos; guard cerrado de `display`; worker llama a `worker_expire_needs` | reviewer-back, security, clinical (copia) |
 | **F6-5b** Módulo HTTP | `invitation-coordination/{application,infrastructure,http}/*`, `composition.ts`, `bruno/backend/invitation-coordination/**` | unitarias de servicio (slots: `generateActionToken`, `hashToken`, `sealEmailPayload`), gateway con guards cerrados, router de las 10 operaciones; Bruno CLI contra el backend real (no Prism ni mock) con roles admin/donante/superadmin/token | reviewer-back, security, QA |
-| **F6-6** Rendimiento | semilla de 500 donantes sintéticos (`.example.test`) y script PER-02 | p95 < 2 s, 5 concurrentes, 3 hospitales, 10 calentamientos excluidos, ≥ 100 muestras; si falla, aplicar la alternativa de locks por donante ordenados (A4.3) | reviewer-back |
+| **F6-6** Rendimiento | semilla de 500 donantes sintéticos (`.example.test`) y script PER-02 | p95 < 2 s, 5 concurrentes, 3 hospitales, 10 calentamientos excluidos, ≥ 100 muestras; puerta interna A4.3: 5 lotes concurrentes sobre 500 donantes con p95 ≤ 1 s y sin `55P03` ni `statement_timeout`; si falla, vuelve a la persona usuaria para elegir la alternativa de locks por donante ordenados | reviewer-back |
 
 Gates de módulo al final: `reviewer-back`, `clinical-safety-reviewer`,
 `security-privacy-auditor` y cierre aprobado por la persona usuaria.
@@ -569,6 +571,8 @@ Gates de módulo al final: `reviewer-back`, `clinical-safety-reviewer`,
 ---
 
 ## 8. Decisión requerida de la persona usuaria (A4)
+
+**Decisión A4: aprobada por la persona usuaria el 2026-10-22: opción 1 en todo con las dos condiciones de salida (A4.3, A4.5).**
 
 Recomendación global: **aprobar la opción 1 de cada punto**. Con eso, el
 escritor de F6-2 puede empezar y las enmiendas de ADR-003/ADR-005 se redactan
