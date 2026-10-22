@@ -37,12 +37,11 @@ function parseValues(value: unknown): Readonly<Partial<Record<GrantField, string
 }
 
 function parsePurge(reply: Record<string, unknown>): PurgeReport {
-  const row = closedRecord(reply, ['kind', 'purged', 'failedRequests', 'staleAccounts', 'pendingDeletions']);
+  const row = closedRecord(reply, ['kind', 'purged', 'failedRequests', 'pendingDeletions']);
   const purged = closedRecord(row.purged, ['idempotencyRecords', 'actionTokens', 'rateLimitEvents', 'accessGrants', 'assistedSignups']);
   return Object.freeze({
     purged: Object.freeze(Object.fromEntries(Object.entries(purged).map(([key, count]) => [key, asNumber(count)]))),
     failedRequests: asNumber(row.failedRequests),
-    staleAccounts: Object.freeze(asArray(row.staleAccounts).map(asString)),
     pendingDeletions: Object.freeze(asArray(row.pendingDeletions).map((item) => {
       const pending = closedRecord(item, ['requestId', 'donorId']);
       return Object.freeze({ requestId: asString(pending.requestId), donorId: asString(pending.donorId) });
@@ -160,6 +159,10 @@ export function createPrivacyPurgeRpcGateway(worker: RpcInvoker): PrivacyPurgeRe
   return {
     async purge() {
       return parsePurge(await worker({ accessToken: null, name: 'worker_purge_expired', okKinds: ['ok'], args: {} }));
+    },
+    async purgeAuthAccounts(limit) {
+      const row = closedRecord(await worker({ accessToken: null, name: 'worker_purge_auth_accounts', okKinds: ['ok'], args: { p_limit: limit } }), ['kind', 'staleDeleted', 'inertDeleted']);
+      return Object.freeze({ staleDeleted: asNumber(row.staleDeleted), inertDeleted: asNumber(row.inertDeleted) });
     },
     async finishDeletion(requestId, subjectHmac) {
       await worker({ accessToken: null, name: 'finish_deletion', okKinds: ['ok'], args: { p_request_id: requestId, p_subject_hmac: subjectHmac } });

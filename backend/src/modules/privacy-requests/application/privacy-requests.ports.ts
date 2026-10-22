@@ -46,11 +46,12 @@ export type ExecutionStarted = Readonly<{ request: CorrectionRequestView; next: 
 export type ExecutionSubject = Readonly<{ type: RequestType; donorId?: string; proposedEmailSealed?: string }>;
 export type EmailChangeIssue = Readonly<{ tokenHash: string; sealedEmail: string; outboxId: string; sealedPayload: string }>;
 
+export type AuthPurgeCounts = Readonly<{ staleDeleted: number; inertDeleted: number }>;
+
 /** Lo que el worker debe terminar fuera de la base tras `worker_purge_expired`. */
 export type PurgeReport = Readonly<{
   purged: Readonly<Record<string, number>>;
   failedRequests: number;
-  staleAccounts: readonly string[];
   pendingDeletions: ReadonlyArray<Readonly<{ requestId: string; donorId: string }>>;
 }>;
 
@@ -80,6 +81,8 @@ export interface PrivacyRequestsRepository {
 /** Operaciones del worker sobre las solicitudes (sesión del worker). */
 export interface PrivacyPurgeRepository {
   purge(): Promise<PurgeReport>;
+  /** Borra cuentas `reclamada_incompleta` > 30 días e inertes de Auth > 24 h en una RPC del worker (ADR-003, b2); solo conteos. */
+  purgeAuthAccounts(limit: number): Promise<AuthPurgeCounts>;
   finishDeletion(requestId: string, subjectHmac: string): Promise<void>;
   failExecution(requestId: string): Promise<void>;
 }

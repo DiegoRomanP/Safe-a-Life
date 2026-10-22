@@ -116,6 +116,17 @@ otro driver ahora; su presencia no prueba que el scaffold legacy sea seguro.
        `app.session_barriers`, `app.admitted_sessions` y `app.login_tickets`.
        Tienen pruebas pgTAP de privilegios, ticket ajeno, reutilizado o vencido
        y emisión tardía.
+   13. `api.worker_purge_auth_accounts(int)` (añadida el 2026-10-22 por decisión
+       de la persona usuaria, P-12 opción b2): purga de Auth del worker. Es
+       propiedad de `app_privileged`, `EXECUTE` solo para `authenticated`, solo
+       el JWT del worker (`app.is_worker()`; si no, `unauthenticated` o
+       `forbidden`), `p_limit` en 1..500 (si no, `invalid`) y devuelve solo
+       conteos (`staleDeleted`, `inertDeleted`). Borra las cuentas asistidas
+       reclamadas e incompletas de más de 30 días y los usuarios de Auth sin
+       cuenta de aplicación de más de 24 h mediante los helpers de `postgres` de
+       la regla 6. `worker_purge_expired` ya no devuelve `staleAccounts`.
+       Tiene pruebas pgTAP (privilegios, aislamiento y conteos) y de integración
+       (carrera con la activación y la vinculación).
 
    Nota: `api.consume_idempotency_key` (clave de un solo uso para MFA y
    step-up) **no** es DEFINER: es INVOKER, exige cuenta de aplicación con rol
@@ -160,6 +171,22 @@ otro driver ahora; su presencia no prueba que el scaffold legacy sea seguro.
    `link_admin_account`, `request_password_recovery`, `consume_password_reset`)
    pertenecen a `app_privileged` (ítems 3 y 4) y leen el `sub`, el AAL y el `amr`
    del GUC que PostgREST valida (`app.jwt_claims`), nunca `auth.uid()`.
+
+   Ampliado el 2026-10-22 (P-12 opción b2 y borrado de factores MFA en el reset,
+   [ADR-007](ADR-007-barrera-de-sesion-tras-reset-de-contrasena.md)): tres
+   DEFINER más propiedad de `postgres`, con `EXECUTE` solo para `app_privileged`
+   (ni `anon`, `authenticated` ni `service_role`), `search_path` vacío y una sola
+   tarea sobre `auth`: `app.delete_stale_assisted_account(uuid)` (bloquea el
+   perfil y `auth.users` `FOR UPDATE` y borra solo si el rol es `donante`, el
+   perfil no está `activo` y el alta sigue `reclamada_incompleta` desde hace más
+   de 30 días), `app.purge_inert_auth_users(interval, int)` (usuarios sin cuenta
+   de aplicación y de más de la edad dada, saltando filas bloqueadas y
+   revalidando con la fila bloqueada, como B1) y `app.delete_mfa_factors(uuid)`
+   (borra los factores MFA de un usuario; retos y códigos de recuperación caen en
+   cascada). Las llaman `api.worker_purge_auth_accounts` (ítem 13) y
+   `api.consume_password_reset`; el worker sigue sin `service_role`. La prueba
+   pgTAP fija ahora siete DEFINER de `postgres`: estas tres, `user_email`,
+   `user_id_by_email`, `worker_delete_inert_user` y `worker_revoke_sessions`.
 
    Ampliado en F5 (2026-10-13): las DEFINER de donantes y altas asistidas son de
    `app_privileged`, no llaman a `auth.uid()` y siguen la regla de F2b: toda RPC
