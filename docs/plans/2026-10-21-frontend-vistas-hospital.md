@@ -1,8 +1,8 @@
-# Plan: vistas principales del hospital
+# Plan: vistas del hospital
 
 | Campo | Valor |
 | --- | --- |
-| Estado | Implementado; gate PASS de reviewer-front (segunda ronda) |
+| Estado | Parte principal con gate PASS; ampliación HOS-04 y HOS-06 en curso |
 | Fecha | 2026-10-21 |
 | Rama | `feat/frontend-vistas-hospital` (desde `feat/frontend-donante-secundarias`; se rebasa sobre `main` cuando ese PR se fusione) |
 | Plan padre | [`2026-10-20-frontend-estructura-por-componentes.md`](2026-10-20-frontend-estructura-por-componentes.md) |
@@ -11,8 +11,9 @@
 
 ## 1. Alcance
 
-Página «02 - Hospital» de Penpot, parte principal. HOS-04 (lotes) y HOS-06
-(altas asistidas) quedan para `feat/frontend-hospital-secundarias`.
+Página «02 - Hospital» de Penpot completa. Primero se hizo la parte
+principal (HOS-01, HOS-02, HOS-03 y HOS-05, revisada con PASS). La persona
+usuaria pidió sumar en la misma rama HOS-04 y HOS-06 (§4).
 
 | Vista | Ruta | Operaciones del contrato (sin llamar todavía, D-4) |
 | --- | --- | --- |
@@ -52,7 +53,28 @@ datos son sintéticos y viven en memoria con la forma del contrato.
 - Minimización: el hospital solo ve la proyección permitida.
 - Pasan `npm run lint`, `npm run test` y `npm run build`.
 
-## 4. Revisión
+## 4. Ampliación: HOS-04 y HOS-06
+
+| Vista | Ruta | Operaciones del contrato (sin llamar todavía, D-4) |
+| --- | --- | --- |
+| HOS-04 Lotes y entregas | `/hospital/necesidades/:needId/lotes` | `listOwnInvitationBatches`, `requestInvitationBatch` |
+| HOS-06 Altas asistidas | `/hospital/altas` | `listOwnAssistedSignups`, `createAssistedSignup`, `reissueAssistedActivationLink` |
+
+Decisiones:
+
+- **HOS-04:** el hospital solicita un lote pero no elige donantes. Solo se
+  ofrece con la necesidad activa, y la urgencia no crea lotes automáticos. En
+  la demo, cada lote suma invitaciones nuevas «Sin respuesta» a las
+  respuestas de la necesidad; una prueba exige que las invitaciones de los
+  lotes coincidan con las respuestas. La tabla «Estado de entrega» de Penpot
+  es la misma proyección que HOS-05, que ya la muestra.
+- **HOS-06:** solo correo y nombre opcional; nunca contraseña, grupo ni
+  ubicación. El resultado es neutro aunque el correo ya exista. Reenviar el
+  enlace devuelve el alta a «pendiente» sin reiniciar su fecha de creación
+  (AP-01). «Ver detalle» de Penpot (`getOwnAssistedSignup`) queda fuera: la
+  lista ya muestra los mismos campos.
+
+## 5. Revisión
 
 `reviewer-front` (subagente independiente, solo lectura):
 
@@ -81,7 +103,7 @@ navegador era pequeño, así que no se comprobó la composición a 1440 px. Las
 entradas de desarrollo no están en `dist`. No verificado: composición a
 1440 px, lector de pantalla real, E2E y gitleaks local.
 
-## 5. Bitácora
+## 6. Bitácora
 
 - 2026-10-21: plan aprobado por la persona usuaria.
 - 2026-10-21: HOS-01, lista de necesidades, HOS-02, HOS-03 y HOS-05
