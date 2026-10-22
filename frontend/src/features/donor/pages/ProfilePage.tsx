@@ -11,21 +11,21 @@ import { Input } from '../../../components/ui/Input.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { bloodTypeLabel } from '../../../lib/format.js';
 import { useDonorDemo } from '../DonorDemoContext.js';
+import { latitudeError, longitudeError } from '../location.js';
+import type { RequestKind } from './NewRequestPage.js';
 
 type Errors = { latitude?: string; longitude?: string };
 
-const DECIMALS = /^-?\d{1,3}(\.\d{1,3})?$/;
-
-function coordinateError(value: string, limit: number, name: string): string | undefined {
-  if (!DECIMALS.test(value.trim())) return `Ingresa la ${name} con hasta tres decimales.`;
-  if (Math.abs(Number(value)) > limit) return `La ${name} debe estar entre −${limit} y ${limit}.`;
-  return undefined;
-}
-
-const protectedChanges = [
-  { title: 'Corregir nombre o grupo', detail: 'Crea una solicitud para revisión.', variant: 'secondary' as const },
-  { title: 'Cambiar correo', detail: 'El nuevo correo deberá verificarse.', variant: 'secondary' as const },
-  { title: 'Eliminar mis datos', detail: 'Inicia una solicitud auditable.', variant: 'danger' as const },
+// Cada cambio abre «Nueva solicitud» con su tipo ya elegido.
+const protectedChanges: Array<{
+  title: string;
+  detail: string;
+  variant: 'secondary' | 'danger';
+  kind: RequestKind;
+}> = [
+  { title: 'Corregir nombre o grupo', detail: 'Crea una solicitud para revisión.', variant: 'secondary', kind: 'correccion' },
+  { title: 'Cambiar correo', detail: 'El nuevo correo deberá verificarse.', variant: 'secondary', kind: 'correo' },
+  { title: 'Eliminar mis datos', detail: 'Inicia una solicitud auditable.', variant: 'danger', kind: 'eliminacion' },
 ];
 
 // DON-02 Mi perfil (Penpot «+»). Datos de getOwnDonorProfile. Solo se editan
@@ -44,8 +44,8 @@ export function ProfilePage() {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const found: Errors = {
-      latitude: coordinateError(latitude, 90, 'latitud'),
-      longitude: coordinateError(longitude, 180, 'longitud'),
+      latitude: latitudeError(latitude),
+      longitude: longitudeError(longitude),
     };
     flushSync(() => {
       setErrors(found);
@@ -166,8 +166,8 @@ export function ProfilePage() {
               <li key={item.title} className="flex flex-col items-start gap-2">
                 <h3 className="font-semibold text-ink">{item.title}</h3>
                 <p className="text-sm text-muted">{item.detail}</p>
-                <LinkButton to="/donante/solicitudes" variant={item.variant}>
-                  Ver mis solicitudes<span className="sr-only">: {item.title.toLowerCase()}</span>
+                <LinkButton to="/donante/solicitudes/nueva" state={{ kind: item.kind }} variant={item.variant}>
+                  Crear solicitud<span className="sr-only">: {item.title.toLowerCase()}</span>
                 </LinkButton>
               </li>
             ))}

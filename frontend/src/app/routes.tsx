@@ -1,17 +1,22 @@
 import { Navigate, type RouteObject } from 'react-router-dom';
 import { PublicLayout } from '../components/layout/PublicLayout.js';
 import { ActivateAccountPage } from '../features/auth/pages/ActivateAccountPage.js';
+import { ConfirmEmailChangePage } from '../features/auth/pages/ConfirmEmailChangePage.js';
 import { LoginPage } from '../features/auth/pages/LoginPage.js';
 import { RecoverAccessPage } from '../features/auth/pages/RecoverAccessPage.js';
 import { RegisterPage } from '../features/auth/pages/RegisterPage.js';
 import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage.js';
+import { VerifyEmailPage } from '../features/auth/pages/VerifyEmailPage.js';
 import { VerifyIdentityPage } from '../features/auth/pages/VerifyIdentityPage.js';
 import { DonorLayout } from '../features/donor/DonorLayout.js';
 import { HistoryPage } from '../features/donor/pages/HistoryPage.js';
 import { InvitationDetailPage } from '../features/donor/pages/InvitationDetailPage.js';
 import { InvitationsPage } from '../features/donor/pages/InvitationsPage.js';
+import { NewRequestPage } from '../features/donor/pages/NewRequestPage.js';
+import { OnboardingPage } from '../features/donor/pages/OnboardingPage.js';
 import { ProfilePage } from '../features/donor/pages/ProfilePage.js';
 import { RequestsPage } from '../features/donor/pages/RequestsPage.js';
+import { InvitationLinkPage } from '../features/invitation/pages/InvitationLinkPage.js';
 import { HomePage } from '../features/public/pages/HomePage.js';
 import { NotFoundPage } from '../features/system/pages/NotFoundPage.js';
 
@@ -29,6 +34,10 @@ export const routes: RouteObject[] = [
   { path: 'recuperar-acceso', element: <RecoverAccessPage /> },
   { path: 'restablecer-contrasena', element: <ResetPasswordPage /> },
   { path: 'verificar-identidad', element: <VerifyIdentityPage /> },
+  { path: 'verificar-correo', element: <VerifyEmailPage /> },
+  { path: 'cambiar-correo', element: <ConfirmEmailChangePage /> },
+  // Enlace de invitación del correo (LINK-01), fuera del área autenticada.
+  { path: 'invitaciones', element: <InvitationLinkPage /> },
   // Área del donante. Sin backend (D-4) todavía no hay guard de sesión.
   {
     path: 'donante',
@@ -37,9 +46,11 @@ export const routes: RouteObject[] = [
       { index: true, element: <Navigate to="invitaciones" replace /> },
       { path: 'invitaciones', element: <InvitationsPage /> },
       { path: 'invitaciones/:invitationId', element: <InvitationDetailPage /> },
+      { path: 'bienvenida', element: <OnboardingPage /> },
       { path: 'perfil', element: <ProfilePage /> },
       { path: 'historial', element: <HistoryPage /> },
       { path: 'solicitudes', element: <RequestsPage /> },
+      { path: 'solicitudes/nueva', element: <NewRequestPage /> },
     ],
   },
   { path: '*', element: <NotFoundPage /> },
