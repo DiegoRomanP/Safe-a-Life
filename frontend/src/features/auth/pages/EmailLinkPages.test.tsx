@@ -31,6 +31,15 @@ describe('AUTH-02 paso 2: verificar correo', () => {
   });
 });
 
+describe('AUTH-02 paso 2: enlace vencido', () => {
+  it('pide registrarse otra vez, sin mencionar al hospital', () => {
+    const view = renderRoute(`/verificar-correo#${TOKEN}`);
+    click(view.querySelector('input[value="expired"]'));
+    expect(view.textContent).toContain('Vuelve a registrarte con tu correo para recibir un nuevo enlace.');
+    expect(view.textContent).not.toContain('hospital');
+  });
+});
+
 describe('Confirmar cambio de correo', () => {
   it('confirma con un botón explícito y enfoca el resultado', () => {
     const view = renderRoute(`/cambiar-correo#${TOKEN}`);

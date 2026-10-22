@@ -37,7 +37,10 @@ type Errors = { correction?: string; email?: string; confirm?: string };
 export function NewRequestPage() {
   const { createRequest } = useDonorDemo();
   const navigate = useNavigate();
-  const initialKind = (useLocation().state as { kind?: RequestKind } | null)?.kind ?? 'correccion';
+  // Solo se aceptan los tres tipos conocidos; un estado de historial distinto
+  // vuelve a la corrección.
+  const stateKind = (useLocation().state as { kind?: unknown } | null)?.kind;
+  const initialKind = kinds.some((option) => option.value === stateKind) ? (stateKind as RequestKind) : 'correccion';
   const [kind, setKind] = useState<RequestKind>(initialKind);
   const [name, setName] = useState('');
   const [bloodType, setBloodType] = useState('');
