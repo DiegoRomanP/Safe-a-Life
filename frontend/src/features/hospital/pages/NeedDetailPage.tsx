@@ -94,7 +94,7 @@ export function NeedDetailPage() {
         <div className="flex flex-col gap-2">
           <h1 className="text-3xl font-bold text-ink">{`Necesidad ${code}`}</h1>
           <p className="text-muted">
-            {`Glóbulos rojos ${bloodTypeLabel(need.requiredBloodType)} · ${site} · vence ${formatDateTime(need.expiresAt)}`}
+            {`Glóbulos rojos · grupo requerido ${bloodTypeLabel(need.requiredBloodType)} · ${site} · vence ${formatDateTime(need.expiresAt)}`}
           </p>
           <div className="flex flex-wrap gap-3">
             <Badge tone={status.tone}>{status.label}</Badge>
@@ -209,7 +209,7 @@ export function NeedDetailPage() {
                 <tr className="border-b border-line text-sm text-muted">
                   <th scope="col" className="px-4 py-4 font-semibold">Nombre</th>
                   <th scope="col" className="px-4 py-4 font-semibold">Código</th>
-                  <th scope="col" className="px-4 py-4 font-semibold">Grupo</th>
+                  <th scope="col" className="px-4 py-4 font-semibold">Grupo declarado</th>
                   <th scope="col" className="px-4 py-4 font-semibold">Respuesta</th>
                   <th scope="col" className="px-4 py-4 font-semibold">Hora</th>
                 </tr>
@@ -231,7 +231,7 @@ export function NeedDetailPage() {
       </section>
 
       <Alert tone="warning" title="Verificación profesional externa">
-        Ante un proceso real, el hospital debe verificar identidad, grupo y elegibilidad con sus procedimientos.
+        El hospital verifica identidad, grupo y elegibilidad con sus procedimientos antes de cualquier donación. El grupo que aparece es el declarado por la persona y una intención de asistir no confirma aptitud.
       </Alert>
     </>
   );

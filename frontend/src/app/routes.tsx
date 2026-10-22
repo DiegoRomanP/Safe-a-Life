@@ -1,5 +1,6 @@
 import { Navigate, type RouteObject } from 'react-router-dom';
 import { PublicLayout } from '../components/layout/PublicLayout.js';
+import { AdminInvitationPage } from '../features/auth/pages/AdminInvitationPage.js';
 import { ActivateAccountPage } from '../features/auth/pages/ActivateAccountPage.js';
 import { ConfirmEmailChangePage } from '../features/auth/pages/ConfirmEmailChangePage.js';
 import { LoginPage } from '../features/auth/pages/LoginPage.js';
@@ -53,6 +54,7 @@ export const routes: RouteObject[] = [
   { path: 'verificar-identidad', element: <VerifyIdentityPage /> },
   { path: 'verificar-correo', element: <VerifyEmailPage /> },
   { path: 'cambiar-correo', element: <ConfirmEmailChangePage /> },
+  { path: 'invitacion-administrador', element: <AdminInvitationPage /> },
   // Enlace de invitación del correo (LINK-01), fuera del área autenticada.
   { path: 'invitaciones', element: <InvitationLinkPage /> },
   // Área del donante. Sin backend (D-4) todavía no hay guard de sesión.

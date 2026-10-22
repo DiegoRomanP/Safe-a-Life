@@ -109,7 +109,7 @@ describe('HOS-05 Respuestas', () => {
     const view = renderRoute(`/hospital/necesidades/${B087}/respuestas`);
     expect(view.querySelector('h1')?.textContent).toBe('Respuestas · NEC-B087');
     const stats = [...view.querySelectorAll('section[aria-label="Resumen de respuestas"] > div')].map((d) => d.textContent);
-    expect(stats).toEqual(['8Invitaciones', '1Confirmadas', '2Rechazadas', '5Sin respuesta']);
+    expect(stats).toEqual(['8Invitaciones', '1Intenciones confirmadas', '2Rechazadas', '5Sin respuesta']);
     const rows = [...view.querySelectorAll('tbody tr')];
     expect(rows.filter((row) => row.textContent?.includes('Oculta'))).toHaveLength(7);
     const confirmed = rows.find((row) => row.textContent?.includes('Confirmada'));

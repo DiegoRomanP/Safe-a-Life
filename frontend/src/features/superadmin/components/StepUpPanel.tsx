@@ -55,7 +55,7 @@ export function StepUpPanel({ purpose, onVerified, onCancel }: StepUpPanelProps)
               ref={codeRef}
               inputMode="numeric"
               autoComplete="one-time-code"
-              maxLength={9}
+              maxLength={8}
               value={code}
               onChange={(event) => setCode(event.target.value)}
             />
