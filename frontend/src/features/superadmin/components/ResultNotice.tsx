@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { SuccessNotice } from '../../../components/states/SuccessNotice.js';
 
-export type Notice = { id: number; message: string; detail?: string };
+// Cada aviso es un objeto nuevo: el efecto que enfoca la región se dispara
+// aunque el texto se repita.
+export type Notice = { message: string; detail?: string };
 
 // Región aria-live persistente con el resultado de la última acción. El aviso
 // recibe el foco al cambiar, porque el control que se pulsó puede desaparecer.

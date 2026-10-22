@@ -57,7 +57,6 @@ export function AdminsPage() {
       setEmail('');
       setHospitalId('');
       setNotice({
-        id: Date.now(),
         message: 'Invitación procesada',
         detail: 'Si corresponde, la persona recibirá un enlace para activar su acceso al hospital.',
       });
@@ -75,7 +74,6 @@ export function AdminsPage() {
       setRevoking(null);
       setReason('');
       setNotice({
-        id: Date.now(),
         message: `Membresía de ${target.emailHint} revocada`,
         detail: 'La persona pierde el acceso al hospital en su siguiente petición.',
       });

@@ -84,7 +84,7 @@ export function SitesPage() {
       coordinates: { latitude: Number(form.latitude), longitude: Number(form.longitude) },
     });
     setForm({ hospital: '', name: '', address: '', latitude: '', longitude: '' });
-    setNotice({ id: Date.now(), message: `${created.publicName} creada`, detail: 'Queda en revisión hasta que la apruebes.' });
+    setNotice({ message: `${created.publicName} creada`, detail: 'Queda en revisión hasta que la apruebes.' });
   }
 
   return (
@@ -164,7 +164,7 @@ export function SitesPage() {
                           variant="secondary"
                           onClick={() => {
                             approveSite(site.siteId);
-                            setNotice({ id: Date.now(), message: `${site.publicName} aprobada`, detail: 'La sede quedó activa.' });
+                            setNotice({ message: `${site.publicName} aprobada`, detail: 'La sede quedó activa.' });
                           }}
                         >
                           Aprobar<span className="sr-only"> {site.publicName}</span>

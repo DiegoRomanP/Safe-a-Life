@@ -48,14 +48,13 @@ export function HospitalsPage() {
     const created = createHospital({ publicName: publicName.trim(), legalName: legalName.trim() });
     setPublicName('');
     setLegalName('');
-    setNotice({ id: Date.now(), message: `${created.publicName} creado`, detail: 'Queda sin autorizar hasta que lo autorices.' });
+    setNotice({ message: `${created.publicName} creado`, detail: 'Queda sin autorizar hasta que lo autorices.' });
   }
 
   function toggle(hospitalId: string, name: string, authorize: boolean) {
     requireStepUp(authorize ? `autorizar ${name}` : `desautorizar ${name}`, () => {
       setHospitalAuthorized(hospitalId, authorize);
       setNotice({
-        id: Date.now(),
         message: authorize ? `${name} autorizado` : `${name} desautorizado`,
         detail: 'El cambio quedó registrado en la auditoría.',
       });
