@@ -1,4 +1,4 @@
-import type { AppConfig } from './config/env.js';
+import type { WorkerConfig } from './config/env.js';
 import { createOutboxProcessor } from './modules/email-delivery/application/process-outbox.js';
 import { createWorkerLoop } from './modules/email-delivery/application/worker-loop.js';
 import { FakeEmailSender } from './modules/email-delivery/infrastructure/fake-sender.js';
@@ -28,7 +28,7 @@ export interface WorkerOverrides {
  * Raíz de composición del worker: proceso separado de la API, con la identidad técnica `worker` (V13). Solo llama a
  * las RPC `worker_*`; no usa `service_role` ni el SDK fuera de los adaptadores.
  */
-export function buildWorker(config: AppConfig, logger: Logger, overrides: WorkerOverrides = {}) {
+export function buildWorker(config: WorkerConfig, logger: Logger, overrides: WorkerOverrides = {}) {
   const supabase = createSupabaseFactory(config);
   const sessions = createSupabaseSessionGateway(config);
   const technicalSession = createTechnicalSession({
