@@ -1,105 +1,79 @@
 import { useRef, useState, type FormEvent } from 'react';
-import { flushSync } from 'react-dom';
+import { apiRequest, ApiError, createMutationIntent, errorMessage } from '../../../api/client.js';
 import { Alert } from '../../../components/ui/Alert.js';
-import { Badge } from '../../../components/ui/Badge.js';
 import { Button } from '../../../components/ui/Button.js';
 import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
+import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { AuthCard, AuthShell } from '../components/AuthShell.js';
-import { DevStatusPicker } from '../components/DevStatusPicker.js';
-import {
-  defaultTokenStatusCopy,
-  TokenStatusView,
-  type TokenStatus,
-  type TokenStatusCopy,
-} from '../components/TokenStatusView.js';
 import { useFragmentToken } from '../useFragmentToken.js';
 import { newPasswordError, PASSWORD_HINT } from '../validation.js';
 
-// Para recuperación, el enlace vencido se renueva pidiendo otro, no al hospital,
-// y las etiquetas concuerdan con «enlace».
-const resetCopy: TokenStatusCopy = {
-  ...defaultTokenStatusCopy,
-  used: { ...defaultTokenStatusCopy.used, badge: 'Usado' },
-  expired: {
-    ...defaultTokenStatusCopy.expired,
-    badge: 'Vencido',
-    detail: 'Solicita un nuevo enlace de recuperación para continuar.',
-  },
-};
-
-// AUTH-04 Completar recuperación (`/restablecer-contrasena#token`). Sin backend
-// (D-4) el estado depende de que haya un token con forma válida;
-// completePasswordReset lo resuelve en el slice del cliente HTTP.
 export function ResetPasswordPage() {
-  const { token } = useFragmentToken();
-  const [status, setStatus] = useState<TokenStatus>(token ? 'valid' : 'invalid');
-
-  return (
-    <AuthShell
-      asideTitle="Recuperar acceso"
-      asideDetail="El enlace se usa una sola vez y no se muestra en la dirección."
-      asideFooter={
-        <Alert tone="info" title="Privacidad del enlace">
-          El token nunca se muestra en esta vista. No ingreses credenciales reales.
-        </Alert>
-      }
-    >
-      <div className="flex w-full max-w-[640px] flex-col items-center gap-6">
-        {import.meta.env.DEV && <DevStatusPicker value={status} onChange={setStatus} />}
-        <TokenStatusView status={status} copy={resetCopy} validContent={<NewPasswordForm />} />
-      </div>
-    </AuthShell>
-  );
-}
-
-function NewPasswordForm() {
+  const { token, malformed } = useFragmentToken();
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string>();
-  const [attempted, setAttempted] = useState(false);
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [invalid, setInvalid] = useState(false);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const intent = useRef(createMutationIntent());
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!token || busy || done) return;
     const found = newPasswordError(password);
-    flushSync(() => setError(found));
-    if (found) return passwordRef.current?.focus();
-    setPassword('');
-    setAttempted(true);
+    setError(found);
+    if (found) { passwordRef.current?.focus(); return; }
+    setBusy(true);
+    setMessage('');
+    const path = `/api/v1/auth/password-reset-actions/${encodeURIComponent(token)}`;
+    const body = { newPassword: password };
+    try {
+      await apiRequest(path, { method: 'POST', body, idempotencyKey: intent.current.keyFor(path, body) });
+      intent.current.reset();
+      setPassword('');
+      setDone(true);
+    } catch (cause) {
+      if (cause instanceof ApiError && [404, 410].includes(cause.status)) {
+        setInvalid(true);
+      } else {
+        setMessage(errorMessage(cause));
+      }
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
-    <AuthCard labelledBy="restablecer-titulo">
-      <Badge tone="success" className="self-start">
-        Enlace válido
-      </Badge>
-      <h1 id="restablecer-titulo" className="text-3xl font-bold text-ink">
-        Completar recuperación
-      </h1>
-      <div aria-live="polite">
-        {attempted && (
-          <Alert tone="info" title="Cambio aún no disponible">
-            El cambio de contraseña real llega con la conexión al backend. Por ahora no se envían datos.
-          </Alert>
+    <AuthShell asideTitle="Recuperar acceso" asideDetail="El enlace es de un solo uso y no se muestra en la dirección.">
+      <AuthCard labelledBy="restablecer-titulo" className="max-w-[640px]">
+        <h1 id="restablecer-titulo" className="text-3xl font-bold text-ink">
+          {done ? 'Contraseña actualizada' : 'Completar recuperación'}
+        </h1>
+        {done ? (
+          <>
+            <Alert tone="info" title="Cambio confirmado">Inicia sesión con tu contraseña nueva para completar tu perfil.</Alert>
+            <LinkButton to="/ingresar">Ir a iniciar sesión</LinkButton>
+          </>
+        ) : (!token || malformed || invalid) ? (
+          <>
+            <Alert tone="warning" title="Enlace no disponible">El enlace no está disponible, venció o ya fue utilizado. Solicita uno nuevo.</Alert>
+            <LinkButton to="/recuperar-acceso">Solicitar otro enlace</LinkButton>
+          </>
+        ) : (
+          <>
+            {message && <Alert tone="warning" title="No se pudo cambiar la contraseña">{message}</Alert>}
+            <form noValidate onSubmit={(event) => { void handleSubmit(event); }} className="flex flex-col gap-6">
+              <Field label="Nueva contraseña" hint={PASSWORD_HINT} error={error}>
+                {(control) => <Input {...control} ref={passwordRef} type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} />}
+              </Field>
+              <Button type="submit" disabled={busy}>{busy ? 'Guardando…' : 'Guardar contraseña'}</Button>
+            </form>
+          </>
         )}
-      </div>
-      <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-6">
-        <Field label="Nueva contraseña" hint={PASSWORD_HINT} error={error}>
-          {(control) => (
-            <Input
-              {...control}
-              ref={passwordRef}
-              type="password"
-              autoComplete="new-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          )}
-        </Field>
-        <div>
-          <Button type="submit">Guardar contraseña</Button>
-        </div>
-      </form>
-    </AuthCard>
+      </AuthCard>
+    </AuthShell>
   );
 }

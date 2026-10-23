@@ -24,6 +24,7 @@ import { createPrivacyRequestsRpcGateway } from './modules/privacy-requests/infr
 import { registerPrivacyRequestsRoutes } from './modules/privacy-requests/http/privacy-requests.router.js';
 import { openEmailChange, sealEmailChange } from './modules/donor-records/application/email-change.js';
 import { registerNeedsRoutes } from './modules/need-records/http/needs.router.js';
+import { registerInvitationRoutes } from './modules/invitation-coordination/http/invitations.router.js';
 import { createWebhookIngester } from './modules/email-delivery/application/ingest-webhook.js';
 import { createOutboxRpcGateway } from './modules/email-delivery/infrastructure/outbox-rpc-gateway.js';
 import { registerResendWebhookRoutes } from './modules/email-delivery/http/resend-webhook.router.js';
@@ -161,6 +162,7 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
       registerActionTokenRoutes(app, { tokens: actionTokens, secrets: { ...httpSecrets, ipHmac } });
       registerDonorRecordsRoutes(app, { donors, secrets: { ...httpSecrets, ipHmac } });
       registerPrivacyRequestsRoutes(app, { privacy, secrets: httpSecrets });
+      registerInvitationRoutes(app, { secrets: httpSecrets, forUser: (accessToken) => supabase.forUser(accessToken) });
       registerNeedsRoutes(app, {
         needs,
         createDraft: (accessToken) => createNeedDraftService(needsGateway.draftGatewayFor(accessToken)),

@@ -9,6 +9,7 @@ import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { AuthCard, AuthShell } from '../components/AuthShell.js';
 import { StepList } from '../components/StepList.js';
 import { emailError, newPasswordError, PASSWORD_HINT } from '../validation.js';
+import { apiRequest, errorMessage } from '../../../api/client.js';
 
 const steps = ['Cuenta y correo', 'Datos declarados', 'Disponibilidad', 'Revisión'];
 
@@ -23,6 +24,9 @@ export function RegisterPage() {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<Errors>({});
   const [sent, setSent] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [serverError, setServerError] = useState('');
+  const submitting = useRef(false);
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLHeadingElement>(null);
@@ -31,20 +35,36 @@ export function RegisterPage() {
     if (sent) resultRef.current?.focus();
   }, [sent]);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting.current) return;
     const found: Errors = { email: emailError(email), password: newPasswordError(password) };
     flushSync(() => setErrors(found));
     if (found.email) return emailRef.current?.focus();
     if (found.password) return passwordRef.current?.focus();
-    setPassword('');
-    setSent(true);
+    submitting.current = true;
+    setPending(true);
+    setServerError('');
+    try {
+      await apiRequest('/api/v1/donor-registrations', {
+        method: 'POST',
+        body: { email: email.trim(), password },
+        idempotencyKey: crypto.randomUUID(),
+      });
+      setPassword('');
+      setSent(true);
+    } catch (failure) {
+      setServerError(errorMessage(failure));
+    } finally {
+      submitting.current = false;
+      setPending(false);
+    }
   }
 
   return (
     <AuthShell
       asideTitle="Crea tu cuenta de donante"
-      asideDetail="Completa tu perfil con datos sintéticos para participar en la demostración."
+      asideDetail="Regístrate para completar tu perfil y recibir invitaciones de hospitales autorizados."
       asideContent={<StepList label="Pasos del registro" steps={steps} current={1} />}
     >
       {sent ? (
@@ -61,8 +81,8 @@ export function RegisterPage() {
               correo no deseado.
             </p>
           </div>
-          <Alert tone="brand" title="Prototipo académico">
-            Esta pantalla no envía mensajes ni crea cuentas reales.
+          <Alert tone="brand" title="Registro enviado">
+            El servidor recibió la solicitud. La activación de la cuenta depende de completar la verificación de correo configurada en el entorno.
           </Alert>
           <div>
             <LinkButton to="/ingresar">Volver a ingresar</LinkButton>
@@ -78,7 +98,7 @@ export function RegisterPage() {
               Cuenta y correo
             </h1>
             <p className="text-muted">
-              Registra una cuenta de demostración para recibir invitaciones de hospitales autorizados.
+              Registra una cuenta para recibir invitaciones de hospitales autorizados.
             </p>
           </div>
           <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -96,7 +116,7 @@ export function RegisterPage() {
                   />
                 )}
               </Field>
-              <Field label="Contraseña de demostración" hint={PASSWORD_HINT} error={errors.password}>
+              <Field label="Contraseña" hint={PASSWORD_HINT} error={errors.password}>
                 {(control) => (
                   <Input
                     {...control}
@@ -112,11 +132,15 @@ export function RegisterPage() {
             <Alert tone="brand" title="Uso exclusivamente académico">
               La cuenta solo se activará cuando el correo esté verificado y el perfil obligatorio esté completo.
             </Alert>
+            <div aria-live="polite" role="status">
+              {pending && <p>Creando solicitud de registro…</p>}
+              {serverError && <Alert tone="warning" title="No pudimos registrar la cuenta">{serverError}</Alert>}
+            </div>
             <div className="flex flex-wrap justify-between gap-3">
               <LinkButton to="/" variant="ghost">
                 Volver
               </LinkButton>
-              <Button type="submit">Continuar</Button>
+              <Button type="submit" disabled={pending}>{pending ? "Enviando…" : "Continuar"}</Button>
             </div>
           </form>
         </AuthCard>

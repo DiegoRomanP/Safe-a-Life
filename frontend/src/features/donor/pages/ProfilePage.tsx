@@ -1,177 +1,411 @@
-import { useRef, useState, type FormEvent } from 'react';
-import { flushSync } from 'react-dom';
+
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import {
+  apiRequest,
+  ApiError,
+  createMutationIntent,
+  errorMessage,
+} from '../../../api/client.js';
 import { PageHeader } from '../../../components/layout/PageHeader.js';
 import { SuccessNotice } from '../../../components/states/SuccessNotice.js';
 import { Alert } from '../../../components/ui/Alert.js';
 import { Button } from '../../../components/ui/Button.js';
 import { Card } from '../../../components/ui/Card.js';
-import { cx } from '../../../components/ui/cx.js';
 import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
-import { bloodTypeLabel } from '../../../lib/format.js';
-import { useDonorDemo } from '../DonorDemoContext.js';
+import { bloodTypeLabel, type BloodType } from '../../../lib/format.js';
+import type { DonorProfile } from '../types.js';
 
-type Errors = { latitude?: string; longitude?: string };
+type PageState =
+  | 'loading'
+  | 'onboarding'
+  | 'active'
+  | 'loading-error';
 
-const DECIMALS = /^-?\d{1,3}(\.\d{1,3})?$/;
-
-function coordinateError(value: string, limit: number, name: string): string | undefined {
-  if (!DECIMALS.test(value.trim())) return `Ingresa la ${name} con hasta tres decimales.`;
-  if (Math.abs(Number(value)) > limit) return `La ${name} debe estar entre −${limit} y ${limit}.`;
-  return undefined;
-}
-
-const protectedChanges = [
-  { title: 'Corregir nombre o grupo', detail: 'Crea una solicitud para revisión.', variant: 'secondary' as const },
-  { title: 'Cambiar correo', detail: 'El nuevo correo deberá verificarse.', variant: 'secondary' as const },
-  { title: 'Eliminar mis datos', detail: 'Inicia una solicitud auditable.', variant: 'danger' as const },
+const bloodTypes: BloodType[] = [
+  'O_NEG',
+  'O_POS',
+  'A_NEG',
+  'A_POS',
+  'B_NEG',
+  'B_POS',
+  'AB_NEG',
+  'AB_POS',
 ];
 
-// DON-02 Mi perfil (Penpot «+»). Datos de getOwnDonorProfile. Solo se editan
-// disponibilidad y ubicación aproximada (updateOwnDonorParticipation); nombre,
-// correo y grupo requieren una solicitud de corrección.
-export function ProfilePage() {
-  const { profile, updateParticipation } = useDonorDemo();
-  const [isAvailable, setIsAvailable] = useState(profile.isAvailable);
-  const [latitude, setLatitude] = useState(String(profile.approximateLocation.latitude));
-  const [longitude, setLongitude] = useState(String(profile.approximateLocation.longitude));
-  const [errors, setErrors] = useState<Errors>({});
-  const [saved, setSaved] = useState(false);
-  const latitudeRef = useRef<HTMLInputElement>(null);
-  const longitudeRef = useRef<HTMLInputElement>(null);
+const coord = /^-?\d{1,3}(\.\d{1,3})?$/;
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const found: Errors = {
-      latitude: coordinateError(latitude, 90, 'latitud'),
-      longitude: coordinateError(longitude, 180, 'longitud'),
-    };
-    flushSync(() => {
-      setErrors(found);
-      setSaved(false);
-    });
-    if (found.latitude) return latitudeRef.current?.focus();
-    if (found.longitude) return longitudeRef.current?.focus();
-    updateParticipation({
-      isAvailable,
-      approximateLocation: { latitude: Number(latitude), longitude: Number(longitude) },
-    });
-    setSaved(true);
+function readLocation(latitude: string, longitude: string) {
+  const latitudeText = latitude.trim();
+  const longitudeText = longitude.trim();
+
+  if (!coord.test(latitudeText) || !coord.test(longitudeText)) {
+    throw new Error(
+      'Escribe latitud y longitud con un máximo de tres decimales.'
+    );
   }
+
+  const lat = Number(latitudeText);
+  const lon = Number(longitudeText);
+
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lon) ||
+    Math.abs(lat) > 90 ||
+    Math.abs(lon) > 180
+  ) {
+    throw new Error('Las coordenadas están fuera del rango permitido.');
+  }
+
+  return {
+    latitude: lat,
+    longitude: lon,
+  };
+}
+
+export function ProfilePage() {
+  const [mode, setMode] = useState<PageState>('loading');
+  const [profile, setProfile] = useState<DonorProfile | null>(null);
+
+  const [name, setName] = useState('');
+  const [blood, setBlood] = useState<BloodType>('O_POS');
+  const [available, setAvailable] = useState(true);
+
+  const [latitude, setLatitude] = useState('');
+  const [longitude, setLongitude] = useState('');
+
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [saved, setSaved] = useState(false);
+
+  const intent = useRef(createMutationIntent());
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    apiRequest<DonorProfile>('/api/v1/donors/me/profile', {
+      signal: controller.signal,
+    })
+      .then((data) => {
+        if (controller.signal.aborted) return;
+
+        setProfile(data);
+        setName(data.name);
+        setBlood(data.declaredBloodType);
+        setAvailable(data.isAvailable);
+
+        setLatitude(String(data.approximateLocation.latitude));
+        setLongitude(String(data.approximateLocation.longitude));
+
+        setMode('active');
+      })
+      .catch((error: unknown) => {
+        if (controller.signal.aborted) return;
+
+        if (error instanceof ApiError && error.status === 404) {
+          setMode('onboarding');
+        } else {
+          setMode('loading-error');
+          setMessage(errorMessage(error));
+        }
+      });
+
+    return () => controller.abort();
+  }, []);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (busy) return;
+
+    setSaved(false);
+    setMessage('');
+
+    try {
+      const approximateLocation = readLocation(latitude, longitude);
+      const creating = mode === 'onboarding';
+
+      if (creating && name.trim().length < 2) {
+        throw new Error('Ingresa tu nombre completo.');
+      }
+
+      const path = creating
+        ? '/api/v1/donors/me/onboarding-profile'
+        : '/api/v1/donors/me/profile';
+
+      const body = creating
+        ? {
+            name: name.trim(),
+            declaredBloodType: blood,
+            isAvailable: available,
+            approximateLocation,
+          }
+        : {
+            isAvailable: available,
+            approximateLocation,
+          };
+
+      setBusy(true);
+
+      const data = await apiRequest<DonorProfile>(path, {
+        method: creating ? 'PUT' : 'PATCH',
+        body,
+        idempotencyKey: intent.current.keyFor(path, body),
+      });
+
+      intent.current.reset();
+
+      setProfile(data);
+      setName(data.name);
+      setBlood(data.declaredBloodType);
+      setAvailable(data.isAvailable);
+
+      setLatitude(String(data.approximateLocation.latitude));
+      setLongitude(String(data.approximateLocation.longitude));
+
+      setMode('active');
+      setSaved(true);
+    } catch (error) {
+      if (error instanceof Error && !(error instanceof ApiError)) {
+        setMessage(error.message);
+      } else if (
+        error instanceof ApiError &&
+        error.status === 409 &&
+        mode === 'onboarding'
+      ) {
+        setMessage(
+          'El servidor todavía exige completar la configuración de contraseña ' +
+          'antes de activar tu perfil. Este requisito debe resolverse mediante ' +
+          'el flujo de seguridad de tu cuenta.'
+        );
+      } else {
+        setMessage(errorMessage(error));
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (mode === 'loading') {
+    return (
+      <PageHeader
+        title="Mi perfil"
+        description="Cargando información de tu cuenta…"
+      />
+    );
+  }
+
+  if (mode === 'loading-error') {
+    return (
+      <>
+        <PageHeader
+          title="Mi perfil"
+          description="No pudimos consultar tu perfil real."
+        />
+
+        <Alert tone="warning" title="No fue posible cargar los datos">
+          {message}
+        </Alert>
+
+        <Button onClick={() => window.location.reload()}>
+          Reintentar
+        </Button>
+      </>
+    );
+  }
+
+  const creating = mode === 'onboarding';
 
   return (
     <>
       <PageHeader
-        title="Mi perfil"
-        description="Administra tu disponibilidad y ubicación sintética aproximada."
+        title={creating ? 'Completar perfil de donante' : 'Mi perfil'}
+        description={
+          creating
+            ? 'Configura tus datos iniciales para activar la participación.'
+            : 'Actualiza tu disponibilidad y ubicación aproximada.'
+        }
         actions={
-          <Button type="submit" form="perfil-formulario">
-            Guardar cambios
+          <Button
+            type="submit"
+            form="perfil-real"
+            disabled={busy}
+          >
+            {busy
+              ? 'Guardando…'
+              : creating
+                ? 'Completar perfil'
+                : 'Guardar cambios'}
           </Button>
         }
       />
-      <Alert tone="brand" title="Tus datos están protegidos">
-        Nombre, correo y grupo declarado requieren una solicitud de corrección.
-      </Alert>
+
+      {creating ? (
+        <Alert tone="info" title="Perfil todavía incompleto">
+          Completa tus datos iniciales. La información será validada
+          por el servidor antes de guardarse en PostgreSQL.
+        </Alert>
+      ) : (
+        <Alert tone="brand" title="Datos protegidos">
+          Después de activar el perfil, el nombre y el grupo sanguíneo
+          no se modifican directamente. Debes solicitar una corrección.
+        </Alert>
+      )}
+
       <div aria-live="polite">
-        {saved && <SuccessNotice announce={false} message="Cambios guardados" detail="Tu disponibilidad y ubicación quedaron actualizadas." />}
+        {message && (
+          <Alert tone="warning" title="No se pudieron guardar los datos">
+            {message}
+          </Alert>
+        )}
+
+        {saved && (
+          <SuccessNotice
+            announce={false}
+            message="Cambios guardados"
+            detail="Información confirmada por el servidor."
+          />
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <Card title="Datos declarados">
-          <form id="perfil-formulario" noValidate onSubmit={handleSubmit} className="flex flex-col gap-6">
+        <Card title="Datos del donante">
+          <form
+            id="perfil-real"
+            onSubmit={(event) => {
+              void handleSubmit(event);
+            }}
+            className="flex flex-col gap-6"
+          >
             <div className="grid gap-6 md:grid-cols-2">
-              <Field label="Nombre" hint="Solicita una corrección para modificarlo.">
-                {(control) => <Input {...control} readOnly value={profile.name} />}
-              </Field>
-              <Field label="Correo" hint="Correo verificado.">
-                {(control) => <Input {...control} readOnly type="email" value={profile.email} />}
-              </Field>
-              <Field label="Grupo declarado" hint="Usado solo para preselección.">
-                {(control) => <Input {...control} readOnly value={bloodTypeLabel(profile.declaredBloodType)} />}
-              </Field>
-            </div>
-
-            <fieldset className="flex flex-col gap-3">
-              <legend className="text-sm font-semibold text-ink">Ubicación sintética</legend>
-              <p className="text-sm text-muted">Máximo tres decimales; no uses tu domicilio real.</p>
-              <div className="grid gap-6 md:grid-cols-2">
-                <Field label="Latitud" error={errors.latitude}>
-                  {(control) => (
-                    <Input
-                      {...control}
-                      ref={latitudeRef}
-                      inputMode="decimal"
-                      value={latitude}
-                      onChange={(event) => {
-                        setLatitude(event.target.value);
-                        setSaved(false);
-                      }}
-                    />
-                  )}
-                </Field>
-                <Field label="Longitud" error={errors.longitude}>
-                  {(control) => (
-                    <Input
-                      {...control}
-                      ref={longitudeRef}
-                      inputMode="decimal"
-                      value={longitude}
-                      onChange={(event) => {
-                        setLongitude(event.target.value);
-                        setSaved(false);
-                      }}
-                    />
-                  )}
-                </Field>
-              </div>
-            </fieldset>
-
-            <div className="flex flex-col gap-3">
-              <p id="disponibilidad-etiqueta" className="text-sm font-semibold text-ink">
-                Disponibilidad
-              </p>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={isAvailable}
-                aria-labelledby="disponibilidad-etiqueta"
-                aria-describedby="disponibilidad-ayuda"
-                onClick={() => {
-                  setIsAvailable((value) => !value);
-                  setSaved(false);
-                }}
-                className={cx(
-                  'flex min-h-12 w-full max-w-[220px] items-center gap-3 rounded-full border px-3 font-semibold',
-                  isAvailable ? 'border-success bg-success-soft text-success' : 'border-muted bg-neutral-soft text-muted',
+              <Field label="Nombre">
+                {(control) => (
+                  <Input
+                    {...control}
+                    value={name}
+                    readOnly={!creating}
+                    required={creating}
+                    onChange={(event) => setName(event.target.value)}
+                  />
                 )}
-              >
-                <span
-                  aria-hidden="true"
-                  className={cx('size-6 rounded-full', isAvailable ? 'bg-success' : 'border-2 border-muted bg-surface')}
-                />
-                {isAvailable ? 'Disponible' : 'No disponible'}
-              </button>
-              <p id="disponibilidad-ayuda" className="text-sm text-muted">
-                Al marcarte no disponible, no recibirás nuevas invitaciones y se invalidarán las activas sin respuesta.
-              </p>
+              </Field>
+
+              <Field label="Correo">
+                {(control) => (
+                  <Input
+                    {...control}
+                    type="text"
+                    readOnly
+                    value={
+                      profile?.email ??
+                      'Correo de la cuenta autenticada'
+                    }
+                  />
+                )}
+              </Field>
+
+              <Field label="Grupo sanguíneo declarado">
+                {(control) =>
+                  creating ? (
+                    <select
+                      {...control}
+                      className="min-h-12 w-full rounded-lg border border-line bg-surface px-3 text-ink"
+                      value={blood}
+                      onChange={(event) =>
+                        setBlood(event.target.value as BloodType)
+                      }
+                    >
+                      {bloodTypes.map((item) => (
+                        <option key={item} value={item}>
+                          {bloodTypeLabel(item)}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <Input
+                      {...control}
+                      readOnly
+                      value={bloodTypeLabel(blood)}
+                    />
+                  )
+                }
+              </Field>
             </div>
+
+            <p className="text-sm text-muted">
+              Ubicación sintética aproximada: máximo tres decimales.
+              No ingreses tu domicilio real.
+            </p>
+
+            <div className="grid gap-6 md:grid-cols-2">
+            <Field label="Latitud">
+              {(control) => (
+                <Input
+                  {...control}
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="-12.046"
+                  value={latitude}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(',', '.');
+
+                    if (/^-?\d{0,2}(\.\d{0,3})?$/.test(value) || value === '-') {
+                      setLatitude(value);
+                    }
+                  }}
+                  required
+                />
+              )}
+            </Field>
+
+            <Field label="Longitud">
+              {(control) => (
+                <Input
+                  {...control}
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="-77.043"
+                  value={longitude}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(',', '.');
+
+                    if (/^-?\d{0,3}(\.\d{0,3})?$/.test(value) || value === '-') {
+                      setLongitude(value);
+                    }
+                  }}
+                  required
+                />
+              )}
+            </Field>
+          </div>
+
+            <label className="flex items-center gap-3 text-ink">
+              <input
+                type="checkbox"
+                checked={available}
+                onChange={(event) =>
+                  setAvailable(event.target.checked)
+                }
+              />
+
+              Disponible para recibir invitaciones
+            </label>
           </form>
         </Card>
 
         <Card title="Cambios protegidos">
-          <ul className="flex flex-col gap-6">
-            {protectedChanges.map((item) => (
-              <li key={item.title} className="flex flex-col items-start gap-2">
-                <h3 className="font-semibold text-ink">{item.title}</h3>
-                <p className="text-sm text-muted">{item.detail}</p>
-                <LinkButton to="/donante/solicitudes" variant={item.variant}>
-                  Ver mis solicitudes<span className="sr-only">: {item.title.toLowerCase()}</span>
-                </LinkButton>
-              </li>
-            ))}
-          </ul>
+          <p className="text-muted">
+            Para corregir el nombre, el grupo sanguíneo o el correo
+            de un perfil activo, utiliza el flujo de solicitudes.
+          </p>
+
+          <LinkButton
+            to="/donante/solicitudes"
+            variant="secondary"
+          >
+            Ver mis solicitudes
+          </LinkButton>
         </Card>
       </div>
     </>

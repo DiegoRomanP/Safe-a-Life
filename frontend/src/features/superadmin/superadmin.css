@@ -1,0 +1,39 @@
+.sa-shell { min-height: 100vh; background: var(--color-canvas); }
+.sa-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; padding: 1rem 1.5rem; border-bottom: 1px solid var(--color-line); background: var(--color-surface); }
+.sa-body { display: flex; min-height: calc(100vh - 5.5rem); }
+.sa-rail { width: 15rem; flex-shrink: 0; background: var(--color-petrol-deep); color: white; padding: 2rem .75rem; display: flex; flex-direction: column; }
+.sa-nav a { display: block; min-height: 2.75rem; padding: .75rem 1rem; margin: .25rem 0; border-left: 3px solid transparent; border-radius: .5rem; }
+.sa-nav a[aria-current] { background: white; color: var(--color-petrol-deep); font-weight: 700; border-left-color: var(--color-brand); }
+.sa-rail a:focus-visible,.sa-menu:focus-visible { outline-color: white; }
+.sa-nav a[aria-current]:focus-visible { outline-offset: -5px; outline-color: var(--color-petrol-deep); }
+.sa-local { margin: auto .75rem 0; padding-top: 3rem; font-size: .8125rem; }
+.sa-local a { display: inline-block; margin-top: .75rem; text-decoration: underline; min-height: 2.75rem; }
+.sa-main { min-width: 0; flex: 1; padding: 2.5rem 3rem; }
+.sa-content { max-width: 75rem; margin: 0 auto; display: flex; flex-direction: column; gap: 1.75rem; }
+.sa-menu { display: none; }
+.sa-skip { position: absolute; left: 1rem; top: -6rem; z-index: 20; background: white; color: var(--color-petrol-deep); padding: .75rem; border-radius: .5rem; }
+.sa-skip:focus { top: .5rem; }
+.sa-table { width: 100%; border-collapse: collapse; text-align: left; font-size: .875rem; }
+.sa-table th { background: var(--color-neutral-soft); color: var(--color-muted); font-weight: 600; }
+.sa-table th,.sa-table td { padding: 1rem; border-bottom: 1px solid var(--color-line); overflow-wrap: anywhere; }
+.sa-table tr:last-child td { border-bottom: 0; }
+.sa-table-wrap { border: 1px solid var(--color-line); border-radius: .75rem; background: white; overflow: hidden; }
+.sa-table caption { text-align: left; padding: 1rem; font-weight: 600; }
+.sa-form { display: grid; gap: 1rem; }
+.sa-form label,.sa-filters label { display: flex; flex-direction: column; gap: .375rem; font-size: .875rem; font-weight: 600; min-width: 0; }
+.sa-filters { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 1rem; padding: 1rem; background: white; border: 1px solid var(--color-line); border-radius: .75rem; }
+.sa-loading div { height: 1rem; margin-top: 1.5rem; background: var(--color-neutral-soft); border-radius: .25rem; }
+.sa-content > * { min-width: 0; }
+@media (max-width: 1100px) { .sa-main { padding: 2rem 1.5rem; } .sa-rail { width: 13rem; } }
+@media (max-width: 767px) {
+  .sa-header { padding: 1rem; }.sa-body { flex-direction: column; }.sa-main { padding: 1.5rem 1rem; }.sa-rail { width: auto; padding: .5rem 1rem; }
+  .sa-menu { display: block; min-height: 2.75rem; text-align: left; font-weight: 700; }
+  .sa-nav { display: none; }.sa-nav.is-open { display: block; }.sa-local { margin: 0; padding: .5rem 0; }.sa-local p { display: none; }.sa-local a { margin: 0 0 0 1rem; min-height: auto; }
+  .sa-filters { grid-template-columns: 1fr; }.sa-table thead { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }.sa-table tbody,.sa-table tr,.sa-table td { display: block; }.sa-table tr { padding: .75rem 1rem; border-bottom: 1px solid var(--color-line); }.sa-table tr:last-child { border-bottom: 0; }
+  .sa-table td { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: .75rem; padding: .5rem 0; border: 0; }.sa-table td::before { content: attr(data-label); color: var(--color-muted); font-weight: 600; }.sa-table td > * { min-width: 0; }
+}
+
+.sa-metadata { display: grid; grid-template-columns: minmax(0, .75fr) minmax(0, 1.25fr); gap: 1.5rem 1rem; font-size: .875rem; }
+.sa-metadata dt { color: var(--color-muted); }.sa-metadata dd { overflow-wrap: anywhere; }
+.sa-rail-title { padding: 0 1rem 1rem; font-weight: 700; }
+@media (max-width: 767px) { .sa-rail-title { padding: .25rem 0; font-size: .875rem; }.sa-metadata { grid-template-columns: 1fr; gap: .5rem; }.sa-metadata dd { margin-bottom: 1rem; } }
