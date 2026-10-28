@@ -9,41 +9,124 @@ contrato API de trabajo, las decisiones técnicas y las guías para desarrollar 
 frontend local. Este índice ayuda a elegir la fuente adecuada y a iniciar los
 mocks; no sustituye los documentos que enlaza.
 
-## Por dónde empezar
+## Cómo está organizada
 
-| Si necesitas… | Consulta |
+La documentación se organiza como una biblioteca de **libros**. Cada libro tiene un
+propósito, una fuente de verdad y un estado. Los archivos conservan su ruta actual
+porque scripts, `AGENTS.md`, `CLAUDE.md` y `.opencode/` los citan; este índice es la
+estructura. Para encontrar algo, empieza por el libro, no por la carpeta.
+
+Estados: **Aprobado** (línea base o ADR aceptado), **Borrador** (en revisión),
+**Vigente** (se mantiene con el código), **Histórico** (registro de lo ocurrido, no
+prueba el estado actual).
+
+| Si necesitas… | Libro |
 | --- | --- |
-| Entender los requisitos funcionales aprobados | [Primeros alcances](1_Primeros_Alcances.md) |
-| Consultar la ERS y sus requisitos verificables | [Especificación de software](2_Especificaciones_De_Software.md) — continúa en borrador |
-| Conocer la forma propuesta de la API y sus reglas | [Reglas de API](Api-Rules.md) y el [contrato OpenAPI JSON](openapi.json) |
-| Empezar a trabajar en el frontend usando los mocks | [Entrega frontend](Frontend-Handoff.md) |
-| Consultar el sistema visual de la interfaz | [Diseño frontend](Frontend-Design.md) |
-| Entender la asignación y revisión entre agentes | [Flujo de trabajo de agentes](Agent-Workflow.md) |
-| Verificar una decisión de stack o de tooling local | [Decisiones de arquitectura](decisions/) |
-| Consultar el avance y evidencia de una tarea | [Planes vigentes](plans/) y [historial consolidado](plans/HISTORIAL.md) |
-| Ver bloqueos y decisiones abiertas | [Pendientes](pending/2026-10-20-bloqueos-y-decisiones.md) |
+| Qué debe hacer el producto y con qué límites | [1. Producto y requisitos](#1-producto-y-requisitos) |
+| Por qué se eligió una tecnología o patrón | [2. Decisiones de arquitectura](#2-decisiones-de-arquitectura) |
+| Cómo es la API y qué está ratificado | [3. Contrato de API](#3-contrato-de-api) |
+| Cómo se organiza el backend y su avance | [4. Backend](#4-backend) |
+| Cómo construir o integrar el frontend | [5. Frontend](#5-frontend) |
+| Cómo se trabaja con agentes y qué gates hay | [6. Proceso y agentes](#6-proceso-y-agentes) |
+| Diagramas UML de arquitectura y clases | [7. Diagramas](#7-diagramas) |
+| Ejecutar, probar y reproducir recuentos | [8. Operación](#8-operación-entorno-local-y-verificación) |
+| Bloqueos y decisiones abiertas | [9. Pendientes](#9-pendientes-y-bitácora) |
 
-## Mapa de `docs/`
+### 1. Producto y requisitos
 
-```text
-docs/
-├── README.md                       # Este índice y guía rápida de ejecución
-├── 1_Primeros_Alcances.md          # Línea base funcional aprobada, v1.2
-├── 2_Especificaciones_De_Software.md # ERS controlada, todavía en borrador
-├── Agent-Workflow.md               # Selección de agentes, delegación y gates
-├── Api-Rules.md                    # Reglas propuestas para API y mocks
-├── Frontend-Design.md              # Dirección visual y aceptación de interfaz
-├── Frontend-Handoff.md             # Setup, matriz de operaciones y trabajo frontend
-├── openapi.json                    # Contrato OpenAPI 3.1 canónico de trabajo
-├── decisions/                      # ADRs aceptados y sus límites
-├── pending/                        # Bloqueos y decisiones abiertas
-└── plans/                          # Planes vigentes; HISTORIAL.md resume los cerrados
-```
+| Documento | Tipo | Estado | Fuente de verdad para |
+| --- | --- | --- | --- |
+| [Primeros alcances](1_Primeros_Alcances.md) | Línea base funcional | Aprobado (v1.2) | Alcance funcional y límites clínicos |
+| [Especificación de software (ERS)](2_Especificaciones_De_Software.md) | Requisitos verificables | Borrador (v0.4) | Requisitos RF/RNF; no reemplaza la línea base |
+| `.opencode/references/project-requirements.md` | Requisitos normalizados | Vigente | Referencia rápida para agentes |
+| `Save_a_Life.xlsx` (raíz) | Backlog y matriz | Vigente | Historias y matriz funcional |
 
-La referencia de requisitos normalizada está en
-`.opencode/references/project-requirements.md`; la instrucción general de agentes
-está en `AGENTS.md`. El backlog y matriz funcional se conservan además en
-`Save_a_Life.xlsx` en la raíz.
+### 2. Decisiones de arquitectura
+
+| ADR | Tema | Estado |
+| --- | --- | --- |
+| [ADR-001](decisions/ADR-001-stack-del-prototipo.md) | Stack y despliegue | Aprobado |
+| [ADR-002](decisions/ADR-002-design-first-mock-tooling.md) | Tooling Design-First y mocks | Aprobado |
+| [ADR-003](decisions/ADR-003-persistencia-rpc-supabase.md) | Persistencia por RPC de Supabase | Aprobado |
+| [ADR-004](decisions/ADR-004-sesion-csrf-cors-topologia.md) | Sesión, CSRF, CORS y topología | Aprobado |
+| [ADR-005](decisions/ADR-005-email-outbox-worker.md) | Email, outbox y worker | Aprobado |
+| [ADR-006](decisions/ADR-006-allowlist-service-role.md) | Allowlist de `service_role` | Aprobado |
+| [ADR-007](decisions/ADR-007-barrera-de-sesion-tras-reset-de-contrasena.md) | Barrera de sesión tras reset de contraseña | Aprobado |
+
+Un ADR aceptado no se cambia sin decisión de la persona usuaria.
+
+### 3. Contrato de API
+
+| Documento | Tipo | Estado | Fuente de verdad para |
+| --- | --- | --- | --- |
+| [openapi.json](openapi.json) | Contrato OpenAPI 3.1 | Vigente (ratificación por operación) | La API; de él se generan los tipos y validadores |
+| [Reglas de API](Api-Rules.md) | Convenciones | Borrador | Errores, paginación, idempotencia, seguridad |
+| [Contratos backend](Backend-Contracts.md) | Ratificación por operación | Vigente | Qué operaciones están ratificadas |
+| [Contrato de aplicación: necesidad en borrador](Need-Draft-Application-Spec.md) | Contrato privado | Aprobado como base de `need-records` (ADR-003) | Puertos y errores de `createHospitalNeed` |
+
+### 4. Backend
+
+| Documento | Tipo | Estado |
+| --- | --- | --- |
+| [Plan de backend incremental](plans/2026-10-12-api-backend-completo-incremental.md) | Mapa de capacidades | Vigente |
+| [Especificación faltante del backend](plans/2026-10-12-especificacion-faltante-backend.md) | Especificación de ejecución | Vigente |
+| [Backend-Route](plans/Backend-Route.md) | Ruta y compuertas | Vigente |
+| [Decisiones del backend](plans/2026-10-13-decisiones-backend.md) | Decisiones por módulo | Vigente |
+| Módulos: [identity-institutions](plans/2026-10-12-identity-institutions.md), [identity-tokens](plans/2026-10-13-identity-tokens.md), [need-records](plans/2026-10-13-need-records.md), [donor-records](plans/2026-10-13-donor-records.md), [email-delivery](plans/2026-10-13-email-delivery.md), [invitation-coordination](plans/2026-10-20-invitation-coordination.md), [privacy-requests](plans/2026-10-20-privacy-requests.md) | Plan y evidencia por módulo | Histórico |
+| [Verificación del backend](plans/2026-10-21-verificacion-backend.md), [F6 contrato reconciliado](plans/2026-10-22-f6-contrato-reconciliado.md), [F6 revisión clínica](plans/2026-10-22-f6-revision-clinica.md), [F6 textos de donante](plans/2026-10-22-f6-textos-donante.md) | Verificación y F6 | Histórico |
+
+### 5. Frontend
+
+| Documento | Tipo | Estado |
+| --- | --- | --- |
+| [Entrega frontend (mocks y matriz)](Frontend-Handoff.md) | Guía de trabajo | Vigente |
+| [Diseño de interfaz](Frontend-Design.md) | Sistema visual y aceptación | Vigente |
+| [Base TypeScript](plans/2026-10-19-frontend-typescript-base.md), [estructura por componentes](plans/2026-10-20-frontend-estructura-por-componentes.md), [UI base](plans/2026-10-21-frontend-ui-base.md) | Plan | Histórico |
+| Vistas: [acceso](plans/2026-10-21-frontend-vistas-acceso.md), [públicas](plans/2026-10-21-frontend-vistas-publicas.md), [donante](plans/2026-10-21-frontend-vistas-donante.md), [donante secundarias](plans/2026-10-21-frontend-donante-secundarias.md), [estados de donante](plans/2026-10-22-frontend-estados-donante.md), [hospital](plans/2026-10-21-frontend-vistas-hospital.md), [superadmin](plans/2026-10-22-frontend-vistas-superadmin.md) | Plan | Histórico |
+| [Revisiones de seguridad y clínica](plans/2026-10-22-frontend-revisiones-seguridad-clinica.md), [títulos y accesibilidad](plans/2026-10-22-frontend-titulos-a11y.md) | Revisión | Histórico |
+| [Integración frontend–backend](plans/2026-10-23-frontend-backend-integration.md) | Plan | Vigente (en curso) |
+
+### 6. Proceso y agentes
+
+| Documento | Tipo | Estado |
+| --- | --- | --- |
+| [Flujo de trabajo de agentes](Agent-Workflow.md) | Proceso y gates | Vigente |
+| [Identidad de proyecto de Engram](Memory-Project.md) | Configuración de memoria | Vigente |
+| [Migración local de Gentle Pi](plans/2026-10-23-local-gentle-pi-migration.md) | Plan | Histórico |
+| [Historial consolidado de planes](plans/HISTORIAL.md) | Resumen de planes cerrados | Histórico |
+| [Análisis del estado](plans/2026-10-16-analisis-estado-proyecto.md), [auditoría y cierre](plans/2026-10-20-auditoria-y-cierre-de-pendientes.md), [ejecución con agentes](plans/2026-10-20-ejecucion-de-pendientes-con-agentes.md), [ESLint por workspaces](plans/2026-10-20-eslint-workspaces.md), [opciones de borrado en Auth (P-12)](plans/2026-10-21-p12-opciones-borrado-auth.md), [backend inside-out](plans/2026-10-04-backend-inside-out.md) | Planes de proceso y calidad | Histórico |
+
+Cada tarea lleva su plan en `plans/YYYY-MM-DD-<slug>.md`. Los planes registran
+evidencia de su fecha; no son pruebas del estado actual.
+
+### 7. Diagramas
+
+| Documento | Contenido |
+| --- | --- |
+| [Diagramas UML (índice y explicación)](../evidence_pc2/diagramas_uml.md) | 25 páginas: arquitectura, patrones, clases y composición |
+| [Archivo editable](../evidence_pc2/diagramas/save-a-life-uml.drawio) y [PNG](../evidence_pc2/diagramas/png/) | Fuente `.drawio` y exportaciones |
+| [Plan de los diagramas](plans/2026-10-16-diagramas-uml-arquitectura.md) | Alcance y evidencia |
+
+### 8. Operación: entorno local y verificación
+
+Secciones de este mismo archivo: [inventario estático](#inventario-estático--2026-10-20),
+[preparar el entorno](#preparar-el-entorno-local), [iniciar Prism y los mocks](#iniciar-prism-y-los-mocks),
+[comandos de verificación](#comandos-de-verificación) y [límites importantes](#límites-importantes).
+
+### 9. Pendientes y bitácora
+
+| Documento | Estado |
+| --- | --- |
+| [Bloqueos y decisiones abiertas (2026-10-20)](pending/2026-10-20-bloqueos-y-decisiones.md) | Abierto |
+
+## Cómo mantener esta documentación
+
+- Un documento nuevo se añade a su libro en este índice en el mismo commit.
+- Cada documento declara su estado (tabla de campos o sección «Estado»); si cambia,
+  se actualiza aquí.
+- No se duplican reglas: se enlaza a la fuente de verdad del libro.
+- Se escribe en español, con datos sintéticos y sin PII.
+- Los ADR y la ratificación de operaciones solo cambian con aprobación de la persona usuaria.
 
 ## Autoridad y estado
 

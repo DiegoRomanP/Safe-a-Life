@@ -1,5 +1,7 @@
 # Flujo de trabajo de agentes para OpenCode y Pi
 
+> Libro: Proceso y agentes · Estado: Vigente · Índice: [README](README.md)
+
 ## Propósito y autoridad
 
 `Senior` es el único punto normal de contacto con la persona usuaria y el agente

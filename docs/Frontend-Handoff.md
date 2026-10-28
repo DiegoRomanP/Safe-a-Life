@@ -6,7 +6,7 @@
 | Objetivo | Habilitar trabajo humano frontend sin esperar al backend real |
 | Contrato | [openapi.json](openapi.json), OpenAPI 3.1.0, `0.2.0-draft` |
 | Estado | Revisiones independientes aprobadas para el handoff local; Swagger Editor visual pendiente |
-| Coordinación y evidencia | [Plan de entrega](plans/2026-10-03-api-json-mocks-frontend-handoff.md), mantenido por Senior |
+| Coordinación y evidencia | [Historial de planes](plans/HISTORIAL.md) (el plan de entrega se consolidó allí) |
 
 ## 1. Qué se entrega y qué no
 

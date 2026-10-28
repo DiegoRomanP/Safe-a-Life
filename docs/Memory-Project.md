@@ -1,5 +1,7 @@
 # Identidad de proyecto de Engram
 
+> Libro: Proceso y agentes · Estado: Vigente · Índice: [README](README.md)
+
 ## Identidad oficial
 
 La identidad predeterminada de Engram para este repositorio es
