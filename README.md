@@ -9,45 +9,41 @@ paciente y donante.
 Los requisitos y decisiones se conservan en [`Save_a_Life.xlsx`](Save_a_Life.xlsx),
 la línea base funcional en [`docs/1_Primeros_Alcances.md`](docs/1_Primeros_Alcances.md)
 y una ERS en borrador en [`docs/2_Especificaciones_De_Software.md`](docs/2_Especificaciones_De_Software.md).
-El frontend local se desarrolla Design-First sobre [`docs/openapi.json`](docs/openapi.json),
-un borrador global de Sprint 0. Únicamente el contrato `POST
-/api/v1/hospitals/me/needs` (`createHospitalNeed`) está ratificado para
-implementación; las otras 69 operaciones siguen en borrador, incluido el GET de
-necesidades. El workspace `backend` ya contiene los tipos, snapshot y validadores
-runtime de los DTO de esa operación; todavía no hay handler HTTP productivo para
-`createHospitalNeed`, ni autenticación/AAL2, autorización/RLS o persistencia reales
-para esa API. El alcance contractual se describe en
-[`docs/Backend-Contracts.md`](docs/Backend-Contracts.md).
+Toda la documentación está indexada por libros en [`docs/README.md`](docs/README.md)
+y se publica como sitio con VitePress (ver [Documentación](#documentación)).
 
-El corte ejecutable incluye vistas públicas y de demostración para donante,
-hospital y superadmin; un mock Express con estado sintético en memoria; Prism
-para ejemplos estáticos; colección y escenarios Bruno; y pruebas Playwright.
-El donante puede gestionar perfil/disponibilidad, responder invitaciones,
-consultar su historial y crear/seguir solicitudes propias. El mock solo registra
-los campos solicitados, descarta los valores propuestos y no ejecuta la corrección.
-Las operaciones no incluidas en el mock stateful pueden probarse como contrato
-estático con Prism, no como flujos con estado.
+El proyecto es un monolito modular con dos carpetas de producto:
 
-La [guía de entrega frontend](docs/Frontend-Handoff.md) reúne el setup humano,
-Swagger Editor 5, sincronización JSON→tipos→Bruno, matriz exacta y paquetes de
-trabajo siguientes. El inventario canónico OpenAPI tiene **57 paths, 72
-operaciones y 100 schemas**. Están ratificadas para implementación
-las catorce de donantes y altas asistidas (F5), las cinco de invitación de admins y recuperación de contraseña (F2b), el webhook de Resend (F4), las cuatro de necesidades (F3: `createHospitalNeed` y listar, consultar y transicionar las
-propias), las dos de salud y las 21 de identidad (F2a), es decir
-**47**; las otras **25** siguen en borrador y se ratifican módulo por módulo. El inventario no representa
-cuántas operaciones están implementadas por el mock, cliente o backend. El mock
-Express, sus comprobaciones de readiness y auth siguen siendo demos, no un backend
-real. El paquete es habilitador; no declara
-terminado el producto ni implementada la API productiva. La documentación y el
-alcance local tienen revisiones independientes;
-la importación visual en Swagger Editor 5 sigue pendiente de comprobación humana.
+- **`backend/`**: API Express con Supabase y Resend detrás de adaptadores. Implementa
+  salud, `identity-institutions` (sesión, MFA, hospitales, membresías; F2a),
+  invitaciones de admin y recuperación de contraseña (F2b), `need-records` (F3),
+  `email-delivery` (outbox, worker y webhook de Resend; F4), `donor-records` (F5) y
+  `privacy-requests` (F7, sin borrado de cuentas de Auth: ver ADR-006 y P-12).
+  De `invitation-coordination` (F6) solo existe el dominio puro; F8 no tiene módulo.
+- **`frontend/`**: frontend real (`@save-a-life/frontend`, TypeScript, React 18, Vite,
+  Tailwind). La integración con el backend está en curso: el login ya usa la sesión
+  y la consulta de CSRF; el resto de las vistas sigue con datos de demostración.
+- **`apps/web` + `apps/mock-api`**: demo web contra un mock Express con estado
+  sintético en memoria. Su auth, CSRF, AAL2 y permisos son demostraciones.
+
+[`docs/openapi.json`](docs/openapi.json) es el contrato canónico (OpenAPI 3.1,
+**58 paths, 73 operaciones y 100 schemas**). Están ratificadas para implementación
+**66** operaciones y siete siguen en borrador; las ratificaciones se registran por
+operación en `x-ratification` y en [`docs/Backend-Contracts.md`](docs/Backend-Contracts.md).
+Implementar una operación no ratificada o cambiar una decisión abierta requiere
+aprobación explícita. El inventario no mide cuántas operaciones están implementadas
+ni aceptadas: no se declara terminado el backend ni se usan datos reales.
+
+Las operaciones que el mock no implementa con estado pueden probarse como contrato
+estático con Prism. La [guía de entrega frontend](docs/Frontend-Handoff.md) reúne el
+setup, la sincronización JSON→tipos→Bruno y la matriz de operaciones.
 
 ## Stack
 
 - Frontend aprobado: React 18 + Tailwind CSS. Desarrollo local con Vite.
 - Backend aprobado para producción: Node.js + Express.
-- Datos y autenticación futuros: PostgreSQL/Supabase Auth.
-- Email futuro: Resend detrás de un adaptador.
+- Datos y autenticación: PostgreSQL/Supabase Auth (backend, vía RPC y RLS).
+- Email: Resend detrás de un adaptador, con outbox y worker.
 - Desarrollo fijado por [`ADR-002`](docs/decisions/ADR-002-design-first-mock-tooling.md):
   Node 24.19.0, npm 12.0.2, TypeScript, React 18, Vite, Tailwind y Express.
 - Stack productivo aprobado por [`ADR-001`](docs/decisions/ADR-001-stack-del-prototipo.md).
@@ -56,34 +52,25 @@ Java/Spring Boot fue evaluado y descartado para esta fase.
 
 ## Arquitectura y límites del backend
 
-- El workspace npm del backend es `backend`, con los DTO de
-  `need-records` en `backend/src/modules/need-records/dto/`. `validators.ts`
-  valida y proyecta entrada/salida con AJV 2020; no implementa transporte HTTP,
-  casos de uso, acceso a datos ni autorización, ni determina elegibilidad clínica.
-- `docs/openapi.json` es la fuente contractual. `npm run openapi:types` genera
-  desde ella los tipos y snapshot del DTO backend, además de los tipos de web y
-  mock; `npm run openapi:api:check` comprueba que estén sincronizados.
-- `apps/web` y `apps/mock-api` siguen siendo workspaces separados de tooling.
-  `npm run dev` inicia Vite y el mock; no inicia el backend.
-- `frontend/` es el workspace del frontend real (`@save-a-life/frontend`:
-  TypeScript, React 18, Vite y Tailwind). Por ahora solo tiene la base, sin
-  vistas. `npm run dev:frontend` lo sirve en `127.0.0.1:5174` con proxy de `/api`
-  y `/health` al backend en `127.0.0.1:3000`. Ver [`frontend/README.md`](frontend/README.md).
-- `backend/src/server.ts` es el punto de entrada del backend: valida el entorno
-  (`backend/.env.example` lista los nombres) y compone `createApp` mediante
-  `backend/src/composition.ts`. Hoy expone salud (`/health/live`, `/health/ready`)
-  y los módulos `identity-institutions` (sesión, MFA, instituciones; F2a),
-  `need-records` (necesidades del hospital; F3) y `email-delivery` (outbox cifrado, worker y
-  webhook de Resend; F4, con `npm run dev:worker`). El resto
-  de las operaciones se implementa por módulo tras su ratificación.
-  `backend/supabase/` contiene el proyecto Supabase local (migraciones, siembra
-  y pruebas pgTAP). `backend/index.js` y `backend/config/` fueron retirados por
-  inseguros (CORS abierto, cliente global con la anon key).
-- La instalación se hace desde la raíz, cuyo `package-lock.json` es el único
-  lockfile npm activo. Los pins exactos del manifiesto `backend` se conservan; el
-  traslado no actualizó dependencias. Puede quedar una carpeta local ignorada
-  `apps/api` con outputs residuales; no es un workspace ni una segunda fuente y
-  no debe limpiarse como parte del setup.
+- Workspaces npm: `apps/mock-api`, `apps/web`, `backend` y `frontend`. El único
+  lockfile es el `package-lock.json` raíz; nunca se instala desde un workspace.
+- `docs/openapi.json` es la fuente contractual. `npm run openapi:types` genera desde
+  ella los tipos y validadores del backend, de la web demo y del mock;
+  `npm run openapi:api:check` falla si los artefactos generados se desviaron. No se
+  editan a mano.
+- `backend/src/server.ts` es el punto de entrada (`npm run dev:backend`): valida el
+  entorno (`backend/.env.example` lista los nombres) y compone `createApp` mediante
+  `backend/src/composition.ts`. Cada módulo de `backend/src/modules/` se divide en
+  `domain`, `application`, `http` e `infrastructure`. El worker del outbox es un
+  proceso aparte (`npm run dev:worker`).
+- Persistencia (ADR-003): funciones PostgreSQL invocadas por RPC de Supabase detrás
+  de puertos y adaptadores, con cliente por petición con el JWT del usuario y RLS.
+  `service_role` solo se usa según la allowlist de ADR-006. Rol y hospital se
+  resuelven desde datos protegidos, nunca desde argumentos del cliente.
+  `backend/supabase/` contiene migraciones, siembra y pruebas pgTAP.
+- `npm run dev` inicia Vite (`:5173`) y el mock (`:4011`), no el backend.
+  `npm run dev:frontend` sirve el frontend real en `127.0.0.1:5174` con proxy de
+  `/api` y `/health` al backend en `127.0.0.1:3000`. Ver [`frontend/README.md`](frontend/README.md).
 
 ## Ejecutar localmente
 
@@ -105,7 +92,7 @@ npm run dev
 globalmente ni añadir claves Supabase/Resend; el mock no necesita secretos.
 
 Abrir <http://127.0.0.1:5173>. El comando inicia Vite y el mock Express en
-`127.0.0.1:4011`, no el backend legacy. Prism se ejecuta por separado en
+`127.0.0.1:4011`, no el backend. Prism se ejecuta por separado en
 `127.0.0.1:4010`:
 
 ```bash
@@ -119,8 +106,8 @@ operaciones adicionales en la web stateful.
 ## Verificación
 
 ```bash
-npm test                         # Incluye pruebas de mock/web y DTO backend
-npm run test:backend:dto         # Validación runtime de DTO need-records
+npm test                         # Vitest en todos los workspaces
+npm run test:backend:dto         # Validadores DTO del backend
 npm run test:backend:db          # pgTAP (requiere `supabase start --workdir backend`)
 npm run test:backend:integration # Integración contra Supabase local (reinicia y siembra la base)
 npm run test:bruno:backend       # Bruno CLI contra el backend real
@@ -129,37 +116,50 @@ npm run openapi:api:check        # Comprueba artefactos generados sin escribirlo
 npm run test:api                 # Integración del mock con Supertest
 npm run test:contract            # Runner Prism + Ajv2020 contra el contrato estático
 npm run test:bruno               # Arranca/resetea/cierra el mock y ejecuta escenarios
-npm run test:e2e -- --trace=off   # Playwright Chromium sin guardar trazas de red
+npm run test:e2e -- --trace=off  # Playwright Chromium sin guardar trazas de red
+npm run lint                     # ESLint 9 + tsc --noEmit en cada workspace
 npm run typecheck
-npm run typecheck --workspace backend
-npm run build --workspace backend
-npm run lint --workspace backend
-npm run lint                     # ESLint 9 (eslint.config.mjs) + tsc --noEmit en cada workspace
 npm run build
 npm run openapi:lint
 npm run audit:production
 ```
 
-En la aceptación Q1 registrada el 2026-10-12 se observaron 72 tests del runner de
-contrato, 377 checks HTTP y 35 ejemplos schema auditados; Bruno ejecutó 24
-requests/29 tests y E2E 10/10. Son conteos de esa ejecución, no cobertura de auth,
-RLS ni handlers productivos.
+Los conteos de pruebas cambian con el código; los de cada ejecución quedan en el
+plan de la tarea correspondiente (`docs/plans/`) y no son cobertura de auth, RLS ni
+de flujos productivos. Solo los endpoints del backend real verificados con Bruno CLI
+cuentan como evidencia del backend; Prism y el mock no.
 
 Si el navegador de Playwright no está instalado, ejecutar `npx playwright install chromium`.
-Detener `npm run dev` antes de E2E: sus servidores se inician de forma aislada.
-La configuración Playwright aún usa `retain-on-failure`; por eso se sobrescribe
-con `--trace=off`. No compartir trazas/HAR/headers/cookies/bodies; revisar capturas
-sintéticas antes de adjuntarlas. El audit runtime limpio no elimina el residual
+Detener `npm run dev` antes de E2E. Playwright conserva trazas ante fallos por
+configuración, por eso se usa `--trace=off`. No compartir trazas, HAR, headers,
+cookies ni cuerpos de solicitudes. El audit runtime limpio no elimina el residual
 dev de Prism documentado en ADR-002.
+
+## Documentación
+
+La documentación oficial vive en `docs/` y se publica con [VitePress](https://vitepress.dev):
+
+```bash
+npm run docs:dev      # servidor local con recarga
+npm run docs:build    # genera docs/.vitepress/dist/
+npm run docs:preview  # sirve el resultado del build
+```
+
+El índice por libros (producto, ADR, API, backend, frontend, proceso, diagramas,
+operación y pendientes) es [`docs/README.md`](docs/README.md); es también la portada
+del sitio. Un documento nuevo se añade a su libro en ese índice. Los diagramas UML
+(arquitectura, patrones, clases y composición) están en
+[`evidence_pc2/diagramas_uml.md`](evidence_pc2/diagramas_uml.md), con el archivo
+editable en `evidence_pc2/diagramas/save-a-life-uml.drawio`.
 
 ## Bruno y contrato
 
 - [`docs/Api-Rules.md`](docs/Api-Rules.md): reglas de contrato, seguridad,
   validación y consulta.
-- [`docs/Backend-Contracts.md`](docs/Backend-Contracts.md): contrato acotado y
-  criterios de aceptación de `createHospitalNeed`; no implica implementación.
-- [`docs/openapi.json`](docs/openapi.json): único contrato OpenAPI 3.1 canónico
-  del borrador global, con esa única ratificación contractual acotada.
+- [`docs/Backend-Contracts.md`](docs/Backend-Contracts.md): alcance ratificado por
+  operación y estado de implementación por módulo.
+- [`docs/openapi.json`](docs/openapi.json): único contrato OpenAPI 3.1 canónico;
+  `x-ratification` marca cada operación ratificada.
 - `bruno/`: colección importada y escenarios sintéticos de los tres roles.
 - `npm run test:bruno`: inicia el mock en un puerto local efímero, reinicia el
   estado entre escenarios y suprime cuerpos/headers en el reporte.
@@ -206,15 +206,16 @@ dev de Prism documentado en ADR-002.
   ni suficiencia clínica. El personal competente verifica grupo y seguridad.
 - No se solicita ni conserva historial/fecha de donación. No se muestran
   pacientes, diagnósticos ni historias clínicas.
-- AP-02, AP-04, AP-06, AP-07 y AP-08 siguen pendientes; el mock no representa
-  comportamientos productivos que dependan de ellos.
+- AP-02, AP-04, AP-06, AP-07 y AP-08 se resolvieron en ADR-005 y en la especificación
+  del backend; el mock no representa esos comportamientos productivos.
 
 La dirección visual se describe en [`docs/Frontend-Design.md`](docs/Frontend-Design.md)
 y referencia el archivo Save a Life de Penpot y su inventario de rutas.
 
-## OpenCode
+## Agentes (OpenCode y Claude Code)
 
-La configuración del proyecto vive en `.opencode/`:
+`CLAUDE.md` y `AGENTS.md` fijan las reglas para Claude Code y OpenCode; los roles y
+referencias comunes viven en `.opencode/`:
 
 - `agent/`: Senior como agente predeterminado y coordinador; DevFrontier,
   DevBack, Tester y los reviewers de área para el ciclo habitual; los seis
