@@ -27,3 +27,6 @@ odd/
 backend/supabase/.temp/
 backend/supabase/.branches/
 backend/.local/
+
+docs/.vitepress/cache/
+docs/.vitepress/dist/

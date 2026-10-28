@@ -1359,7 +1359,7 @@ export interface EmailSender {
 1. La aplicación genera:
    - `token = generateActionToken()`;
    - `outboxId = randomUUID()`;
-   - `sealed = sealPayload(keyring, JSON.stringify({to, link: `${APP_PUBLIC_URL}/<ruta>#${token}`}), outboxId)`.
+   - ``sealed = sealPayload(keyring, JSON.stringify({to, link: `${APP_PUBLIC_URL}/<ruta>#${token}`}), outboxId)``.
 2. Una sola RPC guarda `token_hash = hashToken(token)`, la fila del outbox con
    `sealed_payload` y la auditoría.
 3. El token en claro nunca se guarda ni se registra en logs.
@@ -2002,7 +2002,7 @@ Fuente: `docs/openapi.json` 0.2.0-draft, leído el 2026-10-12.
 | `POST /api/v1/auth/password-reset-actions/{token}` `completePasswordReset` | T | `{newPassword 12..128*}` | 200 Neutral | 404, 409, 410, 422, 500 |
 | `GET /api/v1/hospital-admin-invitation-actions/{token}` `getHospitalAdminInvitationPreview` | T | — | 200 `{hospitalName*, role:'admin_hospitalario'*, expiresAt*}` | 404, 410 |
 | `POST /api/v1/hospital-admin-invitation-actions/{token}/claim` `claimHospitalAdminInvitation` | T | `{password 12..128*}` | 201 AuthSession [SC] | 400, 404, 409, 410, 422 |
-| `GET /api/v1/superadmin/hospitals` `listHospitals` | C | Q[pg] | 200 Page<Hospital> | 401, 403, 422, 500 |
+| `GET /api/v1/superadmin/hospitals` `listHospitals` | C | Q[pg] | 200 Page&lt;Hospital&gt; | 401, 403, 422, 500 |
 | `POST /api/v1/superadmin/hospitals` `createHospital` | C+X | `{publicName*, legalName 1..200*}` | 201 Hospital | 401, 403, 409, 422 |
 | `GET /api/v1/superadmin/hospitals/{hospitalId}` `getHospital` | C | — | 200 Hospital | 401, 403, 404 |
 | `PATCH /api/v1/superadmin/hospitals/{hospitalId}` `updateHospital` | C+X (AAL2 + step-up) | `{publicName?, legalName?, isAuthorized?}` (minProperties 1) | 200 Hospital | 401, 403, 404, 409, 422 |
@@ -2010,11 +2010,11 @@ Fuente: `docs/openapi.json` 0.2.0-draft, leído el 2026-10-12.
 | `POST /api/v1/superadmin/hospitals/{hospitalId}/sites` `createHospitalSite` | C+X | `{publicName*, publicAddress 1..240*}` (+ C-3) | 201 Site | 401, 403, 404, 409 (+ 422, C-11) |
 | `PATCH /api/v1/superadmin/sites/{siteId}` `updateHospitalSite` | C+X | `{publicName?, publicAddress?, isActive?, isApproved?}` (minProperties 1, + C-3) | 200 Site | 401, 403, 404, 409 (+ 422) |
 | `POST /api/v1/superadmin/hospital-admin-invitations` `inviteHospitalAdmin` | C+X (AAL2 + step-up) | `{email*, hospitalId*}` | 202 Neutral | 401, 403, 409, 422 |
-| `GET /api/v1/superadmin/memberships` `listHospitalMemberships` | C | Q[pg] | 200 Page<Membership> | 401, 403 |
+| `GET /api/v1/superadmin/memberships` `listHospitalMemberships` | C | Q[pg] | 200 Page&lt;Membership&gt; | 401, 403 |
 | `PATCH /api/v1/superadmin/memberships/{membershipId}` `revokeHospitalMembership` | C+X | `{status:'revocada'*, reason 1..300*}` | 200 Membership | 401, 403, 404, 409 |
 | `GET /api/v1/superadmin/configuration` `getSuperadminConfiguration` | C | — | 200 Configuration | 401, 403, 500 |
 | `PATCH /api/v1/superadmin/configuration` `setFinalDemoAt` | C+X (AAL2 + step-up) | `{finalDemoAt*}` | 200 Configuration | 401, 403, 409, 422 |
-| `GET /api/v1/superadmin/audit-events` `listAuditEvents` | C | Q[pg] | 200 Page<AuditEvent> | 401, 403, 422, 500 |
+| `GET /api/v1/superadmin/audit-events` `listAuditEvents` | C | Q[pg] | 200 Page&lt;AuditEvent&gt; | 401, 403, 422, 500 |
 | `GET /api/v1/superadmin/task-queue` `listSuperadminTasks` | C | — | 200 `{items:SuperadminTask[]}` | 401, 403, 500 |
 | `GET /api/v1/hospitals/me/sites` `listOwnHospitalSites` | C (AAL2 + membresía) | solo `limit` y `cursor`; un parámetro desconocido → 400 | 200 `{items:OwnHospitalSite[] ≤100, pagination}` | 400, 401, 403, 500 |
 
@@ -2032,7 +2032,7 @@ Fuente: `docs/openapi.json` 0.2.0-draft, leído el 2026-10-12.
 | `PUT /api/v1/donors/me/onboarding-profile` `completeDonorOnboarding` | C+X | `{name*, declaredBloodType*, isAvailable*, approximateLocation*}` | 200 OwnDonorProfile | 401, 409, 422 |
 | `GET /api/v1/donors/me/profile` `getOwnDonorProfile` | C | — | 200 OwnDonorProfile | 401, 403, 404, 500 |
 | `PATCH /api/v1/donors/me/profile` `updateOwnDonorParticipation` | C+X | `{isAvailable?, approximateLocation?}` (minProperties 1) | 200 OwnDonorProfile | 400, 401, 403, 404, 409, 422, 500 |
-| `GET /api/v1/hospitals/me/assisted-signups` `listOwnAssistedSignups` | C | Q[pg] | 200 Page<AssistedSignup> | 401, 403, 500 |
+| `GET /api/v1/hospitals/me/assisted-signups` `listOwnAssistedSignups` | C | Q[pg] | 200 Page&lt;AssistedSignup&gt; | 401, 403, 500 |
 | `POST /api/v1/hospitals/me/assisted-signups` `createAssistedSignup` | C+X | `{email*, name? 1..120}` | 202 AssistedSignup | 400, 401, 403, 409, 422, 429 |
 | `GET /api/v1/hospitals/me/assisted-signups/{signupId}` `getOwnAssistedSignup` | C | — | 200 AssistedSignup | 401, 403, 404 |
 | `POST …/assisted-signups/{signupId}/activation-links` `reissueAssistedActivationLink` | C+X | — | 202 Neutral | 401, 403, 404, 409, 422 |
@@ -2041,7 +2041,7 @@ Fuente: `docs/openapi.json` 0.2.0-draft, leído el 2026-10-12.
 
 | Operación | Auth | Entrada | Éxito | Errores |
 | --- | --- | --- | --- | --- |
-| `GET /api/v1/hospitals/me/needs` `listOwnHospitalNeeds` | C | Q[pg] + `status?` | 200 Page<Need> | 401, 403, 422, 500 |
+| `GET /api/v1/hospitals/me/needs` `listOwnHospitalNeeds` | C | Q[pg] + `status?` | 200 Page&lt;Need&gt; | 401, 403, 422, 500 |
 | `POST /api/v1/hospitals/me/needs` `createHospitalNeed` (**ratificada**) | C+X | Ver BC: 7 campos cerrados, `radiusKm` opcional → 10 | 201 Need (`status` = `borrador`, `confirmedIntentCount` = 0, `expiresAt` con `Z`) | 400, 401, 403, 409, 422, 500 |
 | `GET /api/v1/hospitals/me/needs/{needId}` `getOwnHospitalNeed` | C | — | 200 Need | 401, 403, 404, 500 |
 | `PATCH /api/v1/hospitals/me/needs/{needId}` `transitionOwnHospitalNeed` | C+X | `{status:activa\|cerrada\|cancelada*}` | 200 Need | 400, 401, 403, 404, 409, 422, 500 |
@@ -2050,12 +2050,12 @@ Fuente: `docs/openapi.json` 0.2.0-draft, leído el 2026-10-12.
 
 | Operación | Auth | Entrada | Éxito | Errores |
 | --- | --- | --- | --- | --- |
-| `GET …/needs/{needId}/invitation-batches` `listOwnInvitationBatches` | C | Q[pg] | 200 Page<InvitationBatchRecord> | 400, 401, 403, 404, 500 |
+| `GET …/needs/{needId}/invitation-batches` `listOwnInvitationBatches` | C | Q[pg] | 200 Page&lt;InvitationBatchRecord&gt; | 400, 401, 403, 404, 500 |
 | `POST …/needs/{needId}/invitation-batches` `requestInvitationBatch` | C+X | — | 201 `{batchId*, createdInvitationCount 0..50*, queuedEmailCount 0..50*}` | 400, 401, 403, 404, 409, 422, 429, 500 |
 | `GET …/needs/{needId}/responses` `listOwnNeedResponses` | C | Q[pg] | 200 `{confirmedIntentCount*, items:(Opaque\|Confirmed)[]*, pagination*}` | 400, 401, 403, 404, 500 |
 | `GET /api/v1/invitation-actions/{token}` `getInvitationActionPreview` | T | — | 200 `{hospitalName*, publicSiteName*, intendedAction:confirmar\|rechazar*, expiresAt*}` [NS] | 404, 410, 500 |
 | `POST /api/v1/invitation-actions/{token}/response` `recordInitialInvitationResponse` | T | — (la acción la fija el token) | 200 InvitationResponseResult | 400, 404, 409, 410, 422, 429, 500 |
-| `GET /api/v1/donors/me/invitations` `listOwnInvitations` | C | Q[pg] | 200 Page<InvitationListItem> | 401, 403, 500 |
+| `GET /api/v1/donors/me/invitations` `listOwnInvitations` | C | Q[pg] | 200 Page&lt;InvitationListItem&gt; | 401, 403, 500 |
 | `GET /api/v1/donors/me/invitations/{invitationId}` `getOwnInvitation` | C | — | 200 `{invitation*, instructions*}` | 401, 403, 404, 500 |
 | `PATCH …/invitations/{invitationId}/response` `changeOwnInvitationResponse` | C+X | `{response:confirmada\|rechazada*}` | 200 InvitationResponseResult | 400, 401, 403, 404, 409, 422, 500 |
 | `GET /api/v1/donors/me/responses` `listOwnResponseHistory` | C | Q[pg] | 200 Page<`{invitationId, response, changedAt}`> | 401, 403, 422, 500 |
@@ -2065,10 +2065,10 @@ Fuente: `docs/openapi.json` 0.2.0-draft, leído el 2026-10-12.
 
 | Operación | Auth | Entrada | Éxito | Errores |
 | --- | --- | --- | --- | --- |
-| `GET /api/v1/donors/me/correction-requests` `listOwnCorrectionRequests` | C | Q[pg] | 200 Page<Summary> | 401, 403, 422, 500 |
+| `GET /api/v1/donors/me/correction-requests` `listOwnCorrectionRequests` | C | Q[pg] | 200 Page&lt;Summary&gt; | 401, 403, 422, 500 |
 | `POST /api/v1/donors/me/correction-requests` `createOwnCorrectionRequest` | C+X | `oneOf {type:'correccion', changes:{name?, newEmail?, declaredBloodType?} (minProperties 1)}` \| `{type:'eliminacion'}` | 201 Summary | 400, 401, 403, 409, 422, 500 |
 | `GET /api/v1/donors/me/correction-requests/{requestId}` `getOwnCorrectionRequest` | C | — | 200 Summary | 401, 403, 404, 500 |
-| `GET /api/v1/superadmin/correction-requests` `listCorrectionRequests` | C | Q[pg] | 200 Page<Summary> | 401, 403 |
+| `GET /api/v1/superadmin/correction-requests` `listCorrectionRequests` | C | Q[pg] | 200 Page&lt;Summary&gt; | 401, 403 |
 | `GET /api/v1/superadmin/correction-requests/{requestId}` `getCorrectionRequest` | C | — | 200 Summary | 401, 403, 404 |
 | `PATCH /api/v1/superadmin/correction-requests/{requestId}` `decideCorrectionRequest` | C+X | `{decision:aprobada\|rechazada*, reason 1..300*}` | 200 Summary | 401, 403, 404, 409, 422 |
 | `GET …/correction-requests/{requestId}/donor-data` `getContextualDonorData` | C + `X-Contextual-Grant` | — | 200 `{currentValues:{name?, email?, declaredBloodType?}*, proposedValues:{…}*}` | 401, 403, 404, 410 |
@@ -2082,8 +2082,8 @@ Fuente: `docs/openapi.json` 0.2.0-draft, leído el 2026-10-12.
 | `GET /api/v1/hospitals/me/recognition-policy` `getOwnRecognitionPolicy` | C | — | 200 RecognitionPolicy (nunca 404) | 401, 403 |
 | `PUT /api/v1/hospitals/me/recognition-policy` `publishOwnRecognitionPolicy` | C+X | `{expectedVersion ≥0*, offeredItems ≤3*}` | 200 RecognitionPolicy | 401, 403, 409, 422 |
 | `DELETE /api/v1/hospitals/me/recognition-policy?expectedVersion=` `withdrawOwnRecognitionPolicy` | C+X | Query obligatoria | 204 | 400, 401, 403, 409 |
-| `GET /api/v1/donors/me/recognition-policies` `listPublishedRecognitionPolicies` | C | Q[pg] | 200 Page<RecognitionPolicy> | 401, 500 |
-| `GET /api/v1/superadmin/recognition-policies` `listRecognitionPoliciesForModeration` | C | Q[pg] | 200 Page<RecognitionPolicy> | 401, 403 |
+| `GET /api/v1/donors/me/recognition-policies` `listPublishedRecognitionPolicies` | C | Q[pg] | 200 Page&lt;RecognitionPolicy&gt; | 401, 500 |
+| `GET /api/v1/superadmin/recognition-policies` `listRecognitionPoliciesForModeration` | C | Q[pg] | 200 Page&lt;RecognitionPolicy&gt; | 401, 403 |
 | `PATCH /api/v1/superadmin/recognition-policies/{hospitalId}/moderation` `moderateRecognitionPolicy` | C+X | `{status:suspendida\|sin_publicar*, reason 1..300*, expectedVersion*}` | 200 RecognitionPolicy | 401, 403, 404, 409, 422 |
 | `GET /api/v1/legal-information/donation-work` `getDonationWorkInformation` | none | — | 200 `{status:borrador\|aprobado\|retirado*, version ≤40*, notice ≤500*, content? ≤5000\|null, sources?[{title*, url*, article?, checkedAt*}]}` | 404, 500 |
 

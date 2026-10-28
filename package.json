@@ -24,6 +24,9 @@
     "dev:web": "npm run dev --workspace @save-a-life/web",
     "dev:backend": "npm run dev --workspace backend",
     "dev:frontend": "npm run dev --workspace @save-a-life/frontend",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs",
     "mock:prism": "prism mock docs/openapi.json --host 127.0.0.1 --port 4010",
     "openapi:lint": "redocly lint docs/openapi.json",
     "audit:production": "npm audit --omit=dev",
@@ -72,6 +75,7 @@
     "typescript": "5.9.3",
     "typescript-eslint": "8.72.0",
     "vite": "8.3.4",
+    "vitepress": "1.6.4",
     "vitest": "5.0.5"
   },
   "allowScripts": {
