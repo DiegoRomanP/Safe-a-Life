@@ -355,7 +355,7 @@ cursor manipulado se rechaza con 400.
 ### 18. Segregación de interfaces (ISP)
 
 **Caso en el código.** `DonorRecordsRepository`
-(`backend/src/modules/donor-records/application/donor-records.ports.ts:59`) declara 19
+(`backend/src/modules/donor-records/application/donor-records.ports.ts:59`) declara 20
 métodos, y `createDonorRecordsService` depende de todos.
 
 En cambio, `createActionTokensService` sí está bien segregado: no recibe el repositorio, solo
@@ -367,6 +367,22 @@ la función `onPasswordChanged` (`backend/src/composition.ts:94`).
 mismo adaptador las implementa todas y no cambia ni una RPC.
 
 ---
+
+
+## Parte C — Diagramas de clases y conexiones
+
+Verificados contra `backend/src` y `backend/src/composition.ts`.
+
+| Página | Contenido | Imagen |
+|---|---|---|
+| 20 | Modelo de dominio (tipos y reglas puras) | `diagramas/png/20-clases-dominio.png` |
+| 21 | Clases: need-records | `diagramas/png/21-clases-need-records.png` |
+| 22 | Clases: donor-records | `diagramas/png/22-clases-donor-records.png` |
+| 23 | Clases: identity-institutions | `diagramas/png/23-clases-identity-institutions.png` |
+| 24 | Clases: email-delivery | `diagramas/png/24-clases-email-delivery.png` |
+| 25 | Clases: privacy-requests (invitation-coordination solo tiene dominio, página 20) | `diagramas/png/25-clases-privacy-requests.png` |
+| 26 | Clases: shared (auth, http, persistencia, criptografía) | `diagramas/png/26-clases-shared.png` |
+| 27 | Conexiones de composición (diagrama de objetos) | `diagramas/png/27-composicion.png` |
 
 ## Cómo regenerar las imágenes
 
