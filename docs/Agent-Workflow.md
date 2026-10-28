@@ -22,16 +22,16 @@ Usa solamente la herramienta de delegación que aparezca en el harness actual:
 | --- | --- | --- |
 | OpenCode V2 | `subagent` | IDs OpenCode de las tablas siguientes |
 | OpenCode V1 | `task` | IDs OpenCode de las tablas siguientes |
-| Pi + `pi-open-agents` | `subagent({ agent: "<id>", task: "<asignación>" })` | IDs `pi-*` de la tabla de mapeo |
+| Pi + Gentle Pi (este proyecto) | `subagent_list_agents`, luego `subagent_run({ agent: "<id>", task: "<asignación>" })` | IDs `pi-*` de la tabla de mapeo |
 | Claude Code | `Agent({ subagent_type, prompt })` | Sin IDs propios: el prompt contiene el rol completo de `.opencode/agent/<id>.md`, el alcance y las rutas o el diff |
 
-No supongas que existe `subagent`, `task`, `subagent_run`,
-`subagent_list_agents` o un cargador de skills en otros harnesses. Pi expone
-`subagent`; sus skills se leen con las herramientas normales desde
-`.opencode/skills/<nombre>/SKILL.md`. Si no
-hay herramienta compatible, procede directamente con las herramientas permitidas,
-mantén un solo escritor por slice y documenta cualquier gate de revisión que no
-se haya podido ejecutar. Nunca declares PASS de un reviewer que no participó.
+No supongas nombres de herramientas de otros harnesses. En este proyecto,
+Pi usa la delegación nativa de Gentle Pi: `subagent_list_agents` descubre los
+perfiles y `subagent_run` los ejecuta. Las skills se leen con `read` desde
+`.opencode/skills/<nombre>/SKILL.md`, sin cargador `skill`. Si falta una
+herramienta compatible, procede directamente con los permisos actuales,
+mantén un escritor por slice y registra pendiente cualquier review que no pudo
+correr. Nunca declares PASS de un reviewer que no participó.
 
 ### Claude Code
 
@@ -69,7 +69,7 @@ skills están versionadas en `.opencode/skills/`.
 
 Estos agentes también son invocables por su ID exacto con la herramienta
 correspondiente al harness; usa `subagent` en OpenCode V2 (`task` en V1) y la
-tabla de IDs `pi-*` para `subagent` en Pi. No se usan todos en cada tarea; se
+tabla de IDs `pi-*` para `subagent_run` en Pi. No se usan todos en cada tarea; se
 seleccionan cuando su expertise es el centro del trabajo o cuando se activa un
 gate de riesgo.
 
@@ -91,11 +91,18 @@ mismos archivos.
 
 ### IDs Pi
 
-`pi-open-agents` descubre tanto `.pi/agents/` como `.opencode/agent/` y resuelve
-colisiones por nombre según el orden de carga. Los perfiles Pi usan IDs `pi-*`
-para no colisionar con los perfiles OpenCode ni heredar sus modelos/proveedor o
-permisos por accidente. `pi-senior` es el primario predeterminado y limita su
-delegación a estos IDs:
+Gentle Pi descubre los perfiles locales de `.pi/agents/` y `.pi/subagents/`;
+esta última tiene precedencia para un mismo nombre. Los perfiles Pi usan IDs
+`pi-*` y no reutilizan `.opencode/agent/`. Todos los perfiles locales, incluidos
+reviewers y especialistas, declaran `openai-codex/gpt-6-luna` y `thinking: max`.
+Los 11 workers agregan `subagent_mode: task` al `mode: subagent` de compatibilidad;
+Senior conserva `mode: primary` y nunca se lanza como hijo. `.pi/subagents.json`
+fija defaults y rutas locales; no se cambia configuración global. Un perfil de
+sesión puede prevalecer: verifica la ruta efectiva antes de ejecutar y reporta
+cualquier desajuste, sin guardar un override global. La restricción de IDs por
+rol no es un sandbox ni una allowlist impuesta por el runtime.
+
+Senior limita su delegación a los 11 workers de esta tabla:
 
 | Rol | ID Pi |
 | --- | --- |
@@ -224,10 +231,12 @@ de solicitudes.
 
 - En OpenCode V2, `Senior` es `default_agent` y los subagentes personalizados se
   invocan mediante `subagent` con los IDs OpenCode (`task` en V1). En Pi,
-  `.pi/settings.json` fija `defaultAgent: pi-senior` y
-  `.pi/modes.config.json` fija el modo inicial `build`;
-  usa `subagent` con los IDs Pi. La disponibilidad real depende del harness y de
-  sus permisos. Una sesión Pi reanudada puede conservar su modo previo.
+  usa `subagent_list_agents` y `subagent_run` de Gentle Pi con los IDs permitidos.
+  `.pi/settings.json` conserva la identificación local de Senior y fija
+  Luna/max como default; el rol primario se mantiene en el puente del proyecto.
+  Los comandos y defaults de `pi-agent-modes` solo aplican si esa extensión
+  está instalada y sus comandos registrados. Respeta cualquier modo de solo
+  lectura y los permisos efectivos del host.
 - Las restricciones de herramienta de esta sección son específicas de la
   configuración OpenCode. En Pi, los prompts de solo lectura son expectativas de
   rol, no un sandbox; el fallback directo de `pi-senior` respeta los permisos
