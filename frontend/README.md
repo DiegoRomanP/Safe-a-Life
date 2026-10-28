@@ -4,8 +4,19 @@ Frontend real del prototipo: TypeScript, React 18, Vite y Tailwind 4
 ([ADR-001](../docs/decisions/ADR-001-stack-del-prototipo.md)). Es un workspace
 del monorepo npm; se instala y se prueba desde la raíz.
 
-`apps/web` sigue siendo la web de demostración contra el mock. Este paquete
-todavía no tiene vistas, cliente HTTP ni sesión.
+`apps/web` sigue siendo la web de demostración contra el mock. El login de este
+paquete conecta `POST /api/v1/auth/sessions` y `GET /api/v1/auth/csrf-token` con
+cookies same-origin; solo confirma la sesión tras validar ambas respuestas y
+mantiene los datos mínimos de sesión/CSRF en memoria. La operación y su estado
+pendiente/terminal se comparten en el mismo runtime para impedir otro POST+CSRF al
+remontar el componente; no sincroniza pestañas ni sobrevive a recargas. No navega al
+completar el login. Ante un fallo, descarta el estado verificado local y avisa que
+puede quedar una sesión activa en el servidor; esto no confirma logout ni borra
+cookies HttpOnly.
+
+T3 no restaura sesiones tras recargar ni aplica guards de rol/AAL, MFA, step-up
+ni logout: esos flujos pertenecen a T4. Las demás vistas continúan siendo demos
+sin conexión productiva; los enlaces de demo del login están marcados Solo DEV.
 
 ## Comandos
 
