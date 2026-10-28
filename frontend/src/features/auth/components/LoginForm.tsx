@@ -18,12 +18,15 @@ type Errors = Partial<Record<keyof LoginCredentials, string>>;
 function validate({ email, password }: LoginCredentials): Errors {
   const errors: Errors = {};
   const emailMessage = emailError(email);
+  const passwordLength = Array.from(password).length;
   if (emailMessage) errors.email = emailMessage;
   if (!password) errors.password = 'Ingresa tu contraseña.';
+  else if (passwordLength < 12) errors.password = 'La contraseña debe tener al menos 12 caracteres.';
+  else if (passwordLength > 128) errors.password = 'La contraseña no puede superar 128 caracteres.';
   return errors;
 }
 
-// Formulario de AUTH-01. Solo valida campos vacíos y forma del correo; quien lo
+// Formulario de AUTH-01. Valida los límites existentes; quien lo
 // usa decide qué hacer con las credenciales. Si hay errores, el foco va al
 // primer campo inválido para que el lector de pantalla lo anuncie.
 export function LoginForm({ onSubmit, disabled = false }: LoginFormProps) {
