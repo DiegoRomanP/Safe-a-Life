@@ -69,8 +69,11 @@ no expongas entidades de persistencia como respuestas API.
   de implementar, delega cuando el harness ofrece una herramienta compatible y
   mantiene la bitácora hasta el reporte final. Sigue `docs/Agent-Workflow.md`.
 - La delegación depende del harness: OpenCode V2 usa `subagent` (OpenCode V1
-  usa `task`); Pi con `pi-open-agents` usa
-  `subagent({ agent, task })` y los IDs Pi de `docs/Agent-Workflow.md`;
+  usa `task`); Pi en este proyecto usa Gentle Pi: `subagent_list_agents`
+  para descubrir perfiles y `subagent_run({ agent, task })` para delegar,
+  con los IDs Pi de `docs/Agent-Workflow.md`. Todos los perfiles Pi locales
+  usan `openai-codex/gpt-6-luna` con esfuerzo `max`; Senior sigue siendo
+  el coordinador primario y nunca un hijo. No se modifica configuración global;
   Claude Code usa la herramienta `Agent` con un
   subagente genérico cuyo prompt incluye el contenido de
   `.opencode/agent/<id>.md` más alcance y rutas. No exijas ni invoques nombres de herramientas de otro
