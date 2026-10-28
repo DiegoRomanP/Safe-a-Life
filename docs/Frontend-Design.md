@@ -1,5 +1,7 @@
 # Diseño de interfaz del prototipo
 
+> Libro: Frontend · Estado: Vigente · Índice: [README](README.md)
+
 ## Propósito
 
 Implementar como frontend navegable el sistema visual y los recorridos ya
