@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Informe del estado del proyecto · Save a Life</title>
+<style>
+  @page { size: A4; margin: 16mm 16mm 18mm; }
+  :root { --teal:#1a5266; --red:#b8243c; --line:#d8e0e6; --head:#e6eef3; }
+  * { box-sizing: border-box; }
+  body { font-family: "Noto Sans","Segoe UI",Arial,sans-serif; font-size: 10.6pt; line-height: 1.5; color:#1d2b33; margin:0; }
+  code { font-family: "JetBrains Mono","DejaVu Sans Mono",monospace; font-size: 8.8pt; background:#eef2f5; padding: 1px 4px; border-radius:3px; }
+  a { color:#1f5fa8; }
+  .brand { display:flex; align-items:center; gap:10px; font-weight:700; font-size:14pt; color:var(--teal); }
+  .logo { width:30px; height:30px; background:var(--red); color:#fff; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:20pt; line-height:1; }
+  h1 { font-size:24pt; color:var(--teal); margin:14px 0 18px; padding-bottom:10px; border-bottom:3px solid var(--red); line-height:1.15; }
+  h2 { background:var(--teal); color:#fff; font-size:15pt; padding:8px 12px; border-radius:7px; margin:22px 0 10px; break-after:avoid; }
+  h3 { color:var(--red); font-size:12.5pt; margin:16px 0 6px; break-after:avoid; }
+  table { width:100%; border-collapse:collapse; margin:8px 0 12px; font-size:9.6pt; break-inside:auto; }
+  tr { break-inside:avoid; }
+  th { background:var(--head); color:var(--teal); text-align:left; }
+  th, td { border:1px solid var(--line); padding:6px 9px; vertical-align:top; }
+  ul { margin:4px 0 8px; padding-left:20px; }
+  li::marker { color:var(--red); }
+  ul ul li::marker { color:#555; }
+  p { margin:6px 0; }
+  .nb { break-inside:avoid; }
+  .pagebreak { break-before:page; }
+</style>
+</head>
+<body>
+
+<div class="brand"><div class="logo">+</div>Save a Life</div>
+<h1>Informe del estado del proyecto · Save a Life</h1>
+
+<table>
+<tr><th style="width:24%">Campo</th><th>Valor</th></tr>
+<tr><td>Proyecto</td><td>Save a Life: coordinación de hospitales y donantes de sangre (prototipo académico)</td></tr>
+<tr><td>Fecha de corte</td><td>28 de octubre de 2026 (rama <code>feat/frontend-backend-integration</code>); la versión anterior del informe cortó el 22 de octubre de 2026 (rama <code>main</code>, commit <code>ea4ed5b</code>)</td></tr>
+<tr><td>Equipo</td><td>Diego Roman (GitHub <code>DiegoRomanP</code>), Jhan Fernando Leiva Ignacio (<code>jignacio17</code>), <code>Ator512</code></td></tr>
+<tr><td>Repositorio</td><td><a href="https://github.com/DiegoRomanP/Safe-a-Life">https://github.com/DiegoRomanP/Safe-a-Life</a></td></tr>
+<tr><td>Gestión</td><td>Plane (vista pública, solo lectura): <a href="http://159.195.245.124:75/spaces/issues/83d844c48b9b40e1b51df54042cc00f3">http://159.195.245.124:75/spaces/issues/83d844c48b9b40e1b51df54042cc00f3</a></td></tr>
+<tr><td>Diagramas de clases y UML</td><td><a href="https://github.com/DiegoRomanP/Safe-a-Life/tree/main/evidence_pc2">https://github.com/DiegoRomanP/Safe-a-Life/tree/main/evidence_pc2</a></td></tr>
+<tr><td>Diagramas de arquitectura y flujos</td><td>Eraser: <a href="https://app.eraser.io/workspace/iclH0MjPckR9i4f2cPaO">https://app.eraser.io/workspace/iclH0MjPckR9i4f2cPaO</a></td></tr>
+<tr><td>Documentación oficial</td><td>Sitio VitePress en <code>docs/</code> (<code>npm run docs:dev</code>, puerto 5170); ver la sección 9</td></tr>
+</table>
+
+<h2>1. Resumen</h2>
+<p>Save a Life conecta hospitales autorizados de Lima con posibles donantes de sangre compatibles y cercanos. El hospital publica una necesidad, el sistema filtra candidatos por grupo declarado compatible, disponibilidad y distancia, les avisa por correo y registra su <b>intención</b> de asistir. El hospital siempre verifica identidad, grupo y aptitud. La demo usa solo datos sintéticos (3 hospitales y hasta 500 donantes).</p>
+<p><b>Estado general:</b></p>
+<ul>
+<li>El <b>backend</b> tiene implementadas 6 de sus 9 capacidades.</li>
+<li>El <b>frontend</b> tiene todas sus pantallas web, con datos de prueba.</li>
+<li>La <b>documentación</b> está organizada por libros y se publica como sitio con VitePress.</li>
+<li><b>Falta</b> el módulo de invitaciones (F6), el de información legal (F8) y conectar y publicar el sistema (F9).</li>
+</ul>
+
+<h2>2. Avance por área</h2>
+<p>Para el avance se usó un criterio simple y explícito: cada capacidad o bloque vale lo mismo, y un bloque cuenta como hecho solo si tiene pruebas automáticas y está en <code>main</code>.</p>
+
+<h3>2.1 Backend (capacidades F1 a F9)</h3>
+<table>
+<tr><th style="width:22%">Capacidad</th><th>Qué cubre</th><th style="width:30%">Estado</th></tr>
+<tr><td>F1 Plataforma</td><td>Salud del sistema, configuración, seguridad HTTP</td><td>✅ Completa</td></tr>
+<tr><td>F2 Identidad e instituciones</td><td>Sesión, MFA, step-up, hospitales, sedes, administradores, auditoría</td><td>✅ Completa</td></tr>
+<tr><td>F3 Necesidades</td><td>Crear, listar, ver y cambiar el estado de necesidades</td><td>✅ Completa</td></tr>
+<tr><td>F4 Correo</td><td>Bandeja de salida, worker, reintentos, webhook de Resend</td><td>✅ Completa</td></tr>
+<tr><td>F5 Donantes</td><td>Registro, verificación de correo, perfil, altas asistidas</td><td>✅ Completa</td></tr>
+<tr><td>F6 Invitaciones</td><td>Preselección, lotes, respuestas</td><td>🟡 Solo reglas de dominio (compatibilidad, distancia, ranking)</td></tr>
+<tr><td>F7 Privacidad</td><td>Solicitudes de corrección y eliminación, accesos con motivo</td><td>✅ Completa</td></tr>
+<tr><td>F8 Legal y reconocimientos</td><td>Información legal y políticas de reconocimiento</td><td>🟪 Pendiente</td></tr>
+<tr><td>F9 Integración y salida</td><td>Conectar con el frontend, despliegue, mediciones</td><td>🟪 Pendiente</td></tr>
+</table>
+<p><b>Avance del backend: ~69 %</b> (6 completas y F6 al 20 %, sobre 9).</p>
+
+<h3>2.2 Frontend</h3>
+<table>
+<tr><th style="width:55%">Bloque</th><th>Estado</th></tr>
+<tr><td>Pantallas web de Penpot: público, acceso, donante, hospital y superadmin</td><td>✅ Completo (con datos de prueba)</td></tr>
+<tr><td>Revisiones de seguridad y clínica, y títulos por pantalla</td><td>✅ Completo</td></tr>
+<tr><td>Estados de carga, error, sin permiso y conflicto</td><td>🟡 Donante listo; faltan hospital y superadmin</td></tr>
+<tr><td>Inicio de sesión por rol</td><td>🟪 Pendiente (hoy hay un solo login con botones de prueba)</td></tr>
+<tr><td>Conexión con el backend real</td><td>🟪 Pendiente</td></tr>
+<tr><td>Versión para celular y tablet</td><td>🟪 Pendiente</td></tr>
+</table>
+<p><b>Avance del frontend: ~55 %</b>, ponderando las pantallas en 50 %, los estados en 15 %, el login por rol en 10 %, la integración en 15 % y el responsive en 10 %.</p>
+
+<h3>2.3 Avance global</h3>
+<p><b>~60 % del proyecto</b>, promediando backend y frontend. Supera el 50 % previsto para esta entrega porque el frontend se adelantó con datos de prueba (ver la sección 6).</p>
+
+<h2>3. Lo implementado en esta etapa</h2>
+<ul>
+<li><b>Backend:</b>
+  <ul>
+  <li>7 módulos en <code>backend/src/modules</code>;</li>
+  <li>15 migraciones de base de datos con seguridad por fila (RLS);</li>
+  <li>worker de correo;</li>
+  <li>66 operaciones de API ratificadas en <code>docs/openapi.json</code>.</li>
+  </ul></li>
+<li><b>Seguridad:</b> se corrigieron los hallazgos B1–B4, SP-01 (barrera de sesión tras cambiar la contraseña, ADR-007), SP-04 y P-12 (borrado de cuentas), con revisiones independientes aprobadas.</li>
+<li><b>Frontend:</b>
+  <ul>
+  <li>todas las pantallas web de los 3 roles, siguiendo el diseño de Penpot;</li>
+  <li>capa de datos reemplazable (<code>demoApi</code>);</li>
+  <li>estados de error y conflicto en el área del donante;</li>
+  <li>accesibilidad verificada en el navegador.</li>
+  </ul></li>
+<li><b>Documentación:</b>
+  <ul>
+  <li>índice por libros en <code>docs/README.md</code>, con estado y fuente de verdad de cada documento;</li>
+  <li>sitio de documentación con VitePress (sección 9);</li>
+  <li>diagramas UML de arquitectura, patrones, clases y composición (25 páginas).</li>
+  </ul></li>
+<li><b>Calidad:</b>
+  <ul>
+  <li><b>1091</b> pruebas automáticas que pasan (backend 799, frontend 227, mock 50 y web 15);</li>
+  <li><b>0</b> vulnerabilidades en producción;</li>
+  <li>lint y verificación de tipos sin errores.</li>
+  </ul></li>
+</ul>
+
+<h2>4. Arquitectura (visto en clase)</h2>
+<p><b>Estilo: monolito modular con arquitectura hexagonal (puertos y adaptadores).</b></p>
+<table>
+<tr><th>Pieza</th><th>Tecnología</th><th>Dónde se publica</th></tr>
+<tr><td>Frontend</td><td>React 18 + TypeScript + Tailwind</td><td>Vercel</td></tr>
+<tr><td>API</td><td>Node.js + Express 5 (monolito modular)</td><td>Render</td></tr>
+<tr><td>Worker de correo</td><td>Proceso Node aparte</td><td>Render</td></tr>
+<tr><td>Base de datos y cuentas</td><td>Supabase (PostgreSQL, RLS, Auth con MFA)</td><td>Supabase</td></tr>
+<tr><td>Correo</td><td>Resend, detrás de un adaptador</td><td>Resend</td></tr>
+<tr><td>Documentación</td><td>VitePress sobre <code>docs/</code></td><td>Local por ahora; publicación prevista en el Sprint 6</td></tr>
+</table>
+<p><b>Por qué esta arquitectura</b> (decisión documentada en <code>docs/decisions/ADR-001</code>):</p>
+<ul>
+<li>Un equipo pequeño y una demo de 3 hospitales no justifican microservicios.</li>
+<li>Un solo backend se publica de una vez y cada operación se guarda completa (una RPC = una transacción).</li>
+<li>Los módulos tienen límites claros y uno se puede separar si el proyecto crece.</li>
+<li>Se evaluó Java/Spring y se descartó: no había requisito que lo justificara y obligaba a usar dos lenguajes.</li>
+</ul>
+<p><b>Evidencias:</b></p>
+<ul>
+<li><b>1 backend</b> con <b>7 módulos</b>, cada uno dividido en <code>domain/</code>, <code>application/</code>, <code>http/</code> e <code>infrastructure/</code>.</li>
+<li><b>0 dependencias</b> de las reglas (<code>domain/</code>) hacia Express, Supabase o Resend. Se verificó en el código.</li>
+<li><b>7 ADR</b> con cada decisión importante, sus alternativas y el porqué.</li>
+<li><b>Contract-first:</b> <code>docs/openapi.json</code> genera los tipos del backend, el mock y la web.</li>
+</ul>
+
+<h2 class="pagebreak">5. Patrones de diseño (visto en clase)</h2>
+<table>
+<tr><th style="width:11%">Patrón</th><th style="width:12%">Estado</th><th style="width:36%">Dónde (archivo)</th><th>Cómo se aplicó</th></tr>
+<tr><td><b>Factory</b></td><td>Implementado</td><td><code>backend/src/shared/persistence/supabase-client.ts</code>, <code>rpc-invoker.ts</code></td><td><code>SupabaseFactory</code> crea el cliente correcto: <code>forUser(token)</code> o <code>anonymous()</code>. Quien lo usa no sabe qué cliente concreto recibe</td></tr>
+<tr><td><b>Adapter</b></td><td>Implementado</td><td><code>email-delivery/infrastructure/resend-sender.ts</code>, <code>need-records/infrastructure/needs-rpc-gateway.ts</code></td><td>Traducen las interfaces del dominio (<code>EmailSender</code>, <code>NeedsRepository</code>) a la API de Resend y a las RPC de Supabase</td></tr>
+<tr><td><b>Strategy</b></td><td>Implementado</td><td><code>email-delivery/application/email-sender.ts</code>, <code>infrastructure/fake-sender.ts</code>, <code>composition-worker.ts</code></td><td>Dos estrategias de envío intercambiables, <code>FakeEmailSender</code> (pruebas) y Resend (producción), elegidas por configuración</td></tr>
+<tr><td><b>Observer</b></td><td>Parcial</td><td><code>backend/src/app.ts</code>, <code>server.ts</code>, webhook de Resend</td><td>Se usa el mecanismo de eventos de Node (<code>res.on('finish')</code>, <code>process.on('SIGTERM')</code>). Resend notifica por webhook</td></tr>
+<tr><td><b>Decorator</b></td><td>Parcial</td><td><code>platform/http/health.router.ts</code>, <code>app.ts</code></td><td><code>withTimeout</code> envuelve una promesa y le agrega un límite de tiempo; <code>requestLogger</code> envuelve cada petición</td></tr>
+</table>
+<p>«Parcial» significa que se usan los mecanismos que ya trae Node, en vez de clases propias. Cumplen la misma idea sin código extra.</p>
+<p><b>Otros patrones usados:</b></p>
+<ul>
+<li>Repository (<code>NeedsRepository</code>);</li>
+<li>inyección de dependencias y composition root (<code>composition.ts</code>);</li>
+<li>máquina de estados (<code>need-state.ts</code>, <code>invitation-state.ts</code>);</li>
+<li>Template (plantillas de correo);</li>
+<li>outbox transaccional;</li>
+<li>idempotency key;</li>
+<li>en el frontend: Provider (Context), custom hooks y render props (<code>QueryView</code>).</li>
+</ul>
+
+<p class="nb"><b>Diagramas de clases y UML:</b> están en el repositorio, en <code>evidence_pc2/</code> (archivo editable <code>save-a-life-uml.drawio</code> y una imagen por diagrama), con su explicación en <code>evidence_pc2/diagramas_uml.md</code>: <a href="https://github.com/DiegoRomanP/Safe-a-Life/tree/main/evidence_pc2">https://github.com/DiegoRomanP/Safe-a-Life/tree/main/evidence_pc2</a></p>
+<table class="nb">
+<tr><th style="width:26%">Diagramas de clases</th><th>Qué muestran</th></tr>
+<tr><td>20 · Modelo de dominio</td><td>Tipos y reglas puras (compatibilidad, distancia, estados)</td></tr>
+<tr><td>21 · need-records</td><td>Necesidades: router, servicio, puerto <code>NeedsRepository</code> y adaptador RPC</td></tr>
+<tr><td>22 · donor-records</td><td>Donantes: registro, perfil y altas asistidas</td></tr>
+<tr><td>23 · identity-institutions</td><td>Sesión, MFA, tokens de acción e instituciones</td></tr>
+<tr><td>24 · email-delivery</td><td>Correo: puerto <code>EmailSender</code>, Strategy (<code>FakeEmailSender</code> / Resend), outbox y worker</td></tr>
+<tr><td>25 · privacy-requests</td><td>Solicitudes de privacidad y accesos contextuales</td></tr>
+<tr><td>26 · shared</td><td>Piezas comunes: autenticación, HTTP, persistencia (<code>SupabaseFactory</code>) y criptografía</td></tr>
+<tr><td>27 · Composición</td><td>Cómo <code>composition.ts</code> conecta cada servicio con sus adaptadores</td></tr>
+</table>
+<p>Además hay 17 diagramas de arquitectura y patrones (despliegue, componentes, hexagonal, Strategy, outbox, máquina de estados, entre otros) en el mismo archivo.</p>
+
+<h2>6. Gestión del proyecto con Scrum (visto en clase)</h2>
+<h3>6.1 Roles</h3>
+<table>
+<tr><th style="width:26%">Rol Scrum</th><th>Responsable</th></tr>
+<tr><td>Product Owner</td><td>Team SaL (rol compartido por todo el equipo)</td></tr>
+<tr><td>Scrum Master</td><td>Team SaL (rol compartido por todo el equipo)</td></tr>
+<tr><td>Equipo de desarrollo</td><td>Diego Roman (backend, base de datos, seguridad), Jhan Leiva (frontend), Ator512 (configuración inicial y esquema de la base)</td></tr>
+</table>
+<p><b>Por qué roles compartidos:</b> es un proyecto de curso y el objetivo es que todos aprendan cada rol. Por eso la priorización del backlog (Product Owner) y la facilitación del proceso (Scrum Master) las asume el equipo completo, <b>Team SaL</b>, en las reuniones semanales.</p>
+
+<h3>6.2 Artefactos</h3>
+<table>
+<tr><th style="width:22%">Artefacto Scrum</th><th>Cómo se aplicó</th></tr>
+<tr><td><b>Product Backlog</b></td><td>Requisitos de la ERS (<code>docs/2_Especificaciones_De_Software.md</code>), con identificadores RF/RNF, y tareas en Plane (por ejemplo <code>SAVELIFE-2</code>, <code>SAVELIFE-4</code>)</td></tr>
+<tr><td><b>Sprint Backlog</b></td><td>Las tareas de cada ciclo en Plane, más un plan por tarea en <code>docs/plans/AAAA-MM-DD-&lt;tarea&gt;.md</code></td></tr>
+<tr><td><b>Incremento</b></td><td>Cada pull request mergeado en <code>main</code> con sus pruebas en verde</td></tr>
+<tr><td><b>Definición de Hecho</b></td><td><code>AGENTS.md</code>: pruebas, lint, typecheck y build en verde; revisión independiente aprobada; plan actualizado</td></tr>
+</table>
+
+<h3>6.3 Iteraciones (ciclos en Plane)</h3>
+<table>
+<tr><th style="width:24%">Iteración</th><th style="width:10%">Fechas</th><th style="width:30%">Objetivo</th><th>Resultado</th></tr>
+<tr><td>Sprint 0 · Setup y prototipo</td><td>24–30 sep</td><td>Arranque: Express, Supabase, primer esquema, alcances</td><td>Repositorio, esquema inicial, PR #1 a #3</td></tr>
+<tr><td>Sprint 1 · Especificación y backend base</td><td>1–14 oct</td><td>Especificación y backend base (F1–F5)</td><td>ERS, contrato OpenAPI, DTO, ADR, módulos F1 a F5</td></tr>
+<tr><td>Sprint 2 · Seguridad y frontend (entrega del 50 %)</td><td>15–28 oct</td><td>Privacidad (F7), verificación de seguridad y frontend completo</td><td>F7, correcciones B1–B4, SP-01, SP-04 y P-12; PR #4 a #25 con todo el frontend. Cierra con la presentación del 50 %. Incluye el sitio de documentación con VitePress</td></tr>
+</table>
+<p>Cada sprint es un <b>ciclo (cycle)</b> en Plane con sus tareas: Sprint 0 (7 tareas), Sprint 1 (11 tareas) y Sprint 2 (9 tareas). Las fechas coinciden con el historial de commits y pull requests de GitHub.</p>
+
+<h3>6.4 Evidencia en Plane (datos extraídos el 27 de octubre de 2026)</h3>
+<p>La vista pública de Plane muestra las tareas, pero no los ciclos ni las estadísticas. Por eso se incluyen aquí, tal como figuran en el proyecto.</p>
+<p><b>Progreso por ciclo:</b></p>
+<table>
+<tr><th>Ciclo</th><th style="width:15%">Fechas</th><th style="width:16%">Tareas hechas</th><th style="width:11%">Avance</th></tr>
+<tr><td>Sprint 0 · Setup y prototipo</td><td>24–30 sep</td><td>7 de 7</td><td>100 %</td></tr>
+<tr><td>Sprint 1 · Especificación y backend base</td><td>1–14 oct</td><td>11 de 11</td><td>100 %</td></tr>
+<tr><td>Sprint 2 · Seguridad y frontend (entrega del 50 %)</td><td>15–28 oct</td><td>9 de 9</td><td>100 %</td></tr>
+</table>
+<p><b>Estado de todas las tareas del proyecto (50 en total):</b></p>
+<table>
+<tr><th>Estado</th><th style="width:20%">Tareas</th><th style="width:20%">Porcentaje</th></tr>
+<tr><td>Hechas (Done)</td><td>27</td><td>54 %</td></tr>
+<tr><td>En curso (In Progress)</td><td>2</td><td>4 %</td></tr>
+<tr><td>Pendientes (Backlog)</td><td>21</td><td>42 %</td></tr>
+</table>
+<p>El 54 % de tareas hechas coincide con el avance del 50 % que pide esta entrega. Las 21 tareas del backlog son las que se planificarán en los próximos sprints, hasta diciembre. Las cifras de Plane son las del 27 de octubre y no incluyen el trabajo de documentación con VitePress del 28 de octubre.</p>
+<p><b>Tareas hechas por integrante</b> (una tarea puede tener más de un responsable):</p>
+<table>
+<tr><th>Integrante (Plane)</th><th style="width:25%">Tareas hechas</th></tr>
+<tr><td>Diego Osvaldo Roman Palomino</td><td>13</td></tr>
+<tr><td>Jhan</td><td>10</td></tr>
+<tr><td>Vic</td><td>6</td></tr>
+</table>
+
+<h3>6.5 Ceremonias y prácticas</h3>
+<ul>
+<li><b>Planificación:</b> al inicio de cada iteración se eligen tareas del backlog. Cada una tiene su plan en <code>docs/plans</code>.</li>
+<li><b>Revisión:</b> cada cambio entra por un pull request revisado. Los cambios sensibles pasan por revisores independientes de seguridad, de privacidad, clínico y de frontend/backend.</li>
+<li><b>Integración continua:</b> GitHub Actions corre pruebas, contrato, build, gitleaks (detección de secretos) y npm audit en cada PR.</li>
+<li><b>Retrospectiva:</b> los hallazgos de las revisiones generaron mejoras en el proceso, por ejemplo cómo crear datos de prueba sin que gitleaks los marque como secretos.</li>
+<li><b>Seguimiento:</b> reuniones semanales del equipo, en lugar de la daily diaria, para revisar el avance, los bloqueos y las tareas de la semana.</li>
+</ul>
+
+<h3>6.6 Planificación frente a ejecución: cambios</h3>
+<table>
+<tr><th style="width:30%">Planificado</th><th style="width:35%">Lo que pasó</th><th>Por qué</th></tr>
+<tr><td>El frontend esperaría a que el backend estuviera completo</td><td>El frontend avanzó en paralelo con datos de prueba y una capa reemplazable (<code>demoApi</code>)</td><td>No bloquear al equipo; cuando el backend esté listo, solo se cambia esa capa</td></tr>
+<tr><td>Hacer F6 (invitaciones) después de F5</td><td>Se priorizó corregir hallazgos de seguridad (B1–B4, SP-01, SP-04, P-12) antes de F6</td><td>Los planes marcaban esos hallazgos como bloqueantes antes de F6</td></tr>
+<tr><td>Usar <code>apps/web</code> como frontend</td><td>Se creó <code>frontend/</code> en TypeScript desde el diseño de Penpot; <code>apps/web</code> quedó como demo contra el mock</td><td>Mejor calidad, tipos del contrato y accesibilidad</td></tr>
+<tr><td>Borrar cuentas de Auth en F7</td><td>Se implementó aparte, con una decisión explícita (P-12)</td><td>Requería una decisión de seguridad sobre el uso de <code>service_role</code></td></tr>
+<tr><td>Un solo login para todos los roles</td><td>Se mantiene por ahora; el login propio para hospital y superadmin queda para el próximo sprint</td><td>No estaba diseñado en Penpot</td></tr>
+<tr><td>Documentación como carpeta de archivos Markdown</td><td>Se organizó por libros y se publica como sitio con VitePress</td><td>Un solo punto de entrada, con búsqueda y navegación, que sirva de documentación oficial</td></tr>
+<tr><td>H2.4 Registrar la fecha de la última donación (backlog inicial)</td><td>Se excluye del alcance: el sistema no pide ni guarda esa fecha (RF-PRO-05)</td><td>No afirmar elegibilidad clínica ni guardar datos de salud; la aptitud la evalúa el hospital</td></tr>
+<tr><td>H6.3 Mostrar donantes en un mapa (backlog inicial)</td><td>Se excluye: las coordenadas exactas no se muestran en ninguna pantalla</td><td>Minimizar datos sensibles de ubicación; la distancia se calcula solo en el backend</td></tr>
+</table>
+
+<h2>7. División del trabajo hasta diciembre</h2>
+<table>
+<tr><th style="width:9%">Sprint</th><th style="width:13%">Fechas aprox.</th><th>Objetivo</th><th style="width:20%">Responsable</th></tr>
+<tr><td>Sprint 3</td><td>29 oct – 9 nov</td><td>F6 invitaciones y lotes (migración, RPC, rutas, pruebas); estados del frontend en hospital y superadmin</td><td>Backend: Diego · Frontend: Jhan</td></tr>
+<tr><td>Sprint 4</td><td>10 – 23 nov</td><td>Login por rol; F8 legal y reconocimientos (en «borrador»); diagramas finales</td><td>Frontend: Jhan · Backend: Diego</td></tr>
+<tr><td>Sprint 5</td><td>24 nov – 7 dic</td><td>F9: cliente HTTP, conexión front–back, protección de rutas por rol, pruebas de extremo a extremo</td><td>Equipo completo</td></tr>
+<tr><td>Sprint 6</td><td>8 – 19 dic</td><td>Despliegue en Vercel, Render y Supabase; medición del matching (p95 menor a 2 s); versión responsive; publicación del sitio de documentación; documentación final y demo</td><td>Equipo completo</td></tr>
+</table>
+<p>Esta planificación se cargará como ciclos en Plane; las fechas y los responsables pueden ajustarse ahí.</p>
+
+<h2>8. Riesgos y pendientes</h2>
+<ul>
+<li><b>Datos reales:</b> requieren revisión legal (Ley N.º 29733) y validación clínica de la tabla de compatibilidad. El prototipo no afirma cumplimiento legal ni clínico.</li>
+<li><b>F6</b> es la parte más sensible: une matching, correo y privacidad, y necesita revisión clínica y de seguridad.</li>
+<li><b>Integración:</b> conectar el frontend con el backend real exige el cliente HTTP con cookies y CSRF, y la protección de rutas por rol. El login ya usa la sesión y la consulta de CSRF en la rama de integración; falta enviar el token en las peticiones y conectar el resto de las vistas.</li>
+<li><b>Dependencias:</b> tres PRs de Dependabot (ESLint 10, TypeScript 7, React 19) son incompatibles y deben cerrarse; <code>ajv-formats</code> 3 queda en revisión del backend.</li>
+<li><b>Documentación:</b> el sitio VitePress no está desplegado ni tiene CI; el <code>postinstall</code> de <code>esbuild@0.21.5</code> (copia que trae VitePress) está bloqueado a la espera de decidir si se añade a <code>allowScripts</code> (ADR-002); los enlaces a archivos fuera de <code>docs/</code> no se validan en el build.</li>
+</ul>
+
+<h2 class="pagebreak">9. Documentación oficial con VitePress</h2>
+<p>La carpeta <code>docs/</code> estaba desordenada para servir como fuente de documentación. Se organizó y se configuró un sitio con <b>VitePress 1.6.4</b>, sin mover ni renombrar archivos, porque scripts, <code>AGENTS.md</code>, <code>CLAUDE.md</code> y <code>.opencode/</code> los citan por ruta.</p>
+
+<h3>9.1 Cómo se organizó</h3>
+<p>El índice <code>docs/README.md</code> es ahora una portada por <b>libros</b>. Cada documento figura con su tipo, su estado (Aprobado, Borrador, Vigente o Histórico) y la fuente de verdad que cubre.</p>
+<table>
+<tr><th style="width:5%">N.º</th><th style="width:30%">Libro</th><th>Contenido</th></tr>
+<tr><td>1</td><td>Producto y requisitos</td><td>Primeros alcances (línea base aprobada), ERS (borrador), requisitos normalizados, backlog</td></tr>
+<tr><td>2</td><td>Decisiones de arquitectura</td><td>ADR-001 a ADR-007</td></tr>
+<tr><td>3</td><td>Contrato de API</td><td><code>openapi.json</code>, reglas de API, contratos backend, contrato de necesidad en borrador</td></tr>
+<tr><td>4</td><td>Backend</td><td>Plan incremental, especificación faltante, Backend-Route, planes por módulo</td></tr>
+<tr><td>5</td><td>Frontend</td><td>Entrega frontend, diseño de interfaz, planes de vistas e integración</td></tr>
+<tr><td>6</td><td>Proceso y agentes</td><td>Flujo de trabajo de agentes, identidad de Engram, historial de planes</td></tr>
+<tr><td>7</td><td>Diagramas</td><td>UML en <code>evidence_pc2/</code> (25 páginas) y su plan</td></tr>
+<tr><td>8</td><td>Operación</td><td>Entorno local, mocks, comandos de verificación, límites</td></tr>
+<tr><td>9</td><td>Pendientes</td><td>Bloqueos y decisiones abiertas</td></tr>
+</table>
+<p>El índice incluye una guía de mantenimiento: un documento nuevo se añade a su libro en el mismo commit, declara su estado y no duplica reglas, sino que enlaza a la fuente de verdad. Los documentos que no declaraban estado (flujo de agentes, diseño de interfaz e identidad de Engram) recibieron una cabecera.</p>
+
+<h3>9.2 Qué ofrece el sitio</h3>
+<ul>
+<li>Interfaz en español, con búsqueda local, barra lateral por libros y navegación superior.</li>
+<li><code>docs/README.md</code> es la portada del sitio y sigue siendo el índice que lee GitHub.</li>
+<li>Las carpetas <code>decisions/</code>, <code>plans/</code> y <code>pending/</code> se listan solas: un documento nuevo en ellas aparece sin editar la configuración. Los de la raíz de <code>docs/</code> se añaden a mano.</li>
+<li>Los 56 archivos Markdown de <code>docs/</code> compilan sin errores.</li>
+</ul>
+
+<h3>9.3 Cómo levantarlo</h3>
+<table class="nb">
+<tr><th style="width:34%">Comando (desde la raíz)</th><th>Qué hace</th></tr>
+<tr><td><code>npm run docs:dev</code></td><td>Servidor local con recarga en <a href="http://localhost:5170">http://localhost:5170</a> (puerto fijo, distinto del 5173 de <code>npm run dev</code>)</td></tr>
+<tr><td><code>npm run docs:build</code></td><td>Genera el sitio estático en <code>docs/.vitepress/dist/</code> (ignorado por git)</td></tr>
+<tr><td><code>npm run docs:preview</code></td><td>Sirve el resultado del build en <a href="http://localhost:5171">http://localhost:5171</a></td></tr>
+</table>
+<p>Requiere las dependencias instaladas desde la raíz con <code>SCARF_ANALYTICS=false npm ci</code>. VitePress se añadió como devDependency fija en el único <code>package-lock.json</code>; no cambió ninguna versión ya existente.</p>
+
+<h3>9.4 También se actualizó</h3>
+<ul>
+<li>El <code>README.md</code> de la raíz: backend y contrato actuales (58 paths, 73 operaciones, 66 ratificadas), persistencia por RPC y RLS, sección «Documentación» y los scripts <code>docs:*</code>.</li>
+<li>Dos correcciones para que compile: se escaparon <code>&lt;…&gt;</code> sin proteger en la especificación del backend y se corrigió un enlace roto en la guía de entrega del frontend.</li>
+</ul>
+
+<h2>10. Enlaces</h2>
+<ul>
+<li><b>GitHub:</b> <a href="https://github.com/DiegoRomanP/Safe-a-Life">https://github.com/DiegoRomanP/Safe-a-Life</a></li>
+<li><b>Plane (vista pública, sin iniciar sesión):</b> <a href="http://159.195.245.124:75/spaces/issues/83d844c48b9b40e1b51df54042cc00f3">http://159.195.245.124:75/spaces/issues/83d844c48b9b40e1b51df54042cc00f3</a></li>
+<li><b>Eraser (diagramas):</b> <a href="https://app.eraser.io/workspace/iclH0MjPckR9i4f2cPaO">https://app.eraser.io/workspace/iclH0MjPckR9i4f2cPaO</a></li>
+<li><b>Documentación:</b> carpeta <code>docs/</code> del repositorio (ERS, ADR, contrato y planes), publicada localmente como sitio con <code>npm run docs:dev</code> (puerto 5170)</li>
+</ul>
+
+</body>
+</html>
