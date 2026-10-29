@@ -329,7 +329,8 @@ versión TypeScript solo la usan las pruebas.
 **Cómo leer los estados.** `pendiente → en_curso` ocurre al reclamar. Desde `en_curso` el
 mensaje pasa a `enviado` (ok), vuelve a `pendiente` con backoff (fallo transitorio o
 incierto) o pasa a `fallido` (permanente o 6 llamadas). Desde `pendiente` o `en_curso` pasa a
-`vencido` si se supera `not_after`.
+`vencido` si se supera `not_after`. Desde `pendiente` pasa a `cancelado` cuando la purga de eliminación del donante (F7,
+`20261020010000_privacy_execution.sql:72`) anula sus correos aún no reclamados.
 
 ### 17. Clave de idempotencia y cursor firmado
 
@@ -386,7 +387,7 @@ Verificados contra `backend/src` y `backend/src/composition.ts`.
 
 ## Cómo regenerar las imágenes
 
-Desde `docs/evidence_pc2/diagramas/`. Las páginas se numeran desde 1 en el CLI de draw.io:
+Desde `evidence_pc2/diagramas/`. Las páginas se numeran desde 1 en el CLI de draw.io:
 
 ```bash
 drawio -x -f png -s 1.5 -b 20 -p 1 -o png/00-leyenda.png save-a-life-uml.drawio
