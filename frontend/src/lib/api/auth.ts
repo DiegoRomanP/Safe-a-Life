@@ -1,3 +1,6 @@
+import { ApiError } from '../demoApi.js';
+import { apiRequest } from './http.js';
+
 export type ActorRole = 'donante' | 'admin_hospitalario' | 'superadmin';
 
 export type LoginSession = Readonly<{
@@ -46,32 +49,24 @@ function parseCsrfToken(value: unknown): string {
   return data.token;
 }
 
-async function readOkJson(response: Response): Promise<unknown> {
-  if (!response.ok) throw new Error();
-  return response.json();
-}
-
-function idempotencyKey(): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
-  return [...globalThis.crypto.getRandomValues(new Uint8Array(16))]
-    .map((byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
 export async function loginAndBootstrap(credentials: Credentials): Promise<LoginResult> {
-  const response = await fetch('/api/v1/auth/sessions', {
-    method: 'POST',
-    credentials: 'same-origin',
-    cache: 'no-store',
-    referrerPolicy: 'no-referrer',
-    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey() },
-    body: JSON.stringify(credentials),
-  });
-  const session = parseSession(await readOkJson(response));
-  const csrfResponse = await fetch('/api/v1/auth/csrf-token', {
-    credentials: 'same-origin',
-    cache: 'no-store',
-    referrerPolicy: 'no-referrer',
-  });
-  const csrfToken = parseCsrfToken(await readOkJson(csrfResponse));
+  const session = parseSession(await apiRequest('POST', '/auth/sessions', { body: credentials }));
+  const csrfToken = parseCsrfToken(await apiRequest('GET', '/auth/csrf-token'));
   return { session, csrfToken };
+}
+
+/** Restaura la sesión de las cookies tras una recarga; sin sesión (401) devuelve null. */
+export async function fetchCurrentSession(): Promise<LoginResult | null> {
+  let session: LoginSession;
+  try {
+    session = parseSession(await apiRequest('GET', '/auth/session'));
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) return null;
+    throw error;
+  }
+  return { session, csrfToken: parseCsrfToken(await apiRequest('GET', '/auth/csrf-token')) };
+}
+
+export async function deleteCurrentSession(csrfToken: string): Promise<void> {
+  await apiRequest('DELETE', '/auth/sessions/current', { csrfToken });
 }

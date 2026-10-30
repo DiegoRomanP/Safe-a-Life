@@ -6,7 +6,8 @@
 export type ApiErrorKind = 'red' | 'sin_permiso' | 'conflicto';
 
 export class ApiError extends Error {
-  constructor(readonly kind: ApiErrorKind) {
+  /** `status` y `code` solo llegan del backend real (`lib/api/http.ts`). */
+  constructor(readonly kind: ApiErrorKind, readonly status?: number, readonly code?: string) {
     super(`ApiError: ${kind}`);
     this.name = 'ApiError';
   }
