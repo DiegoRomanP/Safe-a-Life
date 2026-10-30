@@ -9,6 +9,7 @@ import { RegisterPage } from '../features/auth/pages/RegisterPage.js';
 import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage.js';
 import { VerifyEmailPage } from '../features/auth/pages/VerifyEmailPage.js';
 import { VerifyIdentityPage } from '../features/auth/pages/VerifyIdentityPage.js';
+import { RequireRole } from '../features/auth/session/RequireRole.js';
 import { DonorLayout } from '../features/donor/DonorLayout.js';
 import { HistoryPage } from '../features/donor/pages/HistoryPage.js';
 import { InvitationDetailPage } from '../features/donor/pages/InvitationDetailPage.js';
@@ -63,10 +64,10 @@ export const routes: RouteObject[] = [
       { path: 'invitacion-administrador', element: <AdminInvitationPage />, handle: { title: 'Invitación de administrador' } },
       // Enlace de invitación del correo (LINK-01), fuera del área autenticada.
       { path: 'invitaciones', element: <InvitationLinkPage />, handle: { title: 'Invitación' } },
-      // Área del donante. Sin backend (D-4) todavía no hay guard de sesión.
+      // Área del donante: exige sesión real de donante (restaurada de las cookies tras recargar).
       {
         path: 'donante',
-        element: <DonorLayout />,
+        element: <RequireRole allow="donante"><DonorLayout /></RequireRole>,
         handle: { area: 'Donante' },
         children: [
           { index: true, element: <Navigate to="invitaciones" replace /> },

@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { logout } from '../../features/auth/session/session.js';
 import { Badge } from '../ui/Badge.js';
 import { cx } from '../ui/cx.js';
 import { Brand } from './Brand.js';
@@ -21,9 +22,18 @@ export type AppLayoutProps = {
 // Shell autenticado de Penpot («+»): cabecera con marca, etiqueta académica y
 // cuenta; rail petróleo con «Saltar al contenido», navegación por rol y
 // «Cerrar sesión». La ruta activa lleva aria-current (NavLink) y un borde
-// blanco a la izquierda. Sin backend (D-4), cerrar sesión vuelve al inicio.
+// blanco a la izquierda. Cerrar sesión borra la sesión del servidor y de memoria y vuelve a /ingresar.
 export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initials, devTools }: AppLayoutProps) {
   const navigate = useNavigate();
+  const [closing, setClosing] = useState(false);
+  const signOut = () => {
+    if (closing) return;
+    setClosing(true);
+    void logout().then(
+      () => navigate('/ingresar', { replace: true }),
+      () => navigate('/ingresar', { replace: true, state: { logoutFailed: true } }),
+    );
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
@@ -78,10 +88,11 @@ export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initi
             <p className="text-sm text-white/85">Sesión protegida</p>
             <button
               type="button"
-              onClick={() => navigate('/')}
-              className="rounded text-sm font-semibold text-white underline-offset-4 hover:underline focus-visible:outline-white"
+              onClick={signOut}
+              aria-disabled={closing}
+              className="rounded text-sm font-semibold text-white underline-offset-4 hover:underline focus-visible:outline-white aria-disabled:opacity-70"
             >
-              Cerrar sesión
+              {closing ? 'Cerrando sesión…' : 'Cerrar sesión'}
             </button>
           </div>
         </aside>
