@@ -1,6 +1,8 @@
+import { fileURLToPath } from 'node:url';
 import type { WorkerConfig } from './config/env.js';
 import { createOutboxProcessor } from './modules/email-delivery/application/process-outbox.js';
 import { createWorkerLoop } from './modules/email-delivery/application/worker-loop.js';
+import { createDevMailboxSender } from './modules/email-delivery/infrastructure/dev-mailbox-sender.js';
 import { FakeEmailSender } from './modules/email-delivery/infrastructure/fake-sender.js';
 import { createOutboxRpcGateway } from './modules/email-delivery/infrastructure/outbox-rpc-gateway.js';
 import { createResendSender } from './modules/email-delivery/infrastructure/resend-sender.js';
@@ -47,8 +49,10 @@ export function buildWorker(config: WorkerConfig, logger: Logger, overrides: Wor
 
   const sender = overrides.sender ?? (config.email.provider === 'resend'
     ? createResendSender({ apiKey: config.email.resendApiKey as string, from: config.email.from })
-    : new FakeEmailSender());
-  // Con Resend la allowlist falla cerrada; con el remitente falso no hay envío real que restringir (RF-EML-04).
+    : config.email.provider === 'dev-mailbox'
+      ? createDevMailboxSender(fileURLToPath(new URL('../.dev-mailbox/', import.meta.url)))
+      : new FakeEmailSender());
+  // Con Resend la allowlist falla cerrada; con el remitente falso y el buzón local no hay envío real que restringir (RF-EML-04).
   const inboxAllowlist = config.email.provider === 'resend' ? new Set(config.email.inboxAllowlist) : null;
 
   const processor = createOutboxProcessor({

@@ -141,6 +141,10 @@ describe('parseEnv', () => {
     expect(config.email.resendApiKey).toBe('re_test_key');
   });
 
+  it('acepta el buzón local de desarrollo fuera de producción', () => {
+    expect(parseEnv(validEnv({ EMAIL_PROVIDER: 'dev-mailbox' })).email.provider).toBe('dev-mailbox');
+  });
+
   it('rechaza proveedores de email desconocidos', () => {
     expect(errorVariables(validEnv({ EMAIL_PROVIDER: 'smtp' }))).toEqual(['EMAIL_PROVIDER']);
   });
@@ -250,6 +254,8 @@ describe('parseEnv: secreto de borde y producción', () => {
       ['APP_PUBLIC_URL', { APP_PUBLIC_URL: 'http://localhost:5173' }],
       // El remitente falso descartaría los correos en silencio.
       ['EMAIL_PROVIDER', { EMAIL_PROVIDER: 'fake' }],
+      // El buzón local deja los enlaces en disco: solo desarrollo.
+      ['EMAIL_PROVIDER', { EMAIL_PROVIDER: 'dev-mailbox' }],
       // La credencial técnica opera el outbox y las recuperaciones: en producción, larga.
       ['WORKER_PASSWORD', { WORKER_PASSWORD: 'solo-veinte-caracteres' }],
       ['API_TECHNICAL_PASSWORD', { API_TECHNICAL_PASSWORD: 'solo-veinte-caracteres' }],
@@ -307,6 +313,7 @@ describe('configuración separada por proceso (V8-B2)', () => {
     const production = { NODE_ENV: 'production', WORKER_PASSWORD: 'w'.repeat(40), EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_sintetica' };
     expect(parseWorkerEnv(without(API_ONLY, production)).production).toBe(true);
     expect(() => parseWorkerEnv(without(API_ONLY, { ...production, EMAIL_PROVIDER: 'fake' }))).toThrowError(/EMAIL_PROVIDER/);
+    expect(() => parseWorkerEnv(without(API_ONLY, { ...production, EMAIL_PROVIDER: 'dev-mailbox' }))).toThrowError(/EMAIL_PROVIDER/);
     expect(() => parseWorkerEnv(without(API_ONLY, { ...production, WORKER_PASSWORD: 'doce-caracteres' }))).toThrowError(/WORKER_PASSWORD/);
     expect(() => parseWorkerEnv(without(API_ONLY, { ...production, APP_PUBLIC_URL: 'http://localhost:5173' }))).toThrowError(/APP_PUBLIC_URL/);
     expect(() => parseWorkerEnv(without(API_ONLY, { ...production, SUPABASE_URL: 'http://127.0.0.1:54321' }))).toThrowError(/SUPABASE_URL/);
