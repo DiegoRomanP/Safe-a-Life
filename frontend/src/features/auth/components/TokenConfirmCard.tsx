@@ -13,12 +13,14 @@ export type TokenConfirmCardProps = {
   doneTitle: string;
   doneDetail: string;
   doneLink: { to: string; label: string };
+  /** Acción real (POST). Devuelve `true` si se completó; sin ella la tarjeta es demo y no envía nada. */
+  onConfirm?: () => Promise<boolean>;
 };
 
 // Tarjeta de un enlace de un solo uso en estado válido. Mostrarla equivale a la
 // vista previa (GET), que nunca consume el token; solo el botón ejecuta la
-// acción (POST). Sin backend (D-4) la acción no se envía. Al terminar, el foco
-// pasa al título del resultado.
+// acción (POST), una sola vez aunque se pulse de nuevo mientras está en curso.
+// Al terminar, el foco pasa al título del resultado.
 export function TokenConfirmCard({
   idPrefix,
   title,
@@ -27,9 +29,26 @@ export function TokenConfirmCard({
   doneTitle,
   doneDetail,
   doneLink,
+  onConfirm,
 }: TokenConfirmCardProps) {
   const [done, setDone] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const inFlight = useRef(false);
   const doneRef = useRef<HTMLHeadingElement>(null);
+
+  async function confirm() {
+    if (!onConfirm) return setDone(true);
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setPending(true);
+    setFailed(false);
+    const ok = await onConfirm().catch(() => false);
+    inFlight.current = false;
+    setPending(false);
+    if (ok) setDone(true);
+    else setFailed(true);
+  }
 
   useEffect(() => {
     if (done) doneRef.current?.focus();
@@ -47,9 +66,11 @@ export function TokenConfirmCard({
           </h1>
           <p className="text-muted">{doneDetail}</p>
         </div>
-        <Alert tone="brand" title="Prototipo académico">
-          Esta pantalla no envía datos ni procesa cuentas reales.
-        </Alert>
+        {!onConfirm && (
+          <Alert tone="brand" title="Prototipo académico">
+            Esta pantalla no envía datos ni procesa cuentas reales.
+          </Alert>
+        )}
         <div>
           <LinkButton to={doneLink.to}>{doneLink.label}</LinkButton>
         </div>
@@ -71,8 +92,17 @@ export function TokenConfirmCard({
       <Alert tone="info" title="Abrir el enlace no cambia nada">
         La acción solo ocurre al pulsar el botón. El enlace se usa una sola vez.
       </Alert>
+      <div aria-live="polite">
+        {failed && (
+          <Alert tone="danger" title="No se pudo completar">
+            Revisa tu conexión e inténtalo de nuevo. Si hiciste varios intentos, espera unos minutos.
+          </Alert>
+        )}
+      </div>
       <div>
-        <Button onClick={() => setDone(true)}>{actionLabel}</Button>
+        <Button onClick={() => void confirm()} aria-disabled={pending} aria-busy={pending}>
+          {pending ? 'Procesando…' : actionLabel}
+        </Button>
       </div>
     </AuthCard>
   );
