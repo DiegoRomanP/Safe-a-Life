@@ -12,6 +12,7 @@ export function idempotencyKey(): string {
 function kindFor(status: number): ApiErrorKind {
   if (status === 403 || status === 404) return 'sin_permiso';
   if (status === 409) return 'conflicto';
+  if (status === 400 || status === 422) return 'validacion';
   return 'red';
 }
 

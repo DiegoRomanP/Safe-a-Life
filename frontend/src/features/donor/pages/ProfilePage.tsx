@@ -1,5 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
+import { Navigate } from 'react-router-dom';
 import { PageHeader } from '../../../components/layout/PageHeader.js';
 import { QueryView } from '../../../components/states/QueryView.js';
 import { SaveErrorNotice } from '../../../components/states/SaveErrorNotice.js';
@@ -33,7 +34,7 @@ const protectedChanges: Array<{
   { title: 'Eliminar mis datos', detail: 'Inicia una solicitud auditable.', variant: 'danger', kind: 'eliminacion' },
 ];
 
-// DON-02 Mi perfil (Penpot «+»). Datos de getOwnDonorProfile. Solo se editan
+// DON-02 Mi perfil (Penpot «+»). Datos reales de getOwnDonorProfile. Solo se editan
 // disponibilidad y ubicación aproximada (updateOwnDonorParticipation); nombre,
 // correo y grupo requieren una solicitud de corrección.
 export function ProfilePage() {
@@ -59,7 +60,10 @@ export function ProfilePage() {
         Nombre, correo y grupo declarado requieren una solicitud de corrección.
       </Alert>
       <QueryView query={query} loadingMessage="Cargando tu perfil…" backTo="/donante/invitaciones" backLabel="Ir a mis invitaciones">
-        {(profile, reload) => (
+        {(profile, reload) => !profile ? (
+          // Sin perfil activo (404) el siguiente paso es completar el onboarding.
+          <Navigate to="/donante/bienvenida" replace />
+        ) : (
           // Revisar un conflicto vuelve a «Cargando», así que el formulario se
           // monta de nuevo con los datos que llegan del reintento.
           <ProfileForm

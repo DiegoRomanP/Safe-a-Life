@@ -362,7 +362,8 @@ describe('AUTH-01 Inicio de sesión', () => {
       await success;
     });
     expect(getAuthSession()).toEqual({ role: 'donante', aal: 1, mfaRequired: false, csrfToken: retryCsrf.data.token });
-    expect(requests.map(({ url }) => url)).toEqual([
+    // Después entra al área del donante, que ya pide su perfil.
+    expect(requests.map(({ url }) => url).filter((url) => url.includes('/auth/'))).toEqual([
       '/api/v1/auth/sessions', '/api/v1/auth/sessions', '/api/v1/auth/csrf-token',
     ]);
   });

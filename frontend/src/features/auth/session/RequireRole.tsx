@@ -1,8 +1,8 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
 import { Loading } from '../../../components/states/Loading.js';
 import type { ActorRole } from '../../../lib/api/auth.js';
-import { getAuthSession, restoreSession } from './session.js';
+import { getAuthOperationState, getAuthSession, restoreSession, subscribeAuthOperation } from './session.js';
 
 type Access = 'cargando' | 'permitido' | 'denegado';
 
@@ -15,6 +15,8 @@ export function RequireRole({ allow, children }: { allow: ActorRole; children: R
     const session = getAuthSession();
     return session ? accessFor(allow, session.role) : 'cargando';
   });
+  // Una sesión que expira a mitad de uso (401) saca del área sin mostrar más datos.
+  const expired = useSyncExternalStore(subscribeAuthOperation, getAuthOperationState, getAuthOperationState) === 'expired';
 
   useEffect(() => {
     if (access !== 'cargando') return;
@@ -26,6 +28,7 @@ export function RequireRole({ allow, children }: { allow: ActorRole; children: R
     return () => { live = false; };
   }, [access, allow]);
 
+  if (expired) return <Navigate to="/ingresar" replace />;
   if (access === 'cargando') {
     return (
       <main id="contenido" tabIndex={-1} className="px-4 py-10 focus:outline-none">

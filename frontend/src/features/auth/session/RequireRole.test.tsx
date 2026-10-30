@@ -36,7 +36,8 @@ describe('RequireRole (área del donante)', () => {
     expect(view.querySelector('main h1')).toBeNull();
     await settleRoute();
 
-    expect(urls).toEqual(['/api/v1/auth/session', '/api/v1/auth/csrf-token']);
+    // Restaura primero; solo entonces el área pide el perfil.
+    expect(urls).toEqual(['/api/v1/auth/session', '/api/v1/auth/csrf-token', '/api/v1/donors/me/profile']);
     expect(view.querySelector('main h1')?.textContent).toBe('Mi perfil');
     expect(getAuthSession()).toEqual({ role: 'donante', aal: 1, mfaRequired: false, csrfToken: csrf.data.token });
   });

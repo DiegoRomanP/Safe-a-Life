@@ -1,11 +1,14 @@
 // @vitest-environment jsdom
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { routes } from '../../../app/routes.js';
 import { click, settle, render, setupRender, type } from '../../../test/render.js';
 import { renderRoute } from '../../../test/renderRoute.js';
+import { stubDonorApi } from '../../../test/donorApi.js';
 
 setupRender();
+// El perfil es real: un backend en memoria responde sus tres operaciones.
+beforeEach(() => { stubDonorApi(); });
 
 function control(view: HTMLElement, label: string) {
   const element = [...view.querySelectorAll('label')].find((item) => item.textContent?.startsWith(label));

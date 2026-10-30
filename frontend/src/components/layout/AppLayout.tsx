@@ -17,13 +17,15 @@ export type AppLayoutProps = {
   initials: string;
   /** Herramientas de desarrollo sobre el contenido (solo en DEV). */
   devTools?: ReactNode;
+  /** Aviso sobre el contenido, visible en todos los entornos. */
+  notice?: ReactNode;
 };
 
 // Shell autenticado de Penpot («+»): cabecera con marca, etiqueta académica y
 // cuenta; rail petróleo con «Saltar al contenido», navegación por rol y
 // «Cerrar sesión». La ruta activa lleva aria-current (NavLink) y un borde
 // blanco a la izquierda. Cerrar sesión borra la sesión del servidor y de memoria y vuelve a /ingresar.
-export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initials, devTools }: AppLayoutProps) {
+export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initials, devTools, notice }: AppLayoutProps) {
   const navigate = useNavigate();
   const [closing, setClosing] = useState(false);
   const signOut = () => {
@@ -99,6 +101,7 @@ export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initi
 
         <main id="contenido" tabIndex={-1} className="flex-1 px-4 py-10 focus:outline-none sm:px-12">
           <div className="mx-auto flex max-w-[1088px] flex-col gap-8">
+            {notice}
             {devTools}
             <Outlet />
           </div>

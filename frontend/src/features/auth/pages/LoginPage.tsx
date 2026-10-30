@@ -41,6 +41,12 @@ export function LoginPage() {
           <p className="text-muted">Ingresa con tu correo verificado.</p>
         </div>
 
+        {operationState === 'expired' && (
+          <Alert tone="info" title="Tu sesión terminó">
+            Ingresa de nuevo para continuar.
+          </Alert>
+        )}
+
         {logoutFailed && operationState === 'idle' && (
           <Alert tone="warning" title="No pudimos cerrar la sesión en el servidor">
             Si usas un equipo compartido, cierra el navegador. Esta pestaña no volverá a abrir la sesión sin ingresar de nuevo.

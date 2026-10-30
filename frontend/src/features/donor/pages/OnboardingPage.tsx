@@ -23,8 +23,7 @@ const bloodTypeOptions = BLOOD_TYPES.map((value) => ({ value, label: bloodTypeLa
 
 // DON-01 Bienvenida y onboarding (contenido de Penpot «SaL» con estilo «+»).
 // Completa los campos obligatorios de completeDonorOnboarding: nombre, grupo
-// declarado, disponibilidad y ubicación aproximada. Sin backend (D-4) el
-// resultado queda en el estado en memoria del área del donante.
+// declarado, disponibilidad y ubicación aproximada, y se guarda en el backend.
 export function OnboardingPage() {
   const { completeOnboarding } = useDonorDemo();
   const save = useDemoMutation(completeOnboarding);
@@ -114,7 +113,7 @@ export function OnboardingPage() {
             announce={false}
             message="Perfil completo"
             detail="Hospitales autorizados podrán considerarte en una preselección académica."
-            action={<LinkButton to="/donante/invitaciones">Ver mis invitaciones</LinkButton>}
+            action={<LinkButton to="/donante/perfil">Ver mi perfil</LinkButton>}
           />
           </div>
         )}
@@ -198,7 +197,14 @@ export function OnboardingPage() {
                 {isAvailable ? 'Disponible' : 'No disponible'}
               </button>
             </div>
-            <SaveErrorNotice error={save.error} onReview={review} />
+            {save.error === 'conflicto' ? (
+              // completeDonorOnboarding responde 409 si el perfil ya está activo: no hay nada que revisar aquí.
+              <Alert tone="info" title="Tu perfil ya está completo">
+                <LinkButton to="/donante/perfil" variant="secondary">Ir a mi perfil</LinkButton>
+              </Alert>
+            ) : (
+              <SaveErrorNotice error={save.error} onReview={review} />
+            )}
             <div className="flex flex-wrap items-center gap-4">
               <Button ref={submitRef} type="submit" aria-disabled={save.pending}>
                 Completar perfil

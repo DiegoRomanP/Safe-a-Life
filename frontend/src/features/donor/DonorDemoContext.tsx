@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { ApiError, demoRead, demoWrite, type DemoScenario } from '../../lib/demoApi.js';
 import type { BloodType } from '../../lib/format.js';
-import { demoHistory, demoInvitations, demoProfile, demoRequests } from './demoData.js';
+import { completeOwnOnboarding, fetchOwnProfile, updateOwnParticipation, type ParticipationPatch } from './api.js';
+import { demoHistory, demoInvitations, demoRequests } from './demoData.js';
 import type { CorrectionRequest, DonorInvitation, DonorProfile, ResponseHistoryItem } from './types.js';
 
 // Cuerpo de createOwnCorrectionRequest (oneOf del contrato).
@@ -10,8 +11,6 @@ export type NewCorrectionRequest =
   | { type: 'eliminacion' };
 
 export type HistoryEntry = ResponseHistoryItem & { hospitalName: string };
-
-type ParticipationPatch = Pick<DonorProfile, 'isAvailable' | 'approximateLocation'>;
 
 // Operaciones del contrato que usa el área del donante. Todas son asíncronas,
 // como lo serán con el cliente HTTP. Cada lectura cambia de identidad cuando
@@ -23,7 +22,8 @@ type DonorDemo = {
   /** Si no existe o no es de la persona falla con `sin_permiso`: 404 y 403 se ven igual. */
   getInvitation: (invitationId: string) => Promise<DonorInvitation>;
   listHistory: () => Promise<HistoryEntry[]>;
-  getProfile: () => Promise<DonorProfile>;
+  /** Perfil real del backend; `null` si aún no completó el onboarding. */
+  getProfile: () => Promise<DonorProfile | null>;
   listRequests: () => Promise<CorrectionRequest[]>;
   respond: (invitationId: string, response: 'confirmada' | 'rechazada') => Promise<void>;
   updateParticipation: (patch: ParticipationPatch) => Promise<void>;
@@ -42,20 +42,20 @@ function requestedFieldsOf(request: NewCorrectionRequest): CorrectionRequest['re
   return fields;
 }
 
-// Estado en memoria del área del donante para recorrerla sin backend (D-4).
-// Imita lo que harían changeOwnInvitationResponse (actualiza la respuesta y
-// agrega una entrada al historial), updateOwnDonorParticipation (marcarse no
-// disponible invalida las invitaciones activas sin respuesta),
-// completeDonorOnboarding y createOwnCorrectionRequest (la solicitud queda
-// pendiente; los valores nuevos no se guardan en el navegador). Las respuestas
-// pasan por demoRead/demoWrite, que simulan la latencia y los fallos del
-// escenario elegido en desarrollo. Recargar la página vuelve a los datos
-// iniciales; nada se guarda en el navegador.
+// Área del donante. El perfil es REAL: getOwnDonorProfile, completeDonorOnboarding
+// y updateOwnDonorParticipation van al backend y se guardan en la base. El resto
+// sigue siendo demo en memoria porque su backend no existe (F6 invitaciones e
+// historial) o no se conecta en esta demo (solicitudes F7): changeOwnInvitationResponse,
+// el efecto de marcarse no disponible sobre las invitaciones de ejemplo y
+// createOwnCorrectionRequest. Esas respuestas pasan por demoRead/demoWrite y el
+// escenario elegido en desarrollo; recargar la página vuelve a sus datos iniciales.
 export function DonorDemoProvider({ children, now = () => new Date().toISOString() }: { children: ReactNode; now?: () => string }) {
   const [scenario, setScenario] = useState<DemoScenario>('normal');
   const [invitations, setInvitations] = useState(demoInvitations);
   const [history, setHistory] = useState(demoHistory);
-  const [profile, setProfile] = useState(demoProfile);
+  // Cada escritura real del perfil da a getProfile una identidad nueva para que la vista se revalide.
+  const [getProfile, setGetProfile] = useState(() => () => fetchOwnProfile());
+  const reloadProfile = useCallback(() => setGetProfile(() => () => fetchOwnProfile()), []);
   const [requests, setRequests] = useState(demoRequests);
 
   const listInvitations = useCallback(() => demoRead(scenario, () => invitations), [scenario, invitations]);
@@ -78,7 +78,6 @@ export function DonorDemoProvider({ children, now = () => new Date().toISOString
       ),
     [scenario, history, invitations],
   );
-  const getProfile = useCallback(() => demoRead(scenario, () => profile), [scenario, profile]);
   const listRequests = useCallback(() => demoRead(scenario, () => requests), [scenario, requests]);
 
   const respond = useCallback(
@@ -91,25 +90,23 @@ export function DonorDemoProvider({ children, now = () => new Date().toISOString
       }),
     [scenario, now],
   );
-  const updateParticipation = useCallback(
-    (patch: ParticipationPatch) =>
-      demoWrite(scenario, () => {
-        setProfile((current) => ({ ...current, ...patch }));
-        if (!patch.isAvailable) {
-          setInvitations((current) =>
-            current.map((item) =>
-              item.validity === 'activa' && item.response === 'sin_respuesta' ? { ...item, validity: 'invalidada' } : item,
-            ),
-          );
-        }
-      }),
-    [scenario],
-  );
+  // La disponibilidad solo cambia en pantalla después de que el backend la guarda.
+  const updateParticipation = useCallback(async (patch: ParticipationPatch) => {
+    await updateOwnParticipation(patch);
+    reloadProfile();
+    if (!patch.isAvailable) {
+      setInvitations((current) =>
+        current.map((item) =>
+          item.validity === 'activa' && item.response === 'sin_respuesta' ? { ...item, validity: 'invalidada' } : item,
+        ),
+      );
+    }
+  }, [reloadProfile]);
   // completeDonorOnboarding: fija los campos obligatorios; el correo no cambia.
-  const completeOnboarding = useCallback(
-    (data: Omit<DonorProfile, 'email'>) => demoWrite(scenario, () => setProfile((current) => ({ ...current, ...data }))),
-    [scenario],
-  );
+  const completeOnboarding = useCallback(async (data: Omit<DonorProfile, 'email'>) => {
+    await completeOwnOnboarding(data);
+    reloadProfile();
+  }, [reloadProfile]);
   const createRequest = useCallback(
     (request: NewCorrectionRequest) =>
       demoWrite(scenario, () => {
