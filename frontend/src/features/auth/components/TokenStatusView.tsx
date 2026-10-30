@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Badge } from '../../../components/ui/Badge.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import type { Tone } from '../../../components/ui/tones.js';
@@ -41,7 +41,13 @@ export type TokenStatusViewProps = {
 
 // Tarjeta del estado de un enlace con token. En «valid» muestra el contenido
 // que entrega la vista; en los demás, el mensaje neutral y la salida.
+// Si el estado cambia tras una respuesta del servidor, el botón pulsado desaparece:
+// el foco perdido pasa al título para que el lector de pantalla anuncie el nuevo estado.
 export function TokenStatusView({ status, validContent, copy = defaultTokenStatusCopy }: TokenStatusViewProps) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (status !== 'valid' && (!document.activeElement || document.activeElement === document.body)) headingRef.current?.focus();
+  }, [status]);
   if (status === 'valid') return <>{validContent}</>;
   const { title, badge, tone, detail } = copy[status];
   return (
@@ -50,7 +56,7 @@ export function TokenStatusView({ status, validContent, copy = defaultTokenStatu
         {badge}
       </Badge>
       <div className="flex flex-col gap-2">
-        <h1 id="token-estado-titulo" className="text-3xl font-bold text-ink">
+        <h1 id="token-estado-titulo" ref={headingRef} tabIndex={-1} className="text-3xl font-bold text-ink">
           {title}
         </h1>
         <p className="text-muted">{detail}</p>
