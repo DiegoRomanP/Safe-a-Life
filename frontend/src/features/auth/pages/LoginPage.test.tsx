@@ -2,11 +2,15 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { click, setupRender, type } from '../../../test/render.js';
+import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { routes } from '../../../app/routes.js';
+import { render } from '../../../test/render.js';
 import { renderRoute } from '../../../test/renderRoute.js';
-import { getAuthSession } from '../session/session.js';
+import { clearAuthSession, getAuthSession, logout } from '../session/session.js';
 
 setupRender();
-afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
+// La sesión vive en un módulo: sin limpiarla, un login de donante de una prueba redirigiría las siguientes.
+afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); clearAuthSession(); });
 
 const csrf = { data: { token: 'token-csrf-sintetico-de-prueba-000000' } };
 const successMessage = /Sesión iniciada/i;
@@ -62,7 +66,7 @@ describe('AUTH-01 Inicio de sesión', () => {
   });
 
   it.each(['donante', 'admin_hospitalario', 'superadmin'] as const)(
-    'confirma sesión y CSRF sin mostrar datos ni navegar para el rol %s', async (role) => {
+    'confirma sesión y CSRF sin mostrar datos; solo el donante navega a su área (rol %s)', async (role) => {
       vi.useFakeTimers();
       const login = deferred<Response>(), csrfReply = deferred<Response>(), csrfRequested = deferred<boolean>();
       const requests: Array<{ url: string; init?: RequestInit }> = [];
@@ -97,6 +101,14 @@ describe('AUTH-01 Inicio de sesión', () => {
       expect(view.querySelector('[aria-live="polite"]')?.textContent).not.toMatch(successMessage);
       await act(async () => { csrfReply.resolve(jsonResponse(csrf)); await acknowledged; });
 
+      expect([localStorage.length, sessionStorage.length]).toEqual(storage);
+      if (role === 'donante') {
+        // El área del donante tiene guard: entra con la sesión ya verificada, sin volver a pedirla.
+        expect(view.querySelector('main h1')?.textContent).toBe('Mi perfil');
+        expect(requests.map(({ url }) => url).slice(0, 2)).toEqual(['/api/v1/auth/sessions', '/api/v1/auth/csrf-token']);
+        expect(requests.some(({ url }) => url.endsWith('/auth/session'))).toBe(false);
+        return;
+      }
       const message = view.querySelector('[aria-live="polite"]')?.textContent ?? '';
       expect(view.querySelector('h1')?.textContent).toBe('Iniciar sesión');
       expect(outsideLive(view)).toBe(before);
@@ -266,13 +278,14 @@ describe('AUTH-01 Inicio de sesión', () => {
     expect.soft(requests.map(({ url }) => url)).toEqual(['/api/v1/auth/sessions']);
     const postsWhilePending = loginReplies.length;
 
-    const firstSession = { data: { actor: { role: 'donante', displayName: 'Primera persona sintética' }, aal: 1, mfaRequired: false } };
+    // Rol sin área conectada: la prueba trata de logins superpuestos y debe quedarse en /ingresar.
+    const firstSession = { data: { actor: { role: 'admin_hospitalario', displayName: 'Primera persona sintética' }, aal: 1, mfaRequired: true } };
     await act(async () => {
       loginReplies[0]!.resolve(jsonResponse(firstSession));
       await csrfStarted[0]!.promise;
       csrfReplies[0]!.resolve(jsonResponse(csrf));
     });
-    const firstMemory = { role: 'donante', aal: 1, mfaRequired: false, csrfToken: csrf.data.token };
+    const firstMemory = { role: 'admin_hospitalario', aal: 1, mfaRequired: true, csrfToken: csrf.data.token };
     expect.soft(getAuthSession()).toEqual(firstMemory);
     expect.soft(loginReplies).toHaveLength(postsWhilePending);
     expect.soft(csrfReplies).toHaveLength(1);
@@ -354,16 +367,23 @@ describe('AUTH-01 Inicio de sesión', () => {
     ]);
   });
 
-  it('en desarrollo ofrece entrar al recorrido del donante de prueba', () => {
+  it('en desarrollo solo ofrece atajos a las áreas demo; el donante entra con sesión real', () => {
     const view = renderRoute('/ingresar');
-    expect(view.querySelector('a[href="/donante"]')?.textContent).toBe('Entrar como donante de prueba');
-    expect(view.querySelector('a[href="/donante/bienvenida"]')?.textContent).toBe('Entrar como donante nuevo');
+    expect(view.querySelector('a[href^="/donante"]')).toBeNull();
     expect(view.querySelector('a[href="/hospital"]')?.textContent).toBe('Entrar como hospital de prueba');
     expect(view.querySelector('a[href="/superadmin"]')?.textContent).toBe('Entrar como superadmin de prueba');
   });
 
   it('ofrece crear cuenta de donante', () => {
     const view = renderRoute('/ingresar');
+    expect(view.textContent).not.toContain('No pudimos cerrar la sesión');
     expect(view.querySelector('a[href="/registro"]')?.textContent).toBe('Crear cuenta');
+  });
+
+  it('si el cierre de sesión no se confirmó en el servidor, lo avisa', async () => {
+    await act(async () => { await logout(); }); // estado del módulo en reposo, como tras un logout real
+    const router = createMemoryRouter(routes, { initialEntries: [{ pathname: '/ingresar', state: { logoutFailed: true } }] });
+    const view = render(<RouterProvider router={router} />);
+    expect(view.textContent).toContain('No pudimos cerrar la sesión en el servidor');
   });
 });
