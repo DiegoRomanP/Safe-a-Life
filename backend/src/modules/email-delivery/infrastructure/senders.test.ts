@@ -1,4 +1,8 @@
+import { mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { createDevMailboxSender } from './dev-mailbox-sender.js';
 import { FakeEmailSender } from './fake-sender.js';
 import { createResendSender } from './resend-sender.js';
 
@@ -88,5 +92,57 @@ describe('FakeEmailSender', () => {
 
     expect((await fake.send(MESSAGE)).kind).toBe('transitorio');
     expect(await fake.send(MESSAGE)).toEqual({ kind: 'ok', providerMessageId: 'm2' });
+  });
+});
+
+describe('DevMailboxSender', () => {
+  it('escribe cada correo como un HTML propio (0600) en un directorio 0700, con destinatario y asunto escapados', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'mailbox-'));
+    const dir = join(root, 'buzon');
+    try {
+      const result = await createDevMailboxSender(dir).send({ ...MESSAGE, subject: 'Asunto <b>canario</b>', idempotencyKey: 'clave/../0001' });
+
+      expect(result.kind).toBe('ok');
+      const files = await readdir(dir);
+      expect(files).toHaveLength(1);
+      expect(files[0]).toBe('clave____0001.html');
+      expect((await stat(dir)).mode & 0o777).toBe(0o700);
+      expect((await stat(join(dir, files[0]))).mode & 0o777).toBe(0o600);
+      const html = await readFile(join(dir, files[0]), 'utf8');
+      expect(html).toContain('donante@example.test');
+      expect(html).toContain('Asunto &lt;b&gt;canario&lt;/b&gt;');
+      expect(html).toContain('<p>Html canario</p>');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('un reintento con la misma clave no duplica el archivo y sigue siendo ok; un directorio previo queda en 0700', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'mailbox-'));
+    try {
+      const mailbox = createDevMailboxSender(root);
+      const first = await mailbox.send(MESSAGE);
+      const retry = await mailbox.send(MESSAGE);
+
+      expect(first).toEqual({ kind: 'ok', providerMessageId: 'clave-de-outbox-0001.html' });
+      expect(retry).toEqual(first);
+      expect(await readdir(root)).toEqual(['clave-de-outbox-0001.html']);
+      expect((await stat(root)).mode & 0o777).toBe(0o700);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it('si no puede escribir devuelve transitorio sin lanzar ni filtrar el contenido', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'mailbox-'));
+    const blocked = join(root, 'archivo');
+    try {
+      await writeFile(blocked, '');
+      const result = await createDevMailboxSender(join(blocked, 'buzon')).send(MESSAGE);
+
+      expect(result).toEqual({ kind: 'transitorio' });
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 });

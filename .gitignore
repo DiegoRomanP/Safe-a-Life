@@ -15,6 +15,7 @@ coverage/
 playwright-report/
 test-results/
 .playwright-mcp/
+backend/.dev-mailbox/
 
 .pi/
 .opencode/

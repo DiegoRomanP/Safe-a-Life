@@ -1,7 +1,7 @@
 import { isIP } from 'node:net';
 import { isValidKid, type OutboxKeyring } from '../shared/crypto/outbox-cipher.js';
 
-export type EmailProvider = 'fake' | 'resend';
+export type EmailProvider = 'fake' | 'resend' | 'dev-mailbox';
 
 export interface AppConfig {
   readonly port: number;
@@ -105,7 +105,7 @@ export function parseWorkerEnv(source: Source): WorkerConfig {
   if (production) {
     if (!supabaseUrl.startsWith('https://')) reject('SUPABASE_URL');
     if (!appPublicUrl.startsWith('https://')) reject('APP_PUBLIC_URL');
-    if (email.provider === 'fake') reject('EMAIL_PROVIDER');
+    if (email.provider === 'fake' || email.provider === 'dev-mailbox') reject('EMAIL_PROVIDER');
     if (worker.password.length < 32) reject('WORKER_PASSWORD');
   }
   if (failed.length > 0) throw new ConfigError(failed);
@@ -184,8 +184,8 @@ export function parseEnv(source: Source, scope: ConfigScope = 'all'): AppConfig 
     if (edgeSecret === '') reject('EDGE_SHARED_SECRET');
     if (!supabaseUrl.startsWith('https://')) reject('SUPABASE_URL');
     if (!appPublicUrl.startsWith('https://')) reject('APP_PUBLIC_URL');
-    // El remitente falso descarta los correos con resultado «ok»: en producción sería una pérdida silenciosa.
-    if (provider === 'fake') reject('EMAIL_PROVIDER');
+    // El remitente falso descarta los correos con resultado «ok» y el buzón local los deja en disco: solo desarrollo.
+    if (provider === 'fake' || provider === 'dev-mailbox') reject('EMAIL_PROVIDER');
     // La credencial técnica equivale a operar el outbox y las recuperaciones: en producción, aleatoria y larga.
     if (wantsWorker && worker.password.length < 32) reject('WORKER_PASSWORD');
     if (wantsApi && apiTechnical.password.length < 32) reject('API_TECHNICAL_PASSWORD');
@@ -401,7 +401,7 @@ function parseOutboxKeyring(rawKeys: string | undefined, currentKid: string | un
 
 function parseProvider(raw: string | undefined, reject: Reject): EmailProvider {
   if (raw === undefined || raw === 'fake') return 'fake';
-  if (raw === 'resend') return 'resend';
+  if (raw === 'resend' || raw === 'dev-mailbox') return raw;
   reject('EMAIL_PROVIDER');
   return 'fake';
 }
