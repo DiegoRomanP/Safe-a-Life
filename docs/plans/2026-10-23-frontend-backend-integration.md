@@ -1,7 +1,7 @@
 # Plan: integración frontend–backend por módulos
 
 Fecha: 2026-10-23. Rama: `feat/frontend-backend-integration`.
-Estado: **Smoke Playwright no ejecutado por MCP del hijo detenido; T3 bloqueada y T14 pausada. Handoff guardado para compactación nativa antes de continuar**. Primaria MCPready25 no implica conexiónworker; no navegador/producto verificados ni nuevos cambios. Senior solo coordina.
+Estado (2026-10-30): **T3 con smoke real en PASS (backend real + Supabase remoto + cookies reales); revisión de frontend PASS con reservas; auditoría de seguridad NO ejecutada (lanzamiento denegado por el clasificador de permisos), por lo que T3 sigue sin cerrar. T14 reemplazada: el fixture es el proyecto remoto Supabase `Save-a-life` con cuentas sintéticas, sin Docker.** T4–T13 pendientes.
 Seguimiento canónico: [odd/tasks/frontend-backend-integration.md](../../odd/tasks/frontend-backend-integration.md), T1–T14.
 La solicitud literal S1–S5 y las autorizaciones acotadas S6/S7 están en ese documento. No se reemplazan planes anteriores.
 
@@ -55,7 +55,25 @@ Allowed edit surfaces del único writer T14:
 Los secretos del fixture son nuevos, test-only y nunca se imprimen/commitean.
 El resto de exclusiones del alcance inicial sigue vigente.
 
-### Reparación T14 por etapas
+### Reemplazo de T14: proyecto remoto con cuentas sintéticas (2026-10-30)
+
+Decisión de la persona usuaria: la base remota `Save-a-life` (Supabase, us-east-1, PG 17) **no está desplegada** y se usa
+para pruebas con datos sintéticos. Sustituye al fixture local con Docker (S6–S8 y los hallazgos del intento fallido dejan de
+aplicar a esta vía; el árbol `.playwright-mcp/frontend-backend-fixture/**` se conserva sin uso).
+
+Hecho y verificado (CLI `supabase` con `--workdir backend`, MCP de Supabase de solo lectura, `/health/ready` y smoke):
+- `supabase link` al proyecto `comszbhkcodnbnvtccli` (el enlace vive en `backend/supabase/.temp`, ignorado).
+- `db push` aplicó las 15 migraciones (`20261013000000` … `20261022010000`) sobre una base vacía; `migration list` coincide local/remoto. Sin seed.
+- Esquema `api` expuesto en *Project Settings → Data API* (sin él `/health/ready` devolvía 503 por `PGRST106`); no se usó `config push`.
+- `backend/.env` completo (validado con `parseEnv`; secretos generados localmente, ninguno impreso ni commiteado). `service_role` solo para el adaptador de ADR-006.
+- Cuentas sintéticas `.example.test` creadas en Auth con auto-confirmación y roles asignados por `insert` en `app.user_accounts`:
+  `worker.tecnico` → `worker`, `api.tecnico` → `api_technical`, `donante.demo` → `donante` (sin `donor_profiles`; llega en T7).
+- MCP de Supabase añadido en `.mcp.json` (alcance proyecto); skills `supabase` y `supabase-postgres-best-practices` en `.claude/skills/` y `.agents/skills/` (ignorados) con `skills-lock.json`.
+
+Límites: no se creó cuenta admin/superadmin ni TOTP (T4); no hay revisión independiente de seguridad del setup remoto;
+Supabase marca como WARN la protección de contraseñas filtradas desactivada.
+
+### Reparación T14 por etapas (SUPERADA por el reemplazo remoto)
 
 **PAUSADA por S9.** Este plan queda conservado, no se ejecuta. El prep entregado no
 recibió review independiente: gate pendiente, nunca PASS. S8 prohíbe acceder a Docker,
@@ -122,7 +140,7 @@ aproximadamente 400 líneas autoradas. No se paralelizan contratos ni contextos 
 | Tarea | Alcance permitido principal | Aceptación y dependencia |
 | --- | --- | --- |
 | T1–T2 | Este plan y documento ODD | Inventario reproducible, rama fuera de main, tareas/espejo existentes |
-| T14 | `.playwright-mcp/frontend-backend-fixture/**`, solo artefactos de setup de test ignorados | Instancia/cuentas nuevas, puertos/proyecto distintos, credenciales protegidas, base actual intacta; prerequisito autorizado de T3 |
+| T14 | Proyecto remoto Supabase `Save-a-life` (ref `comszbhkcodnbnvtccli`), `backend/.env` (ignorado) y filas de `app.user_accounts` | **Reemplazada 2026-10-30:** 15 migraciones aplicadas al remoto, esquema `api` expuesto, cuentas sintéticas `worker`, `api_technical` y `donante` con rol; sin Docker ni fixture local; prerequisito autorizado de T3 |
 | T3 | `frontend/src/lib/api/**`, `frontend/src/features/auth/session/**`, LoginPage y tests asociados | Petición real de login → sesión observable; CSRF en memoria; error no se presenta como éxito; sin mocks de respaldo |
 | T4 | Session anterior, VerifyIdentityPage, StepUpPanel, layouts y `app/routes*.tsx` | Restaurar sesión y autorizar ruta por rol/AAL; MFA y step-up reales; expirar sesión sin mostrar datos previos; depende de T3 |
 | T5 | RegisterPage, ActivateAccountPage, VerifyEmailPage, ConfirmEmailChangePage, `useFragmentToken*` y adaptador API de auth | Leer/limpiar token antes de exposición; preview no consume; confirmar consume solo al enviar; registro y errores públicos seguros; depende de T3 |
@@ -267,6 +285,10 @@ npm run typecheck --workspace backend
 
 ## Bitácora
 
+- 2026-10-30 — **Gate de seguridad T3 no ejecutado:** el lanzamiento del subagente auditor fue denegado por el clasificador de permisos de la sesión; no se reintentó por otra vía ni se declara PASS. Pendiente: que la persona usuaria decida cómo correrlo.
+- 2026-10-30 — **Revisión independiente de frontend T3 (subagente de solo lectura, no autor del código ni del smoke): código PASS, evidencia PASS con reservas, sin bloqueantes.** Hallazgos Low: posible doble anuncio en la región `aria-live` (`LoginPage.tsx:36-48`), la contraseña se vacía aunque el envío se ignore por `activeLogin` (`LoginForm.tsx:47-48`), bloque «Solo DEV» junto al flujo real (`LoginPage.tsx:61`), copy técnico en el aviso de éxito (`LoginPage.tsx:40`). Falsos PASS menores del script: acepta cualquier 4xx y no exactamente 401, «permanece en /ingresar» no distingue un handler roto, el `fetch` de `/auth/session` no prueba la memoria de la UI, Tab solo comprueba que no sea BODY, tope de consola `≤1`. No verificado: contraste, lector de pantalla, foco visible, reduced motion, repetición, otros roles/MFA, 403/409/429/503, red caída, HTTPS real, unicidad de `Idempotency-Key` en red real y los tests unitarios (no ejecutados por el revisor).
+- 2026-10-30 — **Smoke T3 con cookies reales: PASS (18 checks)**, Chromium 1243 de caché, Vite `:5174` con proxy a backend real `:3000` y Supabase remoto, cuenta `donante.demo@example.test`. Login incorrecto → `POST /auth/sessions` 4xx sin cookies ni CSRF y aviso de sesión no verificada; login correcto → `POST` 200 y `GET /auth/csrf-token` 200, «Sesión iniciada», sin navegación; cookies `__Host-sal_at` y `__Host-sal_rt` con HttpOnly, Secure, SameSite=Lax, `path=/`; `document.cookie` no las ve; `GET /auth/session` 200 con actor `donante` y `aal` 1; Tab enfoca; sin scroll horizontal a 360/768/1440 px; consola solo el 401 esperado. Script fuera del repo (scratchpad de la sesión); credenciales leídas de `backend/.env` sin imprimirse. Antes, el mismo guion contra `apps/mock-api` también dio PASS (no cuenta como evidencia del backend real). Servidores detenidos al terminar; quedaron 2 sesiones en Auth.
+- 2026-10-30 — T14 reemplazada por el proyecto remoto con cuentas sintéticas (ver sección «Reemplazo de T14»).
 - S11 exige: resultado Playwright → guardar estado/compactar primaria → retomar. Smoke mvlyzom8-1-p6fs no ejecutado: childMCPstopped/0tools, no servidor/contexto/captura/evidencia/archivos; primariaREADY25 constatada. No fallo navegador demostrado ni PASS. No retry/verificador nuevo. Compacción primaria no expuesta como tool; requiere interfaz, resumenEngram no la sustituye. Estado completo/IDs/límites guardados antes de handoff.
 - QA smoke mvlyzom8-1-p6fs activo, Luna6/max proyecto, solo evidencia nueva playwright-smoke/**. Intento real de navegador con servidorREADY propio/contextoaislado/login vacío; no runner bloqueado, source edits, Auth/DB/Docker/T14/install/retry. Reportará herramienta/render/cierre por separado, nunca T3done.
 - S10 literal: "a ver ahora intenta usar playwright"; luego "ahora creo que lo active". Se conecta MCP playwright lazy/stopped: ready/tools activos, no browserPASS aún. Solo smoke delegado/contexto fresco/origenREADY real/frontenddist/login vacío, sin runner bloqueado/correcciones/credenciales/API/Docker/T14. Todo viejo restaurado desde decisiones actuales; memoria leída se truncaba enL80, archivo completo preservado por páginas. Sin nuevo Completado.
