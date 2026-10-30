@@ -45,7 +45,7 @@ describe('apiRequest', () => {
   });
 
   it.each([
-    [403, 'sin_permiso'], [404, 'sin_permiso'], [409, 'conflicto'], [401, 'red'], [410, 'red'], [422, 'red'], [429, 'red'], [503, 'red'],
+    [403, 'sin_permiso'], [404, 'sin_permiso'], [409, 'conflicto'], [400, 'validacion'], [401, 'red'], [410, 'red'], [422, 'validacion'], [429, 'red'], [503, 'red'],
   ] as const)('el estado %i se traduce a ApiError %s con status y code', async (status, kind) => {
     stubFetch(() => json({ error: { code: 'CODIGO', message: 'x' } }, status));
 

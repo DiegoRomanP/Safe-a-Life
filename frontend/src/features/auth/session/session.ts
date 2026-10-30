@@ -3,7 +3,7 @@ import { ApiError } from '../../../lib/demoApi.js';
 import { deleteCurrentSession, fetchCurrentSession, loginAndBootstrap, type LoginSession } from '../../../lib/api/auth.js';
 
 export type AuthSessionMemory = LoginSession & Readonly<{ csrfToken: string }>;
-export type AuthOperationState = 'idle' | 'pending' | 'success' | 'error';
+export type AuthOperationState = 'idle' | 'pending' | 'success' | 'error' | 'expired';
 type LoginCredentials = Readonly<{ email: string; password: string }>;
 
 // null means no locally verified session; it does not prove server logout.
@@ -96,6 +96,14 @@ export async function logout(): Promise<void> {
   } finally {
     publish('idle');
   }
+}
+
+/** El backend respondió 401 a mitad de uso: la sesión ya no existe. Se olvida y el área vuelve a /ingresar con aviso. */
+export function expireSession(): void {
+  epoch += 1;
+  restoring = null;
+  currentSession = null;
+  publish('expired');
 }
 
 export function setAuthSession(session: AuthSessionMemory): void {

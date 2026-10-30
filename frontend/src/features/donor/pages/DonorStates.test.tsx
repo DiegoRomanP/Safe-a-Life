@@ -1,11 +1,15 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import type { DemoScenario } from '../../../lib/demoApi.js';
 import { act } from 'react';
 import { click, settle, setupRender, type } from '../../../test/render.js';
 import { renderRoute } from '../../../test/renderRoute.js';
+import { stubDonorApi, type DonorApiStub } from '../../../test/donorApi.js';
 
 setupRender();
+// El perfil es real: un backend en memoria responde sus tres operaciones.
+let api: DonorApiStub;
+beforeEach(() => { api = stubDonorApi(); });
 
 const INVITATION = '/donante/invitaciones/7f21c3a0-1b2c-4d5e-8f90-0a1b2c3d4e51';
 
@@ -147,7 +151,7 @@ describe('Escrituras del área del donante', () => {
   it('un conflicto al guardar el perfil no marca los cambios como guardados', async () => {
     const view = renderRoute('/donante/perfil');
     await settle();
-    await scenario(view, 'conflicto');
+    api.writeStatus = 409; // el backend real responde el conflicto
     click(view.querySelector('[role="switch"]'));
     const submit = view.querySelector('button[form="perfil-formulario"]');
     click(submit);

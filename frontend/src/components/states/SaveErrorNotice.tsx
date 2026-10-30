@@ -26,7 +26,9 @@ export function SaveErrorNotice({ error, onReview, className }: SaveErrorNoticeP
     <Alert tone="danger" title="No se guardó" className={className}>
       {error === 'sin_permiso'
         ? 'Tu cuenta no puede realizar esta acción. No se registró ningún cambio.'
-        : 'No pudimos conectar. No se registró ningún cambio; intenta nuevamente.'}
+        : error === 'validacion'
+          ? 'El servidor rechazó los datos: revisa que la ubicación aproximada esté dentro de Lima. No se registró ningún cambio.'
+          : 'No pudimos conectar. No se registró ningún cambio; intenta nuevamente.'}
     </Alert>
   );
 }
