@@ -27,6 +27,12 @@
 }
 
 @layer base {
+  /* Reserva siempre el espacio de la barra de scroll: si no, al pasar de una
+     vista corta a una larga (o mientras carga) la página se corre unos píxeles. */
+  html {
+    scrollbar-gutter: stable;
+  }
+
   body {
     min-width: 320px;
     background-color: var(--color-canvas);
