@@ -13,7 +13,7 @@ import type { DonorInvitation } from '../types.js';
 // DON-03 Mis invitaciones (Penpot «+»). Datos de listOwnInvitations.
 export function InvitationsPage() {
   const { scenario, listInvitations } = useDonorDemo();
-  const query = useDemoQuery(listInvitations, scenario);
+  const query = useDemoQuery(listInvitations, `invitaciones:${scenario}`, { cache: true });
 
   return (
     <>

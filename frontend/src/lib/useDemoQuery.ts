@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { errorKindOf, type ApiErrorKind } from './demoApi.js';
+import { useQueryCache } from './queryCache.js';
 
 export type QueryState<T> =
   | { status: 'loading' }
@@ -25,12 +26,20 @@ type Result<T> = { load: () => Promise<T>; resource: string; tries: number; stat
  *   mismo recurso tras una escritura, se siguen mostrando los datos anteriores
  *   (con `refreshing`) mientras llega la respuesta. Si se pide otro recurso o
  *   se reintenta, se muestra «Cargando», para no actuar sobre datos viejos.
+ * - Con `cache: true` y un QueryCacheProvider, volver a la vista muestra al
+ *   instante la última lectura del mismo recurso (con `refreshing`) mientras
+ *   se revalida, en lugar de «Cargando», si sus datos no cambiaron desde que
+ *   se guardó (misma identidad de `load`). Úsalo solo en vistas de lectura: un
+ *   formulario que toma sus valores al montarse se quedaría con los viejos.
+ *   Por eso `resource` debe ser único por vista (p. ej. `invitaciones:normal`).
  * - Con el cliente HTTP la revalidación no dependerá de la identidad de `load`:
  *   hará falta una clave o versión explícita (D-4).
  */
-export function useDemoQuery<T>(load: () => Promise<T>, resource: string): Query<T> {
+export function useDemoQuery<T>(load: () => Promise<T>, resource: string, options: { cache?: boolean } = {}): Query<T> {
   const [tries, setTries] = useState(0);
   const [result, setResult] = useState<Result<T> | null>(null);
+  const areaCache = useQueryCache();
+  const cache = options.cache ? areaCache : null;
 
   useEffect(() => {
     let active = true;
@@ -38,18 +47,25 @@ export function useDemoQuery<T>(load: () => Promise<T>, resource: string): Query
       if (active) setResult({ load, resource, tries, state });
     };
     load().then(
-      (data) => settle({ status: 'ready', data }),
+      (data) => {
+        if (active) cache?.set(resource, { load, data });
+        settle({ status: 'ready', data });
+      },
       (error: unknown) => settle({ status: 'error', kind: errorKindOf(error) }),
     );
     return () => {
       active = false;
     };
-  }, [load, resource, tries]);
+  }, [load, resource, tries, cache]);
 
   const retry = useCallback(() => setTries((current) => current + 1), []);
 
   const current = result?.load === load && result.resource === resource && result.tries === tries;
   const stale = !current && result?.resource === resource && result.tries === tries && result.state.status === 'ready';
-  const state: QueryState<T> = result && (current || stale) ? result.state : { status: 'loading' };
-  return { ...state, retry, refreshing: stale };
+  if (result && (current || stale)) return { ...result.state, retry, refreshing: stale };
+  // Sin respuesta para este recurso: la última lectura guardada si los datos no
+  // cambiaron desde entonces, salvo tras un reintento, que muestra «Cargando».
+  const cached = cache?.get(resource);
+  if (cached && cached.load === load && tries === 0) return { status: 'ready', data: cached.data as T, retry, refreshing: true };
+  return { status: 'loading', retry, refreshing: false };
 }

@@ -17,10 +17,10 @@ import type { CorrectionRequest } from '../types.js';
 // aviso; el estado de navegación se limpia para que no reaparezca al recargar.
 export function RequestsPage() {
   const { scenario, listRequests } = useDonorDemo();
-  const query = useDemoQuery(listRequests, scenario);
   const location = useLocation();
   const navigate = useNavigate();
   const [created] = useState(() => (location.state as { created?: string } | null)?.created);
+  const query = useDemoQuery(listRequests, `solicitudes:${scenario}`, { cache: true });
   const noticeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

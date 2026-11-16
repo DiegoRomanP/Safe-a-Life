@@ -180,3 +180,46 @@ describe('Envíos de formularios del donante', () => {
     expect(document.activeElement).toBe(view.querySelector('button[type="submit"]'));
   });
 });
+
+describe('Memoria de lecturas al cambiar de pestaña', () => {
+  const go = (view: HTMLElement, href: string) => click(view.querySelector(`nav a[href="${href}"]`));
+
+  it('volver a una lista ya vista la muestra al instante, sin «Cargando»', async () => {
+    const view = renderRoute('/donante/invitaciones');
+    await settle();
+    go(view, '/donante/historial');
+    await settle();
+    go(view, '/donante/invitaciones');
+    expect(view.querySelector('main [role="status"]')).toBeNull();
+    expect(view.querySelector('main [aria-busy]')).toBeNull();
+    expect(view.querySelectorAll('section[aria-label="Invitaciones"] li')).toHaveLength(3);
+    await settle();
+    expect(view.querySelectorAll('section[aria-label="Invitaciones"] li')).toHaveLength(3);
+  });
+
+  it('tras una escritura en otra vista no muestra la lista guardada, que quedó vieja', async () => {
+    const view = renderRoute('/donante/invitaciones');
+    await settle();
+    expect(view.textContent).toContain('1 respondida');
+    click(view.querySelector(`main a[href="${INVITATION}"]`));
+    await settle();
+    click(button(view, 'Confirmar intención de asistir'));
+    await settle();
+    go(view, '/donante/invitaciones');
+    expect(view.querySelector('main [role="status"]')?.textContent).toContain('Cargando tus invitaciones…');
+    expect(view.textContent).not.toContain('1 respondida');
+    await settle();
+    expect(view.textContent).toContain('2 respondidas');
+  });
+
+  it('Mi perfil no usa la memoria: su formulario vuelve a cargar con datos frescos', async () => {
+    const view = renderRoute('/donante/perfil');
+    await settle();
+    go(view, '/donante/invitaciones');
+    await settle();
+    go(view, '/donante/perfil');
+    expect(view.querySelector('main [role="status"]')?.textContent).toContain('Cargando tu perfil…');
+    await settle();
+    expect(view.querySelector('#perfil-formulario')).not.toBeNull();
+  });
+});

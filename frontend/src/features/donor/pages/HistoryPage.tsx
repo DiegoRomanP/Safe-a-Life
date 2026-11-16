@@ -14,7 +14,7 @@ import { historyLabel } from '../labels.js';
 // de las invitaciones propias. El punto de color es decorativo.
 export function HistoryPage() {
   const { scenario, listHistory } = useDonorDemo();
-  const query = useDemoQuery(listHistory, scenario);
+  const query = useDemoQuery(listHistory, `historial:${scenario}`, { cache: true });
 
   return (
     <>
