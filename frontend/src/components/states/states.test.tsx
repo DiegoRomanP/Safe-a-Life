@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { click, render, setupRender } from '../../test/render.js';
 import { Button } from '../ui/Button.js';
@@ -9,6 +10,7 @@ import { ForbiddenState } from './ForbiddenState.js';
 import { SaveErrorNotice } from './SaveErrorNotice.js';
 import { EmptyState } from './EmptyState.js';
 import { Loading } from './Loading.js';
+import { QueryView } from './QueryView.js';
 import { SuccessNotice } from './SuccessNotice.js';
 
 setupRender();
@@ -19,6 +21,43 @@ describe('Loading', () => {
     const status = view.querySelector('[role="status"]');
     expect(status?.textContent).toContain('Cargando');
     expect(status?.textContent).toContain('Actualizando necesidades…');
+  });
+});
+
+describe('QueryView', () => {
+  const loadingQuery = { status: 'loading', retry: () => {}, refreshing: false } as const;
+  const readyQuery = { status: 'ready', data: 'Datos listos', retry: () => {}, refreshing: false } as const;
+  const view = (query: typeof loadingQuery | typeof readyQuery) =>
+    render(
+      <MemoryRouter>
+        <QueryView query={query} loadingMessage="Cargando datos…" backTo="/" backLabel="Volver" loadingDelayMs={500}>
+          {(data) => <p>{data}</p>}
+        </QueryView>
+      </MemoryRouter>,
+    );
+
+  it('anuncia la carga de inmediato, reserva alto y muestra el panel solo si tarda', () => {
+    vi.useFakeTimers();
+    try {
+      const container = view(loadingQuery);
+      expect(container.querySelector('[aria-busy="true"]')?.className).toContain('min-h-96');
+      const status = () => container.querySelector('[role="status"]');
+      expect(status()?.textContent).toContain('Cargando datos…');
+      expect(status()?.className).toContain('sr-only');
+      act(() => vi.advanceTimersByTime(499));
+      expect(status()?.className).toContain('sr-only');
+      act(() => vi.advanceTimersByTime(1));
+      expect(status()?.className).not.toContain('sr-only');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('con datos no reserva alto ni marca la región como ocupada', () => {
+    const container = view(readyQuery);
+    expect(container.textContent).toContain('Datos listos');
+    expect(container.querySelector('[aria-busy]')).toBeNull();
+    expect(container.querySelector('.min-h-96')).toBeNull();
   });
 });
 
