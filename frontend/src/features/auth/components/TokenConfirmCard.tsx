@@ -92,7 +92,7 @@ export function TokenConfirmCard({
       <Alert tone="info" title="Abrir el enlace no cambia nada">
         La acción solo ocurre al pulsar el botón. El enlace se usa una sola vez.
       </Alert>
-      <div aria-live="polite">
+      <div aria-live="polite" className="live-slot">
         {failed && (
           <Alert tone="danger" title="No se pudo completar">
             Revisa tu conexión e inténtalo de nuevo. Si hiciste varios intentos, espera unos minutos.

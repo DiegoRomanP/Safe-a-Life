@@ -127,7 +127,7 @@ export function NeedDetailPage() {
       )}
 
       <ActionError />
-      <div aria-live="polite">
+      <div aria-live="polite" className="live-slot">
         {notice && (
           <div ref={noticeRef} tabIndex={-1} className="rounded-xl focus-visible:outline-focus">
             <SuccessNotice announce={false} message={notice} detail={`Estado actual: ${status.label}.`} />

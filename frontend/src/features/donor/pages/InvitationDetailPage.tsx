@@ -97,7 +97,7 @@ function InvitationDetail({ invitation, refreshing, onReload }: InvitationDetail
           <dd className="text-ink">{invitation.instructions}</dd>
         </dl>
 
-        <div aria-live="polite">
+        <div aria-live="polite" className="live-slot">
           {result && (
             <SuccessNotice
               announce={false}

@@ -101,7 +101,7 @@ export function RegisterPage() {
               Registra una cuenta de demostración para recibir invitaciones de hospitales autorizados.
             </p>
           </div>
-          <div aria-live="polite">
+          <div aria-live="polite" className="live-slot">
             {failure && (
               <Alert tone="danger" title="No se pudo enviar el registro">
                 {failure === 'limite' ? 'Hiciste demasiados intentos. Espera unos minutos.' : 'Inténtalo de nuevo en unos momentos.'}

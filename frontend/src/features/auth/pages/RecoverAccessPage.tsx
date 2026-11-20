@@ -80,7 +80,7 @@ export function RecoverAccessPage() {
           <h1 id="recuperar-titulo" className="text-3xl font-bold text-ink">
             Solicitar enlace de recuperación
           </h1>
-          <div aria-live="polite">
+          <div aria-live="polite" className="live-slot">
             {failed && (
               <Alert tone="danger" title="No pudimos enviar la solicitud">
                 Intenta de nuevo en unos minutos.

@@ -16,6 +16,7 @@ import { useStepUpGate } from '../components/StepUpPanel.js';
 import { membershipStatusLabel } from '../labels.js';
 import { useSuperadmin } from '../SuperadminContext.js';
 import type { Membership } from '../types.js';
+import { TableScroll } from '../../../components/ui/TableScroll.js';
 
 // SA-04 Administradores y membresías (Penpot «+»). listHospitalMemberships solo
 // entrega pista del correo, hospital y estado: no hay nombre, MFA ni último
@@ -130,7 +131,7 @@ export function AdminsPage() {
       {memberships.length === 0 ? (
         <EmptyState message="Todavía no hay administradores" />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+        <TableScroll label="Membresías de administradores de hospital">
           <table className="w-full min-w-[720px] text-left">
             <caption className="sr-only">Membresías de administradores de hospital</caption>
             <thead>
@@ -169,7 +170,7 @@ export function AdminsPage() {
               })}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       )}
 
       <Card title="Invitar administrador">

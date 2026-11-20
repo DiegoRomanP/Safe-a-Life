@@ -11,6 +11,7 @@ import { useDemoQuery } from '../../../lib/useDemoQuery.js';
 import { useDonorDemo } from '../DonorDemoContext.js';
 import { requestCode, requestStatusLabel, requestTypeLabel } from '../labels.js';
 import type { CorrectionRequest } from '../types.js';
+import { TableScroll } from '../../../components/ui/TableScroll.js';
 
 // DON-05 Mis solicitudes (Penpot «+»). Datos de listOwnCorrectionRequests.
 // Al volver de «Nueva solicitud» muestra el código creado y lleva el foco al
@@ -38,7 +39,7 @@ export function RequestsPage() {
         description="Consulta el estado de solicitudes de corrección o eliminación."
         actions={<LinkButton to="/donante/solicitudes/nueva">Nueva solicitud</LinkButton>}
       />
-      <div aria-live="polite">
+      <div aria-live="polite" className="live-slot">
         {created && (
           <div ref={noticeRef} tabIndex={-1} className="rounded-xl focus-visible:outline-focus">
             <SuccessNotice
@@ -66,7 +67,7 @@ function RequestList({ requests }: { requests: CorrectionRequest[] }) {
       detail="Cuando pidas corregir o eliminar tus datos, verás aquí su estado."
     />
   ) : (
-    <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+    <TableScroll label="Solicitudes de corrección o eliminación">
       <table className="w-full min-w-[640px] text-left">
         <caption className="sr-only">Solicitudes de corrección o eliminación</caption>
         <thead>
@@ -92,6 +93,6 @@ function RequestList({ requests }: { requests: CorrectionRequest[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </TableScroll>
   );
 }

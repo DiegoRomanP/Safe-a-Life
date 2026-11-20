@@ -126,7 +126,7 @@ function NewPasswordForm({ token, onLinkProblem }: { token: string; onLinkProble
       <h1 id="restablecer-titulo" className="text-3xl font-bold text-ink">
         Completar recuperación
       </h1>
-      <div aria-live="polite">
+      <div aria-live="polite" className="live-slot">
         {failure && (
           <Alert tone="danger" title="No se pudo guardar">
             {failure === 'limite'

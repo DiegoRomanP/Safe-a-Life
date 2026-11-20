@@ -12,6 +12,8 @@ export type StatePanelProps = {
   action?: ReactNode;
   role?: AriaRole;
   className?: string;
+  /** Anima el ícono (carga). prefers-reduced-motion lo detiene en styles.css. */
+  busy?: boolean;
 };
 
 const accent: Record<StateTone, string> = {
@@ -23,7 +25,7 @@ const accent: Record<StateTone, string> = {
 
 // Base común de la «Galería de estados» de Penpot: franja de acento, ícono en
 // círculo, título, mensaje, detalle y acción opcional.
-export function StatePanel({ tone, symbol, title, message, detail, action, role, className }: StatePanelProps) {
+export function StatePanel({ tone, symbol, title, message, detail, action, role, className, busy = false }: StatePanelProps) {
   return (
     <div role={role} className={cx('overflow-hidden rounded-xl border border-line bg-surface', className)}>
       <div aria-hidden="true" className={cx('h-2', accent[tone])} />
@@ -31,7 +33,7 @@ export function StatePanel({ tone, symbol, title, message, detail, action, role,
         <div className="flex items-center gap-3">
           <span
             aria-hidden="true"
-            className={cx('flex size-12 items-center justify-center rounded-full text-xl text-ink', accent[tone])}
+            className={cx('flex size-12 items-center justify-center rounded-full text-xl text-ink', accent[tone], busy && 'animate-pulse')}
           >
             {symbol}
           </span>

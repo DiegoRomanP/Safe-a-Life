@@ -131,7 +131,7 @@ describe('Estados de carga del área del donante', () => {
     await settle();
     api.writeStatus = 409; // el backend real responde el conflicto
     click(view.querySelector('[role="switch"]'));
-    const submit = view.querySelector('button[form="perfil-formulario"]');
+    const submit = view.querySelector('#perfil-formulario button[type="submit"]');
     click(submit);
     expect(submit?.getAttribute('aria-disabled')).toBe('true');
     await settle();
