@@ -111,7 +111,8 @@ try {
   };
   start(process.execPath, ['--import', 'tsx', 'backend/src/server.ts'], env);
   start(process.execPath, ['--import', 'tsx', 'backend/src/worker.ts'], env);
-  start('npm', ['run', 'dev:frontend'], {});
+  // Sin token de Mapbox el perfil pide latitud y longitud: el E2E no depende de la red ni del token local.
+  start('npm', ['run', 'dev:frontend'], { VITE_MAPBOX_TOKEN: '' });
   await waitFor('http://127.0.0.1:3000/health/live', 'El backend');
   await waitFor(WEB, 'El frontend');
 
@@ -179,7 +180,7 @@ try {
   await hospital.getByLabel(/Grupo requerido/).selectOption({ index: 1 });
   const bloodOptions = await hospital.getByLabel(/Grupo requerido/).locator('option').allTextContents();
   await hospital.getByLabel(/Grupo requerido/).selectOption({ label: bloodOptions.find((text) => text.includes('A+')) });
-  await hospital.getByLabel(/Meta de confirmaciones/).fill('2');
+  await hospital.getByLabel(/Meta de intenciones/).fill('2');
   await hospital.getByLabel(/Sede/).selectOption({ index: 1 });
   await hospital.getByLabel(/Vencimiento en horas/).fill('12');
   await snap(hospital, '02-hospital-nueva-necesidad');
