@@ -5,17 +5,19 @@ alter table app.configuration disable trigger configuration_guard;
 update app.configuration set final_demo_at = null;
 alter table app.configuration enable trigger configuration_guard;
 
-select plan(29);
+select plan(30);
 
 insert into auth.users (id, instance_id, aud, role, email) values
   ('00000000-0000-4000-8000-0000000000c1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-hard-super@example.test'),
   ('00000000-0000-4000-8000-0000000000c2', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-hard-admin@example.test'),
   ('00000000-0000-4000-8000-0000000000c3', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-hard-donante@example.test'),
-  ('00000000-0000-4000-8000-0000000000c4', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-hard-sincuenta@example.test');
+  ('00000000-0000-4000-8000-0000000000c4', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-hard-sincuenta@example.test'),
+  ('00000000-0000-4000-8000-0000000000c5', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-hard-tecnica@example.test');
 insert into app.user_accounts (user_id, role, display_name) values
   ('00000000-0000-4000-8000-0000000000c1', 'superadmin', null),
   ('00000000-0000-4000-8000-0000000000c2', 'admin_hospitalario', null),
-  ('00000000-0000-4000-8000-0000000000c3', 'donante', 'Donante Sintético');
+  ('00000000-0000-4000-8000-0000000000c3', 'donante', 'Donante Sintético'),
+  ('00000000-0000-4000-8000-0000000000c5', 'api_technical', null);
 insert into app.hospitals (hospital_id, public_name, legal_name, is_authorized) values
   ('10000000-0000-4000-8000-0000000000c1', repeat('H', 160), 'Hospital Largo S.A.', true);
 insert into app.hospital_memberships (membership_id, user_id, hospital_id, status, email_hint) values
@@ -37,15 +39,19 @@ select is((select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.
   0, 'ninguna función de api ni app tiene EXECUTE para PUBLIC');
 select is((select array_agg(p.proname::text order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'api' and has_function_privilege('anon', p.oid, 'EXECUTE')),
-  array['consume_rate_limit', 'readiness', 'record_public_idempotency'],
-  'anon solo ejecuta las RPC públicas de la allowlist (las de tokens las ejecuta el backend con su sesión técnica)');
+  array['readiness'],
+  'anon solo ejecuta readiness (rate limit, idempotencia pública y tokens los ejecuta el backend con su sesión técnica)');
 select is((select array_agg(p.proname::text order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'api' and p.prosecdef),
   array['admit_session', 'authorize_invitation_batch', 'authorize_invitation_retry', 'change_own_invitation_response', 'close_session_barrier', 'confirm_password_setup', 'consume_email_change', 'consume_password_reset', 'consume_rate_limit', 'create_assisted_signup', 'execute_correction_request', 'fail_correction_request', 'finish_deletion', 'finish_email_change', 'get_admin_invitation_preview', 'get_assisted_activation_preview', 'get_assisted_signup_recipient', 'get_contextual_donor_data', 'get_donor_verification_preview', 'get_email_change_preview', 'get_execution_subject', 'get_invitation_action_preview', 'get_own_invitation', 'ingest_email_event', 'invite_hospital_admin', 'issue_assisted_activation', 'issue_email_change', 'issue_login_ticket', 'issue_password_setup', 'link_admin_account', 'link_assisted_account', 'link_donor_account', 'list_own_invitations', 'list_own_need_responses', 'readiness', 'record_denial', 'record_public_idempotency', 'reissue_assisted_link', 'reissue_donor_verification', 'request_invitation_batch', 'request_password_recovery', 'respond_invitation_by_token', 'retry_invitation_delivery', 'sync_assisted_signup_status', 'transition_own_need', 'update_own_participation', 'verify_donor_email', 'worker_claim_due_outbox', 'worker_delete_inert_user', 'worker_expire_needs', 'worker_expire_outbox', 'worker_purge_auth_accounts', 'worker_purge_expired', 'worker_purge_invitation_grants', 'worker_record_attempt', 'worker_revoke_sessions'],
   'las únicas funciones SECURITY DEFINER de api son las de la allowlist');
 
--- record_public_idempotency (DEFINER, anon) -------------------------------------------------------------
+-- record_public_idempotency (DEFINER, solo la sesión técnica de la API) -----------------------------------
 set local role anon;
+select throws_ok($$select api.record_public_idempotency('email:' || repeat('a', 64), 'createSession', 'clave-publica-0001', repeat('b', 64))$$,
+  '42501', null, 'anon ya no registra idempotencia pública (L3)');
+set local role authenticated;
+select pg_temp.login('00000000-0000-4000-8000-0000000000c5', 'aal1');
 select is(api.record_public_idempotency('user:' || repeat('a', 64), 'createSession', 'clave-publica-0001', repeat('b', 64)) ->> 'kind',
   'invalid', 'record_public_idempotency rechaza un actor que no es email: ni token:');
 select is(api.record_public_idempotency('email:' || repeat('a', 64), 'createHospital', 'clave-publica-0001', repeat('b', 64)) ->> 'kind',
@@ -58,6 +64,7 @@ select is(api.record_public_idempotency('email:' || repeat('a', 64), 'createSess
   'ok', 'record_public_idempotency repite ok con el mismo payload');
 select is(api.record_public_idempotency('email:' || repeat('a', 64), 'createSession', 'clave-publica-0001', repeat('c', 64)) ->> 'kind',
   'payload_conflict', 'record_public_idempotency detecta otro payload con la misma clave');
+set local role anon;
 select throws_ok($$select * from app.idempotency_records$$, '42501', null, 'anon no lee idempotency_records');
 
 -- consume_idempotency_key -----------------------------------------------------------------------------------
