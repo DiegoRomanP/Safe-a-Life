@@ -64,3 +64,6 @@ export type AssistedSignup = {
   activationExpiresAt: string;
   purgeAt: string;
 };
+
+export type NeedResponses = { confirmedIntentCount: number; items: NeedResponse[] };
+export type BatchRequestResult = { batchId: string; createdInvitationCount: number; queuedEmailCount: number };

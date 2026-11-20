@@ -1,16 +1,8 @@
-import { useLocation } from 'react-router-dom';
-import { DevScenarioPicker } from '../../components/dev/DevScenarioPicker.js';
 import { AppLayout } from '../../components/layout/AppLayout.js';
-import { Alert } from '../../components/ui/Alert.js';
-import { DonorDemoProvider, useDonorDemo } from './DonorDemoContext.js';
+import { DonorDemoProvider } from './DonorDemoContext.js';
 
-// Área del donante: navegación de Penpot (Invitaciones, Mi perfil, Historial,
-// Mis solicitudes). Perfil y bienvenida usan el backend real; el resto es demo
-// en memoria y lo dice en pantalla.
-const REAL_PATHS = ['/donante/perfil', '/donante/bienvenida'];
-
+// Área del donante: navegación de Penpot (Invitaciones, Mi perfil, Historial, Mis solicitudes). Todo viene del backend real.
 export function DonorLayout() {
-  const isDemoView = !REAL_PATHS.includes(useLocation().pathname.replace(/\/$/, ''));
   return (
     <DonorDemoProvider>
       <AppLayout
@@ -24,18 +16,7 @@ export function DonorLayout() {
         accountTitle="Cuenta personal"
         accountRole="Donante"
         initials="DP"
-        notice={isDemoView && (
-          <Alert tone="warning" title="Datos de ejemplo">
-            Esta sección todavía no está conectada al servidor: lo que ves y cambies aquí no se guarda.
-          </Alert>
-        )}
-        devTools={import.meta.env.DEV && isDemoView && <DonorScenarioPicker />}
       />
     </DonorDemoProvider>
   );
-}
-
-function DonorScenarioPicker() {
-  const { scenario, setScenario } = useDonorDemo();
-  return <DevScenarioPicker value={scenario} onChange={setScenario} />;
 }

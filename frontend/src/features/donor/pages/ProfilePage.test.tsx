@@ -101,13 +101,13 @@ describe('DON-02 Mi perfil', () => {
     expect(view.textContent).not.toContain(api.profile!.name);
   });
 
-  it('el perfil es real y no lleva el aviso «Datos de ejemplo»; las invitaciones demo sí', async () => {
+  it('ninguna vista del donante lleva el aviso «Datos de ejemplo»: todo es real', async () => {
     const view = renderRoute('/donante/perfil');
     await settle();
     expect(view.textContent).not.toContain('Datos de ejemplo');
     click(view.querySelector('nav a[href="/donante/invitaciones"]'));
     await settle();
-    expect(view.textContent).toContain('Datos de ejemplo');
+    expect(view.textContent).not.toContain('Datos de ejemplo');
   });
 
   it('sin perfil activo (404) lleva al onboarding', async () => {
