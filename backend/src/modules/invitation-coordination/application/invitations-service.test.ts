@@ -90,14 +90,15 @@ describe('reintento manual', () => {
 describe('respuesta por token', () => {
   it('consulta y responde por el hash del token, nunca por el token', async () => {
     const { service, seen } = harness();
-    await service.previewAction('secreto-del-enlace');
+    await service.previewAction('secreto-del-enlace', 'ip-hmac');
     expect(seen.respond?.tokenHash).toBe(hashToken('secreto-del-enlace'));
     await service.respondByToken('secreto-del-enlace', 'clave-de-idempotencia-3', 'ip-hmac');
     expect(seen.respond).toEqual({ tokenHash: hashToken('secreto-del-enlace'), hash: fingerprint([['tokenHash', hashToken('secreto-del-enlace')]]) });
   });
 
-  it('el límite por IP responde 429 con Retry-After antes de tocar la base', async () => {
+  it('el límite por IP responde 429 con Retry-After antes de tocar la base, también en la vista previa', async () => {
     const { service, seen } = harness({ allowed: false });
+    await expect(service.previewAction('secreto-del-enlace', 'ip-hmac')).rejects.toMatchObject({ code: 'RATE_LIMITED' });
     await expect(service.respondByToken('secreto-del-enlace', 'clave-de-idempotencia-3', 'ip-hmac')).rejects.toMatchObject({ code: 'RATE_LIMITED' });
     await expect(service.respondByToken('secreto-del-enlace', 'clave-de-idempotencia-3', 'ip-hmac')).rejects.toBeInstanceOf(ApiError);
     expect(seen.respond).toBeUndefined();

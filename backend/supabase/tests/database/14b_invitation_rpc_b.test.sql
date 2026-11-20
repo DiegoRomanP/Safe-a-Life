@@ -99,7 +99,7 @@ select is(jsonb_array_length((select j -> 'items' from res where label = 'list')
 select is((select count(*)::int from jsonb_object_keys((select j -> 'items' -> 0 from res where label = 'list'))), 10,
   'cada ítem tiene exactamente los diez campos del contrato (sin hashes, donor_id ni código)');
 select ok(exists (select 1 from jsonb_array_elements((select j -> 'items' from res where label = 'list')) e
-  where e ->> 'invitationId' = pg_temp.iid(3)::text and e ->> 'instructions' like 'Preséntate en la sede indicada%'),
+  where e ->> 'invitationId' = pg_temp.iid(3)::text and e ->> 'instructions' like 'Si decides asistir, acude a la sede indicada%'),
   'sin instrucciones de la sede, usa el texto neutral');
 select ok(exists (select 1 from jsonb_array_elements((select j -> 'items' from res where label = 'list')) e
   where e ->> 'invitationId' = pg_temp.iid(1)::text and e ->> 'instructions' = 'Presentarse en recepción.' and e ->> 'hospitalName' = 'Hospital B Uno'),
