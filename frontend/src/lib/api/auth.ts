@@ -122,3 +122,12 @@ export async function fetchAdminInvitationPreview(token: string): Promise<AdminI
 export async function claimAdminInvitation(token: string, password: string): Promise<LoginSession> {
   return parseSession(await apiRequest('POST', `/hospital-admin-invitation-actions/${encodeURIComponent(token)}/claim`, { body: { password } }));
 }
+
+/** Step-up por acción sensible: un TOTP nuevo sobre el factor verificado. Devuelve hasta cuándo vale (ISO). */
+export async function verifyStepUp(csrfToken: string, code: string): Promise<string> {
+  const body = await apiRequest('POST', '/auth/step-up-verifications', { body: { code }, csrfToken });
+  if (!isRecord(body) || !hasOnlyKeys(body, ['data']) || !isRecord(body.data) || !hasOnlyKeys(body.data, ['verifiedUntil'])) throw new Error();
+  const until = body.data.verifiedUntil;
+  if (typeof until !== 'string' || !Number.isFinite(Date.parse(until))) throw new Error();
+  return until;
+}

@@ -1,7 +1,7 @@
 import { ApiError, type ApiErrorKind } from '../demoApi.js';
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-type RequestOptions = Readonly<{ body?: unknown; csrfToken?: string }>;
+type RequestOptions = Readonly<{ body?: unknown; csrfToken?: string; headers?: Readonly<Record<string, string>> }>;
 
 export function idempotencyKey(): string {
   if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
@@ -26,7 +26,7 @@ function errorCode(body: unknown): string | undefined {
  * cada mutación y CSRF cuando hay sesión. Todo fallo es un `ApiError` con el estado y el código del contrato.
  */
 export async function apiRequest(method: Method, path: string, options: RequestOptions = {}): Promise<unknown> {
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...options.headers };
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
   if (method !== 'GET') headers['Idempotency-Key'] = idempotencyKey();
   if (options.csrfToken) headers['X-CSRF-Token'] = options.csrfToken;
