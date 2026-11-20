@@ -18,6 +18,7 @@ import {
   fetchTasks,
   inviteAdminRequest,
   revokeMembershipRequest,
+  retryInvitationDeliveryRequest,
   setFinalDemoAtRequest,
   updateHospitalAuthorization,
   type GrantField,
@@ -70,6 +71,8 @@ type Superadmin = Data & {
   // Grant de ejecución (action execute) y ejecución de la solicitud aprobada, en ese orden.
   executeRequest: (requestId: string, allowedFields: GrantField[], reason: string) => Promise<boolean>;
   setFinalDemoAt: (iso: string) => Promise<boolean>;
+  // Reintento manual de una entrega fallida (step-up ≤ 5 min); el taskId de la tarea es el invitationId.
+  retryDelivery: (invitationId: string) => Promise<boolean>;
 };
 
 const SuperadminContext = createContext<Superadmin | null>(null);
@@ -228,6 +231,7 @@ export function SuperadminProvider({ children, now = () => Date.now() }: { child
           return updated;
         }),
       setFinalDemoAt: (iso) => ok(() => setFinalDemoAtRequest(iso)),
+      retryDelivery: (invitationId) => ok(() => retryInvitationDeliveryRequest(invitationId)),
     };
   }, [data, status, reload, refresh, actionError, donorData, now]);
 

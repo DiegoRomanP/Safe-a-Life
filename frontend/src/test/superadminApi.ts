@@ -45,6 +45,7 @@ const STEP_UP_ROUTES = [
   /^PATCH \/superadmin\/memberships\//,
   /^POST \/superadmin\/hospital-admin-invitations/,
   /^PATCH \/superadmin\/configuration/,
+  /\/delivery-retries$/,
   /^POST \/superadmin\/access-grants/,
   /\/executions$/,
 ];
@@ -108,6 +109,15 @@ export function stubSuperadminApi(): SuperadminApiStub {
     if (headers.get('x-csrf-token') !== TEST_DONOR_SESSION.csrfToken) return error(403, 'CSRF_INVALID');
     if (STEP_UP_ROUTES.some((route) => route.test(key)) && Date.now() >= stub.stepUpUntil) return error(403, 'STEP_UP_REQUIRED');
     if (stub.writeStatus) return error(stub.writeStatus);
+
+    const retry = /^POST \/superadmin\/invitations\/([^/]+)\/delivery-retries$/.exec(key);
+    if (retry) {
+      const failed = stub.tasks.find((task) => task.kind === 'delivery_failure' && task.taskId === retry[1]);
+      if (!failed) return error(409, 'CONFLICT');
+      stub.tasks = stub.tasks.filter((task) => task !== failed);
+      audit('invitacion.reintento', failed.resourceCode ?? 'INV');
+      return reply(202, { data: { message: 'Solicitud recibida.' } });
+    }
 
     if (key === 'POST /superadmin/hospitals') {
       const created: Hospital = { hospitalId: crypto.randomUUID(), ...body, isAuthorized: false, createdAt: new Date().toISOString() };

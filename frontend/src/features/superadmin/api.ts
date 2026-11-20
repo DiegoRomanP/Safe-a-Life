@@ -162,3 +162,7 @@ export const executeRequestRequest = async (requestId: string, grant: AccessGran
 
 export const setFinalDemoAtRequest = async (finalDemoAt: string) =>
   parseConfiguration(dataOf(await write('PATCH', '/superadmin/configuration', { finalDemoAt })));
+
+// En delivery_failure el taskId es el invitationId (list_superadmin_tasks).
+export const retryInvitationDeliveryRequest = async (invitationId: string) =>
+  write('POST', `/superadmin/invitations/${encodeURIComponent(invitationId)}/delivery-retries`);
