@@ -22,7 +22,7 @@ export function AuthShell({ asideTitle, asideDetail, asideContent, asideFooter, 
         wideAside ? 'lg:grid-cols-[540px_minmax(0,1fr)]' : 'lg:grid-cols-[400px_minmax(0,1fr)]',
       )}
     >
-      <aside className="flex flex-col gap-8 bg-petrol px-6 py-8 text-white sm:px-12 lg:py-12">
+      <aside className="flex flex-col gap-8 bg-panel px-6 py-8 text-white sm:px-12 lg:py-12">
         <Brand tone="dark" />
         <div className={cx('flex flex-col gap-4', wideAside ? 'lg:mt-24' : 'lg:mt-12')}>
           <p

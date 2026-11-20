@@ -175,7 +175,7 @@ export function RequestDetailPage() {
     );
   } else {
     dataPanel = (
-      <section aria-labelledby="acceso-titulo" className="flex flex-col gap-4 rounded-xl bg-petrol p-6 text-white">
+      <section aria-labelledby="acceso-titulo" className="flex flex-col gap-4 rounded-xl bg-panel p-6 text-white">
         <h2 id="acceso-titulo" className="text-xl font-semibold">
           Acceso contextual protegido
         </h2>

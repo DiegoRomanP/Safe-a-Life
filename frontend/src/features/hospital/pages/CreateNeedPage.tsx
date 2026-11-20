@@ -186,7 +186,7 @@ export function CreateNeedPage() {
             </div>
           </form>
         </Card>
-        <aside aria-labelledby="antes-titulo" className="rounded-xl bg-petrol p-6 text-white">
+        <aside aria-labelledby="antes-titulo" className="rounded-xl bg-panel p-6 text-white">
           <h2 id="antes-titulo" className="text-xl font-semibold">
             Antes de activar
           </h2>

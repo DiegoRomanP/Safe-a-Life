@@ -37,7 +37,7 @@ export function HomePage() {
         <section
           id="como-funciona"
           aria-labelledby="como-funciona-titulo"
-          className="scroll-mt-6 rounded-2xl bg-petrol p-6 text-white sm:p-10"
+          className="scroll-mt-6 rounded-2xl bg-panel p-6 text-white sm:p-10"
         >
           <h2 id="como-funciona-titulo" className="text-2xl font-bold">
             Así funciona

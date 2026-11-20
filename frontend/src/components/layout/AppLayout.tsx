@@ -72,7 +72,7 @@ export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initi
           </div>
           <span
             aria-hidden="true"
-            className="flex size-10 items-center justify-center rounded-full bg-petrol text-sm font-bold text-white"
+            className="flex size-10 items-center justify-center rounded-full bg-panel text-sm font-bold text-white"
           >
             {initials}
           </span>
@@ -81,12 +81,12 @@ export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initi
 
       <div className="flex flex-1 flex-col lg:flex-row">
         {/* Móvil: una fila de pestañas desplazable con indicador inferior y «Cerrar sesión» al lado; lg: rail vertical. */}
-        <aside className="flex items-stretch bg-petrol text-white lg:w-60 lg:shrink-0 lg:flex-col lg:py-8">
+        <aside className="flex items-stretch bg-panel text-white lg:w-60 lg:shrink-0 lg:flex-col lg:py-8">
           {/* scroll-shadow-x: un brillo en el borde indica que hay más secciones hacia ese lado. */}
           <nav
             ref={navRef}
             aria-label={navLabel}
-            className="relative min-w-0 flex-1 scroll-shadow-x overflow-x-auto [--scroll-bg:var(--color-petrol)] [--scroll-shade:rgb(255_255_255/0.5)] [scrollbar-color:rgb(255_255_255/0.35)_transparent] [scrollbar-width:thin] lg:flex-none lg:overflow-visible"
+            className="relative min-w-0 flex-1 scroll-shadow-x overflow-x-auto [--scroll-bg:var(--color-panel)] [--scroll-shade:rgb(255_255_255/0.5)] [scrollbar-color:rgb(255_255_255/0.35)_transparent] [scrollbar-width:thin] lg:flex-none lg:overflow-visible"
           >
             <ul className="flex lg:flex-col">
               {navItems.map((item) => (

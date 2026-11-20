@@ -7,6 +7,8 @@
   --color-ink: #172b3a;
   --color-petrol: #164e63;
   --color-petrol-deep: #103b4b;
+  /* Paneles y rail con texto blanco: igual a petrol en claro, pero no cambia en oscuro (petrol pasa a ser texto claro). */
+  --color-panel: #164e63;
   /* La marca solo se usa en identidad y CTA primarios, nunca en avisos (se confundía con el error). */
   --color-brand: #b4233c;
   --color-brand-deep: #8f1930;
@@ -31,9 +33,42 @@
   --color-danger-soft: #fef2f2;
   --color-neutral-soft: #eef2f4;
   --color-brand-soft: #fbecef;
+  /* Texto de la insignia de marca sobre brand-soft (en claro coincide con brand-deep). */
+  --color-brand-text: #8f1930;
+}
+
+/* Modo oscuro (M6): solo se redefinen los tokens; ningún componente cambia. Ratios AA verificados en
+   docs/plans/2026-11-20-mejoras-ui-frontend.md. brand, brand-deep y panel se mantienen: llevan texto blanco. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-ink: #e6edf1;
+    --color-petrol: #7cc8de;
+    --color-canvas: #0f1c25;
+    --color-surface: #16262f;
+    --color-muted: #9fb0bc;
+    --color-line: #2b3d48;
+    --color-control-border: #71879a;
+    --color-success: #7ee2a8;
+    --color-warning: #f2c25b;
+    --color-danger: #ff8a80;
+    --color-urgent: #fdba74;
+    --color-critical: #fecaca;
+    --color-focus: #56b6f0;
+    --color-soft-blue: #12313d;
+    --color-success-soft: #11291c;
+    --color-warning-soft: #2e2410;
+    --color-danger-soft: #3a1614;
+    --color-neutral-soft: #22333d;
+    --color-brand-soft: #3a1a22;
+    --color-brand-text: #f4a7b5;
+  }
 }
 
 @layer base {
+  :root {
+    color-scheme: light dark;
+  }
+
   body {
     min-width: 320px;
     background-color: var(--color-canvas);
@@ -64,8 +99,8 @@
   background:
     linear-gradient(to right, var(--scroll-bg, var(--color-surface)) 30%, transparent) left / 2.5rem 100% no-repeat local,
     linear-gradient(to left, var(--scroll-bg, var(--color-surface)) 30%, transparent) right / 2.5rem 100% no-repeat local,
-    radial-gradient(farthest-side at 0 50%, var(--scroll-shade, rgb(23 43 58 / 0.25)), transparent) left / 1rem 100% no-repeat scroll,
-    radial-gradient(farthest-side at 100% 50%, var(--scroll-shade, rgb(23 43 58 / 0.25)), transparent) right / 1rem 100% no-repeat scroll,
+    radial-gradient(farthest-side at 0 50%, var(--scroll-shade, color-mix(in srgb, var(--color-ink) 25%, transparent)), transparent) left / 1rem 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, var(--scroll-shade, color-mix(in srgb, var(--color-ink) 25%, transparent)), transparent) right / 1rem 100% no-repeat scroll,
     var(--scroll-bg, var(--color-surface));
 }
 
