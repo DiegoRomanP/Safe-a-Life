@@ -47,7 +47,8 @@ export type RetrySlot = Readonly<{ outboxId: string; confirmHash: string; reject
  */
 export interface InvitationsRepository {
   listBatches(accessToken: string, needId: string, query: PageQuery): Promise<Page<InvitationBatchView>>;
-  authorizeBatch(accessToken: string, needId: string): Promise<Grant>;
+  /** Con la clave de idempotencia: si el lote ya se creó con ella, devuelve ese resultado en vez de una concesión. */
+  authorizeBatch(accessToken: string, envelope: Envelope, needId: string): Promise<Grant | { replayed: BatchResult }>;
   listNeedResponses(accessToken: string, needId: string, query: PageQuery): Promise<NeedResponsesPage>;
 
   listOwn(accessToken: string, query: PageQuery): Promise<Page<InvitationItem>>;

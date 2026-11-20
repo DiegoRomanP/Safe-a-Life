@@ -53,6 +53,10 @@ export const parseItem = (value: unknown): InvitationItem => {
   });
 };
 
+const batchOf = (reply: Record<string, unknown>): BatchResult => Object.freeze({
+  batchId: asString(reply.batchId), createdInvitationCount: asNumber(reply.createdInvitationCount), queuedEmailCount: asNumber(reply.queuedEmailCount),
+});
+
 const parseResult = (reply: Record<string, unknown>): InvitationResponseResult =>
   Object.freeze({
     response: oneOf(reply.response, ['confirmada', 'rechazada'] as const), recordedAt: asString(reply.recordedAt), needStatus: oneOf(reply.needStatus, NEED_STATUSES),
@@ -84,8 +88,9 @@ export function createInvitationsRpcGateway(rpc: RpcInvoker, technical: RpcInvok
       return pageOf(reply, parseBatch);
     },
 
-    async authorizeBatch(accessToken, needId) {
-      return grantOf(await rpc({ accessToken, name: 'authorize_invitation_batch', okKinds: ['ok'], args: { p_need_id: needId } }));
+    async authorizeBatch(accessToken, { key, hash }, needId) {
+      const reply = await rpc({ accessToken, name: 'authorize_invitation_batch', okKinds: ['ok', 'created'], args: { p_need_id: needId, p_key: key, p_hash: hash } });
+      return reply.kind === 'created' ? Object.freeze({ replayed: batchOf(reply) }) : grantOf(reply);
     },
 
     async listNeedResponses(accessToken, needId, { limit, cursor }) {
@@ -126,9 +131,7 @@ export function createInvitationsRpcGateway(rpc: RpcInvoker, technical: RpcInvok
         accessToken: null, name: 'request_invitation_batch', okKinds: ['created'],
         args: { p_key: key, p_hash: hash, p_need_id: needId, p_grant: grant.grantSecret, p_slots: slots },
       });
-      return Object.freeze({
-        batchId: asString(reply.batchId), createdInvitationCount: asNumber(reply.createdInvitationCount), queuedEmailCount: asNumber(reply.queuedEmailCount),
-      });
+      return batchOf(reply);
     },
 
     async previewAction(tokenHash): Promise<ActionPreview> {

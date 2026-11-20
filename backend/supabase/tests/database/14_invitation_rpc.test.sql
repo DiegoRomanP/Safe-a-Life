@@ -3,7 +3,7 @@ begin;
 truncate app.invitation_response_history, app.invitations, app.invitation_batches, app.email_outbox, app.needs, app.sites, app.assisted_signups,
   app.idempotency_records, app.correction_requests, app.session_barriers, app.admitted_sessions, app.donor_profiles, app.hospital_memberships, app.hospitals, app.user_accounts cascade;
 
-select plan(147);
+select plan(148);
 
 -- Ayudas ---------------------------------------------------------------------------------------------------------
 create function pg_temp.u(n int) returns uuid language sql immutable as $$ select ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
@@ -245,6 +245,17 @@ reset role;
 set local role authenticated;
 select pg_temp.login(pg_temp.u(1), 'aal2');
 insert into res select 'g_n1b', api.authorize_invitation_batch(pg_temp.nid(1));
+-- El tope de 20 lotes por hora se revalida al ejecutar: una concesión emitida antes de llegar a 20 ya no sirve.
+reset role;
+insert into app.invitation_batches (batch_id, need_id, hospital_id, requested_by, created_invitation_count, queued_email_count)
+select ('60000000-0000-4000-8000-' || lpad(g::text, 12, '0'))::uuid, need_id, hospital_id, pg_temp.u(1), 0, 0 from app.needs, generate_series(1, 20) g where need_id = pg_temp.nid(9);
+set local role authenticated;
+select pg_temp.login(pg_temp.u(4), 'aal1');
+select is(api.request_invitation_batch('clave-lote-n1-000002', pg_temp.hb(pg_temp.nid(1)), pg_temp.nid(1), pg_temp.gs('g_n1b'), pg_temp.slots('n1b', 6)) ->> 'kind', 'rate_limited',
+  'con 20 lotes en la hora la ejecución es rate_limited aunque la concesión siga viva');
+reset role;
+delete from app.invitation_batches where batch_id::text like '60000000-0000-4000-8000-%';
+set local role authenticated;
 select pg_temp.login(pg_temp.u(4), 'aal1');
 insert into res select 'n1b', api.request_invitation_batch('clave-lote-n1-000002', pg_temp.hb(pg_temp.nid(1)), pg_temp.nid(1), pg_temp.gs('g_n1b'), pg_temp.slots('n1b', 6));
 select is((select (j ->> 'kind') || (j ->> 'createdInvitationCount') from res where label = 'n1b'), 'created0', 'un segundo lote ya no encuentra candidatos (sin duplicados necesidad-donante): created con 0');

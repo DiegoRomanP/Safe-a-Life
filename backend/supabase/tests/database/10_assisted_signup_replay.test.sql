@@ -2,7 +2,7 @@ begin;
 -- SP-04: el replay de create_assisted_signup revalida el hospital del actor (reasignado A -> B). Todo se revierte.
 truncate app.assisted_signups, app.email_outbox, app.hospital_memberships, app.hospitals, app.user_accounts cascade;
 
-select plan(10);
+select plan(12);
 
 insert into auth.users (id, instance_id, aud, role, email, created_at) values
   ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'replay-admin@example.test', now() - interval '1 day');
@@ -61,11 +61,30 @@ values ('50000000-0000-4000-8000-0000000000a1', '10000000-0000-4000-8000-0000000
 insert into app.needs (need_id, hospital_id, site_id, created_by, component, required_blood_type, target_confirmations, radius_km, urgency, status, expires_at)
 values ('40000000-0000-4000-8000-0000000000a1', '10000000-0000-4000-8000-0000000000a1', '50000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000a1', 'RBC', 'A_POS', 2, 10, 'Normal', 'activa', now() + interval '12 hours');
 insert into app.invitation_batches (need_id, hospital_id, requested_by, created_invitation_count, queued_email_count)
-select '40000000-0000-4000-8000-0000000000a1', '10000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000a1', 0, 0 from generate_series(1, 20);
+select '40000000-0000-4000-8000-0000000000a1', '10000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000a1', 0, 0 from generate_series(1, 19);
+set local role authenticated;
+select pg_temp.login();
+select is(api.authorize_invitation_batch('40000000-0000-4000-8000-0000000000a1') ->> 'kind', 'ok', 'con 19 lotes en la hora todavía se autoriza');
+reset role;
+insert into app.invitation_batches (need_id, hospital_id, requested_by, created_invitation_count, queued_email_count)
+values ('40000000-0000-4000-8000-0000000000a1', '10000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000a1', 0, 0);
 set local role authenticated;
 select pg_temp.login();
 select is(api.authorize_invitation_batch('40000000-0000-4000-8000-0000000000a1') ->> 'kind', 'rate_limited',
   'a los 20 lotes por hora el admin recibe rate_limited al pedir otra concesión');
+
+-- El replay de un lote ya creado no choca con el tope: la autorización devuelve lo guardado.
+reset role;
+insert into app.idempotency_records (actor_ref, operation, idem_key, payload_hash, status, response, completed_at)
+values ('user:00000000-0000-4000-8000-0000000000a1', 'requestInvitationBatch', 'clave-lote-replay-01',
+        app.fingerprint(jsonb_build_array(jsonb_build_array('needId', '40000000-0000-4000-8000-0000000000a1'))), 'completado',
+        '{"kind":"created","batchId":"60000000-0000-4000-8000-0000000000a1","createdInvitationCount":0,"queuedEmailCount":0}', now());
+create temp table lote_hash as select app.fingerprint(jsonb_build_array(jsonb_build_array('needId', '40000000-0000-4000-8000-0000000000a1'))) as h;
+grant select on lote_hash to authenticated;
+set local role authenticated;
+select pg_temp.login();
+select is(api.authorize_invitation_batch('40000000-0000-4000-8000-0000000000a1', 'clave-lote-replay-01', (select h from lote_hash)) #>> '{response,batchId}',
+  '60000000-0000-4000-8000-0000000000a1', 'con la misma clave el replay del lote 20 devuelve el lote guardado, no 429');
 
 select * from finish();
 rollback;
