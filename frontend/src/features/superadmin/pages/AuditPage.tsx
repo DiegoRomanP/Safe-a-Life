@@ -7,14 +7,14 @@ import { Field } from '../../../components/ui/Field.js';
 import { Select } from '../../../components/ui/Select.js';
 import { formatDateTime } from '../../../lib/format.js';
 import { auditResultLabel } from '../labels.js';
-import { useSuperadminDemo } from '../SuperadminDemoContext.js';
+import { useSuperadmin } from '../SuperadminContext.js';
 
 // SA-07 Auditoría minimizada (Penpot «+»). listAuditEvents entrega eventos
 // append-only con actor y recurso opacos, sin valores personales. El contrato
 // solo pagina (limit, cursor): los filtros se aplican sobre los eventos
-// cargados. Sin backend (D-4).
+// cargados.
 export function AuditPage() {
-  const { auditEvents } = useSuperadminDemo();
+  const { auditEvents } = useSuperadmin();
   const [eventFilter, setEventFilter] = useState('');
   const [resultFilter, setResultFilter] = useState('');
   const eventOptions = [...new Set(auditEvents.map((item) => item.event))].sort().map((value) => ({ value, label: value }));

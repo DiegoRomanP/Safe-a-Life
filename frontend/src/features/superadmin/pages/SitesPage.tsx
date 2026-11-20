@@ -11,8 +11,9 @@ import { Input } from '../../../components/ui/Input.js';
 import { Select } from '../../../components/ui/Select.js';
 import type { Tone } from '../../../components/ui/tones.js';
 import { latitudeError, longitudeError } from '../../donor/location.js';
+import { ActionError } from '../components/ActionError.js';
 import { ResultNotice, type Notice } from '../components/ResultNotice.js';
-import { useSuperadminDemo } from '../SuperadminDemoContext.js';
+import { useSuperadmin } from '../SuperadminContext.js';
 import type { Site } from '../types.js';
 
 type SiteState = 'activa' | 'revision' | 'inactiva';
@@ -33,9 +34,9 @@ type Errors = Partial<Record<'hospital' | 'name' | 'address' | 'latitude' | 'lon
 // SA-03 Sedes autorizadas (contenido de Penpot «SaL» con estilo «+»). Datos de
 // listHospitalSites; los filtros se aplican sobre las sedes cargadas. Crear usa
 // createHospitalSite (queda en revisión) y aprobar usa updateHospitalSite. Las
-// sedes son datos públicos del hospital: no incluyen donantes. Sin backend (D-4).
+// sedes son datos públicos del hospital: no incluyen donantes.
 export function SitesPage() {
-  const { hospitals, sites, createSite, approveSite } = useSuperadminDemo();
+  const { hospitals, sites, createSite, approveSite } = useSuperadmin();
   const [hospitalFilter, setHospitalFilter] = useState('');
   const [stateFilter, setStateFilter] = useState('');
   const [search, setSearch] = useState('');
@@ -63,7 +64,7 @@ export function SitesPage() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  function handleCreate(event: FormEvent<HTMLFormElement>) {
+  async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const text = (value: string, max: number, name: string) =>
       !value.trim() ? `Ingresa ${name}.` : value.trim().length > max ? `Usa como máximo ${max} caracteres.` : undefined;
@@ -77,12 +78,13 @@ export function SitesPage() {
     flushSync(() => setErrors(found));
     const first = (Object.keys(refs) as Array<keyof Errors>).find((key) => found[key]);
     if (first) return refs[first].current?.focus();
-    const created = createSite({
+    const created = await createSite({
       hospitalId: form.hospital,
       publicName: form.name.trim(),
       publicAddress: form.address.trim(),
       coordinates: { latitude: Number(form.latitude), longitude: Number(form.longitude) },
     });
+    if (!created) return;
     setForm({ hospital: '', name: '', address: '', latitude: '', longitude: '' });
     setNotice({ message: `${created.publicName} creada`, detail: 'Queda en revisión hasta que la apruebes.' });
   }
@@ -94,6 +96,7 @@ export function SitesPage() {
         description="Gestiona sedes vinculadas a hospitales autorizados."
         actions={<Button onClick={() => refs.hospital.current?.focus()}>Nueva sede</Button>}
       />
+      <ActionError />
       <ResultNotice notice={notice} />
 
       <section aria-label="Filtros" className="grid gap-4 rounded-xl border border-line bg-surface p-4 md:grid-cols-3">
@@ -163,8 +166,9 @@ export function SitesPage() {
                         <Button
                           variant="secondary"
                           onClick={() => {
-                            approveSite(site.siteId);
-                            setNotice({ message: `${site.publicName} aprobada`, detail: 'La sede quedó activa.' });
+                            void approveSite(site.siteId).then((done) => {
+                              if (done) setNotice({ message: `${site.publicName} aprobada`, detail: 'La sede quedó activa.' });
+                            });
                           }}
                         >
                           Aprobar<span className="sr-only"> {site.publicName}</span>
@@ -180,7 +184,7 @@ export function SitesPage() {
       )}
 
       <Card title="Nueva sede">
-        <form noValidate onSubmit={handleCreate} className="flex flex-col gap-6">
+        <form noValidate onSubmit={(event) => void handleCreate(event)} className="flex flex-col gap-6">
           <div className="grid gap-6 md:grid-cols-2">
             <Field label="Hospital" error={errors.hospital} required>
               {(control) => (

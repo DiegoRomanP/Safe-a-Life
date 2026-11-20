@@ -26,6 +26,7 @@ import { NeedDetailPage } from '../features/hospital/pages/NeedDetailPage.js';
 import { NeedsPage } from '../features/hospital/pages/NeedsPage.js';
 import { ResponsesPage } from '../features/hospital/pages/ResponsesPage.js';
 import { SummaryPage } from '../features/hospital/pages/SummaryPage.js';
+import { SuperadminGate } from '../features/superadmin/SuperadminGate.js';
 import { SuperadminLayout } from '../features/superadmin/SuperadminLayout.js';
 import { AdminsPage } from '../features/superadmin/pages/AdminsPage.js';
 import { AuditPage } from '../features/superadmin/pages/AuditPage.js';
@@ -101,14 +102,16 @@ export const routes: RouteObject[] = [
         element: <RequireRole allow="superadmin"><SuperadminLayout /></RequireRole>,
         handle: { area: 'Superadmin' },
         children: [
-          { index: true, element: <TasksPage />, handle: { title: 'Tareas' } },
-          { path: 'hospitales', element: <HospitalsPage />, handle: { title: 'Hospitales autorizados' } },
-          { path: 'sedes', element: <SitesPage />, handle: { title: 'Sedes' } },
-          { path: 'administradores', element: <AdminsPage />, handle: { title: 'Administradores y membresías' } },
-          { path: 'solicitudes', element: <AdminRequestsPage />, handle: { title: 'Solicitudes' } },
-          { path: 'solicitudes/:requestId', element: <RequestDetailPage />, handle: { title: 'Detalle de solicitud' } },
-          { path: 'configuracion', element: <ConfigurationPage />, handle: { title: 'Configuración' } },
-          { path: 'auditoria', element: <AuditPage />, handle: { title: 'Auditoría' } },
+          { element: <SuperadminGate />, children: [
+            { index: true, element: <TasksPage />, handle: { title: 'Tareas' } },
+            { path: 'hospitales', element: <HospitalsPage />, handle: { title: 'Hospitales autorizados' } },
+            { path: 'sedes', element: <SitesPage />, handle: { title: 'Sedes' } },
+            { path: 'administradores', element: <AdminsPage />, handle: { title: 'Administradores y membresías' } },
+            { path: 'solicitudes', element: <AdminRequestsPage />, handle: { title: 'Solicitudes' } },
+            { path: 'solicitudes/:requestId', element: <RequestDetailPage />, handle: { title: 'Detalle de solicitud' } },
+            { path: 'configuracion', element: <ConfigurationPage />, handle: { title: 'Configuración' } },
+            { path: 'auditoria', element: <AuditPage />, handle: { title: 'Auditoría' } },
+          ] },
         ],
       },
       { path: '*', element: <NotFoundPage />, handle: { title: 'Recurso no disponible' } },

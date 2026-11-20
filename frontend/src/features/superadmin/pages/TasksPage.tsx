@@ -5,13 +5,13 @@ import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { StatCard } from '../../../components/ui/StatCard.js';
 import { formatDateTime } from '../../../lib/format.js';
 import { requestCode, taskKindLabel } from '../labels.js';
-import { useSuperadminDemo } from '../SuperadminDemoContext.js';
+import { useSuperadmin } from '../SuperadminContext.js';
 import type { SuperadminTask } from '../types.js';
 
 // SA-01 Tareas administrativas (Penpot «+»). Datos de listSuperadminTasks: tipo,
 // fecha y código opaco del recurso; nunca datos del padrón de donantes.
 export function TasksPage() {
-  const { tasks, requests } = useSuperadminDemo();
+  const { tasks, requests } = useSuperadmin();
   const count = (kind: SuperadminTask['kind']) => tasks.filter((task) => task.kind === kind).length;
   const sorted = [...tasks].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
