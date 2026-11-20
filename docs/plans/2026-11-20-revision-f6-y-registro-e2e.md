@@ -27,6 +27,15 @@ Paso 0 nuevo: `/registro` → buzón local (`/verificar-correo`) → barrera de 
 - **Admin de hospital:** contraseña + TOTP → crea y activa necesidad A+ → lote de 9 invitaciones `enviada`.
 - **Ciclo completo:** el donante registrado confirma por el enlace del correo; reabrir el enlace muestra «Enlace ya utilizado» (410); el hospital ve su nombre y grupo declarado y solo códigos para el resto; el donante retira la confirmación desde su sesión (historial `confirmada/token → rechazada/sesion`, auditoría con ambos eventos).
 
+## Revisión de UI/UX del frontend (`478a252`, Playwright a 375 px y 1280 px)
+- Shell móvil compacto: marca y avatar en una fila, pestañas desplazables con indicador inferior (el borde izquierdo queda para el rail lg), «Cerrar sesión» al lado; antes ~370 px de cabecera antes del contenido.
+- `Switch` compartido (perfil y onboarding tenían una copia cada uno) con perilla animada; `TableScroll` para las 8 tablas (región nombrada y enfocable: axe `scrollable-region-focusable`); `ActionErrorNotice` común a hospital y superadmin.
+- Campos de solo lectura con estilo propio (se veían editables); indicador de carga animado; `prefers-reduced-motion` ya anulaba transiciones.
+- Utilidad `live-slot`: las 15 regiones `aria-live` vacías ya no suman el `gap` del contenedor (hueco visible en el detalle de necesidad).
+- Perfil: «Guardar cambios» y su resultado pasan al pie del formulario (en móvil estaban a ~900 px de los campos editables y el aviso quedaba fuera de pantalla).
+- Sin cambio: el tono `brand` de los avisos académicos es convención del diseño (se anuncia como «Información»).
+- Pendiente de diseño (no se tocó): en el detalle de necesidad la acción más visible es «Cancelar»; «Lotes» y «Respuestas» quedan abajo como secundarias.
+
 ## Pendiente / límites
 - La migración `20261022110000` **no** está aplicada al Supabase remoto.
 - `list_superadmin_tasks` sigue mostrando fallos de entrega de donantes no activos o en eliminación: es INVOKER y el superadmin no lee `donor_profiles` por RLS; el reintento responde 409.
