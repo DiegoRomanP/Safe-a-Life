@@ -1,5 +1,5 @@
 -- Revisión F6 (L-2): responder por token o cambiar la respuesta por sesión exige que el perfil del donante siga `activo`
--- (un perfil suspendido o incompleto no responde). create or replace de las funciones de 20261022030000 y 20261022040000:
+-- (un perfil no activo no responde; ver 20261022110000: hoy ningún flujo saca un perfil de activo). create or replace de las funciones de 20261022030000 y 20261022040000:
 -- mismo propietario (app_privileged), DEFINER, search_path y concesiones.
 
 create or replace function api.respond_invitation_by_token(p_token_hash text, p_key text, p_hash text) returns jsonb

@@ -48,12 +48,17 @@ export function createInvitationsService({
     listBatches: (accessToken: string, needId: string, query: PageQuery) => repository.listBatches(accessToken, needId, query),
     listNeedResponses: (accessToken: string, needId: string, query: PageQuery) => repository.listNeedResponses(accessToken, needId, query),
 
-    /** Lote de invitaciones: la meta sale de la necesidad propia (404 si es ajena) y fija cuántos slots se preparan. */
+    /**
+     * Lote de invitaciones. La autorización resuelve antes el replay de la misma clave (sin tope ni estado); si no lo es, la meta
+     * de la necesidad propia (404 si es ajena) fija cuántos slots se preparan.
+     */
     async requestBatch(accessToken: string, key: string, needId: string) {
+      const envelope = { key, hash: fingerprint([['needId', needId]]) };
+      const grant = await repository.authorizeBatch(accessToken, envelope, needId);
+      if ('replayed' in grant) return grant.replayed;
       const need = await needs.get(accessToken, needId);
-      const grant = await repository.authorizeBatch(accessToken, needId);
       const slots: BatchSlot[] = Array.from({ length: batchSize(need.targetConfirmations) }, () => ({ invitationId: newId(), ...prepare() }));
-      return repository.requestBatch({ key, hash: fingerprint([['needId', needId]]) }, needId, grant, slots);
+      return repository.requestBatch(envelope, needId, grant, slots);
     },
 
     async previewAction(token: string, ipSubject: string) {

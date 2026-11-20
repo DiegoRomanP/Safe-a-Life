@@ -8,13 +8,16 @@ import type { BatchSlot, InvitationsRepository, RetrySlot } from './invitations.
 const NEED = '40000000-0000-4000-8000-000000000001';
 const INVITATION = '50000000-0000-4000-8000-000000000001';
 
-function harness(options: { target?: number; allowed?: boolean } = {}) {
+function harness(options: { target?: number; allowed?: boolean; replayed?: boolean } = {}) {
   const calls: string[] = [];
   const seen: { batch?: { grant: string; slots: readonly BatchSlot[]; envelope: { key: string; hash: string } }; retry?: { grant: string; slot: RetrySlot }; respond?: { tokenHash: string; hash: string } } = {};
   const sealed: Array<{ outboxId: string; payload: { token: string; rejectToken: string } }> = [];
   let counter = 0;
   const repository = {
-    authorizeBatch: async () => { calls.push('authorizeBatch'); return { grantSecret: 'a'.repeat(64) }; },
+    authorizeBatch: async () => {
+      calls.push('authorizeBatch');
+      return options.replayed ? { replayed: { batchId: 'guardado', createdInvitationCount: 2, queuedEmailCount: 2 } } : { grantSecret: 'a'.repeat(64) };
+    },
     requestBatch: async (envelope, _needId, grant, slots) => {
       calls.push('requestBatch');
       seen.batch = { grant: grant.grantSecret, slots, envelope };
@@ -43,12 +46,19 @@ describe('lote de invitaciones', () => {
     expect(seen.batch?.slots).toHaveLength(slots);
   });
 
-  it('lee la necesidad, autoriza con la sesión de la persona y recién entonces ejecuta con la concesión', async () => {
+  it('autoriza con la sesión de la persona, lee la necesidad y recién entonces ejecuta con la concesión', async () => {
     const { service, calls, seen } = harness();
     await service.requestBatch('jwt', 'clave-de-idempotencia-1', NEED);
-    expect(calls).toEqual(['getNeed', 'authorizeBatch', 'requestBatch']);
+    expect(calls).toEqual(['authorizeBatch', 'getNeed', 'requestBatch']);
     expect(seen.batch?.grant).toBe('a'.repeat(64));
     expect(seen.batch?.envelope).toEqual({ key: 'clave-de-idempotencia-1', hash: fingerprint([['needId', NEED]]) });
+  });
+
+  it('un replay resuelto en la autorización devuelve el lote guardado sin preparar slots ni ejecutar', async () => {
+    const { service, calls, sealed } = harness({ replayed: true });
+    await expect(service.requestBatch('jwt', 'clave-de-idempotencia-1', NEED)).resolves.toEqual({ batchId: 'guardado', createdInvitationCount: 2, queuedEmailCount: 2 });
+    expect(calls).toEqual(['authorizeBatch']);
+    expect(sealed).toHaveLength(0);
   });
 
   it('cada slot lleva ids y hashes distintos, y el payload sellado con dos tokens cuyo hash coincide', async () => {

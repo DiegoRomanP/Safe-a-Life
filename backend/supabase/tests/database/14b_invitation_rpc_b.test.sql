@@ -4,7 +4,7 @@ begin;
 truncate app.invitation_retry_grants, app.invitation_response_history, app.invitations, app.invitation_batches, app.email_outbox, app.needs, app.sites,
   app.idempotency_records, app.session_barriers, app.admitted_sessions, app.donor_profiles, app.hospital_memberships, app.hospitals, app.user_accounts cascade;
 
-select plan(52);
+select plan(56);
 
 -- Ayudas ---------------------------------------------------------------------------------------------------------
 create function pg_temp.u(n int) returns uuid language sql immutable as $$ select ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
@@ -208,7 +208,30 @@ update app.donor_profiles set status = 'incompleto' where donor_id = pg_temp.u(1
 set local role authenticated;
 select pg_temp.login(pg_temp.u(12));
 select is(api.change_own_invitation_response('clave-cambio-0000009', pg_temp.hc(pg_temp.iid(2), 'confirmada'), pg_temp.iid(2), 'confirmada') ->> 'kind', 'conflict',
-  'con el perfil no activo la respuesta no cambia');
+  'con el perfil no activo no se confirma');
+select is(api.change_own_invitation_response('clave-cambio-0000010', pg_temp.hc(pg_temp.iid(2), 'rechazada'), pg_temp.iid(2), 'rechazada') ->> 'kind', 'ok',
+  'pero retirar la confirmación sí se permite (RF-INV-06)');
+reset role;
+
+-- Perfil no activo: la vista previa y la respuesta por token coinciden en 410 (I7, donante 14).
+update app.donor_profiles set status = 'incompleto' where donor_id = pg_temp.u(14);
+insert into res values ('fp7', to_jsonb(app.fingerprint(jsonb_build_array(jsonb_build_array('tokenHash', pg_temp.sha('mk7c'))))));
+set local role authenticated;
+select pg_temp.login(pg_temp.u(4));
+select is(api.get_invitation_action_preview(pg_temp.sha('mk7c')) ->> 'kind', 'gone', 'la vista previa de un perfil no activo es gone');
+select is(api.respond_invitation_by_token(pg_temp.sha('mk7c'), 'clave-token-00000071', (select j #>> '{}' from res where label = 'fp7')) ->> 'kind', 'gone',
+  'y responder por token también es gone');
+reset role;
+
+-- Eliminación en ejecución: el reintento es conflict (I1, donante 11).
+insert into app.correction_requests (request_id, donor_id, type, requested_fields, status)
+values (gen_random_uuid(), pg_temp.u(11), 'eliminacion', array['deletion'], 'en_ejecucion');
+set local role authenticated;
+select pg_temp.login(pg_temp.u(3), 'aal2', true);
+insert into res values ('g1', api.authorize_invitation_retry(pg_temp.iid(1)));
+select pg_temp.login(pg_temp.u(4));
+select is(api.retry_invitation_delivery('clave-retry-00000011', pg_temp.hr(pg_temp.iid(1)), pg_temp.iid(1), (select j ->> 'grantSecret' from res where label = 'g1'), pg_temp.slot('r1')) ->> 'kind',
+  'conflict', 'no se reintenta la entrega a un donante con eliminación en ejecución');
 reset role;
 
 select * from finish();
