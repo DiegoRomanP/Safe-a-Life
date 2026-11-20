@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
-import { click, setupRender, type } from '../../../test/render.js';
+import { describe, expect, it, vi } from 'vitest';
+import { click, settle, setupRender, type } from '../../../test/render.js';
 import { renderRoute } from '../../../test/renderRoute.js';
 
 setupRender();
@@ -29,16 +29,61 @@ describe('AUTH-03 Reclamar cuenta asistida', () => {
     expect(view.querySelector('input[type="password"]')?.getAttribute('autocomplete')).toBe('new-password');
   });
 
-  it('valida la contraseña y, si es válida, avisa que la activación aún no existe', () => {
-    const view = renderRoute(`/activar-cuenta#${TOKEN}`);
+  function stubClaim(status: number, requests: Array<{ url: string; init?: RequestInit }> = []) {
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init });
+      return { ok: status < 300, status, json: async () => (status < 300 ? { data: { status: 'reclamada_incompleta', emailVerified: true } } : { error: { code: 'X' } }) };
+    });
+    return requests;
+  }
+
+  function openPasswordStep(view: Element) {
     click([...view.querySelectorAll('button')].find((b) => b.textContent === 'Continuar y crear contraseña') ?? null);
-    const input = view.querySelector('input[type="password"]');
-    type(input, 'corta');
+    return view.querySelector('input[type="password"]');
+  }
+
+  it('valida la contraseña antes de enviar', () => {
+    const requests = stubClaim(201);
+    const view = renderRoute(`/activar-cuenta#${TOKEN}`);
+    type(openPasswordStep(view), 'corta');
     click(view.querySelector('button[type="submit"]'));
     expect(view.textContent).toContain('al menos 12 caracteres');
-    type(input, 'clave-de-demo-larga');
+    expect(requests).toEqual([]);
+  });
+
+  it('reclama la cuenta con un POST al enlace (sin pintar el token) y lleva a ingresar', async () => {
+    const requests = stubClaim(201);
+    const view = renderRoute(`/activar-cuenta#${TOKEN}`);
+    type(openPasswordStep(view), 'clave-de-demo-larga');
     click(view.querySelector('button[type="submit"]'));
-    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Por ahora no se envían datos.');
+    await settle();
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0]?.url).toBe(`/api/v1/assisted-activation-actions/${TOKEN}/claim`);
+    expect(requests[0]?.init?.method).toBe('POST');
+    expect(JSON.parse(String(requests[0]?.init?.body))).toEqual({ password: 'clave-de-demo-larga' });
+    expect(view.querySelector('h1')?.textContent).toBe('Cuenta activada');
+    expect(view.querySelector('a[href="/ingresar"]')).not.toBeNull();
+    expect(view.innerHTML).not.toContain(TOKEN);
+  });
+
+  it.each([[410, 'Enlace vencido'], [404, 'Enlace no disponible']])('un %i muestra «%s»', async (status, title) => {
+    stubClaim(status);
+    const view = renderRoute(`/activar-cuenta#${TOKEN}`);
+    type(openPasswordStep(view), 'clave-de-demo-larga');
+    click(view.querySelector('button[type="submit"]'));
+    await settle();
+    expect(view.querySelector('h1')?.textContent).toBe(title);
+  });
+
+  it('una contraseña rechazada (422) pide otra y conserva el formulario', async () => {
+    stubClaim(422);
+    const view = renderRoute(`/activar-cuenta#${TOKEN}`);
+    type(openPasswordStep(view), 'clave-de-demo-larga');
+    click(view.querySelector('button[type="submit"]'));
+    await settle();
+    expect(view.textContent).toContain('Elige otra contraseña');
+    expect(view.querySelector('h1')?.textContent).toBe('Crea tu contraseña');
   });
 
   it('en desarrollo, el selector permite ver los demás estados', () => {

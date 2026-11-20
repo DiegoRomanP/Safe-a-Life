@@ -9,6 +9,8 @@ import {
   type TokenStatus,
   type TokenStatusCopy,
 } from '../components/TokenStatusView.js';
+import { apiRequest } from '../../../lib/api/http.js';
+import { tokenStatusFor } from '../tokenStatus.js';
 import { useFragmentToken } from '../useFragmentToken.js';
 
 // El enlace vencido se renueva desde la cuenta, no con el hospital.
@@ -23,11 +25,24 @@ const changeCopy: TokenStatusCopy = {
 };
 
 // Confirmar cambio de correo (`/cambiar-correo#token`), enlace que llega al
-// correo nuevo. Vista previa con getEmailChangePreview; el botón corresponde
-// a verifyEmailChange.
+// correo nuevo. El botón ejecuta verifyEmailChange; el estado del enlace se
+// conoce al confirmar.
+// shortcut: sin GET de vista previa (getEmailChangePreview); añadirlo si se quiere mostrar el plazo.
 export function ConfirmEmailChangePage() {
   const { token } = useFragmentToken();
   const [status, setStatus] = useState<TokenStatus>(token ? 'valid' : 'invalid');
+
+  async function confirm(): Promise<boolean> {
+    if (!token) return false;
+    try {
+      await apiRequest('POST', `/donor-email-change-actions/${encodeURIComponent(token)}`);
+      return true;
+    } catch (error) {
+      const next = tokenStatusFor(error);
+      if (next) setStatus(next);
+      return false;
+    }
+  }
 
   return (
     <AuthShell
@@ -53,6 +68,7 @@ export function ConfirmEmailChangePage() {
               doneTitle="Correo actualizado"
               doneDetail="El cambio quedó confirmado. Ingresa con tu nuevo correo."
               doneLink={{ to: '/ingresar', label: 'Ingresar' }}
+              onConfirm={confirm}
             />
           }
         />
