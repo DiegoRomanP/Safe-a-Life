@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import type { DemoScenario } from '../../lib/demoApi.js';
+import { rememberNull } from '../../lib/rememberNull.js';
 import {
   changeInvitationResponse, completeOwnOnboarding, createOwnRequest, fetchOwnHistory, fetchOwnInvitation, fetchOwnInvitations, fetchOwnProfile,
   fetchOwnRequests, updateOwnParticipation, type NewCorrectionRequest, type ParticipationPatch,
@@ -36,8 +37,10 @@ export function DonorDemoProvider({ children }: { children: ReactNode; now?: () 
   // Cada escritura real da a sus lecturas una identidad nueva para que la vista se revalide.
   const [version, setVersion] = useState(0);
   const refresh = useCallback(() => setVersion((current) => current + 1), []);
-  const [getProfile, setGetProfile] = useState(() => () => fetchOwnProfile());
-  const reloadProfile = useCallback(() => setGetProfile(() => () => fetchOwnProfile()), []);
+  // El 404 esperado del donante sin perfil (getOwnDonorProfile antes del onboarding) se pide una vez y no en cada vista;
+  // completar el onboarding crea una identidad nueva con reloadProfile.
+  const [getProfile, setGetProfile] = useState(() => rememberNull(fetchOwnProfile));
+  const reloadProfile = useCallback(() => setGetProfile(() => rememberNull(fetchOwnProfile)), []);
   const [listRequests, setListRequests] = useState(() => () => fetchOwnRequests());
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- `version` solo cambia la identidad para revalidar.
