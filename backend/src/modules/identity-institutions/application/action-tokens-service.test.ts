@@ -220,11 +220,29 @@ describe('requestPasswordRecovery', () => {
   });
 });
 
+describe('límite por IP de la vista previa de invitación y del reset (L2)', () => {
+  it('previewAdminInvitation consume admin-preview:ip (10 cada 15 min) y responde 429 sin consultar la invitación', async () => {
+    const limited = harness({ allowed: () => false });
+
+    await expect(limited.service.previewAdminInvitation(TOKEN, 'ip-hmac')).rejects.toMatchObject({ code: 'RATE_LIMITED', retryAfterSeconds: 33 });
+    expect(limited.seen.buckets).toEqual([['admin-preview:ip', 10, 900]]);
+    expect(limited.calls).toEqual([]);
+  });
+
+  it('completePasswordReset consume reset:ip (10 cada 15 min) y responde 429 sin consumir el token', async () => {
+    const limited = harness({ allowed: () => false });
+
+    await expect(limited.service.completePasswordReset(TOKEN, 'otra-contrasena-larga', 'ip-hmac')).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+    expect(limited.seen.buckets).toEqual([['reset:ip', 10, 900]]);
+    expect(limited.calls).toEqual([]);
+  });
+});
+
 describe('completePasswordReset', () => {
   it('consume el token, revoca las sesiones ANTES de cambiar la contraseña y revoca otra vez después', async () => {
     const { service, calls } = harness();
 
-    await service.completePasswordReset(TOKEN, 'otra-contrasena-larga');
+    await service.completePasswordReset(TOKEN, 'otra-contrasena-larga', 'ip-hmac');
 
     expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'passwordChanged:u-1', 'revokeAllSessions', 'closeBarrier:u-1:3']);
   });
@@ -232,7 +250,7 @@ describe('completePasswordReset', () => {
   it('si el gancho que levanta el bloqueo falla, cierra igualmente las sesiones y responde 503', async () => {
     const { service, calls } = harness({ hookError: new Error('canario-base') });
 
-    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga', 'ip-hmac')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
 
     expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'passwordChanged:u-1', 'revokeAllSessions']);
   });
@@ -240,28 +258,28 @@ describe('completePasswordReset', () => {
   it('un token inválido no toca Auth', async () => {
     const { service, calls } = harness({ consumeError: new ApiError('ACTION_UNAVAILABLE') });
 
-    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).rejects.toMatchObject({ code: 'ACTION_UNAVAILABLE' });
+    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga', 'ip-hmac')).rejects.toMatchObject({ code: 'ACTION_UNAVAILABLE' });
     expect(calls).toEqual(['consume']);
   });
 
   it('si Auth rechaza la contraseña las sesiones ya estaban revocadas y el error se propaga', async () => {
     const { service, calls } = harness({ updateError: new ApiError('VALIDATION_FAILED') });
 
-    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
+    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga', 'ip-hmac')).rejects.toMatchObject({ code: 'VALIDATION_FAILED' });
     expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword']);
   });
 
   it('si la primera revocación falla no se cambia la contraseña (falla cerrado)', async () => {
     const { service, calls } = harness({ failRevokeAt: [1] });
 
-    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).rejects.toThrow();
+    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga', 'ip-hmac')).rejects.toThrow();
     expect(calls).toEqual(['consume', 'revokeAllSessions']);
   });
 
   it('un fallo de la segunda revocación se reintenta una vez y, si el reintento funciona, el reset termina', async () => {
     const { service, calls } = harness({ failRevokeAt: [2] });
 
-    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).resolves.toBeUndefined();
+    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga', 'ip-hmac')).resolves.toBeUndefined();
 
     expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'passwordChanged:u-1', 'revokeAllSessions', 'revokeAllSessions', 'closeBarrier:u-1:3']);
   });
@@ -269,16 +287,16 @@ describe('completePasswordReset', () => {
   it('si la segunda revocación falla también al reintentar no se responde éxito en silencio (503)', async () => {
     const { service, calls } = harness({ failRevokeAt: [2, 3] });
 
-    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga', 'ip-hmac')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
 
     expect(calls).toEqual(['consume', 'revokeAllSessions', 'updatePassword', 'passwordChanged:u-1', 'revokeAllSessions', 'revokeAllSessions']);
   });
 
   it('si el gancho o la revocación final fallan NO se cierra la barrera (queda abierta: falla cerrado)', async () => {
     const hook = harness({ hookError: new Error('canario-base') });
-    await expect(hook.service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+    await expect(hook.service.completePasswordReset(TOKEN, 'otra-contrasena-larga', 'ip-hmac')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
     const revoke = harness({ failRevokeAt: [2, 3] });
-    await expect(revoke.service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+    await expect(revoke.service.completePasswordReset(TOKEN, 'otra-contrasena-larga', 'ip-hmac')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
 
     expect(hook.calls.some((call) => call.startsWith('closeBarrier'))).toBe(false);
     expect(revoke.calls.some((call) => call.startsWith('closeBarrier'))).toBe(false);
@@ -287,21 +305,21 @@ describe('completePasswordReset', () => {
   it('un fallo del cierre se reintenta una vez; si el reintento funciona el reset termina', async () => {
     const { service, calls } = harness({ closeResults: [new Error('canario-base'), 'ok'] });
 
-    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).resolves.toBeUndefined();
+    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga', 'ip-hmac')).resolves.toBeUndefined();
     expect(calls.filter((call) => call.startsWith('closeBarrier'))).toEqual(['closeBarrier:u-1:3', 'closeBarrier:u-1:3']);
   });
 
   it('si el cierre falla dos veces responde 503', async () => {
     const { service, calls } = harness({ closeResults: [new Error('canario-base'), new Error('canario-base')] });
 
-    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
+    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga', 'ip-hmac')).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' });
     expect(calls.filter((call) => call.startsWith('closeBarrier'))).toHaveLength(2);
   });
 
   it('conflict (un reset posterior ya abrió otra generación) cuenta como éxito de esta operación, sin reintentar', async () => {
     const { service, calls } = harness({ closeResults: ['conflict'] });
 
-    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga')).resolves.toBeUndefined();
+    await expect(service.completePasswordReset(TOKEN, 'otra-contrasena-larga', 'ip-hmac')).resolves.toBeUndefined();
     expect(calls.filter((call) => call.startsWith('closeBarrier'))).toHaveLength(1);
   });
 });

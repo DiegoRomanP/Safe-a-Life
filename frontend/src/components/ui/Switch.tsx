@@ -22,7 +22,7 @@ export function Switch({ checked, onChange, labelledBy, describedBy, onLabel = '
       aria-describedby={describedBy}
       onClick={() => onChange(!checked)}
       className={cx(
-        'flex min-h-12 w-full max-w-[220px] items-center gap-3 rounded-full border px-3 font-semibold transition-colors duration-200',
+        'flex min-h-12 w-full max-w-[220px] items-center gap-3 rounded-full border px-3 font-semibold transition-[color,background-color,border-color] duration-200',
         checked ? 'border-success bg-success-soft text-success' : 'border-muted bg-neutral-soft text-muted',
       )}
     >

@@ -71,7 +71,7 @@ export function HospitalsPage() {
         description="Gestiona instituciones autorizadas y su estado operativo."
         actions={<Button onClick={() => publicRef.current?.focus()}>Nuevo hospital</Button>}
       />
-      <Alert tone="brand" title="Control central">
+      <Alert tone="info" title="Control central">
         Solo el superadmin puede crear o modificar hospitales y aprobar sus sedes.
       </Alert>
       {stepUpPanel}
@@ -124,10 +124,10 @@ export function HospitalsPage() {
         <h2 id="resumen-institucional" className="text-xl font-semibold text-ink">
           Resumen institucional
         </h2>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4">
           <StatCard value={hospitals.filter((h) => h.isAuthorized).length} label="Hospitales autorizados" accent="petrol" />
           <StatCard value={sites.filter((s) => s.isActive).length} label="Sedes activas" accent="success" />
-          <StatCard value={memberships.filter((m) => m.status === 'activa').length} label="Administradores activos" accent="danger" />
+          <StatCard value={memberships.filter((m) => m.status === 'activa').length} label="Administradores activos" accent="petrol" />
         </div>
       </section>
 

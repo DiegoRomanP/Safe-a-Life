@@ -31,7 +31,7 @@ export function LoginPage() {
       asideTitle="Accede a tu espacio seguro"
       asideDetail="Gestiona tus invitaciones o coordina necesidades de tu institución según tu rol asignado."
       asideFooter={
-        <Alert tone="warning" title="Uso académico">
+        <Alert tone="info" title="Uso académico">
           No ingreses datos reales en este prototipo.
         </Alert>
       }

@@ -7,6 +7,9 @@ const HEADERS: Readonly<Record<string, string>> = Object.freeze({
   'Referrer-Policy': 'no-referrer',
   'Cache-Control': 'no-store',
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+  // ADR-004: el frontend comparte origen con la API detrás del proxy; ningún otro origen debe incrustar sus respuestas.
+  'Cross-Origin-Resource-Policy': 'same-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
 });
 
 /** Cabeceras defensivas para una API JSON. Se montan primero para que cubran también los errores. */

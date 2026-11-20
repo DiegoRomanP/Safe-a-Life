@@ -3,6 +3,7 @@ import type { AppConfig } from '../../config/env.js';
 import { ApiError } from '../http/errors.js';
 import { PersistenceUnavailableError, UpstreamRateLimitedError } from '../persistence/errors.js';
 import { parseClaims } from './claims.js';
+import { createJwksCache, decodeJwtHeader } from './jwks-cache.js';
 import type { MfaFactorSummary, SessionGateway, TokenPair, TotpEnrollment, VerifiedClaims } from './session-ports.js';
 
 const AUTH_TIMEOUT_MS = 8_000;
@@ -40,7 +41,7 @@ function toPair(session: Pick<Session, 'access_token' | 'refresh_token' | 'expir
  * Los mensajes del proveedor no salen de este archivo.
  */
 export function createSupabaseSessionGateway(
-  config: { supabase: Pick<AppConfig['supabase'], 'url' | 'anonKey'> },
+  config: { supabase: Pick<AppConfig['supabase'], 'url' | 'anonKey'> & Partial<Pick<AppConfig['supabase'], 'jwksUrl'>> },
   options: SupabaseSessionOptions = {},
 ): SessionGateway {
   const { url, anonKey } = config.supabase;
@@ -56,6 +57,11 @@ export function createSupabaseSessionGateway(
       auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
       global: { fetch: boundedFetch },
     });
+
+  // M2: sin JWKS local, un token falsificado con `kid` aleatorio costaba una descarga del JWKS y un `getUser` por petición.
+  // El worker no recibe `jwksUrl` (no verifica tokens de usuarios) y conserva el comportamiento del SDK.
+  const jwks = config.supabase.jwksUrl ? createJwksCache({ url: config.supabase.jwksUrl, fetch: boundedFetch }) : undefined;
+  const LOCAL_ALGS = new Set(['ES256', 'RS256', 'HS256']);
 
   /** Cliente efímero con la sesión del usuario para las llamadas de MFA. */
   const withSession = async (tokens: TokenPair): Promise<SupabaseClient> => {
@@ -77,7 +83,19 @@ export function createSupabaseSessionGateway(
       // Cualquier excepción de verificación (alg desconocido, kid ajeno, JSON roto) es «sin sesión»,
       // nunca un 500; solo la indisponibilidad del proveedor se propaga.
       try {
-        const { data, error } = await newClient().auth.getClaims(accessToken);
+        let options: { jwks: { keys: never[] } } | undefined;
+        if (jwks) {
+          const header = decodeJwtHeader(accessToken);
+          if (!header || !LOCAL_ALGS.has(header.alg as string)) return null;
+          const lookup = await jwks.lookup(header);
+          // Con claves asimétricas publicadas, HS*, `kid` ausente o desconocido y `alg` distinto se rechazan sin llamar a
+          // Auth. Si el proyecto solo firma con HS256 (JWKS vacío), únicamente Auth puede verificar: se delega en `getUser`.
+          if (lookup.mode === 'asymmetric') {
+            if (!lookup.key) return null;
+            options = { jwks: { keys: [lookup.key as never] } };
+          }
+        }
+        const { data, error } = await newClient().auth.getClaims(accessToken, options);
         unavailableOr(error, null);
         return error || !data ? null : parseClaims(data.claims, { issuer, audience: 'authenticated' });
       } catch (caught) {

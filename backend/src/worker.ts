@@ -28,9 +28,14 @@ const worker = buildWorker(loadConfig(), logger);
 worker.loop.start();
 logger.log('info', { event: 'worker.iniciado' });
 
+// Espera al ciclo en curso para que el intento de envío quede registrado; si no termina en 10 s, sale con 1 (L4).
+const SHUTDOWN_TIMEOUT_MS = 10_000;
+let stopping = false;
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.on(signal, () => {
-    worker.loop.stop();
-    process.exit(0);
+    if (stopping) return;
+    stopping = true;
+    setTimeout(() => process.exit(1), SHUTDOWN_TIMEOUT_MS).unref();
+    void worker.loop.stop().then(() => process.exit(0));
   });
 }

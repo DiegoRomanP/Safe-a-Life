@@ -28,7 +28,7 @@ export function DevScenarioPicker({ value, onChange }: DevScenarioPickerProps) {
           key={scenario}
           className={cx(
             'cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-focus',
-            value === scenario ? 'bg-petrol text-white' : 'text-ink hover:bg-neutral-soft',
+            value === scenario ? 'bg-panel text-white' : 'text-ink hover:bg-neutral-soft',
           )}
         >
           <input

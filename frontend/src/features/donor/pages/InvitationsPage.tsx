@@ -40,7 +40,7 @@ function InvitationList({ invitations }: { invitations: DonorInvitation[] }) {
   return (
     <>
       {invitations.length === 0 ? (
-        <EmptyState message="No hay invitaciones activas" detail="Cuando un hospital envíe una, aparecerá aquí." />
+        <NoInvitations />
       ) : (
         <>
           <div className="flex flex-wrap gap-3">
@@ -81,5 +81,21 @@ function InvitationList({ invitations }: { invitations: DonorInvitation[] }) {
         </>
       )}
     </>
+  );
+}
+
+// Sin invitaciones: si además falta el perfil (404 esperado antes del onboarding), el siguiente paso es completarlo.
+// Mientras se consulta el perfil o si falla, se muestra el estado vacío sin acción.
+function NoInvitations() {
+  const { scenario, getProfile } = useDonorDemo();
+  const profile = useDemoQuery(getProfile, scenario);
+  const missing = profile.status === 'ready' && profile.data === null;
+  return (
+    <EmptyState
+      title="Aún no tienes invitaciones"
+      message={missing ? 'Completa tu perfil para poder recibir invitaciones' : 'No hay invitaciones activas'}
+      detail={missing ? 'Necesitamos tu nombre, grupo declarado, disponibilidad y zona aproximada.' : 'Cuando un hospital envíe una, aparecerá aquí.'}
+      action={missing ? <LinkButton to="/donante/bienvenida">Completar perfil</LinkButton> : undefined}
+    />
   );
 }

@@ -6,7 +6,7 @@ import { registerSuperadminApi } from '../../../test/superadminApi.js';
 import { renderRoute } from '../../../test/renderRoute.js';
 
 setupRender();
-registerSuperadminApi();
+const api = registerSuperadminApi();
 
 function control(view: HTMLElement, label: string) {
   const element = [...view.querySelectorAll('label')].find((item) => item.textContent?.startsWith(label));
@@ -64,5 +64,20 @@ describe('SA-07 Auditoría', () => {
     expect(options).toContain('lote.creado');
     choose(control(view, 'Evento'), 'lote.creado');
     expect(view.querySelectorAll('tbody tr')).toHaveLength(1);
+  });
+
+  it('muestra los eventos por páginas de 50 con «Mostrar más» (B6)', async () => {
+    const base = api().auditEvents[0]!;
+    api().auditEvents = Array.from({ length: 120 }, (_, index) => ({ ...base, eventId: `evt-${index}` }));
+    const view = renderRoute('/superadmin/auditoria');
+    await settle();
+    expect(view.querySelectorAll('tbody tr')).toHaveLength(50);
+    expect(view.querySelector('p[aria-live="polite"]')?.textContent).toBe('Mostrando 50 de 120 eventos');
+    await press(button(view, 'Mostrar 50 más'));
+    expect(view.querySelectorAll('tbody tr')).toHaveLength(100);
+    await press(button(view, 'Mostrar 20 más'));
+    expect(view.querySelectorAll('tbody tr')).toHaveLength(120);
+    expect(button(view, 'Mostrar 20 más')).toBeNull();
+    expect(view.querySelector('p[aria-live="polite"]')?.textContent).toBe('120 eventos');
   });
 });

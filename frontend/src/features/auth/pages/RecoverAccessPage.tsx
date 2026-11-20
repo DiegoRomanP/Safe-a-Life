@@ -68,7 +68,7 @@ export function RecoverAccessPage() {
             <p className="text-muted">Revisa tu correo y la carpeta de correo no deseado.</p>
             <p className="text-muted">No confirmamos si una cuenta existe. Puedes volver a ingresar.</p>
           </div>
-          <Alert tone="brand" title="Prototipo académico">
+          <Alert tone="info" title="Prototipo académico">
             No uses datos reales en este prototipo.
           </Alert>
           <div>

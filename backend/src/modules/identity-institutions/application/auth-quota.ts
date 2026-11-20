@@ -15,7 +15,8 @@ export const AUTH_QUOTA_WINDOW_SECONDS = 5 * 60;
 export const AUTH_QUOTA = Object.freeze({ login: 50, refresh: 80 });
 export type AuthQuotaFlow = keyof typeof AUTH_QUOTA;
 
-/** Sujeto fijo del techo global (el limitador exige 64 hexadecimales). */
+/** Sujeto fijo del techo global (el limitador exige 64 hexadecimales). Es público, pero desde 20261120124712 solo la sesión
+ * técnica de la API puede ejecutar `consume_rate_limit`: nadie de fuera puede llenar este bucket (M1). */
 const GLOBAL_SUBJECT = '0'.repeat(64);
 
 /** Consume un cupo del techo global del flujo. Devuelve los segundos a esperar, o `null`. */

@@ -20,13 +20,18 @@ const accentClass: Record<StatCardAccent, string> = {
   muted: 'border-l-4 border-l-muted',
 };
 
+/** Acento de alerta solo cuando hay algo pendiente; con 0 el indicador queda neutro (no hay problema que señalar). */
+export function accentWhenPending(value: number, accent: 'danger' | 'warning'): StatCardAccent {
+  return value > 0 ? accent : 'muted';
+}
+
 // Indicador del resumen operativo (p. ej. «4 · Necesidades activas»). Se lee
 // en orden: valor, etiqueta y nota.
 export function StatCard({ value, label, hint, accent, className }: StatCardProps) {
   return (
     <div
       className={cx(
-        'flex flex-col gap-1 rounded-xl border border-line bg-surface p-5',
+        'flex flex-col gap-1 rounded-xl border border-line bg-surface p-4 sm:p-5',
         accent && accentClass[accent],
         className,
       )}

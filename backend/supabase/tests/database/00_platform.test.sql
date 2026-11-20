@@ -1,21 +1,23 @@
 begin;
 -- Aislamiento: las pruebas corren sobre una base que puede estar sembrada. Todo se revierte con el rollback.
-truncate app.sites, app.hospital_memberships, app.hospitals, app.user_accounts cascade;
+truncate app.sites, app.hospital_memberships, app.hospitals, app.user_accounts, app.rate_limit_events cascade;
 alter table app.configuration disable trigger configuration_guard;
 update app.configuration set final_demo_at = null;
 alter table app.configuration enable trigger configuration_guard;
 
-select plan(30);
+select plan(34);
 
 -- Usuarios sintéticos de Auth (la fila de app.user_accounts se inserta como propietario).
 insert into auth.users (id, instance_id, aud, role, email)
 values
   ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-superadmin@example.test'),
   ('00000000-0000-4000-8000-0000000000a2', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-donante@example.test'),
-  ('00000000-0000-4000-8000-0000000000a3', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-sinrol@example.test');
+  ('00000000-0000-4000-8000-0000000000a3', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-sinrol@example.test'),
+  ('00000000-0000-4000-8000-0000000000a4', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-tecnica@example.test');
 insert into app.user_accounts (user_id, role, display_name) values
   ('00000000-0000-4000-8000-0000000000a1', 'superadmin', 'Superadministración'),
-  ('00000000-0000-4000-8000-0000000000a2', 'donante', 'Donante sintético');
+  ('00000000-0000-4000-8000-0000000000a2', 'donante', 'Donante sintético'),
+  ('00000000-0000-4000-8000-0000000000a4', 'api_technical', null);
 
 -- Privilegios y propiedad -----------------------------------------------------
 select ok(not has_schema_privilege('anon', 'app', 'USAGE'), 'anon no tiene USAGE en app');
@@ -41,8 +43,10 @@ select is(
   (select count(*)::int from pg_class c join pg_namespace n on n.oid = c.relnamespace
    where n.nspname = 'app' and c.relkind = 'r' and not (c.relrowsecurity and c.relforcerowsecurity)),
   0, 'todas las tablas de app tienen RLS habilitado y forzado');
-select ok(has_function_privilege('anon', 'api.consume_rate_limit(text,text,int,interval)', 'EXECUTE'),
-  'anon puede ejecutar consume_rate_limit (sin JWT)');
+select ok(not has_function_privilege('anon', 'api.consume_rate_limit(text,text,int,interval)', 'EXECUTE'),
+  'anon ya no ejecuta consume_rate_limit (M1: solo la sesión técnica de la API)');
+select ok(not has_function_privilege('anon', 'api.record_public_idempotency(text,text,text,text)', 'EXECUTE'),
+  'anon ya no ejecuta record_public_idempotency (L3)');
 
 -- Invariantes ------------------------------------------------------------------
 insert into app.audit_events (actor_kind, event, result) values ('sistema', 'prueba.inicial', 'ok');
@@ -53,7 +57,9 @@ select lives_ok($$update app.configuration set final_demo_at = '2027-01-01T00:00
 select throws_ok($$update app.configuration set final_demo_at = '2028-01-01T00:00:00Z'$$, 'P0001',
   'final_demo_at es inmutable una vez fijado', 'final_demo_at no se puede cambiar');
 
--- Rate limit ---------------------------------------------------------------------
+-- Rate limit (sesión técnica de la API) ------------------------------------------------
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-0000000000a4","role":"authenticated","aal":"aal1"}', true);
 select is(
   (select count(*)::int from generate_series(1, 10) g
    where (api.consume_rate_limit('login:ip', repeat('a', 64), 10, interval '15 minutes') ->> 'allowed')::boolean),
@@ -65,10 +71,21 @@ select ok((api.consume_rate_limit('login:ip', repeat('a', 64), 10, interval '15 
 select is((api.consume_rate_limit('login:ip', repeat('b', 64), 10, interval '15 minutes') ->> 'allowed')::boolean, true,
   'otro sujeto tiene su propio contador');
 
+-- M1: nadie más que la API consume cuotas, ni siquiera el techo global O1.
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-4000-8000-0000000000a2","role":"authenticated","aal":"aal1"}', true);
+select throws_ok($$select api.consume_rate_limit('authquota:login', repeat('0', 64), 1000, interval '1 day')$$, '42501', null,
+  'un donante autenticado no puede consumir authquota:login');
+reset role;
+select set_config('request.jwt.claims', '', true);
+select is((select count(*)::int from app.rate_limit_events where bucket = 'authquota:login'), 0,
+  'el intento del donante no dejó eventos en authquota:login');
+
 -- anon ----------------------------------------------------------------------------
 create temp table expected_version as select max(version) as version from app.schema_version;
 grant select on expected_version to anon;
 set local role anon;
+select throws_ok($$select api.consume_rate_limit('authquota:login', repeat('0', 64), 1000, interval '1 day')$$, '42501', null,
+  'anon no puede llenar el techo global de login con la anon key');
 select throws_ok($$select * from app.user_accounts$$, '42501', null, 'anon no lee tablas de app directamente');
 select is(api.readiness(), (select version from expected_version), 'readiness devuelve la última versión de migración');
 

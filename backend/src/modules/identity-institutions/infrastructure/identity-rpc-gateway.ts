@@ -57,12 +57,29 @@ function outcomeOf(value: unknown): KeyOutcome {
   }
 }
 
-export function createIdentityGateways(factory: SupabaseFactory): Readonly<{
+/** Sesión técnica de la API (`api_technical`): la única que ejecuta el rate limit y la idempotencia pública (M1, L3). */
+export interface TechnicalToken {
+  readonly accessToken: () => Promise<string>;
+  readonly invalidate: () => void;
+}
+
+export function createIdentityGateways(factory: SupabaseFactory, technical: TechnicalToken): Readonly<{
   actors: ActorResolver;
   limiter: RateLimiter;
   publicKeys: PublicIdempotency;
   userKeys: UserKeyGuard;
 }> {
+  // Si Auth rechaza el JWT técnico (vencido o revocado), se descarta la sesión y se reintenta UNA vez.
+  const asTechnical = async (name: string, args: Readonly<Record<string, unknown>>): Promise<unknown> => {
+    try {
+      return await callRpc(factory.forUser(await technical.accessToken()), name, args);
+    } catch (error) {
+      if (!(error instanceof PersistenceError) || error.reason !== 'jwt') throw error;
+      technical.invalidate();
+      return callRpc(factory.forUser(await technical.accessToken()), name, args);
+    }
+  };
+
   return Object.freeze({
     actors: {
       async currentActor(accessToken) {
@@ -71,7 +88,7 @@ export function createIdentityGateways(factory: SupabaseFactory): Readonly<{
     },
     limiter: {
       async consume(bucket, subject, limit, windowSeconds) {
-        const value = await callRpc(factory.anonymous(), 'consume_rate_limit', {
+        const value = await asTechnical('consume_rate_limit', {
           p_bucket: bucket, p_subject: subject, p_limit: limit, p_window: `${windowSeconds} seconds`,
         });
         if (!isRecord(value) || !hasOnly(value, ['allowed', 'retryAfterSeconds'])
@@ -83,7 +100,7 @@ export function createIdentityGateways(factory: SupabaseFactory): Readonly<{
     },
     publicKeys: {
       async record(actorRef, operation, key, hash) {
-        return outcomeOf(await callRpc(factory.anonymous(), 'record_public_idempotency', {
+        return outcomeOf(await asTechnical('record_public_idempotency', {
           p_actor_ref: actorRef, p_operation: operation, p_key: key, p_hash: hash,
         }));
       },

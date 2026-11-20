@@ -9,6 +9,7 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 // Variantes de Penpot (00 - Fundamentos): 44 px de alto, radio 8, borde de 1 px.
+// La transición excluye outline-color para que el anillo de foco aparezca al instante (transition-colors lo animaba).
 const variants: Record<ButtonVariant, string> = {
   primary: 'border-brand bg-brand text-white hover:border-brand-deep hover:bg-brand-deep',
   secondary: 'border-petrol bg-surface text-petrol hover:bg-soft-blue',
@@ -18,7 +19,7 @@ const variants: Record<ButtonVariant, string> = {
 
 export function buttonClass(variant: ButtonVariant = 'primary', fullWidth = false, className?: string) {
   return cx(
-    'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-4 text-base font-semibold transition-colors',
+    'inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-4 text-base font-semibold transition-[color,background-color,border-color]',
     'disabled:cursor-not-allowed disabled:opacity-60 aria-disabled:cursor-not-allowed aria-disabled:opacity-60',
     variants[variant],
     fullWidth && 'w-full',

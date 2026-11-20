@@ -87,6 +87,33 @@ describe('bucle del worker', () => {
     await expect(loop.tick()).resolves.toBeUndefined();
   });
 
+  it('stop espera a que termine el ciclo en curso y no programa otro (L4)', async () => {
+    vi.useFakeTimers();
+    try {
+      let release!: () => void;
+      let runs = 0;
+      const processor = {
+        runOnce: () => { runs += 1; return new Promise((resolve) => { release = () => resolve({ claimed: 1, sent: 1, failed: 0, retried: 0, skipped: 0 }); }); },
+      } as unknown as OutboxProcessor;
+      const loop = createWorkerLoop({ processor, gateway: { expire: async () => ({ expired: 0, exhausted: 0 }) }, pollMs: 1000, log: () => {} });
+
+      loop.start();
+      await vi.advanceTimersByTimeAsync(1000);
+      let stopped = false;
+      const stopping = loop.stop().then(() => { stopped = true; });
+      await vi.advanceTimersByTimeAsync(0);
+      expect(stopped).toBe(false);
+
+      release();
+      await stopping;
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(stopped).toBe(true);
+      expect(runs).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('el temporizador del bucle mantiene vivo el proceso (con unref, `npm run dev:worker` salía sin un solo ciclo)', () => {
     const timers: NodeJS.Timeout[] = [];
     const realSetTimeout = globalThis.setTimeout;

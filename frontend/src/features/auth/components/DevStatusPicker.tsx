@@ -24,7 +24,7 @@ export function DevStatusPicker({ value, onChange }: DevStatusPickerProps) {
           key={option.value}
           className={cx(
             'cursor-pointer rounded-lg px-4 py-2 text-sm font-semibold has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-focus',
-            value === option.value ? 'bg-petrol text-white' : 'text-ink hover:bg-neutral-soft',
+            value === option.value ? 'bg-panel text-white' : 'text-ink hover:bg-neutral-soft',
           )}
         >
           <input

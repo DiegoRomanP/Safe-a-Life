@@ -4,7 +4,7 @@ import { EmptyState } from '../../../components/states/EmptyState.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { Button } from '../../../components/ui/Button.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
-import { StatCard } from '../../../components/ui/StatCard.js';
+import { StatCard, accentWhenPending } from '../../../components/ui/StatCard.js';
 import { formatDateTime } from '../../../lib/format.js';
 import { requestCode, taskKindLabel } from '../labels.js';
 import { ActionError } from '../components/ActionError.js';
@@ -51,10 +51,10 @@ export function TasksPage() {
       <ActionError />
       <ResultNotice notice={notice} />
       <PageHeader title="Tareas administrativas" description="Resuelve acciones pendientes sin navegar el padrón de donantes." />
-      <section aria-label="Indicadores" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard value={count('correction_request')} label="Solicitudes pendientes" accent="warning" />
+      <section aria-label="Indicadores" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <StatCard value={count('correction_request')} label="Solicitudes pendientes" accent={accentWhenPending(count('correction_request'), 'warning')} />
         <StatCard value={count('hospital_review')} label="Sedes por revisar" accent="petrol" />
-        <StatCard value={count('delivery_failure')} label="Fallos de entrega" accent="danger" />
+        <StatCard value={count('delivery_failure')} label="Fallos de entrega" accent={accentWhenPending(count('delivery_failure'), 'danger')} />
         <StatCard value={count('recognition_policy')} label="Políticas por moderar" accent="muted" />
       </section>
       <section aria-labelledby="prioridad-titulo" className="flex flex-col gap-4">

@@ -81,7 +81,7 @@ export function InvitationLinkCard({ preview, onConfirm, onUnavailable }: Invita
             Puedes cambiar tu respuesta desde tu cuenta mientras la invitación siga activa.
           </p>
         </div>
-        <Alert tone="brand" title="Prototipo académico">
+        <Alert tone="info" title="Prototipo académico">
           La respuesta expresa solo tu intención. El hospital verificará tu identidad, grupo y elegibilidad.
         </Alert>
         <div>

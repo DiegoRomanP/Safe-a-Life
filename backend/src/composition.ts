@@ -67,7 +67,6 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
   const supabase = createSupabaseFactory(config);
   const sessions = createSupabaseSessionGateway(config);
   const rpc = createRpcInvoker(supabase);
-  const identity = createIdentityGateways(supabase);
   const needsGateway = createNeedsRpcGateway({
     rpc,
     raw: (accessToken, name, args) => callRpc(supabase.forUser(accessToken), name, args),
@@ -84,6 +83,11 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
     refresh: (refreshToken) => sessions.refresh(refreshToken),
   });
   const technicalRpc = createTechnicalInvoker(rpc, () => technicalSession.accessToken(), () => technicalSession.invalidate());
+  // Rate limit e idempotencia pública solo con la sesión técnica: la anon key ya no puede ejecutarlos (M1, L3).
+  const identity = createIdentityGateways(supabase, {
+    accessToken: () => technicalSession.accessToken(),
+    invalidate: () => technicalSession.invalidate(),
+  });
   const auth = createAuthService(sessions, { ...identity, admission: createSessionAdmissionRpcGateway(technicalRpc) }, {
     keys: hmacKeys,
     loginFailureFloorMs: 400,

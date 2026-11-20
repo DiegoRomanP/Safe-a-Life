@@ -80,7 +80,10 @@ export function createActionTokensService({
       );
     },
 
-    previewAdminInvitation: (token: string) => repository.adminInvitationPreview(hashToken(token)),
+    async previewAdminInvitation(token: string, ipSubject: string) {
+      await rejectIfLimited([['admin-preview:ip', ipSubject, IP_LIMIT, IP_WINDOW_SECONDS]]);
+      return repository.adminInvitationPreview(hashToken(token));
+    },
 
     /**
      * Reclama la invitación: crea la cuenta de Auth con la contraseña elegida, la vincula con la invitación y
@@ -150,7 +153,8 @@ export function createActionTokensService({
      * Auth cae a mitad, las sesiones anteriores ya no existen; la segunda revocación cierra las que se hubieran abierto
      * con la contraseña vieja entre ambos pasos (sus access tokens valen hasta 600 s).
      */
-    async completePasswordReset(token: string, newPassword: string): Promise<void> {
+    async completePasswordReset(token: string, newPassword: string, ipSubject: string): Promise<void> {
+      await rejectIfLimited([['reset:ip', ipSubject, IP_LIMIT, IP_WINDOW_SECONDS]]);
       const { userId, generation } = await repository.consumePasswordReset(hashToken(token));
       await admin.revokeAllSessions(userId);
       await admin.updatePassword(userId, newPassword);
