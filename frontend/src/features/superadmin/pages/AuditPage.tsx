@@ -13,15 +13,23 @@ import { TableScroll } from '../../../components/ui/TableScroll.js';
 // SA-07 Auditoría minimizada (Penpot «+»). listAuditEvents entrega eventos
 // append-only con actor y recurso opacos, sin valores personales. El contrato
 // solo pagina (limit, cursor): los filtros se aplican sobre los eventos
-// cargados.
+// cargados. La tabla muestra los eventos de PAGE en PAGE («Mostrar más») para no pintar miles de filas a la vez.
+const PAGE = 50;
+
 export function AuditPage() {
   const { auditEvents } = useSuperadmin();
-  const [eventFilter, setEventFilter] = useState('');
-  const [resultFilter, setResultFilter] = useState('');
+  const [eventFilter, setEventFilterState] = useState('');
+  const [resultFilter, setResultFilterState] = useState('');
+  const [shown, setShown] = useState(PAGE);
+  // Cambiar un filtro vuelve a la primera página.
+  const setEventFilter = (value: string) => { setEventFilterState(value); setShown(PAGE); };
+  const setResultFilter = (value: string) => { setResultFilterState(value); setShown(PAGE); };
   const eventOptions = [...new Set(auditEvents.map((item) => item.event))].sort().map((value) => ({ value, label: value }));
   const visible = auditEvents.filter(
     (item) => (!eventFilter || item.event === eventFilter) && (!resultFilter || item.result === resultFilter),
   );
+  const rows = visible.slice(0, shown);
+  const more = Math.min(PAGE, visible.length - rows.length);
 
   return (
     <>
@@ -67,7 +75,9 @@ export function AuditPage() {
         </Button>
       </section>
       <p aria-live="polite" className="text-sm text-muted">
-        {`${visible.length} ${visible.length === 1 ? 'evento' : 'eventos'}`}
+        {rows.length < visible.length
+          ? `Mostrando ${rows.length} de ${visible.length} eventos`
+          : `${visible.length} ${visible.length === 1 ? 'evento' : 'eventos'}`}
       </p>
 
       {visible.length === 0 ? (
@@ -87,7 +97,7 @@ export function AuditPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
-              {visible.map((item) => (
+              {rows.map((item) => (
                 <tr key={item.eventId} className="text-ink">
                   <th scope="row" className="px-4 py-4 font-semibold">{formatDateTime(item.occurredAt)}</th>
                   <td className="px-4 py-4 font-mono text-sm">{item.event}</td>
@@ -100,6 +110,11 @@ export function AuditPage() {
             </tbody>
           </table>
         </TableScroll>
+      )}
+      {more > 0 && (
+        <Button variant="secondary" className="self-start" onClick={() => setShown((current) => current + PAGE)}>
+          {`Mostrar ${more} más`}
+        </Button>
       )}
     </>
   );
