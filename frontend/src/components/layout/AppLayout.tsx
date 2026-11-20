@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { logout } from '../../features/auth/session/session.js';
 import { Badge } from '../ui/Badge.js';
 import { cx } from '../ui/cx.js';
 import { Brand } from './Brand.js';
@@ -16,14 +17,25 @@ export type AppLayoutProps = {
   initials: string;
   /** Herramientas de desarrollo sobre el contenido (solo en DEV). */
   devTools?: ReactNode;
+  /** Aviso sobre el contenido, visible en todos los entornos. */
+  notice?: ReactNode;
 };
 
 // Shell autenticado de Penpot («+»): cabecera con marca, etiqueta académica y
 // cuenta; rail petróleo con «Saltar al contenido», navegación por rol y
 // «Cerrar sesión». La ruta activa lleva aria-current (NavLink) y un borde
-// blanco a la izquierda. Sin backend (D-4), cerrar sesión vuelve al inicio.
-export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initials, devTools }: AppLayoutProps) {
+// blanco a la izquierda. Cerrar sesión borra la sesión del servidor y de memoria y vuelve a /ingresar.
+export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initials, devTools, notice }: AppLayoutProps) {
   const navigate = useNavigate();
+  const [closing, setClosing] = useState(false);
+  const signOut = () => {
+    if (closing) return;
+    setClosing(true);
+    void logout().then(
+      () => navigate('/ingresar', { replace: true }),
+      () => navigate('/ingresar', { replace: true, state: { logoutFailed: true } }),
+    );
+  };
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
@@ -33,13 +45,14 @@ export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initi
       >
         Saltar al contenido
       </a>
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-line bg-surface px-4 py-3 sm:px-7">
-        <div className="flex flex-wrap items-center gap-6">
+      {/* En móvil: marca y avatar en una fila y la etiqueta académica debajo; el nombre de la cuenta solo desde sm. */}
+      <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-line bg-surface px-4 py-3 sm:px-7">
+        <div className="contents sm:flex sm:flex-wrap sm:items-center sm:gap-6">
           <Brand />
-          <Badge tone="brand">Prototipo académico</Badge>
+          <Badge tone="brand" className="order-last sm:order-none">Prototipo académico</Badge>
         </div>
         <div className="flex items-center gap-4">
-          <div className="text-right">
+          <div className="sr-only text-right sm:not-sr-only">
             <p className="font-semibold text-ink">{accountTitle}</p>
             <p className="text-sm text-muted">{accountRole}</p>
           </div>
@@ -53,9 +66,10 @@ export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initi
       </header>
 
       <div className="flex flex-1 flex-col lg:flex-row">
-        <aside className="flex flex-col bg-petrol py-4 text-white lg:w-60 lg:shrink-0 lg:py-8">
-          <nav aria-label={navLabel}>
-            <ul className="flex flex-wrap lg:flex-col">
+        {/* Móvil: una fila de pestañas desplazable con indicador inferior y «Cerrar sesión» al lado; lg: rail vertical. */}
+        <aside className="flex items-stretch bg-petrol text-white lg:w-60 lg:shrink-0 lg:flex-col lg:py-8">
+          <nav aria-label={navLabel} className="min-w-0 flex-1 overflow-x-auto [scrollbar-color:rgb(255_255_255/0.35)_transparent] [scrollbar-width:thin] lg:flex-none lg:overflow-visible">
+            <ul className="flex lg:flex-col">
               {navItems.map((item) => (
                 <li key={item.to}>
                   <NavLink
@@ -63,7 +77,7 @@ export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initi
                     end={item.end}
                     className={({ isActive }) =>
                       cx(
-                        'block border-l-4 px-5 py-3 focus-visible:outline-white focus-visible:-outline-offset-4',
+                        'block border-b-4 px-4 py-3 whitespace-nowrap transition-colors duration-150 focus-visible:outline-white focus-visible:-outline-offset-4 lg:border-b-0 lg:border-l-4 lg:px-5',
                         isActive ? 'border-white font-bold' : 'border-transparent text-white/85 hover:bg-white/10',
                       )
                     }
@@ -74,20 +88,22 @@ export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initi
               ))}
             </ul>
           </nav>
-          <div className="mt-4 flex flex-col items-start gap-1 px-6 lg:mt-auto">
-            <p className="text-sm text-white/85">Sesión protegida</p>
+          <div className="flex shrink-0 flex-col items-start justify-center gap-1 border-l border-white/20 px-4 lg:mt-auto lg:border-l-0 lg:px-6">
+            <p className="hidden text-sm text-white/85 lg:block">Sesión protegida</p>
             <button
               type="button"
-              onClick={() => navigate('/')}
-              className="rounded text-sm font-semibold text-white underline-offset-4 hover:underline focus-visible:outline-white"
+              onClick={signOut}
+              aria-disabled={closing}
+              className="rounded text-sm font-semibold text-white underline-offset-4 hover:underline focus-visible:outline-white aria-disabled:opacity-70"
             >
-              Cerrar sesión
+              {closing ? 'Cerrando sesión…' : 'Cerrar sesión'}
             </button>
           </div>
         </aside>
 
         <main id="contenido" tabIndex={-1} className="flex-1 px-4 py-10 focus:outline-none sm:px-12">
           <div className="mx-auto flex max-w-[1088px] flex-col gap-8">
+            {notice}
             {devTools}
             <Outlet />
           </div>

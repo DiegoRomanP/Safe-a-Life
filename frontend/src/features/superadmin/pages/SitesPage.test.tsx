@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { describe, expect, it } from 'vitest';
-import { click, setupRender, type } from '../../../test/render.js';
+import { press, settle, setupRender, type } from '../../../test/render.js';
+import { registerSuperadminApi } from '../../../test/superadminApi.js';
 import { renderRoute } from '../../../test/renderRoute.js';
 
 setupRender();
+registerSuperadminApi();
 
 function control(view: HTMLElement, label: string, scope = 'main') {
   const element = [...view.querySelectorAll(`${scope} label`)].find((item) => item.textContent?.startsWith(label));
@@ -24,15 +26,17 @@ const button = (view: HTMLElement, text: string) =>
   [...view.querySelectorAll('button')].find((item) => item.textContent?.startsWith(text)) ?? null;
 
 describe('SA-03 Sedes autorizadas', () => {
-  it('lista las sedes con hospital, dirección pública y estado', () => {
+  it('lista las sedes con hospital, dirección pública y estado', async () => {
     const view = renderRoute('/superadmin/sedes');
+    await settle();
     expect(view.querySelector('h1')?.textContent).toBe('Sedes autorizadas');
     expect(rows(view)).toHaveLength(5);
     expect(view.querySelector('tbody')?.textContent).toContain('En revisión');
   });
 
-  it('filtra por estado y por búsqueda, y anuncia cuántas quedan', () => {
+  it('filtra por estado y por búsqueda, y anuncia cuántas quedan', async () => {
     const view = renderRoute('/superadmin/sedes');
+    await settle();
     choose(control(view, 'Estado', 'section[aria-label="Filtros"]'), 'revision');
     expect(rows(view)).toEqual(['Sede Villa El Salvador']);
     expect(view.querySelector('p[aria-live="polite"]')?.textContent).toBe('1 sede');
@@ -41,16 +45,18 @@ describe('SA-03 Sedes autorizadas', () => {
     expect(rows(view)).toEqual(['Sede Cercado', 'Sede Cercado de Lima']);
   });
 
-  it('aprobar una sede en revisión la activa y lo anuncia', () => {
+  it('aprobar una sede en revisión la activa y lo anuncia', async () => {
     const view = renderRoute('/superadmin/sedes');
-    click(button(view, 'Aprobar'));
+    await settle();
+    await press(button(view, 'Aprobar'));
     expect(view.querySelector('div[aria-live="polite"]')?.textContent).toContain('Sede Villa El Salvador aprobada');
     expect(view.querySelector('tbody')?.textContent).not.toContain('En revisión');
   });
 
-  it('crear sede valida y la agrega en revisión', () => {
+  it('crear sede valida y la agrega en revisión', async () => {
     const view = renderRoute('/superadmin/sedes');
-    click(button(view, 'Crear sede'));
+    await settle();
+    await press(button(view, 'Crear sede'));
     expect(view.textContent).toContain('Selecciona el hospital.');
     const form = 'form';
     choose(control(view, 'Hospital', form), 'a3c1d2e3-0003-4f5a-8b6c-7d8e9f0a1b33');
@@ -58,7 +64,7 @@ describe('SA-03 Sedes autorizadas', () => {
     type(control(view, 'Dirección pública', form), 'Av. Demo 9');
     type(control(view, 'Latitud', form), '-12.06');
     type(control(view, 'Longitud', form), '-77.05');
-    click(button(view, 'Crear sede'));
+    await press(button(view, 'Crear sede'));
     expect(view.querySelector('div[aria-live="polite"]')?.textContent).toContain('Sede Breña creada');
     expect(rows(view)).toContain('Sede Breña');
   });

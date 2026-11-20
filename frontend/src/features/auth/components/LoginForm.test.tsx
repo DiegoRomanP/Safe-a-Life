@@ -59,17 +59,17 @@ describe('LoginForm', () => {
 
   it('solo falta la contraseña: el foco va a ese campo', () => {
     const { email, password, submit } = renderForm();
-    type(email, 'persona@ejemplo.test');
+    type(email, 'persona@example.test');
     click(submit);
     expect(document.activeElement).toBe(password);
   });
 
   it('válido: entrega el correo sin espacios y limpia la contraseña', () => {
     const { email, password, submit, onSubmit } = renderForm();
-    type(email, '  persona@ejemplo.test ');
+    type(email, '  persona@example.test ');
     type(password, 'clave-sintetica');
     click(submit);
-    expect(onSubmit).toHaveBeenCalledWith({ email: 'persona@ejemplo.test', password: 'clave-sintetica' });
+    expect(onSubmit).toHaveBeenCalledWith({ email: 'persona@example.test', password: 'clave-sintetica' });
     expect(password?.value).toBe('');
   });
 
@@ -78,7 +78,7 @@ describe('LoginForm', () => {
     ['más de 128', 'x'.repeat(129), 'La contraseña no puede superar 128 caracteres.'],
   ] as const)('rechaza contraseñas con %s caracteres y enlaza el error al campo enfocado', (_label, value, error) => {
     const { view, email, password, submit, onSubmit } = renderForm();
-    type(email, 'persona@ejemplo.test');
+    type(email, 'persona@example.test');
     type(password, value);
     click(submit);
     const messageId = password?.getAttribute('aria-describedby');
@@ -93,10 +93,10 @@ describe('LoginForm', () => {
   it.each([['mínimo', '123456789012'], ['máximo', 'x'.repeat(128)]] as const)(
     'acepta el límite %s del contrato de contraseña', (_label, value) => {
       const { email, password, submit, onSubmit } = renderForm();
-      type(email, 'persona@ejemplo.test');
+      type(email, 'persona@example.test');
       type(password, value);
       click(submit);
-      expect(onSubmit).toHaveBeenCalledWith({ email: 'persona@ejemplo.test', password: value });
+      expect(onSubmit).toHaveBeenCalledWith({ email: 'persona@example.test', password: value });
     },
   );
 
@@ -105,7 +105,7 @@ describe('LoginForm', () => {
     ['129', '😀'.repeat(129), 'La contraseña no puede superar 128 caracteres.'],
   ] as const)('rechaza %s puntos de código suplementarios con error accesible', (_count, value, error) => {
     const { view, email, password, submit, onSubmit } = renderForm();
-    type(email, 'persona@ejemplo.test');
+    type(email, 'persona@example.test');
     type(password, value);
     click(submit);
     const messageId = password?.getAttribute('aria-describedby');
@@ -123,10 +123,10 @@ describe('LoginForm', () => {
     ['128', '😀'.repeat(128)],
   ] as const)('acepta %s puntos de código suplementarios sin cambios y limpia la contraseña', (_count, value) => {
     const { email, password, submit, onSubmit } = renderForm();
-    type(email, 'persona@ejemplo.test');
+    type(email, 'persona@example.test');
     type(password, value);
     click(submit);
-    expect(onSubmit).toHaveBeenCalledWith({ email: 'persona@ejemplo.test', password: value });
+    expect(onSubmit).toHaveBeenCalledWith({ email: 'persona@example.test', password: value });
     expect(password?.value).toBe('');
   });
 

@@ -1,5 +1,6 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
+import { Navigate } from 'react-router-dom';
 import { PageHeader } from '../../../components/layout/PageHeader.js';
 import { QueryView } from '../../../components/states/QueryView.js';
 import { SaveErrorNotice } from '../../../components/states/SaveErrorNotice.js';
@@ -7,10 +8,10 @@ import { SuccessNotice } from '../../../components/states/SuccessNotice.js';
 import { Alert } from '../../../components/ui/Alert.js';
 import { Button } from '../../../components/ui/Button.js';
 import { Card } from '../../../components/ui/Card.js';
-import { cx } from '../../../components/ui/cx.js';
 import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
+import { Switch } from '../../../components/ui/Switch.js';
 import { bloodTypeLabel } from '../../../lib/format.js';
 import { useDemoMutation, type Mutation } from '../../../lib/useDemoMutation.js';
 import { useDemoQuery } from '../../../lib/useDemoQuery.js';
@@ -33,7 +34,7 @@ const protectedChanges: Array<{
   { title: 'Eliminar mis datos', detail: 'Inicia una solicitud auditable.', variant: 'danger', kind: 'eliminacion' },
 ];
 
-// DON-02 Mi perfil (Penpot «+»). Datos de getOwnDonorProfile. Solo se editan
+// DON-02 Mi perfil (Penpot «+»). Datos reales de getOwnDonorProfile. Solo se editan
 // disponibilidad y ubicación aproximada (updateOwnDonorParticipation); nombre,
 // correo y grupo requieren una solicitud de corrección.
 export function ProfilePage() {
@@ -47,19 +48,15 @@ export function ProfilePage() {
       <PageHeader
         title="Mi perfil"
         description="Administra tu disponibilidad y ubicación sintética aproximada."
-        actions={
-          query.status === 'ready' && (
-            <Button type="submit" form="perfil-formulario" aria-disabled={save.pending}>
-              Guardar cambios
-            </Button>
-          )
-        }
       />
       <Alert tone="brand" title="Tus datos están protegidos">
         Nombre, correo y grupo declarado requieren una solicitud de corrección.
       </Alert>
       <QueryView query={query} loadingMessage="Cargando tu perfil…" backTo="/donante/invitaciones" backLabel="Ir a mis invitaciones">
-        {(profile, reload) => (
+        {(profile, reload) => !profile ? (
+          // Sin perfil activo (404) el siguiente paso es completar el onboarding.
+          <Navigate to="/donante/bienvenida" replace />
+        ) : (
           // Revisar un conflicto vuelve a «Cargando», así que el formulario se
           // monta de nuevo con los datos que llegan del reintento.
           <ProfileForm
@@ -113,12 +110,6 @@ function ProfileForm({ profile, save, onReload }: ProfileFormProps) {
 
   return (
     <>
-      <div aria-live="polite">
-        {saved && <SuccessNotice announce={false} message="Cambios guardados" detail="Tu disponibilidad y ubicación quedaron actualizadas." />}
-        {save.pending && <p className="text-sm text-muted">Guardando cambios…</p>}
-      </div>
-      <SaveErrorNotice error={save.error} onReview={onReload} />
-
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <Card title="Datos declarados">
           <form id="perfil-formulario" noValidate onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -173,30 +164,29 @@ function ProfileForm({ profile, save, onReload }: ProfileFormProps) {
               <p id="disponibilidad-etiqueta" className="text-sm font-semibold text-ink">
                 Disponibilidad
               </p>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={isAvailable}
-                aria-labelledby="disponibilidad-etiqueta"
-                aria-describedby="disponibilidad-ayuda"
-                onClick={() => {
-                  setIsAvailable((value) => !value);
+              <Switch
+                checked={isAvailable}
+                labelledBy="disponibilidad-etiqueta"
+                describedBy="disponibilidad-ayuda"
+                onChange={(next) => {
+                  setIsAvailable(next);
                   setSaved(false);
                 }}
-                className={cx(
-                  'flex min-h-12 w-full max-w-[220px] items-center gap-3 rounded-full border px-3 font-semibold',
-                  isAvailable ? 'border-success bg-success-soft text-success' : 'border-muted bg-neutral-soft text-muted',
-                )}
-              >
-                <span
-                  aria-hidden="true"
-                  className={cx('size-6 rounded-full', isAvailable ? 'bg-success' : 'border-2 border-muted bg-surface')}
-                />
-                {isAvailable ? 'Disponible' : 'No disponible'}
-              </button>
+              />
               <p id="disponibilidad-ayuda" className="text-sm text-muted">
                 Al marcarte no disponible, no recibirás nuevas invitaciones y se invalidarán las activas sin respuesta.
               </p>
+            </div>
+
+            {/* Acción y resultado junto a los campos editables: en móvil la cabecera queda a una pantalla de distancia. */}
+            <div className="flex flex-col items-start gap-4 border-t border-line pt-6">
+              <Button type="submit" aria-disabled={save.pending}>
+                {save.pending ? 'Guardando…' : 'Guardar cambios'}
+              </Button>
+              <div aria-live="polite" className="live-slot w-full">
+                {saved && <SuccessNotice announce={false} message="Cambios guardados" detail="Tu disponibilidad y ubicación quedaron actualizadas." />}
+              </div>
+              <SaveErrorNotice error={save.error} onReview={onReload} />
             </div>
           </form>
         </Card>

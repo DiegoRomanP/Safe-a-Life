@@ -6,6 +6,8 @@ import { Button } from '../../../components/ui/Button.js';
 import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
+import { apiRequest } from '../../../lib/api/http.js';
+import { ApiError } from '../../../lib/demoApi.js';
 import { AuthCard, AuthShell } from '../components/AuthShell.js';
 import { StepList } from '../components/StepList.js';
 import { registrationSteps } from '../registrationSteps.js';
@@ -13,31 +15,49 @@ import { emailError, newPasswordError, PASSWORD_HINT } from '../validation.js';
 
 type Errors = { email?: string; password?: string };
 
-// AUTH-02 Registro, paso 1 de 4 (Penpot «+»). El contrato
-// (createDonorRegistration) solo recibe correo y contraseña; los pasos 2 a 4
-// son verificar el correo y el onboarding (DON-01). Sin backend (D-4) no se
-// envía nada: se muestra el resultado neutral que daría la API (202).
+// AUTH-02 Registro, paso 1 de 4 (Penpot «+»). createDonorRegistration solo
+// recibe correo y contraseña y responde 202 neutral exista o no la cuenta; los
+// pasos 2 a 4 son verificar el correo y el onboarding (DON-01).
 export function RegisterPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<Errors>({});
   const [sent, setSent] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [failure, setFailure] = useState<'limite' | 'red'>();
   const emailRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLHeadingElement>(null);
+  const inFlight = useRef(false);
 
   useEffect(() => {
     if (sent) resultRef.current?.focus();
   }, [sent]);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (inFlight.current) return;
     const found: Errors = { email: emailError(email), password: newPasswordError(password) };
     flushSync(() => setErrors(found));
     if (found.email) return emailRef.current?.focus();
     if (found.password) return passwordRef.current?.focus();
-    setPassword('');
-    setSent(true);
+    inFlight.current = true;
+    setPending(true);
+    setFailure(undefined);
+    try {
+      await apiRequest('POST', '/donor-registrations', { body: { email: email.trim(), password } });
+      setSent(true);
+    } catch (caught) {
+      const status = caught instanceof ApiError ? caught.status : undefined;
+      if (status === 422) {
+        flushSync(() => setErrors({ password: 'Revisa el correo y elige otra contraseña.' }));
+        passwordRef.current?.focus();
+      } else setFailure(status === 429 ? 'limite' : 'red');
+    } finally {
+      inFlight.current = false;
+      setPassword('');
+      setPending(false);
+    }
   }
 
   return (
@@ -61,7 +81,8 @@ export function RegisterPage() {
             </p>
           </div>
           <Alert tone="brand" title="Prototipo académico">
-            Esta pantalla no envía mensajes ni crea cuentas reales.
+            Usa solo correos sintéticos.
+            {import.meta.env.DEV && ' En desarrollo los mensajes llegan al buzón local del equipo.'}
           </Alert>
           <div>
             <LinkButton to="/ingresar">Volver a ingresar</LinkButton>
@@ -80,7 +101,14 @@ export function RegisterPage() {
               Registra una cuenta de demostración para recibir invitaciones de hospitales autorizados.
             </p>
           </div>
-          <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-6">
+          <div aria-live="polite" className="live-slot">
+            {failure && (
+              <Alert tone="danger" title="No se pudo enviar el registro">
+                {failure === 'limite' ? 'Hiciste demasiados intentos. Espera unos minutos.' : 'Inténtalo de nuevo en unos momentos.'}
+              </Alert>
+            )}
+          </div>
+          <form noValidate onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-6">
             <div className="grid gap-6 md:grid-cols-2">
               <Field label="Correo electrónico" error={errors.email}>
                 {(control) => (
@@ -89,7 +117,7 @@ export function RegisterPage() {
                     ref={emailRef}
                     type="email"
                     autoComplete="email"
-                    placeholder="nombre@ejemplo.test"
+                    placeholder="nombre@example.test"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                   />
@@ -115,7 +143,9 @@ export function RegisterPage() {
               <LinkButton to="/" variant="ghost">
                 Volver
               </LinkButton>
-              <Button type="submit">Continuar</Button>
+              <Button type="submit" aria-disabled={pending} aria-busy={pending}>
+                {pending ? 'Enviando…' : 'Continuar'}
+              </Button>
             </div>
           </form>
         </AuthCard>

@@ -12,7 +12,8 @@ import { Input } from '../../../components/ui/Input.js';
 import type { Tone } from '../../../components/ui/tones.js';
 import { formatDateTime } from '../../../lib/format.js';
 import { emailError } from '../../auth/validation.js';
-import { useHospitalDemo } from '../HospitalDemoContext.js';
+import { ActionError } from '../components/ActionError.js';
+import { useHospital } from '../HospitalContext.js';
 import type { AssistedSignup } from '../types.js';
 
 const statusLabel: Record<AssistedSignup['status'], { label: string; tone: Tone }> = {
@@ -29,9 +30,9 @@ const signupCode = (signupId: string) => `ALT-${signupId.slice(0, 4).toUpperCase
 // y nombre opcional, y responde igual aunque el correo ya exista (no
 // enumerable); el hospital nunca crea contraseña, grupo ni ubicación. La
 // lista (listOwnAssistedSignups) muestra solo estado y fechas. Reenviar usa
-// reissueAssistedActivationLink. Sin backend (D-4).
+// reissueAssistedActivationLink.
 export function AssistedSignupsPage() {
-  const { signups, createSignup, reissueSignup } = useHospitalDemo();
+  const { signups, createSignup, reissueSignup } = useHospital();
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [errors, setErrors] = useState<{ email?: string; name?: string }>({});
@@ -44,7 +45,7 @@ export function AssistedSignupsPage() {
     if (notice) noticeRef.current?.focus();
   }, [notice]);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const found = {
       // El correo es de otra persona: el mensaje no dice «tu correo».
@@ -54,7 +55,7 @@ export function AssistedSignupsPage() {
     flushSync(() => setErrors(found));
     if (found.email) return emailRef.current?.focus();
     if (found.name) return nameRef.current?.focus();
-    createSignup({ email: email.trim(), ...(name.trim() ? { name: name.trim() } : {}) });
+    if (!(await createSignup({ email: email.trim(), ...(name.trim() ? { name: name.trim() } : {}) }))) return;
     setEmail('');
     setName('');
     setNotice({
@@ -63,8 +64,8 @@ export function AssistedSignupsPage() {
     });
   }
 
-  function handleReissue(signup: AssistedSignup) {
-    reissueSignup(signup.signupId);
+  async function handleReissue(signup: AssistedSignup) {
+    if (!(await reissueSignup(signup.signupId))) return;
     setNotice({
       message: `Solicitud de reenvío procesada para ${signupCode(signup.signupId)}`,
       detail: 'Si corresponde, se emite un enlace nuevo de 24 horas y el anterior deja de servir.',
@@ -77,7 +78,8 @@ export function AssistedSignupsPage() {
       <Alert tone="brand" title="Respuesta neutral">
         El resultado será el mismo aunque el correo ya exista, para evitar enumeración de cuentas.
       </Alert>
-      <div aria-live="polite">
+      <ActionError />
+      <div aria-live="polite" className="live-slot">
         {notice && (
           <div ref={noticeRef} tabIndex={-1} className="rounded-xl focus-visible:outline-focus">
             <SuccessNotice announce={false} message={notice.message} detail={notice.detail} />
@@ -87,7 +89,7 @@ export function AssistedSignupsPage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card title="Nueva invitación">
-          <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-6">
+          <form noValidate onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-6">
             <Field label="Correo" error={errors.email} required>
               {(control) => (
                 <Input
@@ -136,7 +138,7 @@ export function AssistedSignupsPage() {
                     <div className="flex flex-wrap items-center gap-3">
                       <Badge tone={status.tone}>{status.label}</Badge>
                       {(signup.status === 'pendiente' || signup.status === 'vencida') && (
-                        <Button variant="secondary" onClick={() => handleReissue(signup)}>
+                        <Button variant="secondary" onClick={() => void handleReissue(signup)}>
                           Reenviar enlace<span className="sr-only"> de {code}</span>
                         </Button>
                       )}
@@ -146,8 +148,8 @@ export function AssistedSignupsPage() {
               })}
             </ul>
           )}
-          <Alert tone="warning" title="Límite de demostración" className="mt-4">
-            Los estados y el envío son sintéticos; no se envían correos reales.
+          <Alert tone="warning" title="Uso académico" className="mt-4">
+            Usa solo correos de prueba: este prototipo no es para datos reales.
           </Alert>
         </Card>
       </div>

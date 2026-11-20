@@ -25,6 +25,9 @@ import { createPrivacyRequestsRpcGateway } from './modules/privacy-requests/infr
 import { registerPrivacyRequestsRoutes } from './modules/privacy-requests/http/privacy-requests.router.js';
 import { openEmailChange, sealEmailChange } from './modules/donor-records/application/email-change.js';
 import { registerNeedsRoutes } from './modules/need-records/http/needs.router.js';
+import { createInvitationsService } from './modules/invitation-coordination/application/invitations-service.js';
+import { createInvitationsRpcGateway } from './modules/invitation-coordination/infrastructure/invitations-rpc-gateway.js';
+import { registerInvitationsRoutes } from './modules/invitation-coordination/http/invitations.router.js';
 import { createWebhookIngester } from './modules/email-delivery/application/ingest-webhook.js';
 import { createOutboxRpcGateway } from './modules/email-delivery/infrastructure/outbox-rpc-gateway.js';
 import { registerResendWebhookRoutes } from './modules/email-delivery/http/resend-webhook.router.js';
@@ -124,6 +127,13 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
     seal: (outboxId, payload) => sealEmailPayload(config.secrets.outboxKeyring, outboxId, payload),
     ledgerHmac: (userId) => hmacSha256Hex(ledgerKey, userId),
   });
+  // Invitaciones (F6): el lote y el reintento autorizan con la sesión de la persona y ejecutan con la sesión técnica de la API.
+  const invitations = createInvitationsService({
+    repository: createInvitationsRpcGateway(rpc, technicalRpc),
+    needs: needsGateway.repository,
+    limiter: identity.limiter,
+    seal: (outboxId, payload) => sealEmailPayload(config.secrets.outboxKeyring, outboxId, payload),
+  });
   const httpSecrets = {
     csrf: config.secrets.csrf,
     cursor: config.secrets.cursor,
@@ -163,6 +173,7 @@ export function buildApplication(config: AppConfig, _logger: Logger): Applicatio
       registerActionTokenRoutes(app, { tokens: actionTokens, secrets: { ...httpSecrets, ipHmac } });
       registerDonorRecordsRoutes(app, { donors, secrets: { ...httpSecrets, ipHmac } });
       registerPrivacyRequestsRoutes(app, { privacy, secrets: httpSecrets });
+      registerInvitationsRoutes(app, { invitations, secrets: { ...httpSecrets, ipHmac } });
       registerNeedsRoutes(app, {
         needs,
         createDraft: (accessToken) => createNeedDraftService(needsGateway.draftGatewayFor(accessToken)),

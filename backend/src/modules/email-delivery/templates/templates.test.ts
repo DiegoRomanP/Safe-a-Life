@@ -6,7 +6,7 @@ const TOKEN = 'tok_canario_abcdefghijklmnop0123456789';
 const LINK = `https://app.example.test/invitaciones#${TOKEN}`;
 
 const SAMPLES: { readonly [K in EmailKind]: Parameters<typeof renderTemplate<K>>[1] } = {
-  invitacion: { hospitalName: 'Hospital Demo Uno', sitePublicName: 'Sede Central Uno', deadline: '14 de octubre de 2026, 12:00 UTC', link: LINK },
+  invitacion: { hospitalName: 'Hospital Demo Uno', sitePublicName: 'Sede Central Uno', deadline: '14 de octubre de 2026, 12:00 UTC', link: LINK, rejectLink: `https://app.example.test/invitaciones#${TOKEN}rechazo` },
   verificacion_email: { link: LINK },
   alta_asistida: { hospitalName: 'Hospital Demo Uno', link: LINK },
   cambio_email: { link: LINK },
@@ -41,6 +41,14 @@ describe('plantillas de correo', () => {
     expect(email.text).toContain('Hospital Demo Uno');
     expect(email.text).toContain('Sede Central Uno');
     expect(email.text).toContain('14 de octubre de 2026');
+  });
+
+  it('la invitación lleva un enlace por acción, ambos con el token en el fragmento', () => {
+    const email = renderTemplate('invitacion', SAMPLES.invitacion);
+
+    expect(email.text).toContain(`/invitaciones#${TOKEN}\n`);
+    expect(email.text).toContain(`/invitaciones#${TOKEN}rechazo`);
+    expect(email.html.match(/<a href=/g)).toHaveLength(2);
   });
 
   it('escapa el HTML de los datos (nombres de hospital y sede) para evitar inyección', () => {

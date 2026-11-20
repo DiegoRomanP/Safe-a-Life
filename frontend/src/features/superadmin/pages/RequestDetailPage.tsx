@@ -8,10 +8,11 @@ import { Card } from '../../../components/ui/Card.js';
 import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
 import { bloodTypeLabel, formatDateTime } from '../../../lib/format.js';
+import { ActionError } from '../components/ActionError.js';
 import { ResultNotice, type Notice } from '../components/ResultNotice.js';
 import { useStepUpGate } from '../components/StepUpPanel.js';
 import { requestCode, requestStatusLabel, requestTitle } from '../labels.js';
-import { useSuperadminDemo, type GrantField } from '../SuperadminDemoContext.js';
+import { useSuperadmin, type GrantField } from '../SuperadminContext.js';
 import type { DonorValues } from '../types.js';
 
 const backLink = (
@@ -47,10 +48,9 @@ function reasonError(value: string, empty: string): string | undefined {
 // - Aprobada: ejecutar exige motivo, step-up y grant de ejecución
 //   (createContextualAccessGrant y executeApprovedCorrectionRequest).
 // - Estados terminales: ya no se ofrece consultar datos.
-// Sin backend (D-4).
 export function RequestDetailPage() {
   const { requestId = '' } = useParams();
-  const { requests, grantReview, donorDataFor, decideRequest, executeRequest } = useSuperadminDemo();
+  const { requests, grantReview, donorDataFor, decideRequest, executeRequest } = useSuperadmin();
   const { requireStepUp, stepUpPanel } = useStepUpGate();
   const [accessReason, setAccessReason] = useState('');
   const [accessError, setAccessError] = useState<string>();
@@ -92,8 +92,8 @@ export function RequestDetailPage() {
     flushSync(() => setAccessError(found));
     if (found) return accessRef.current?.focus();
     const reason = accessReason.trim();
-    requireStepUp('ver los datos de esta solicitud', () => {
-      grantReview(request!.requestId, fields, reason);
+    requireStepUp('ver los datos de esta solicitud', async () => {
+      if (!(await grantReview(request!.requestId, fields, reason))) return;
       setAccessReason('');
       setNotice({ message: 'Acceso contextual concedido', detail: 'Solo a los campos pedidos. Vence en 10 minutos.' });
     });
@@ -101,7 +101,7 @@ export function RequestDetailPage() {
 
   // La decisión se elige de forma explícita (radio obligatorio) y hay un solo
   // botón de envío: pulsar Enter en el motivo nunca aprueba por defecto.
-  function handleDecision(event: FormEvent<HTMLFormElement>) {
+  async function handleDecision(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const found = {
       choice: decision ? undefined : 'Elige si apruebas o rechazas la solicitud.',
@@ -113,7 +113,7 @@ export function RequestDetailPage() {
     });
     if (found.choice) return approveRef.current?.focus();
     if (found.reason || !decision) return decisionRef.current?.focus();
-    decideRequest(request!.requestId, decision, decisionReason.trim());
+    if (!(await decideRequest(request!.requestId, decision, decisionReason.trim()))) return;
     setDecisionReason('');
     setDecision(null);
     setNotice({
@@ -128,8 +128,8 @@ export function RequestDetailPage() {
     flushSync(() => setExecuteError(found));
     if (found) return executeRef.current?.focus();
     const reason = executeReason.trim();
-    requireStepUp('ejecutar esta solicitud', () => {
-      executeRequest(request!.requestId, isCorrection ? fields : DELETION_FIELDS, reason);
+    requireStepUp('ejecutar esta solicitud', async () => {
+      if (!(await executeRequest(request!.requestId, isCorrection ? fields : DELETION_FIELDS, reason))) return;
       setExecuteReason('');
       setNotice({ message: `${code} ejecutada`, detail: 'La solicitud quedó completada.' });
     });
@@ -227,6 +227,7 @@ export function RequestDetailPage() {
         </Badge>
       </div>
       {stepUpPanel}
+      <ActionError />
       <ResultNotice notice={notice} />
 
       <div className="grid gap-6 lg:grid-cols-2">
@@ -252,7 +253,7 @@ export function RequestDetailPage() {
 
       {isPending && (
         <Card title="Decisión">
-          <form noValidate onSubmit={handleDecision} className="flex flex-col gap-4 sm:max-w-[560px]">
+          <form noValidate onSubmit={(event) => void handleDecision(event)} className="flex flex-col gap-4 sm:max-w-[560px]">
             <fieldset className="flex flex-col gap-2">
               <legend className="mb-1 text-sm font-semibold text-ink">Decisión (obligatorio)</legend>
               {(

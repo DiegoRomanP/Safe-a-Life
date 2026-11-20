@@ -10,19 +10,20 @@ import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
 import { Select } from '../../../components/ui/Select.js';
 import { emailError } from '../../auth/validation.js';
+import { ActionError } from '../components/ActionError.js';
 import { ResultNotice, type Notice } from '../components/ResultNotice.js';
 import { useStepUpGate } from '../components/StepUpPanel.js';
 import { membershipStatusLabel } from '../labels.js';
-import { useSuperadminDemo } from '../SuperadminDemoContext.js';
+import { useSuperadmin } from '../SuperadminContext.js';
 import type { Membership } from '../types.js';
+import { TableScroll } from '../../../components/ui/TableScroll.js';
 
 // SA-04 Administradores y membresías (Penpot «+»). listHospitalMemberships solo
 // entrega pista del correo, hospital y estado: no hay nombre, MFA ni último
 // acceso. Invitar (inviteHospitalAdmin) y revocar con motivo
 // (revokeHospitalMembership) exigen step-up. La respuesta de invitar es neutral.
-// Sin backend (D-4).
 export function AdminsPage() {
-  const { hospitals, memberships, inviteAdmin, revokeMembership } = useSuperadminDemo();
+  const { hospitals, memberships, inviteAdmin, revokeMembership } = useSuperadmin();
   const { requireStepUp, stepUpPanel } = useStepUpGate();
   const [email, setEmail] = useState('');
   const [hospitalId, setHospitalId] = useState('');
@@ -52,8 +53,8 @@ export function AdminsPage() {
     flushSync(() => setInviteErrors(found));
     if (found.email) return emailRef.current?.focus();
     if (found.hospital) return hospitalRef.current?.focus();
-    requireStepUp('invitar un administrador', () => {
-      inviteAdmin({ email: email.trim(), hospitalId });
+    requireStepUp('invitar un administrador', async () => {
+      if (!(await inviteAdmin({ email: email.trim(), hospitalId }))) return;
       setEmail('');
       setHospitalId('');
       setNotice({
@@ -69,8 +70,8 @@ export function AdminsPage() {
     flushSync(() => setReasonError(found));
     if (found) return reasonRef.current?.focus();
     const target = revoking!;
-    requireStepUp('revocar una membresía', () => {
-      revokeMembership(target.membershipId, reason.trim());
+    requireStepUp('revocar una membresía', async () => {
+      if (!(await revokeMembership(target.membershipId, reason.trim()))) return;
       setRevoking(null);
       setReason('');
       setNotice({
@@ -91,6 +92,7 @@ export function AdminsPage() {
         Invitar administradores o cambiar membresías requiere autenticación reforzada reciente.
       </Alert>
       {stepUpPanel}
+      <ActionError />
       <ResultNotice notice={notice} />
 
       {revoking && (
@@ -129,7 +131,7 @@ export function AdminsPage() {
       {memberships.length === 0 ? (
         <EmptyState message="Todavía no hay administradores" />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+        <TableScroll label="Membresías de administradores de hospital">
           <table className="w-full min-w-[720px] text-left">
             <caption className="sr-only">Membresías de administradores de hospital</caption>
             <thead>
@@ -168,7 +170,7 @@ export function AdminsPage() {
               })}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       )}
 
       <Card title="Invitar administrador">

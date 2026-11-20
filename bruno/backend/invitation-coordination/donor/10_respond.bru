@@ -1,0 +1,25 @@
+meta {
+  name: Confirma con el enlace
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/invitation-actions/{{confirmToken}}/response
+  body: none
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-respond
+}
+
+tests {
+  test("200 confirmada y la necesidad sigue activa (meta 2)", function () {
+    expect(res.getStatus()).to.equal(200);
+    var data = res.getBody().data;
+    expect(data.response).to.equal("confirmada");
+    expect(data.needStatus).to.equal("activa");
+    bru.setVar("recordedAt", data.recordedAt);
+  });
+}

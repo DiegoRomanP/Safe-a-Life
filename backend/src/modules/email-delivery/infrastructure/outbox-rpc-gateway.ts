@@ -6,7 +6,8 @@ import type { AttemptRecord, ClaimedMessage, OutboxGateway, ProviderEvent } from
 import { EMAIL_KINDS } from '../templates/index.js';
 
 export function parseClaimed(value: unknown): ClaimedMessage {
-  const row = closedRecord(value, ['outboxId', 'kind', 'sealedPayload', 'attemptNo', 'idempotencyKey', 'notAfter', 'recipient']);
+  const row = closedRecord(value, ['outboxId', 'kind', 'sealedPayload', 'attemptNo', 'idempotencyKey', 'notAfter', 'recipient'], ['display']);
+  const display = row.display === undefined ? undefined : closedRecord(row.display, ['hospitalName', 'sitePublicName']);
   return Object.freeze({
     outboxId: asString(row.outboxId),
     kind: oneOf(row.kind, EMAIL_KINDS),
@@ -15,6 +16,7 @@ export function parseClaimed(value: unknown): ClaimedMessage {
     idempotencyKey: asString(row.idempotencyKey),
     notAfter: asString(row.notAfter),
     recipient: asNullableString(row.recipient),
+    ...(display ? { display: Object.freeze({ hospitalName: asString(display.hospitalName), sitePublicName: asString(display.sitePublicName) }) } : {}),
   });
 }
 
@@ -50,6 +52,9 @@ export function createOutboxRpcGateway(rpc: RpcInvoker, accessToken: () => Promi
 
     async expire() {
       const reply = await call({ accessToken: null, name: 'worker_expire_outbox', okKinds: ['ok'], args: {} });
+      // F6: el mismo ciclo vence las necesidades (y sus invitaciones y correo) y purga las concesiones de 72 h.
+      await call({ accessToken: null, name: 'worker_expire_needs', okKinds: ['ok'], args: { p_limit: 20 } });
+      await call({ accessToken: null, name: 'worker_purge_invitation_grants', okKinds: ['ok'], args: {} });
       return Object.freeze({ expired: asNumber(reply.expired), exhausted: asNumber(reply.exhausted) });
     },
 

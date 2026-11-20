@@ -1,3 +1,6 @@
+import { ApiError } from '../demoApi.js';
+import { apiRequest } from './http.js';
+
 export type ActorRole = 'donante' | 'admin_hospitalario' | 'superadmin';
 
 export type LoginSession = Readonly<{
@@ -46,32 +49,85 @@ function parseCsrfToken(value: unknown): string {
   return data.token;
 }
 
-async function readOkJson(response: Response): Promise<unknown> {
-  if (!response.ok) throw new Error();
-  return response.json();
-}
-
-function idempotencyKey(): string {
-  if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
-  return [...globalThis.crypto.getRandomValues(new Uint8Array(16))]
-    .map((byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
 export async function loginAndBootstrap(credentials: Credentials): Promise<LoginResult> {
-  const response = await fetch('/api/v1/auth/sessions', {
-    method: 'POST',
-    credentials: 'same-origin',
-    cache: 'no-store',
-    referrerPolicy: 'no-referrer',
-    headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey() },
-    body: JSON.stringify(credentials),
-  });
-  const session = parseSession(await readOkJson(response));
-  const csrfResponse = await fetch('/api/v1/auth/csrf-token', {
-    credentials: 'same-origin',
-    cache: 'no-store',
-    referrerPolicy: 'no-referrer',
-  });
-  const csrfToken = parseCsrfToken(await readOkJson(csrfResponse));
+  const session = parseSession(await apiRequest('POST', '/auth/sessions', { body: credentials }));
+  const csrfToken = parseCsrfToken(await apiRequest('GET', '/auth/csrf-token'));
   return { session, csrfToken };
+}
+
+/** Restaura la sesión de las cookies tras una recarga; sin sesión (401) devuelve null. */
+export async function fetchCurrentSession(): Promise<LoginResult | null> {
+  let session: LoginSession;
+  try {
+    session = parseSession(await apiRequest('GET', '/auth/session'));
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) return null;
+    throw error;
+  }
+  return { session, csrfToken: parseCsrfToken(await apiRequest('GET', '/auth/csrf-token')) };
+}
+
+export async function deleteCurrentSession(csrfToken: string): Promise<void> {
+  await apiRequest('DELETE', '/auth/sessions/current', { csrfToken });
+}
+
+export type MfaEnrollment = Readonly<{ factorId: string; otpauthUri: string; challengeId: string }>;
+
+const UUID = /^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i;
+
+function parseEnrollment(value: unknown): MfaEnrollment {
+  if (!isRecord(value) || !hasOnlyKeys(value, ['data']) || !isRecord(value.data)) throw new Error();
+  const { data } = value;
+  if (!hasOnlyKeys(data, ['factorId', 'otpauthUri', 'challengeId'])) throw new Error();
+  const { factorId, otpauthUri, challengeId } = data;
+  if (typeof factorId !== 'string' || !UUID.test(factorId) || typeof challengeId !== 'string' || !UUID.test(challengeId)) throw new Error();
+  if (typeof otpauthUri !== 'string' || otpauthUri.length > 512 || !otpauthUri.startsWith('otpauth://')) throw new Error();
+  return { factorId, otpauthUri, challengeId };
+}
+
+/** Alta del factor TOTP (solo admin/superadmin sin factor verificado). El URI contiene el secreto: no se guarda ni se registra. */
+export async function enrollMfa(csrfToken: string): Promise<MfaEnrollment> {
+  return parseEnrollment(await apiRequest('POST', '/auth/mfa-enrollments', { csrfToken }));
+}
+
+/** Token CSRF de la sesión actual (ligado al session_id; se pide de nuevo si las cookies rotan). */
+export async function fetchCsrfToken(): Promise<string> {
+  return parseCsrfToken(await apiRequest('GET', '/auth/csrf-token'));
+}
+
+/** Completa el reto TOTP y eleva la sesión a aal 2. Las cookies rotan: quien llama pide un CSRF nuevo con `fetchCsrfToken`. */
+export async function verifyMfa(csrfToken: string, challengeId: string, code: string): Promise<LoginSession> {
+  return parseSession(await apiRequest('POST', '/auth/mfa-verifications', { body: { challengeId, code }, csrfToken }));
+}
+
+/** Respuesta siempre 202, exista o no la cuenta: no se interpreta nada del resultado. */
+export async function requestPasswordRecovery(email: string): Promise<void> {
+  await apiRequest('POST', '/auth/password-recovery-requests', { body: { email } });
+}
+
+export type AdminInvitationPreview = Readonly<{ hospitalName: string; expiresAt: string }>;
+
+/** Vista previa del enlace de invitación (GET): no consume el token. */
+export async function fetchAdminInvitationPreview(token: string): Promise<AdminInvitationPreview> {
+  const body = await apiRequest('GET', `/hospital-admin-invitation-actions/${encodeURIComponent(token)}`);
+  if (!isRecord(body) || !hasOnlyKeys(body, ['data']) || !isRecord(body.data)) throw new Error();
+  const { data } = body;
+  if (!hasOnlyKeys(data, ['hospitalName', 'role', 'expiresAt']) || data.role !== 'admin_hospitalario') throw new Error();
+  if (typeof data.hospitalName !== 'string' || data.hospitalName.length > 160) throw new Error();
+  if (typeof data.expiresAt !== 'string' || !Number.isFinite(Date.parse(data.expiresAt))) throw new Error();
+  return { hospitalName: data.hospitalName, expiresAt: data.expiresAt };
+}
+
+/** Reclama la invitación: crea la cuenta (aal 1, MFA pendiente) y abre sesión en las cookies. El CSRF se pide aparte. */
+export async function claimAdminInvitation(token: string, password: string): Promise<LoginSession> {
+  return parseSession(await apiRequest('POST', `/hospital-admin-invitation-actions/${encodeURIComponent(token)}/claim`, { body: { password } }));
+}
+
+/** Step-up por acción sensible: un TOTP nuevo sobre el factor verificado. Devuelve hasta cuándo vale (ISO). */
+export async function verifyStepUp(csrfToken: string, code: string): Promise<string> {
+  const body = await apiRequest('POST', '/auth/step-up-verifications', { body: { code }, csrfToken });
+  if (!isRecord(body) || !hasOnlyKeys(body, ['data']) || !isRecord(body.data) || !hasOnlyKeys(body.data, ['verifiedUntil'])) throw new Error();
+  const until = body.data.verifiedUntil;
+  if (typeof until !== 'string' || !Number.isFinite(Date.parse(until))) throw new Error();
+  return until;
 }

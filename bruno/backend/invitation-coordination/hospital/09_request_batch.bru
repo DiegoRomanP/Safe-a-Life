@@ -1,0 +1,29 @@
+meta {
+  name: Solicita el lote
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{needId}}/invitation-batches
+  body: none
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-batch
+}
+
+tests {
+  test("responde 201 con los tres conteos", function () {
+    expect(res.getStatus()).to.equal(201);
+    var data = res.getBody().data;
+    expect(Object.keys(data).sort()).to.deep.equal(["batchId","createdInvitationCount","queuedEmailCount"]);
+    expect(data.createdInvitationCount).to.be.within(2, 5);
+    expect(data.queuedEmailCount).to.equal(data.createdInvitationCount);
+    bru.setVar("batchId", data.batchId);
+    bru.setVar("createdCount", data.createdInvitationCount);
+  });
+}

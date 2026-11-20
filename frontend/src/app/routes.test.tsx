@@ -3,7 +3,8 @@ import { act } from 'react';
 import { Navigate, RouterProvider, createMemoryRouter, type RouteObject } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import { render, setupRender } from '../test/render.js';
-import { renderRoute } from '../test/renderRoute.js';
+import { TEST_HOSPITAL_SESSION, renderRoute } from '../test/renderRoute.js';
+import { setAuthSession } from '../features/auth/session/session.js';
 import type { RouteHandle } from './DocumentTitle.js';
 import { routes } from './routes.js';
 
@@ -49,6 +50,7 @@ describe('rutas', () => {
   });
 
   it('el título cambia al navegar dentro de la app', () => {
+    setAuthSession(TEST_HOSPITAL_SESSION);
     const router = createMemoryRouter(routes, { initialEntries: ['/hospital'] });
     render(<RouterProvider router={router} />);
     expect(document.title).toBe('Resumen · Hospital · Save a Life');

@@ -11,6 +11,8 @@ import {
   type TokenStatus,
   type TokenStatusCopy,
 } from '../components/TokenStatusView.js';
+import { apiRequest } from '../../../lib/api/http.js';
+import { tokenStatusFor } from '../tokenStatus.js';
 import { useFragmentToken } from '../useFragmentToken.js';
 
 // En el registro propio no interviene un hospital: un enlace vencido se renueva
@@ -26,12 +28,24 @@ const verifyCopy: TokenStatusCopy = {
   },
 };
 
-// AUTH-02 paso 2 (`/verificar-correo#token`). Vista previa con
-// getDonorEmailVerificationPreview; el botón corresponde a verifyDonorEmail.
-// La cuenta sigue inactiva hasta completar el perfil (DON-01).
+// AUTH-02 paso 2 (`/verificar-correo#token`). El botón ejecuta verifyDonorEmail;
+// después el backend cierra las sesiones y envía un segundo enlace para fijar la
+// contraseña (barrera de sesión). La cuenta sigue inactiva hasta completar el perfil (DON-01).
 export function VerifyEmailPage() {
   const { token } = useFragmentToken();
   const [status, setStatus] = useState<TokenStatus>(token ? 'valid' : 'invalid');
+
+  async function verify(): Promise<boolean> {
+    if (!token) return false;
+    try {
+      await apiRequest('POST', `/donor-email-verification-actions/${encodeURIComponent(token)}`);
+      return true;
+    } catch (error) {
+      const next = tokenStatusFor(error);
+      if (next) setStatus(next);
+      return false;
+    }
+  }
 
   return (
     <AuthShell
@@ -56,8 +70,9 @@ export function VerifyEmailPage() {
               description="Confirma que este correo es tuyo para continuar con el registro."
               actionLabel="Verificar correo"
               doneTitle="Correo verificado"
-              doneDetail="Ingresa para completar tu perfil. La cuenta se activa cuando el perfil obligatorio esté completo."
+              doneDetail="Te enviamos un segundo correo para crear tu contraseña. Después ingresa y completa tu perfil: la cuenta se activa con el perfil obligatorio completo."
               doneLink={{ to: '/ingresar', label: 'Ingresar' }}
+              onConfirm={verify}
             />
           }
         />

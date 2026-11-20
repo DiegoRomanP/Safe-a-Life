@@ -1,0 +1,23 @@
+meta {
+  name: No se lanza un lote sobre una necesidad cerrada
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{needId}}/invitation-batches
+  body: none
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-batch-closed
+}
+
+tests {
+  test("responde 409", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+}

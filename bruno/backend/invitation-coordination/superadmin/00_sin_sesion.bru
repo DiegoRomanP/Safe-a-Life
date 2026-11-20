@@ -1,0 +1,19 @@
+meta {
+  name: Sin sesión no hay reintentos
+  type: http
+  seq: 0
+}
+
+post {
+  url: {{baseUrl}}/api/v1/superadmin/invitations/{{failedInvitationId}}/delivery-retries
+  body: none
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-nosession
+}
+
+tests {
+  test("responde 401", function () { expect(res.getStatus()).to.equal(401); });
+}

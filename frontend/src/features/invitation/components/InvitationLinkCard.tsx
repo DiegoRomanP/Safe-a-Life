@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { TokenResponseOutcome } from '../api.js';
 import { Alert } from '../../../components/ui/Alert.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { Button } from '../../../components/ui/Button.js';
@@ -33,11 +34,34 @@ const copy = {
 // campos de InvitationActionPreview, una vista previa mínima sin sesión. El
 // token ya trae la acción y recordInitialInvitationResponse no acepta otra, así
 // que hay un solo botón; cambiar la respuesta se hace desde la cuenta. Abrir la
-// tarjeta no registra nada. Sin backend (D-4) la respuesta no se envía.
-export function InvitationLinkCard({ preview }: { preview: InvitationActionPreview }) {
+// tarjeta no registra nada: solo el botón envía la respuesta.
+export type InvitationLinkCardProps = {
+  preview: InvitationActionPreview;
+  /** Envía la respuesta del enlace; `unavailable` (gastado, cerrado, meta alcanzada) lo resuelve quien usa la tarjeta. */
+  onConfirm: () => Promise<TokenResponseOutcome>;
+  onUnavailable: () => void;
+};
+
+export function InvitationLinkCard({ preview, onConfirm, onUnavailable }: InvitationLinkCardProps) {
   const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const inFlight = useRef(false);
   const doneRef = useRef<HTMLHeadingElement>(null);
   const text = copy[preview.intendedAction];
+
+  async function confirm() {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    setFailed(false);
+    const outcome = await onConfirm();
+    inFlight.current = false;
+    setBusy(false);
+    if (outcome === 'ok') setDone(true);
+    else if (outcome === 'unavailable') onUnavailable();
+    else setFailed(true);
+  }
 
   useEffect(() => {
     if (done) doneRef.current?.focus();
@@ -58,7 +82,7 @@ export function InvitationLinkCard({ preview }: { preview: InvitationActionPrevi
           </p>
         </div>
         <Alert tone="brand" title="Prototipo académico">
-          Esta pantalla no envía respuestas reales.
+          La respuesta expresa solo tu intención. El hospital verificará tu identidad, grupo y elegibilidad.
         </Alert>
         <div>
           <LinkButton to="/ingresar">Ingresar a mi cuenta</LinkButton>
@@ -87,8 +111,15 @@ export function InvitationLinkCard({ preview }: { preview: InvitationActionPrevi
       <Alert tone="info" title="Antes de responder">
         {text.note}
       </Alert>
+      <div aria-live="assertive" className="live-slot">
+        {failed && (
+          <Alert tone="danger" title="No pudimos registrar tu respuesta">
+            Intenta de nuevo en unos minutos. Si el problema sigue, ingresa a tu cuenta.
+          </Alert>
+        )}
+      </div>
       <div className="flex flex-wrap gap-4">
-        <Button onClick={() => setDone(true)}>{text.action}</Button>
+        <Button aria-disabled={busy} aria-busy={busy} onClick={() => void confirm()}>{text.action}</Button>
         <LinkButton to="/ingresar" variant="ghost">
           Ingresar para ver la invitación
         </LinkButton>

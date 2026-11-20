@@ -1,0 +1,21 @@
+meta {
+  name: Una invitación inexistente es 404
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/superadmin/invitations/{{unknownInvitationId}}/delivery-retries
+  body: none
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-unknown
+}
+
+tests {
+  test("responde 404", function () { expect(res.getStatus()).to.equal(404); });
+}

@@ -8,7 +8,8 @@ import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
 import { Select } from '../../../components/ui/Select.js';
 import { BLOOD_TYPES, bloodTypeLabel, formatDateTime, type BloodType } from '../../../lib/format.js';
-import { useHospitalDemo } from '../HospitalDemoContext.js';
+import { ActionError } from '../components/ActionError.js';
+import { useHospital } from '../HospitalContext.js';
 import { urgencyLabel } from '../labels.js';
 import type { Urgency } from '../types.js';
 
@@ -37,9 +38,9 @@ const reminders = [
 // HOS-02 Crear necesidad (Penpot «+»). Arma el cuerpo de createHospitalNeed:
 // componente fijo RBC, grupo, meta de 1 a 50 intenciones, sede propia, radio
 // de 1 a 50 km, urgencia y vencimiento de 1 a 72 horas. «Activar» crea y
-// luego aplica transitionOwnHospitalNeed. Sin backend (D-4).
+// luego aplica transitionOwnHospitalNeed.
 export function CreateNeedPage() {
-  const { sites, createNeed } = useHospitalDemo();
+  const { sites, createNeed } = useHospital();
   const navigate = useNavigate();
   const [bloodType, setBloodType] = useState('');
   const [target, setTarget] = useState('');
@@ -60,7 +61,7 @@ export function CreateNeedPage() {
   };
   const hoursValid = !rangeError(hours, 1, 72, 'horas');
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const activate = (event.nativeEvent as SubmitEvent).submitter?.getAttribute('value') === 'activar';
     const found: Errors = {
@@ -74,7 +75,7 @@ export function CreateNeedPage() {
     flushSync(() => setErrors(found));
     const first = (Object.keys(refs) as Array<keyof Errors>).find((key) => found[key]);
     if (first) return refs[first].current?.focus();
-    const created = createNeed(
+    const created = await createNeed(
       {
         requiredBloodType: bloodType as BloodType,
         targetConfirmations: Number(target),
@@ -85,7 +86,9 @@ export function CreateNeedPage() {
       },
       activate,
     );
-    navigate(`/hospital/necesidades/${created.needId}`, { state: { created: activate ? 'activa' : 'borrador' } });
+    // Si la activación falló, el borrador existe: se abre su detalle (que muestra el motivo) en vez de perderlo.
+    if (!created) return;
+    navigate(`/hospital/necesidades/${created.needId}`, { state: { created: created.status === 'activa' ? 'activa' : 'borrador' } });
   }
 
   return (
@@ -96,7 +99,8 @@ export function CreateNeedPage() {
       <PageHeader title="Crear necesidad" description="Define una meta de intenciones de asistir para glóbulos rojos." />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_304px]">
         <Card title="Información de la necesidad">
-          <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-6">
+          <ActionError />
+          <form noValidate onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-6">
             <div className="grid gap-6 md:grid-cols-2">
               <Field label="Componente" hint="El componente es fijo para este prototipo.">
                 {(control) => <Input {...control} readOnly value="Glóbulos rojos (RBC)" />}

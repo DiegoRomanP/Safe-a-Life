@@ -1,0 +1,28 @@
+meta {
+  name: Cerrar la necesidad invalida las invitaciones
+  type: http
+  seq: 16
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{needId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-close
+}
+
+body:json {
+  { "status": "cerrada" }
+}
+
+tests {
+  test("pasa a cerrada", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.status).to.equal("cerrada");
+  });
+}

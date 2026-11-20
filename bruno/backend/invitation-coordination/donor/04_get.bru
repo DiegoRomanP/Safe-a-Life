@@ -1,0 +1,19 @@
+meta {
+  name: Lee el detalle de su invitación
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors/me/invitations/{{invitationId}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("devuelve la invitación y las instrucciones", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.instructions.length).to.be.greaterThan(10);
+    expect(res.getBody().data.invitation.invitationId).to.equal(bru.getVar("invitationId"));
+  });
+}

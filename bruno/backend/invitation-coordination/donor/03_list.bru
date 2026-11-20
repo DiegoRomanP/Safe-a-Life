@@ -1,0 +1,24 @@
+meta {
+  name: Lista las invitaciones propias
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors/me/invitations
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("una invitación con exactamente los diez campos y sin secretos", function () {
+    expect(res.getStatus()).to.equal(200);
+    var items = res.getBody().data.items;
+    expect(items).to.have.length(1);
+    expect(Object.keys(items[0]).sort()).to.deep.equal(["invitationId","hospitalName","publicSiteName","requiredBloodType","urgency","instructions","expiresAt","validity","delivery","response"].slice().sort());
+    expect(items[0].validity).to.equal("activa");
+    expect(items[0].response).to.equal("sin_respuesta");
+    expect(JSON.stringify(res.getBody())).to.not.match(/token|hash|donor_id|need_donor_code/i);
+    bru.setVar("invitationId", items[0].invitationId);
+  });
+}

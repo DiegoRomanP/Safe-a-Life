@@ -543,7 +543,7 @@ export interface paths {
         put?: never;
         /**
          * Registra la primera respuesta mediante token de acción
-         * @description El token aleatorio está ligado a invitación y acción (confirmar o rechazar); no se acepta una acción distinta en el body. Es válido solo con invitación/necesidad activas y `now < need.expires_at`; no tiene TTL independiente. Consumo y respuesta son atómicos. El GET anterior no muta estado. No devuelve contacto ni ubicación del donante.
+         * @description El token aleatorio está ligado a invitación y acción (confirmar o rechazar); no se acepta una acción distinta en el body. Es válido solo con invitación/necesidad activas y `now < need.expires_at`; no tiene TTL independiente. Consumo y respuesta son atómicos. El GET anterior no muta estado. No devuelve contacto ni ubicación del donante. Responde 409 al confirmar cuando la meta de donantes ya fue alcanzada (V6) y también ante conflictos de idempotencia (clave reutilizada con otro payload o en curso); responde 410 cuando el token fue consumido o anulado o la necesidad está terminal o vencida. La repetición con la misma clave recibe 410 solo si la necesidad es terminal o está vencida; con la necesidad viva devuelve 200 con el resultado guardado.
          */
         post: operations["recordInitialInvitationResponse"];
         delete?: never;
@@ -1414,7 +1414,7 @@ export interface components {
             /** Format: date-time */
             createdAt: string;
             createdInvitationCount: number;
-            /** @description Cuatro conteos de estado actual mutuamente excluyentes: cada invitación del lote pertenece a un solo estado y su suma es createdInvitationCount. enviada excluye las invitaciones ya entregadas; no son acumulados ni conteos de intentos. AP-02 sigue pendiente respecto de la relación operativa entre estado agregado e intentos y de cuándo un error transitorio pasa a fallida; esta proyección no define reintentos ni umbrales de fallo terminal. */
+            /** @description Cuatro conteos de estado actual mutuamente excluyentes: cada invitación del lote pertenece a un solo estado y su suma es createdInvitationCount. enviada excluye las invitaciones ya entregadas; no son acumulados ni conteos de intentos. La relación entre estado agregado e intentos y el paso de un error transitorio a fallida están resueltos por ADR-005 (V5/AP-02); esta proyección solo los expone y no define reintentos ni umbrales de fallo terminal. */
             deliveryCounts: {
                 pendiente: number;
                 enviada: number;

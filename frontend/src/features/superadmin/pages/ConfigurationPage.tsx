@@ -8,9 +8,10 @@ import { Card } from '../../../components/ui/Card.js';
 import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
 import { formatDateTime } from '../../../lib/format.js';
+import { ActionError } from '../components/ActionError.js';
 import { ResultNotice, type Notice } from '../components/ResultNotice.js';
 import { useStepUpGate } from '../components/StepUpPanel.js';
-import { useSuperadminDemo } from '../SuperadminDemoContext.js';
+import { useSuperadmin } from '../SuperadminContext.js';
 
 /** «2026-09-30T18:00» (hora de Lima, UTC−5 fijo) → ISO en UTC. */
 function limaLocalToIso(value: string): string {
@@ -20,9 +21,9 @@ function limaLocalToIso(value: string): string {
 // SA-06 Configuración (Penpot «+»). getSuperadminConfiguration solo entrega
 // finalDemoAt e isImmutable; setFinalDemoAt exige step-up y no permite cambiar
 // la fecha una vez fijada. Los demás parámetros de Penpot (matriz, entorno,
-// límites) no están en el contrato y no se muestran. Sin backend (D-4).
+// límites) no están en el contrato y no se muestran.
 export function ConfigurationPage() {
-  const { configuration, setFinalDemoAt } = useSuperadminDemo();
+  const { configuration, setFinalDemoAt } = useSuperadmin();
   const { requireStepUp, stepUpPanel } = useStepUpGate();
   const [value, setValue] = useState('');
   const [confirmed, setConfirmed] = useState(false);
@@ -41,8 +42,8 @@ export function ConfigurationPage() {
     if (found.date) return dateRef.current?.focus();
     if (found.confirm) return confirmRef.current?.focus();
     const iso = limaLocalToIso(value);
-    requireStepUp('fijar la fecha final de la demo', () => {
-      setFinalDemoAt(iso);
+    requireStepUp('fijar la fecha final de la demo', async () => {
+      if (!(await setFinalDemoAt(iso))) return;
       setNotice({ message: 'Fecha final guardada', detail: `${formatDateTime(iso)}. Ya no se puede modificar.` });
     });
   }
@@ -54,6 +55,7 @@ export function ConfigurationPage() {
         La fecha final de la demo solo puede fijarse una vez y determina la purga posterior.
       </Alert>
       {stepUpPanel}
+      <ActionError />
       <ResultNotice notice={notice} />
 
       <Card title="Fecha final de la demo">

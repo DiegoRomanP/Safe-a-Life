@@ -28,11 +28,15 @@ export function actionLink(appPublicUrl: string, route: ActionRoute, token: stri
 }
 
 /** Arma texto y HTML a partir de párrafos y un enlace; escapa todo lo que viene de datos. */
-export function compose(subject: string, paragraphs: readonly string[], link: string | null): RenderedEmail {
-  const textParts = [...paragraphs, ...(link === null ? [] : [link]), ACADEMIC_DISCLAIMER];
+export function compose(
+  subject: string, paragraphs: readonly string[], link: string | null, extraLinks: readonly Readonly<{ label: string; url: string }>[] = [],
+): RenderedEmail {
+  const anchor = (url: string) => `<p><a href="${escapeHtml(url)}">${escapeHtml(url)}</a></p>`;
+  const textParts = [...paragraphs, ...(link === null ? [] : [link]), ...extraLinks.flatMap((extra) => [extra.label, extra.url]), ACADEMIC_DISCLAIMER];
   const htmlParts = [
     ...paragraphs.map((paragraph) => `<p>${escapeHtml(paragraph)}</p>`),
-    ...(link === null ? [] : [`<p><a href="${escapeHtml(link)}">${escapeHtml(link)}</a></p>`]),
+    ...(link === null ? [] : [anchor(link)]),
+    ...extraLinks.flatMap((extra) => [`<p>${escapeHtml(extra.label)}</p>`, anchor(extra.url)]),
     `<p><small>${escapeHtml(ACADEMIC_DISCLAIMER)}</small></p>`,
   ];
   return Object.freeze({ subject, text: textParts.join('\n\n'), html: htmlParts.join('\n') });
