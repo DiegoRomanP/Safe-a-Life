@@ -2,7 +2,7 @@ begin;
 -- SP-04: el replay de create_assisted_signup revalida el hospital del actor (reasignado A -> B). Todo se revierte.
 truncate app.assisted_signups, app.email_outbox, app.hospital_memberships, app.hospitals, app.user_accounts cascade;
 
-select plan(9);
+select plan(10);
 
 insert into auth.users (id, instance_id, aud, role, email, created_at) values
   ('00000000-0000-4000-8000-0000000000a1', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'replay-admin@example.test', now() - interval '1 day');
@@ -53,6 +53,19 @@ select is(api.create_assisted_signup('clave-replay-0000001', pg_temp.hash(), 're
   'de vuelta en el hospital 1, el replay vuelve a ser autorizado');
 select is(api.create_assisted_signup('clave-replay-0000001', repeat('0', 64), 'replay@example.test', null) ->> 'kind', 'invalid',
   'un hash que no corresponde sigue siendo invalid');
+
+-- Tope de lotes por admin (20 por hora) -----------------------
+reset role;
+insert into app.sites (site_id, hospital_id, public_name, public_address, public_instructions, latitude, longitude, is_active, is_approved)
+values ('50000000-0000-4000-8000-0000000000a1', '10000000-0000-4000-8000-0000000000a1', 'Sede Tope', 'Dirección sintética', null, -12.046, -77.043, true, true);
+insert into app.needs (need_id, hospital_id, site_id, created_by, component, required_blood_type, target_confirmations, radius_km, urgency, status, expires_at)
+values ('40000000-0000-4000-8000-0000000000a1', '10000000-0000-4000-8000-0000000000a1', '50000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000a1', 'RBC', 'A_POS', 2, 10, 'Normal', 'activa', now() + interval '12 hours');
+insert into app.invitation_batches (need_id, hospital_id, requested_by, created_invitation_count, queued_email_count)
+select '40000000-0000-4000-8000-0000000000a1', '10000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000a1', 0, 0 from generate_series(1, 20);
+set local role authenticated;
+select pg_temp.login();
+select is(api.authorize_invitation_batch('40000000-0000-4000-8000-0000000000a1') ->> 'kind', 'rate_limited',
+  'a los 20 lotes por hora el admin recibe rate_limited al pedir otra concesión');
 
 select * from finish();
 rollback;

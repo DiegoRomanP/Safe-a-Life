@@ -26,3 +26,13 @@ Hallazgo de diseño confirmado: la primera respuesta solo se registra con el enl
 - Corregir o aceptar: M2 de seguridad (tope por correo en altas), step-up en acciones masivas del hospital, CSP del SPA, copy de `SaveErrorNotice`, claves de idempotencia por intento.
 - F1: correo real a Gmail con Resend (necesita `RESEND_API_KEY` y Gmail permitido).
 - Demo contra el Supabase remoto con cuentas sintéticas.
+
+## Correcciones de las observaciones (2026-11-20, segunda pasada)
+Hechas:
+- Frontend (`0440865`): `SaveErrorNotice` con texto de validación por pantalla y tipo `limite` para el 429; clave de idempotencia reutilizada en el reintento idéntico tras fallo de red o 5xx (se renueva con cualquier respuesta definitiva); 400/403 en la vista previa del enlace = enlace no válido; estado ocupado del botón de reintento y aviso previo limpiado; `frontend/vercel.json` con CSP, Referrer-Policy, nosniff y X-Frame-Options.
+- Backend: migración `20261022090000` (tope de 20 lotes por hora por admin, L-5); migración `20261022100000` (responder por token o cambiar la respuesta por sesión exige perfil `activo`, L-2); techo del POST de respuesta por token a 60/15 min por IP (L-3: el token tiene 256 bits, el techo solo acota carga y las redes compartidas no deben bloquear confirmaciones legítimas). pgTAP 1163, vitest backend 828, integración 227, Bruno real y E2E real en verde.
+No se aplican (con motivo):
+- M2 de seguridad (tope por correo en altas asistidas): ya existe y es silencioso (3 enlaces por buzón cada 24 h, respuesta neutra; el test de integración lo fija). Un 429 nuevo rompería la neutralidad.
+- Step-up en acciones masivas del hospital: es una decisión de contrato/UX de la persona usuaria (cambiaría Bruno, E2E y ADR-004 §5); pendiente.
+- F6 M1 (replay de lote con la misma clave tras cerrar la necesidad da 409) y M3 (pruebas de concurrencia de cascadas): requieren rediseñar el paso 1 de la concesión y pruebas con varias conexiones; pendientes.
+- Las migraciones 090000 y 100000 solo están en el Supabase local; falta aplicarlas al remoto con tu autorización.
