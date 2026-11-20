@@ -16,6 +16,7 @@ import { bloodTypeLabel } from '../../../lib/format.js';
 import { useDemoMutation, type Mutation } from '../../../lib/useDemoMutation.js';
 import { useDemoQuery } from '../../../lib/useDemoQuery.js';
 import { useDonorDemo } from '../DonorDemoContext.js';
+import { AddressSearch } from '../AddressSearch.js';
 import { latitudeError, longitudeError } from '../location.js';
 import type { DonorProfile } from '../types.js';
 import type { RequestKind } from './NewRequestPage.js';
@@ -128,6 +129,7 @@ function ProfileForm({ profile, save, onReload }: ProfileFormProps) {
             <fieldset className="flex flex-col gap-3">
               <legend className="text-sm font-semibold text-ink">Ubicación sintética</legend>
               <p className="text-sm text-muted">Máximo tres decimales; no uses tu domicilio real.</p>
+              <AddressSearch onSelect={(lat, lon) => { setLatitude(lat); setLongitude(lon); setSaved(false); }} />
               <div className="grid gap-6 md:grid-cols-2">
                 <Field label="Latitud" error={errors.latitude}>
                   {(control) => (
