@@ -96,7 +96,7 @@ function messageFor(error: unknown): string {
   if (code === 'STEP_UP_REQUIRED') return 'Tu verificación reforzada venció. Vuelve a intentarlo y confirma el código.';
   if (code === 'MFA_REQUIRED') return 'Esta acción exige verificación en dos pasos. Vuelve a ingresar.';
   if (status === 409) return 'El estado cambió desde que abriste la pantalla. Actualizamos los datos; revisa e intenta de nuevo.';
-  if (status === 410) return 'El acceso contextual venció. Solicita uno nuevo.';
+  if (status === 410) return 'El acceso o la invitación ya no están vigentes. Actualiza la pantalla y solicita uno nuevo si hace falta.';
   if (status === 400 || status === 422) return 'El servidor rechazó los datos. Revísalos e intenta de nuevo.';
   if (status === 403) return 'No tienes permiso para esta acción.';
   if (status === 429) return 'Demasiados intentos. Espera unos minutos.';
