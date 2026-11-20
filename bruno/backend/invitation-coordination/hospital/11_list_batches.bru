@@ -1,0 +1,22 @@
+meta {
+  name: Lista los lotes con conteos de entrega
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{needId}}/invitation-batches
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("un lote, con conteos que suman lo creado", function () {
+    expect(res.getStatus()).to.equal(200);
+    var items = res.getBody().data.items;
+    expect(items).to.have.length(1);
+    var c = items[0].deliveryCounts;
+    expect(c.pendiente + c.enviada + c.entregada + c.fallida).to.equal(items[0].createdInvitationCount);
+    expect(items[0].createdInvitationCount).to.equal(bru.getVar("createdCount"));
+  });
+}

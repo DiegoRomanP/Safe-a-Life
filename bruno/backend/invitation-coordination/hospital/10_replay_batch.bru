@@ -1,0 +1,24 @@
+meta {
+  name: La misma clave devuelve el mismo lote
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{needId}}/invitation-batches
+  body: none
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-batch
+}
+
+tests {
+  test("replay: mismo lote, sin duplicar invitaciones", function () {
+    expect(res.getStatus()).to.equal(201);
+    expect(res.getBody().data.batchId).to.equal(bru.getVar("batchId"));
+  });
+}

@@ -15,7 +15,7 @@ export function ResultNotice({ notice }: { notice: Notice | null }) {
   }, [notice]);
 
   return (
-    <div aria-live="polite">
+    <div aria-live="polite" className="live-slot">
       {notice && (
         <div ref={ref} tabIndex={-1} className="rounded-xl focus-visible:outline-focus">
           <SuccessNotice announce={false} message={notice.message} detail={notice.detail} />

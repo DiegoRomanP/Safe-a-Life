@@ -1,0 +1,20 @@
+meta {
+  name: La vista previa muestra solo hospital, sede y acción
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/v1/invitation-actions/{{confirmToken}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("200 con los cuatro campos y no-store", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getHeader("cache-control")).to.contain("no-store");
+    expect(Object.keys(res.getBody().data).sort()).to.deep.equal(["expiresAt","hospitalName","intendedAction","publicSiteName"]);
+    expect(res.getBody().data.intendedAction).to.equal("confirmar");
+  });
+}

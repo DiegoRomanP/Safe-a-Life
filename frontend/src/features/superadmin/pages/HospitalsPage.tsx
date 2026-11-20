@@ -9,9 +9,11 @@ import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
 import { StatCard } from '../../../components/ui/StatCard.js';
 import { formatDateTime } from '../../../lib/format.js';
+import { ActionError } from '../components/ActionError.js';
 import { ResultNotice, type Notice } from '../components/ResultNotice.js';
 import { useStepUpGate } from '../components/StepUpPanel.js';
-import { useSuperadminDemo } from '../SuperadminDemoContext.js';
+import { useSuperadmin } from '../SuperadminContext.js';
+import { TableScroll } from '../../../components/ui/TableScroll.js';
 
 type Errors = { publicName?: string; legalName?: string };
 
@@ -21,9 +23,9 @@ const required = (value: string, max: number, name: string) =>
 // SA-02 Hospitales autorizados (Penpot «+»). Datos de listHospitals; sedes y
 // administradores se cuentan desde sus propias listas. Crear usa
 // createHospital; autorizar o desautorizar usa updateHospital, que exige
-// step-up. Sin backend (D-4).
+// step-up.
 export function HospitalsPage() {
-  const { hospitals, sites, memberships, createHospital, setHospitalAuthorized } = useSuperadminDemo();
+  const { hospitals, sites, memberships, createHospital, setHospitalAuthorized } = useSuperadmin();
   const { requireStepUp, stepUpPanel } = useStepUpGate();
   const [publicName, setPublicName] = useState('');
   const [legalName, setLegalName] = useState('');
@@ -36,7 +38,7 @@ export function HospitalsPage() {
   const admins = (hospitalId: string) =>
     memberships.filter((m) => m.hospitalId === hospitalId && m.status === 'activa').length;
 
-  function handleCreate(event: FormEvent<HTMLFormElement>) {
+  async function handleCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const found: Errors = {
       publicName: required(publicName, 160, 'el nombre público'),
@@ -45,15 +47,16 @@ export function HospitalsPage() {
     flushSync(() => setErrors(found));
     if (found.publicName) return publicRef.current?.focus();
     if (found.legalName) return legalRef.current?.focus();
-    const created = createHospital({ publicName: publicName.trim(), legalName: legalName.trim() });
+    const created = await createHospital({ publicName: publicName.trim(), legalName: legalName.trim() });
+    if (!created) return;
     setPublicName('');
     setLegalName('');
     setNotice({ message: `${created.publicName} creado`, detail: 'Queda sin autorizar hasta que lo autorices.' });
   }
 
   function toggle(hospitalId: string, name: string, authorize: boolean) {
-    requireStepUp(authorize ? `autorizar ${name}` : `desautorizar ${name}`, () => {
-      setHospitalAuthorized(hospitalId, authorize);
+    requireStepUp(authorize ? `autorizar ${name}` : `desautorizar ${name}`, async () => {
+      if (!(await setHospitalAuthorized(hospitalId, authorize))) return;
       setNotice({
         message: authorize ? `${name} autorizado` : `${name} desautorizado`,
         detail: 'El cambio quedó registrado en la auditoría.',
@@ -72,9 +75,10 @@ export function HospitalsPage() {
         Solo el superadmin puede crear o modificar hospitales y aprobar sus sedes.
       </Alert>
       {stepUpPanel}
+      <ActionError />
       <ResultNotice notice={notice} />
 
-      <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+      <TableScroll label="Hospitales">
         <table className="w-full min-w-[880px] text-left">
           <caption className="sr-only">Hospitales</caption>
           <thead>
@@ -114,7 +118,7 @@ export function HospitalsPage() {
             ))}
           </tbody>
         </table>
-      </div>
+      </TableScroll>
 
       <section aria-labelledby="resumen-institucional" className="flex flex-col gap-4">
         <h2 id="resumen-institucional" className="text-xl font-semibold text-ink">
@@ -128,7 +132,7 @@ export function HospitalsPage() {
       </section>
 
       <Card title="Crear hospital">
-        <form noValidate onSubmit={handleCreate} className="flex flex-col gap-6">
+        <form noValidate onSubmit={(event) => void handleCreate(event)} className="flex flex-col gap-6">
           <div className="grid gap-6 md:grid-cols-2">
             <Field label="Nombre público" error={errors.publicName} required>
               {(control) => (

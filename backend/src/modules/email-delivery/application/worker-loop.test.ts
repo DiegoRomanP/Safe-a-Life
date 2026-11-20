@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createWorkerLoop } from './worker-loop.js';
 import type { OutboxProcessor } from './process-outbox.js';
 
@@ -85,5 +85,23 @@ describe('bucle del worker', () => {
     loop.stop();
 
     await expect(loop.tick()).resolves.toBeUndefined();
+  });
+
+  it('el temporizador del bucle mantiene vivo el proceso (con unref, `npm run dev:worker` salía sin un solo ciclo)', () => {
+    const timers: NodeJS.Timeout[] = [];
+    const realSetTimeout = globalThis.setTimeout;
+    const spy = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((...args: Parameters<typeof setTimeout>) => {
+      const timer = realSetTimeout(...args);
+      timers.push(timer);
+      return timer;
+    }) as typeof setTimeout);
+    const { loop } = harness();
+
+    loop.start();
+    spy.mockRestore();
+    const alive = timers[0]?.hasRef();
+    loop.stop();
+
+    expect(alive).toBe(true);
   });
 });

@@ -55,7 +55,6 @@ export function createWorkerLoop({ processor, gateway, pollMs, expireEveryMs = 6
         schedule();
       }
     }, pollMs);
-    timer.unref();
   }
 
   return Object.freeze({

@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { act } from 'react';
+import { describe, expect, it, vi } from 'vitest';
+import { getAuthSession, restoreSession, setAuthSession } from '../../features/auth/session/session.js';
+import { TEST_DONOR_SESSION } from '../../test/renderRoute.js';
 import { click, render, setupRender } from '../../test/render.js';
 import { AppLayout } from './AppLayout.js';
 
@@ -10,6 +13,7 @@ function mount(path: string) {
   const router = createMemoryRouter(
     [
       { path: '/', element: <p>inicio público</p> },
+      { path: '/ingresar', element: <p>ingresar</p> },
       {
         path: '/area',
         element: (
@@ -59,9 +63,49 @@ describe('AppLayout', () => {
     expect(view.querySelector('header')?.textContent).toContain('Cuenta personal');
   });
 
-  it('«Cerrar sesión» vuelve al inicio público', () => {
+  it('«Cerrar sesión» borra la sesión en el servidor (DELETE con CSRF) y en memoria, y vuelve a /ingresar', async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init });
+      return { ok: true, status: 204, json: async () => { throw new SyntaxError(); } };
+    });
+    setAuthSession(TEST_DONOR_SESSION);
     const { view, router } = mount('/area/uno');
-    click([...view.querySelectorAll('button')].find((b) => b.textContent === 'Cerrar sesión') ?? null);
-    expect(router.state.location.pathname).toBe('/');
+
+    await act(async () => { click([...view.querySelectorAll('button')].find((b) => b.textContent === 'Cerrar sesión') ?? null); });
+
+    expect(requests.map(({ url, init }) => `${init?.method} ${url}`)).toEqual(['DELETE /api/v1/auth/sessions/current']);
+    expect(new Headers(requests[0]?.init?.headers).get('x-csrf-token')).toBe(TEST_DONOR_SESSION.csrfToken);
+    expect(getAuthSession()).toBeNull();
+    expect(router.state.location.pathname).toBe('/ingresar');
+  });
+
+  it.each([
+    ['sin red', () => Promise.reject(new TypeError('sin red'))],
+    ['403 de origen', async () => ({ ok: false, status: 403, json: async () => ({ error: { code: 'FORBIDDEN' } }) })],
+  ] as const)('si el servidor no confirma el cierre (%s) avisa y la pestaña no restaura las cookies', async (_caso, reply) => {
+    const requests: string[] = [];
+    vi.stubGlobal('fetch', (input: RequestInfo | URL) => { requests.push(String(input)); return reply(); });
+    setAuthSession(TEST_DONOR_SESSION);
+    const { view, router } = mount('/area/uno');
+
+    await act(async () => { click([...view.querySelectorAll('button')].find((b) => b.textContent === 'Cerrar sesión') ?? null); });
+
+    expect(getAuthSession()).toBeNull();
+    expect(router.state.location.pathname).toBe('/ingresar');
+    expect(router.state.location.state).toEqual({ logoutFailed: true });
+    expect(await restoreSession()).toBeNull();
+    expect(requests).toEqual(['/api/v1/auth/sessions/current']);
+  });
+
+  it('un 401 al cerrar sesión cuenta como cerrada (el backend ya expiró las cookies)', async () => {
+    vi.stubGlobal('fetch', async () => ({ ok: false, status: 401, json: async () => ({ error: { code: 'AUTHENTICATION_REQUIRED' } }) }));
+    setAuthSession(TEST_DONOR_SESSION);
+    const { view, router } = mount('/area/uno');
+
+    await act(async () => { click([...view.querySelectorAll('button')].find((b) => b.textContent === 'Cerrar sesión') ?? null); });
+
+    expect(router.state.location.pathname).toBe('/ingresar');
+    expect(router.state.location.state).toBeNull();
   });
 });

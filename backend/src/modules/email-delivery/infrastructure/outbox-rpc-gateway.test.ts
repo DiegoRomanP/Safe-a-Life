@@ -21,6 +21,13 @@ describe('parseClaimed (guard cerrado)', () => {
     expect(parseClaimed(ROW)).toEqual(ROW);
   });
 
+  it('acepta `display` solo con hospital y sede, y rechaza claves de más', () => {
+    const display = { hospitalName: 'Hospital Demo', sitePublicName: 'Sede Central' };
+    expect(parseClaimed({ ...ROW, display })).toEqual({ ...ROW, display });
+    expect(() => parseClaimed({ ...ROW, display: { ...display, siteLatitude: -12.04 } })).toThrow(PersistenceError);
+    expect(() => parseClaimed({ ...ROW, display: { hospitalName: 'H' } })).toThrow(PersistenceError);
+  });
+
   it.each([
     ['campo extra', { ...ROW, email: 'x' }], ['falta un campo', { ...ROW, idempotencyKey: undefined }],
     ['tipo desconocido', { ...ROW, kind: 'otro' }], ['attemptNo no numérico', { ...ROW, attemptNo: '1' }],
@@ -82,6 +89,8 @@ describe('gateway del worker', () => {
     const ingest = harness({ kind: 'ok', duplicate: true });
 
     expect(await expire.gateway.expire()).toEqual({ expired: 2, exhausted: 1 });
+    // F6: en el mismo ciclo vence las necesidades y purga las concesiones del lote y del reintento.
+    expect(expire.calls.map((call) => call.name)).toEqual(['worker_expire_outbox', 'worker_expire_needs', 'worker_purge_invitation_grants']);
     expect(await ingest.gateway.ingestEvent({ eventId: 'e1', providerMessageId: 'p1', type: 'email.sent', occurredAt: new Date('2026-10-13T12:00:00Z') })).toEqual({ duplicate: true, matched: false });
     expect(ingest.calls[0].args).toEqual({ p_event_id: 'e1', p_provider_message_id: 'p1', p_type: 'email.sent', p_occurred_at: '2026-10-13T12:00:00.000Z' });
   });

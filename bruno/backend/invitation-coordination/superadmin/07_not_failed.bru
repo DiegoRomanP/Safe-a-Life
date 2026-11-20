@@ -1,0 +1,21 @@
+meta {
+  name: Solo se reintenta una entrega fallida
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/superadmin/invitations/{{sentInvitationId}}/delivery-retries
+  body: none
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-sent
+}
+
+tests {
+  test("la entrega ya salió: 409", function () { expect(res.getStatus()).to.equal(409); });
+}

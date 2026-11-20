@@ -1,0 +1,27 @@
+meta {
+  name: Un valor fuera del catálogo es 422
+  type: http
+  seq: 19
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/donors/me/invitations/{{invitationId}}/response
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-change-bad
+}
+
+body:json {
+  { "response": "sin_respuesta" }
+}
+
+tests {
+  test("responde 422", function () {
+    expect(res.getStatus()).to.equal(422);
+  });
+}

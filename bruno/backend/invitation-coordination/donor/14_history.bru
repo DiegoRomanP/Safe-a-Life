@@ -1,0 +1,21 @@
+meta {
+  name: El historial registra la confirmación
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors/me/responses
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("una entrada confirmada", function () {
+    expect(res.getStatus()).to.equal(200);
+    var items = res.getBody().data.items;
+    expect(items).to.have.length(1);
+    expect(items[0].response).to.equal("confirmada");
+    expect(items[0].invitationId).to.equal(bru.getVar("invitationId"));
+  });
+}

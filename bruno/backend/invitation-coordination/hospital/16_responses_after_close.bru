@@ -1,0 +1,18 @@
+meta {
+  name: Tras cerrar, las invitaciones figuran invalidadas
+  type: http
+  seq: 17
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{needId}}/responses
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("todas invalidadas", function () {
+    expect(res.getStatus()).to.equal(200);
+    res.getBody().data.items.forEach(function (item) { expect(item.validity).to.equal("invalidada"); });
+  });
+}

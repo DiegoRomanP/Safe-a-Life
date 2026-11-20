@@ -1,0 +1,24 @@
+meta {
+  name: Reintenta la entrega fallida
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/superadmin/invitations/{{failedInvitationId}}/delivery-retries
+  body: none
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-retry
+}
+
+tests {
+  test("202 con mensaje neutro", function () {
+    expect(res.getStatus()).to.equal(202);
+    expect(Object.keys(res.getBody().data)).to.deep.equal(["message"]);
+  });
+}

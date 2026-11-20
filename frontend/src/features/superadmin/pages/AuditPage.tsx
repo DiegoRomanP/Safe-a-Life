@@ -7,14 +7,15 @@ import { Field } from '../../../components/ui/Field.js';
 import { Select } from '../../../components/ui/Select.js';
 import { formatDateTime } from '../../../lib/format.js';
 import { auditResultLabel } from '../labels.js';
-import { useSuperadminDemo } from '../SuperadminDemoContext.js';
+import { useSuperadmin } from '../SuperadminContext.js';
+import { TableScroll } from '../../../components/ui/TableScroll.js';
 
 // SA-07 Auditoría minimizada (Penpot «+»). listAuditEvents entrega eventos
 // append-only con actor y recurso opacos, sin valores personales. El contrato
 // solo pagina (limit, cursor): los filtros se aplican sobre los eventos
-// cargados. Sin backend (D-4).
+// cargados.
 export function AuditPage() {
-  const { auditEvents } = useSuperadminDemo();
+  const { auditEvents } = useSuperadmin();
   const [eventFilter, setEventFilter] = useState('');
   const [resultFilter, setResultFilter] = useState('');
   const eventOptions = [...new Set(auditEvents.map((item) => item.event))].sort().map((value) => ({ value, label: value }));
@@ -72,7 +73,7 @@ export function AuditPage() {
       {visible.length === 0 ? (
         <EmptyState message="No hay eventos con esos filtros" />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+        <TableScroll label="Eventos de auditoría">
           <table className="w-full min-w-[880px] text-left">
             <caption className="sr-only">Eventos de auditoría</caption>
             <thead>
@@ -98,7 +99,7 @@ export function AuditPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       )}
     </>
   );

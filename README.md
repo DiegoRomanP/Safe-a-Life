@@ -18,11 +18,14 @@ El proyecto es un monolito modular con dos carpetas de producto:
   salud, `identity-institutions` (sesión, MFA, hospitales, membresías; F2a),
   invitaciones de admin y recuperación de contraseña (F2b), `need-records` (F3),
   `email-delivery` (outbox, worker y webhook de Resend; F4), `donor-records` (F5) y
-  `privacy-requests` (F7, sin borrado de cuentas de Auth: ver ADR-006 y P-12).
-  De `invitation-coordination` (F6) solo existe el dominio puro; F8 no tiene módulo.
+  `privacy-requests` (F7, sin borrado de cuentas de Auth: ver ADR-006 y P-12) e
+  `invitation-coordination` (F6: lotes, respuestas por enlace y por sesión, reintento
+  manual de entrega, con tope de 20 lotes por hora por administrador).
 - **`frontend/`**: frontend real (`@save-a-life/frontend`, TypeScript, React 18, Vite,
-  Tailwind). La integración con el backend está en curso: el login ya usa la sesión
-  y la consulta de CSRF; el resto de las vistas sigue con datos de demostración.
+  Tailwind) conectado al backend para los tres roles: registro y perfil del donante,
+  invitaciones y enlaces del correo, necesidades, lotes y respuestas del hospital, y
+  la administración central del superadmin (con MFA y step-up). Ver
+  [`frontend/README.md`](frontend/README.md).
 - **`apps/web` + `apps/mock-api`**: demo web contra un mock Express con estado
   sintético en memoria. Su auth, CSRF, AAL2 y permisos son demostraciones.
 
@@ -117,6 +120,7 @@ npm run test:api                 # Integración del mock con Supertest
 npm run test:contract            # Runner Prism + Ajv2020 contra el contrato estático
 npm run test:bruno               # Arranca/resetea/cierra el mock y ejecuta escenarios
 npm run test:e2e -- --trace=off  # Playwright Chromium sin guardar trazas de red
+npm run test:e2e:real            # E2E de 3 roles contra el backend real (ver abajo)
 npm run lint                     # ESLint 9 + tsc --noEmit en cada workspace
 npm run typecheck
 npm run build
@@ -128,6 +132,24 @@ Los conteos de pruebas cambian con el código; los de cada ejecución quedan en 
 plan de la tarea correspondiente (`docs/plans/`) y no son cobertura de auth, RLS ni
 de flujos productivos. Solo los endpoints del backend real verificados con Bruno CLI
 cuentan como evidencia del backend; Prism y el mock no.
+
+### E2E real (`npm run test:e2e:real`)
+
+Requiere `supabase start --workdir backend`. Reinicia la base **local** (nunca la
+remota), siembra cuentas sintéticas `*.example.test`, levanta backend, worker (con
+buzón local en `backend/.dev-mailbox`) y frontend, y recorre en Chromium:
+
+1. Registro de un donante nuevo por la UI: correo y contraseña → enlace de
+   verificación → enlace para crear la contraseña (barrera de sesión) → ingreso →
+   perfil obligatorio, comprobando el estado en la base en cada paso.
+2. Superadmin con contraseña + TOTP; admin de hospital que crea una necesidad y pide
+   un lote (el donante recién registrado recibe la invitación).
+3. Donantes que confirman desde el enlace del correo y cambian la respuesta desde su
+   sesión; el hospital ve solo el nombre de quien confirmó.
+
+Opciones: `E2E_HEADED=1` muestra el navegador, `E2E_SHOTS=<dir>` guarda capturas y
+`E2E_CHROMIUM=<ruta>` usa otro ejecutable de Chromium (útil si la versión instalada de
+Playwright pide un navegador que falta).
 
 Si el navegador de Playwright no está instalado, ejecutar `npx playwright install chromium`.
 Detener `npm run dev` antes de E2E. Playwright conserva trazas ante fallos por

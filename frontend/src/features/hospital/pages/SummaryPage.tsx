@@ -4,13 +4,13 @@ import { Alert } from '../../../components/ui/Alert.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { StatCard } from '../../../components/ui/StatCard.js';
 import { NeedsTable } from '../components/NeedsTable.js';
-import { useHospitalDemo } from '../HospitalDemoContext.js';
+import { useHospital } from '../HospitalContext.js';
 
 // HOS-01 Resumen operativo (Penpot «+»). Datos de listOwnHospitalNeeds. Los
 // indicadores salen solo de esa lista: el contrato no entrega al hospital
 // «entregas pendientes» ni «tareas por revisar».
 export function SummaryPage() {
-  const { needs } = useHospitalDemo();
+  const { needs } = useHospital();
   const count = (status: string) => needs.filter((need) => need.status === status).length;
   const confirmed = needs
     .filter((need) => need.status === 'activa' || need.status === 'meta_alcanzada')

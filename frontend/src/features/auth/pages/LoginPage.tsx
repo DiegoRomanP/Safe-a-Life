@@ -1,18 +1,29 @@
-import { useSyncExternalStore } from 'react';
-import { beginLogin, getAuthOperationState, subscribeAuthOperation } from '../session/session.js';
+import { useEffect, useSyncExternalStore } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { destinationFor } from '../session/destination.js';
+import { beginLogin, getAuthOperationState, getAuthSession, subscribeAuthOperation } from '../session/session.js';
 import { Alert } from '../../../components/ui/Alert.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { AuthCard, AuthShell } from '../components/AuthShell.js';
 import { LoginForm } from '../components/LoginForm.js';
 
-// AUTH-01: el reconocimiento no concede acceso a las rutas demo sin guards.
+// AUTH-01: con sesión verificada cada rol entra a su área; hospital y superadmin completan antes MFA (aal 2).
+
 export function LoginPage() {
+  const navigate = useNavigate();
+  const logoutFailed = (useLocation().state as { logoutFailed?: boolean } | null)?.logoutFailed === true;
   const operationState = useSyncExternalStore(
     subscribeAuthOperation,
     getAuthOperationState,
     getAuthOperationState,
   );
   const pending = operationState === 'pending';
+  const session = operationState === 'success' ? getAuthSession() : null;
+  const destination = session ? destinationFor(session) : null;
+
+  useEffect(() => {
+    if (destination) navigate(destination, { replace: true });
+  }, [destination, navigate]);
 
   return (
     <AuthShell
@@ -33,11 +44,35 @@ export function LoginPage() {
           <p className="text-muted">Ingresa con tu correo verificado.</p>
         </div>
 
+        {operationState === 'expired' && (
+          <Alert tone="info" title="Tu sesión terminó">
+            Ingresa de nuevo para continuar.
+          </Alert>
+        )}
+
+        {logoutFailed && operationState === 'idle' && (
+          <Alert tone="warning" title="No pudimos cerrar la sesión en el servidor">
+            Si usas un equipo compartido, cierra el navegador. Esta pestaña no volverá a abrir la sesión sin ingresar de nuevo.
+          </Alert>
+        )}
+
         <div aria-live="polite" aria-atomic="true" aria-busy={pending}>
           {operationState === 'pending' && <Alert tone="info" title="Conectando">Verificando la sesión.</Alert>}
           {operationState === 'success' && (
             <Alert tone="success" title="Sesión iniciada">
-              Permaneces en esta pantalla; las rutas protegidas aún no están conectadas.
+              Abriendo tu área.
+            </Alert>
+          )}
+          {operationState === 'rejected' && (
+            // Neutro: no revela si el correo existe ni en qué paso del registro está.
+            <Alert tone="danger" title="No pudimos iniciar sesión">
+              Revisa el correo y la contraseña. Si acabas de verificar tu correo, primero crea tu contraseña con el enlace que te
+              enviamos.
+            </Alert>
+          )}
+          {operationState === 'limited' && (
+            <Alert tone="warning" title="Demasiados intentos">
+              Espera unos minutos antes de volver a intentarlo.
             </Alert>
           )}
           {operationState === 'error' && (
@@ -57,24 +92,6 @@ export function LoginPage() {
           </LinkButton>
         </div>
 
-        {/* Solo en desarrollo: entrada al recorrido con datos sintéticos (D-4). */}
-        {import.meta.env.DEV && (
-          <div className="flex flex-col gap-2 rounded-xl border border-dashed border-muted p-4">
-            <p className="text-sm font-semibold text-muted">Solo DEV: recorridos con datos sintéticos</p>
-            <LinkButton to="/donante" variant="ghost" fullWidth>
-              Entrar como donante de prueba
-            </LinkButton>
-            <LinkButton to="/donante/bienvenida" variant="ghost" fullWidth>
-              Entrar como donante nuevo
-            </LinkButton>
-            <LinkButton to="/hospital" variant="ghost" fullWidth>
-              Entrar como hospital de prueba
-            </LinkButton>
-            <LinkButton to="/superadmin" variant="ghost" fullWidth>
-              Entrar como superadmin de prueba
-            </LinkButton>
-          </div>
-        )}
       </AuthCard>
     </AuthShell>
   );

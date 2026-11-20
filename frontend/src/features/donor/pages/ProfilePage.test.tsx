@@ -1,12 +1,20 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { act } from 'react';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { clearAuthSession, logout } from '../../auth/session/session.js';
 import { click, settle, setupRender, type } from '../../../test/render.js';
 import { renderRoute } from '../../../test/renderRoute.js';
+import { stubDonorApi, type DonorApiStub } from '../../../test/donorApi.js';
 
 setupRender();
+// El perfil es real: un backend en memoria responde sus tres operaciones.
+let api: DonorApiStub;
+beforeEach(() => { api = stubDonorApi(); });
+// Un 401 deja la sesión «expirada» en el módulo: se vuelve a reposo (logout sin sesión no llama al backend).
+afterEach(async () => { clearAuthSession(); await act(async () => { await logout(); }); });
 
 function save(view: HTMLElement) {
-  click(view.querySelector('button[form="perfil-formulario"]'));
+  click(view.querySelector('#perfil-formulario button[type="submit"]'));
 }
 
 function inputByLabel(view: HTMLElement, label: string) {
@@ -55,6 +63,58 @@ describe('DON-02 Mi perfil', () => {
     save(view);
     await settle();
     expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Cambios guardados');
+    // Se guardó en el backend (PATCH con CSRF) y la vista volvió a leerlo.
+    expect(api.requests).toEqual(['GET /donors/me/profile', 'PATCH /donors/me/profile', 'GET /donors/me/profile']);
+    expect(api.profile).toMatchObject({ isAvailable: false, approximateLocation: { latitude: -12.091, longitude: -77.05 } });
+  });
+
+  it('un fallo al guardar no cambia la disponibilidad mostrada', async () => {
+    const view = renderRoute('/donante/perfil');
+    await settle();
+    api.writeStatus = 503;
+    click(view.querySelector('[role="switch"]'));
+    save(view);
+    await settle();
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).not.toContain('Cambios guardados');
+    expect(view.textContent).toContain('No se guardó');
+    expect(api.profile?.isAvailable).toBe(true);
+  });
+
+  it('un 422 (zona fuera de Lima) explica el rechazo en vez de un fallo de red', async () => {
+    const view = renderRoute('/donante/perfil');
+    await settle();
+    api.writeStatus = 422;
+    save(view);
+    await settle();
+    expect(view.textContent).toContain('revisa que la ubicación aproximada esté dentro de Lima');
+    expect(view.textContent).not.toContain('No pudimos conectar');
+  });
+
+  it('un 401 a mitad de uso cierra el área y lleva a /ingresar con aviso', async () => {
+    const view = renderRoute('/donante/perfil');
+    await settle();
+    api.writeStatus = 401;
+    save(view);
+    await settle();
+    expect(view.querySelector('h1')?.textContent).toBe('Iniciar sesión');
+    expect(view.textContent).toContain('Tu sesión terminó');
+    expect(view.textContent).not.toContain(api.profile!.name);
+  });
+
+  it('ninguna vista del donante lleva el aviso «Datos de ejemplo»: todo es real', async () => {
+    const view = renderRoute('/donante/perfil');
+    await settle();
+    expect(view.textContent).not.toContain('Datos de ejemplo');
+    click(view.querySelector('nav a[href="/donante/invitaciones"]'));
+    await settle();
+    expect(view.textContent).not.toContain('Datos de ejemplo');
+  });
+
+  it('sin perfil activo (404) lleva al onboarding', async () => {
+    api.profile = null;
+    const view = renderRoute('/donante/perfil');
+    await settle();
+    expect(view.querySelector('h1')?.textContent).toBe('Te damos la bienvenida');
   });
 
   it('marcarse no disponible invalida las invitaciones activas sin respuesta', async () => {

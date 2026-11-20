@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { flushSync } from 'react-dom';
+import { useEffect, useRef, useState } from 'react';
 import { Alert } from '../../../components/ui/Alert.js';
 import { Badge } from '../../../components/ui/Badge.js';
-import { Button } from '../../../components/ui/Button.js';
-import { Field } from '../../../components/ui/Field.js';
-import { Input } from '../../../components/ui/Input.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
+import { Loading } from '../../../components/states/Loading.js';
+import { claimAdminInvitation, fetchAdminInvitationPreview, fetchCsrfToken, type AdminInvitationPreview } from '../../../lib/api/auth.js';
+import { PasswordClaimForm } from '../components/PasswordClaimForm.js';
+import { setAuthSession } from '../session/session.js';
+import { tokenStatusFor } from '../tokenStatus.js';
 import { formatDateTime } from '../../../lib/format.js';
 import { AuthCard, AuthShell } from '../components/AuthShell.js';
 import { DevStatusPicker } from '../components/DevStatusPicker.js';
@@ -16,11 +17,6 @@ import {
   type TokenStatusCopy,
 } from '../components/TokenStatusView.js';
 import { useFragmentToken } from '../useFragmentToken.js';
-import { newPasswordError, PASSWORD_HINT } from '../validation.js';
-
-// Vista previa sintética de getHospitalAdminInvitationPreview mientras no hay
-// cliente HTTP (D-4).
-const demoPreview = { hospitalName: 'Hospital Nacional Central', expiresAt: '2026-09-25T15:00:00Z' };
 
 // Una invitación de administrador vencida se renueva con el superadmin.
 const adminCopy: TokenStatusCopy = {
@@ -37,10 +33,28 @@ const adminCopy: TokenStatusCopy = {
 // (hospital, rol y plazo) y nunca consume el token. Reclamar crea la contraseña
 // (claimHospitalAdminInvitation, 12 a 128 caracteres); el hospital y el rol
 // salen de la invitación protegida y la cuenta debe configurar MFA antes de
-// operar. Sin backend (D-4).
+// operar.
 export function AdminInvitationPage() {
   const { token } = useFragmentToken();
   const [status, setStatus] = useState<TokenStatus>(token ? 'valid' : 'invalid');
+  const [preview, setPreview] = useState<AdminInvitationPreview>();
+  const [previewFailed, setPreviewFailed] = useState(false);
+
+  // GET de vista previa: muestra hospital y plazo reales y nunca consume el token.
+  useEffect(() => {
+    if (!token) return;
+    let live = true;
+    fetchAdminInvitationPreview(token).then(
+      (data) => { if (live) setPreview(data); },
+      (error: unknown) => {
+        if (!live) return;
+        const next = tokenStatusFor(error);
+        if (next) setStatus(next);
+        else setPreviewFailed(true);
+      },
+    );
+    return () => { live = false; };
+  }, [token]);
 
   return (
     <AuthShell
@@ -54,30 +68,35 @@ export function AdminInvitationPage() {
     >
       <div className="flex w-full max-w-[640px] flex-col items-center gap-6">
         {import.meta.env.DEV && <DevStatusPicker value={status} onChange={setStatus} />}
-        <TokenStatusView status={status} copy={adminCopy} validContent={<ClaimAdminInvitation />} />
+        <TokenStatusView status={status} copy={adminCopy} validContent={
+            preview && token ? (
+              <ClaimAdminInvitation token={token} preview={preview} onLinkProblem={setStatus} />
+            ) : previewFailed ? (
+              <Alert tone="danger" title="No pudimos abrir la invitación">Revisa tu conexión e inténtalo de nuevo en unos minutos.</Alert>
+            ) : (
+              <Loading message="Comprobando la invitación." />
+            )
+          } />
       </div>
     </AuthShell>
   );
 }
 
-function ClaimAdminInvitation() {
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string>();
+function ClaimAdminInvitation({ token, preview, onLinkProblem }: { token: string; preview: AdminInvitationPreview; onLinkProblem: (status: TokenStatus) => void }) {
   const [done, setDone] = useState(false);
-  const passwordRef = useRef<HTMLInputElement>(null);
   const doneRef = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     if (done) doneRef.current?.focus();
   }, [done]);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const found = newPasswordError(password);
-    flushSync(() => setError(found));
-    if (found) return passwordRef.current?.focus();
-    setPassword('');
-    setDone(true);
+  async function claim(password: string) {
+    const session = await claimAdminInvitation(token, password);
+    // La cuenta ya existe y el enlace está consumido: un fallo del CSRF no debe presentarse como fallo del reclamo.
+    // Sin CSRF la sesión no queda en memoria y /verificar-identidad lleva a ingresar con la cuenta nueva.
+    const csrfToken = await fetchCsrfToken().catch(() => null);
+    // La cuenta nace con aal 1: la sesión queda en memoria para configurar MFA en /verificar-identidad.
+    if (csrfToken) setAuthSession({ ...session, csrfToken });
   }
 
   if (done) {
@@ -92,9 +111,6 @@ function ClaimAdminInvitation() {
           </h1>
           <p className="text-muted">Antes de operar como administrador debes confirmar tu segundo factor (MFA).</p>
         </div>
-        <Alert tone="brand" title="Prototipo académico">
-          Esta pantalla no crea cuentas reales.
-        </Alert>
         <div>
           <LinkButton to="/verificar-identidad">Continuar a la verificación</LinkButton>
         </div>
@@ -115,32 +131,16 @@ function ClaimAdminInvitation() {
       </div>
       <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-[120px_minmax(0,1fr)]">
         <dt className="text-sm font-semibold text-muted">Hospital</dt>
-        <dd className="text-ink">{demoPreview.hospitalName}</dd>
+        <dd className="text-ink">{preview.hospitalName}</dd>
         <dt className="text-sm font-semibold text-muted">Rol</dt>
         <dd className="text-ink">Administrador de hospital</dd>
         <dt className="text-sm font-semibold text-muted">Vence</dt>
-        <dd className="text-ink">{formatDateTime(demoPreview.expiresAt)}</dd>
+        <dd className="text-ink">{formatDateTime(preview.expiresAt)}</dd>
       </dl>
       <Alert tone="info" title="Abrir el enlace no cambia nada">
         La cuenta solo se crea al guardar la contraseña. El enlace se usa una sola vez.
       </Alert>
-      <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-6">
-        <Field label="Nueva contraseña" hint={PASSWORD_HINT} error={error}>
-          {(control) => (
-            <Input
-              {...control}
-              ref={passwordRef}
-              type="password"
-              autoComplete="new-password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-          )}
-        </Field>
-        <div>
-          <Button type="submit">Crear contraseña y continuar</Button>
-        </div>
-      </form>
+      <PasswordClaimForm submitLabel="Crear contraseña y continuar" claim={claim} onDone={() => setDone(true)} onLinkProblem={onLinkProblem} />
     </AuthCard>
   );
 }

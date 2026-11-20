@@ -1,0 +1,21 @@
+meta {
+  name: El enlace hermano también queda gastado
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/v1/invitation-actions/{{rejectToken}}/response
+  body: none
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-respond-sibling
+}
+
+tests {
+  test("responde 410", function () {
+    expect(res.getStatus()).to.equal(410);
+  });
+}

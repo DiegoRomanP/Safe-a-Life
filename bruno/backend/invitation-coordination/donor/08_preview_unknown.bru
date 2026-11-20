@@ -1,0 +1,17 @@
+meta {
+  name: Un enlace desconocido es 404
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/api/v1/invitation-actions/{{unknownToken}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("responde 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

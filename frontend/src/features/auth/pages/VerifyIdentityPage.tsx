@@ -1,5 +1,6 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Brand } from '../../../components/layout/Brand.js';
 import { Alert } from '../../../components/ui/Alert.js';
 import { Badge } from '../../../components/ui/Badge.js';
@@ -7,27 +8,86 @@ import { Button } from '../../../components/ui/Button.js';
 import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
+import { ApiError } from '../../../lib/demoApi.js';
+import { destinationFor } from '../session/destination.js';
+import { enrollMfa, getAuthSession, SESSION_LOST, verifyMfa } from '../session/session.js';
 
-// El contrato acepta de 6 a 8 dígitos (verifyMfaChallenge, verifyStepUp).
+// El contrato acepta de 6 a 8 dígitos (verifyMfaChallenge).
 const CODE_SHAPE = /^[0-9]{6,8}$/;
 
-// AUTH-05 MFA y step-up (Penpot «+»). Sin backend (D-4) no se verifica nada:
-// al enviar un código con forma válida se avisa en una región aria-live.
+type Notice = Readonly<{ tone: 'danger' | 'warning'; title: string; text: string }>;
+
+function verifyFailure(error: unknown): Notice {
+  if (error instanceof ApiError && error.status === 401) {
+    return { tone: 'danger', title: 'No se pudo verificar', text: 'El código es incorrecto o venció. Escribe el código vigente de tu aplicación.' };
+  }
+  if (error instanceof ApiError && error.status === 429) {
+    return { tone: 'warning', title: 'Espera un momento', text: 'Demasiados intentos. Espera unos minutos antes de volver a probar.' };
+  }
+  return { tone: 'danger', title: 'No se pudo verificar', text: 'No pudimos completar la verificación. Intenta de nuevo.' };
+}
+
+// AUTH-05 MFA al ingresar (hospital y superadmin). Con el reto del login se escribe el código; sin factor enrolado se
+// configura el autenticador primero. El step-up por acción sensible llega con las pantallas de superadmin (F3).
+// shortcut: se muestra la clave del autenticador como texto, sin código QR; añadir QR si se incorpora una librería.
 export function VerifyIdentityPage() {
+  const navigate = useNavigate();
+  const session = getAuthSession();
+  const [challengeId, setChallengeId] = useState(session?.mfaChallengeId);
+  const [secret, setSecret] = useState<string>();
   const [code, setCode] = useState('');
   const [error, setError] = useState<string>();
-  const [attempted, setAttempted] = useState(false);
+  const [notice, setNotice] = useState<Notice>();
+  const [busy, setBusy] = useState(false);
+  const [relogin, setRelogin] = useState(false);
   const codeRef = useRef<HTMLInputElement>(null);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  // Con el formulario del código recién mostrado (reto del alta) el foco pasa al campo.
+  useEffect(() => {
+    if (secret) codeRef.current?.focus();
+  }, [secret]);
+
+  if (!session) return <Navigate to="/ingresar" replace />;
+  if (session.role === 'donante' || session.aal === 2) return <Navigate to={destinationFor(session)} replace />;
+
+  async function startEnrollment() {
+    setBusy(true);
+    setNotice(undefined);
+    try {
+      const enrollment = await enrollMfa();
+      setSecret(new URL(enrollment.otpauthUri).searchParams.get('secret') ?? enrollment.otpauthUri);
+      setChallengeId(enrollment.challengeId);
+    } catch (failure) {
+      // 409: ya existe un factor y el reto del login se perdió (p. ej. tras recargar); un login nuevo emite otro.
+      if (failure instanceof ApiError && failure.status === 409) setRelogin(true);
+      else setNotice({ tone: 'danger', title: 'No se pudo configurar', text: 'No pudimos iniciar la configuración. Intenta de nuevo.' });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy || !challengeId) return;
     const clean = code.replace(/\s/g, '');
     const found = CODE_SHAPE.test(clean) ? undefined : 'Ingresa el código de 6 dígitos de tu aplicación.';
     flushSync(() => setError(found));
     if (found) return codeRef.current?.focus();
-    setCode('');
-    setAttempted(true);
+    setBusy(true);
+    setNotice(undefined);
+    try {
+      navigate(destinationFor(await verifyMfa(challengeId, clean)), { replace: true });
+    } catch (failure) {
+      // La sesión se perdió a mitad de la verificación (logout o expiración): no es un código incorrecto.
+      if (failure instanceof ApiError && failure.code === SESSION_LOST) return navigate('/ingresar', { replace: true });
+      setCode('');
+      setNotice(verifyFailure(failure));
+      setBusy(false);
+      codeRef.current?.focus();
+    }
   }
+
+  const needsEnrollment = !challengeId;
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
@@ -50,38 +110,61 @@ export function VerifyIdentityPage() {
             Verifica tu identidad
           </h1>
           <p className="max-w-[528px] text-muted">
-            Esta acción requiere autenticación reforzada reciente. Ingresa el código de tu aplicación autenticadora.
+            {needsEnrollment
+              ? 'Tu cuenta administrativa requiere una aplicación autenticadora. Configúrala una vez para continuar.'
+              : 'Esta cuenta requiere autenticación reforzada. Ingresa el código de tu aplicación autenticadora.'}
           </p>
           <div aria-live="polite" className="w-full max-w-[420px] text-left">
-            {attempted && (
-              <Alert tone="info" title="Verificación aún no disponible">
-                La verificación real llega con la conexión al backend. Por ahora no se envían datos.
+            {notice && <Alert tone={notice.tone} title={notice.title}>{notice.text}</Alert>}
+            {relogin && (
+              <Alert tone="warning" title="Vuelve a ingresar">
+                Ya hay un autenticador configurado. Vuelve a ingresar para recibir un nuevo reto y escribir su código.
               </Alert>
             )}
           </div>
-          <form noValidate onSubmit={handleSubmit} className="flex w-full max-w-[420px] flex-col gap-4 text-left">
-            <Field label="Código de 6 dígitos" hint="El código cambia cada 30 segundos." error={error}>
-              {(control) => (
-                <Input
-                  {...control}
-                  ref={codeRef}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={8}
-                  value={code}
-                  onChange={(event) => setCode(event.target.value)}
-                  className="tracking-[0.3em]"
-                />
+
+          {relogin ? (
+            <LinkButton to="/ingresar">Volver a ingresar</LinkButton>
+          ) : needsEnrollment ? (
+            <div className="flex w-full max-w-[420px] flex-col gap-4">
+              <Button type="button" fullWidth aria-disabled={busy} aria-busy={busy} onClick={() => void startEnrollment()}>
+                Configurar autenticador
+              </Button>
+              <LinkButton to="/ingresar" variant="ghost" fullWidth>
+                Cancelar
+              </LinkButton>
+            </div>
+          ) : (
+            <form noValidate onSubmit={(event) => void handleSubmit(event)} className="flex w-full max-w-[420px] flex-col gap-4 text-left">
+              {secret && (
+                <div className="rounded-xl border border-line p-4 text-sm">
+                  <p className="font-semibold text-ink">Agrega esta clave a tu aplicación autenticadora</p>
+                  <p className="mt-1 text-muted">Elige «Ingresar clave manualmente» y escribe:</p>
+                  <p aria-live="polite" className="mt-2 break-all font-mono text-base tracking-wider text-ink">{secret}</p>
+                </div>
               )}
-            </Field>
-            <Button type="submit" fullWidth>
-              Verificar y continuar
-            </Button>
-            <LinkButton to="/ingresar" variant="ghost" fullWidth>
-              Cancelar
-            </LinkButton>
-            <p className="text-center text-sm text-muted">El step-up será válido por un máximo de 5 minutos.</p>
-          </form>
+              <Field label="Código de 6 dígitos" hint="El código cambia cada 30 segundos." error={error}>
+                {(control) => (
+                  <Input
+                    {...control}
+                    ref={codeRef}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={8}
+                    value={code}
+                    onChange={(event) => setCode(event.target.value)}
+                    className="tracking-[0.3em]"
+                  />
+                )}
+              </Field>
+              <Button type="submit" fullWidth aria-disabled={busy} aria-busy={busy}>
+                Verificar y continuar
+              </Button>
+              <LinkButton to="/ingresar" variant="ghost" fullWidth>
+                Cancelar
+              </LinkButton>
+            </form>
+          )}
         </section>
       </main>
     </div>

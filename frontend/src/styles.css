@@ -43,6 +43,14 @@
   }
 }
 
+/* Región aria-live que suele estar vacía: vacía no ocupa lugar ni suma el `gap` del contenedor flex, pero sigue en el
+   árbol de accesibilidad (con display:none el primer anuncio podría perderse). */
+@utility live-slot {
+  &:empty {
+    position: absolute;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

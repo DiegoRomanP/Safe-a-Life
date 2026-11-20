@@ -9,6 +9,7 @@ import { RegisterPage } from '../features/auth/pages/RegisterPage.js';
 import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage.js';
 import { VerifyEmailPage } from '../features/auth/pages/VerifyEmailPage.js';
 import { VerifyIdentityPage } from '../features/auth/pages/VerifyIdentityPage.js';
+import { RequireRole } from '../features/auth/session/RequireRole.js';
 import { DonorLayout } from '../features/donor/DonorLayout.js';
 import { HistoryPage } from '../features/donor/pages/HistoryPage.js';
 import { InvitationDetailPage } from '../features/donor/pages/InvitationDetailPage.js';
@@ -19,12 +20,14 @@ import { ProfilePage } from '../features/donor/pages/ProfilePage.js';
 import { RequestsPage } from '../features/donor/pages/RequestsPage.js';
 import { HospitalLayout } from '../features/hospital/HospitalLayout.js';
 import { AssistedSignupsPage } from '../features/hospital/pages/AssistedSignupsPage.js';
-import { BatchesPage } from '../features/hospital/pages/BatchesPage.js';
+import { NeedBatchesPage } from '../features/hospital/pages/NeedBatchesPage.js';
+import { NeedResponsesPage } from '../features/hospital/pages/NeedResponsesPage.js';
+import { HospitalGate } from '../features/hospital/HospitalGate.js';
 import { CreateNeedPage } from '../features/hospital/pages/CreateNeedPage.js';
 import { NeedDetailPage } from '../features/hospital/pages/NeedDetailPage.js';
 import { NeedsPage } from '../features/hospital/pages/NeedsPage.js';
-import { ResponsesPage } from '../features/hospital/pages/ResponsesPage.js';
 import { SummaryPage } from '../features/hospital/pages/SummaryPage.js';
+import { SuperadminGate } from '../features/superadmin/SuperadminGate.js';
 import { SuperadminLayout } from '../features/superadmin/SuperadminLayout.js';
 import { AdminsPage } from '../features/superadmin/pages/AdminsPage.js';
 import { AuditPage } from '../features/superadmin/pages/AuditPage.js';
@@ -63,10 +66,10 @@ export const routes: RouteObject[] = [
       { path: 'invitacion-administrador', element: <AdminInvitationPage />, handle: { title: 'Invitación de administrador' } },
       // Enlace de invitación del correo (LINK-01), fuera del área autenticada.
       { path: 'invitaciones', element: <InvitationLinkPage />, handle: { title: 'Invitación' } },
-      // Área del donante. Sin backend (D-4) todavía no hay guard de sesión.
+      // Área del donante: exige sesión real de donante (restaurada de las cookies tras recargar).
       {
         path: 'donante',
-        element: <DonorLayout />,
+        element: <RequireRole allow="donante"><DonorLayout /></RequireRole>,
         handle: { area: 'Donante' },
         children: [
           { index: true, element: <Navigate to="invitaciones" replace /> },
@@ -79,35 +82,39 @@ export const routes: RouteObject[] = [
           { path: 'solicitudes/nueva', element: <NewRequestPage />, handle: { title: 'Nueva solicitud' } },
         ],
       },
-      // Área del hospital. Sin backend (D-4) todavía no hay guard de sesión.
+      // Área del hospital: exige sesión real con MFA (aal 2). Sus datos vienen del backend.
       {
         path: 'hospital',
-        element: <HospitalLayout />,
+        element: <RequireRole allow="admin_hospitalario"><HospitalLayout /></RequireRole>,
         handle: { area: 'Hospital' },
         children: [
-          { index: true, element: <SummaryPage />, handle: { title: 'Resumen' } },
-          { path: 'necesidades', element: <NeedsPage />, handle: { title: 'Necesidades' } },
-          { path: 'necesidades/nueva', element: <CreateNeedPage />, handle: { title: 'Crear necesidad' } },
-          { path: 'necesidades/:needId', element: <NeedDetailPage />, handle: { title: 'Detalle de necesidad' } },
-          { path: 'necesidades/:needId/respuestas', element: <ResponsesPage />, handle: { title: 'Respuestas' } },
-          { path: 'necesidades/:needId/lotes', element: <BatchesPage />, handle: { title: 'Lotes de invitación' } },
-          { path: 'altas', element: <AssistedSignupsPage />, handle: { title: 'Altas asistidas' } },
+          { element: <HospitalGate />, children: [
+            { index: true, element: <SummaryPage />, handle: { title: 'Resumen' } },
+            { path: 'necesidades', element: <NeedsPage />, handle: { title: 'Necesidades' } },
+            { path: 'necesidades/nueva', element: <CreateNeedPage />, handle: { title: 'Crear necesidad' } },
+            { path: 'necesidades/:needId', element: <NeedDetailPage />, handle: { title: 'Detalle de necesidad' } },
+            { path: 'necesidades/:needId/respuestas', element: <NeedResponsesPage />, handle: { title: 'Respuestas' } },
+            { path: 'necesidades/:needId/lotes', element: <NeedBatchesPage />, handle: { title: 'Lotes de invitación' } },
+            { path: 'altas', element: <AssistedSignupsPage />, handle: { title: 'Altas asistidas' } },
+          ] },
         ],
       },
-      // Área del superadmin. Sin backend (D-4) todavía no hay guard de sesión ni AAL2.
+      // Área del superadmin: exige sesión real con MFA (aal 2). Sus datos siguen demo hasta conectar F3.
       {
         path: 'superadmin',
-        element: <SuperadminLayout />,
+        element: <RequireRole allow="superadmin"><SuperadminLayout /></RequireRole>,
         handle: { area: 'Superadmin' },
         children: [
-          { index: true, element: <TasksPage />, handle: { title: 'Tareas' } },
-          { path: 'hospitales', element: <HospitalsPage />, handle: { title: 'Hospitales autorizados' } },
-          { path: 'sedes', element: <SitesPage />, handle: { title: 'Sedes' } },
-          { path: 'administradores', element: <AdminsPage />, handle: { title: 'Administradores y membresías' } },
-          { path: 'solicitudes', element: <AdminRequestsPage />, handle: { title: 'Solicitudes' } },
-          { path: 'solicitudes/:requestId', element: <RequestDetailPage />, handle: { title: 'Detalle de solicitud' } },
-          { path: 'configuracion', element: <ConfigurationPage />, handle: { title: 'Configuración' } },
-          { path: 'auditoria', element: <AuditPage />, handle: { title: 'Auditoría' } },
+          { element: <SuperadminGate />, children: [
+            { index: true, element: <TasksPage />, handle: { title: 'Tareas' } },
+            { path: 'hospitales', element: <HospitalsPage />, handle: { title: 'Hospitales autorizados' } },
+            { path: 'sedes', element: <SitesPage />, handle: { title: 'Sedes' } },
+            { path: 'administradores', element: <AdminsPage />, handle: { title: 'Administradores y membresías' } },
+            { path: 'solicitudes', element: <AdminRequestsPage />, handle: { title: 'Solicitudes' } },
+            { path: 'solicitudes/:requestId', element: <RequestDetailPage />, handle: { title: 'Detalle de solicitud' } },
+            { path: 'configuracion', element: <ConfigurationPage />, handle: { title: 'Configuración' } },
+            { path: 'auditoria', element: <AuditPage />, handle: { title: 'Auditoría' } },
+          ] },
         ],
       },
       { path: '*', element: <NotFoundPage />, handle: { title: 'Recurso no disponible' } },

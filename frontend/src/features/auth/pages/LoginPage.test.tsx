@@ -2,16 +2,22 @@
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { click, setupRender, type } from '../../../test/render.js';
+import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import { routes } from '../../../app/routes.js';
+import { render } from '../../../test/render.js';
 import { renderRoute } from '../../../test/renderRoute.js';
-import { getAuthSession } from '../session/session.js';
+import { clearAuthSession, expireSession, getAuthSession, logout } from '../session/session.js';
 
 setupRender();
-afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
+// La sesión vive en un módulo: sin limpiarla, un login de donante de una prueba redirigiría las siguientes.
+afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); clearAuthSession(); });
 
 const csrf = { data: { token: 'token-csrf-sintetico-de-prueba-000000' } };
 const successMessage = /Sesión iniciada/i;
 const failureMessage = /no se pudo|no fue posible|intenta|error/i;
 const unverifiedSessionWarning = 'Este intento no verificó la sesión localmente. Puede quedar una sesión activa en el servidor.';
+// 401: el servidor rechazó las credenciales; mensaje neutro propio.
+const rejectedMessage = 'Revisa el correo y la contraseña.';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return { ok: status >= 200 && status < 300, status, json: async () => body } as Response;
@@ -43,7 +49,7 @@ function outsideLive(view: Element): string {
 
 function fillLogin(view: Element) {
   const [email, password] = [...view.querySelectorAll('input')];
-  type(email, ' persona@ejemplo.test ');
+  type(email, ' persona@example.test ');
   type(password, 'clave-sintetica');
 }
 
@@ -62,7 +68,7 @@ describe('AUTH-01 Inicio de sesión', () => {
   });
 
   it.each(['donante', 'admin_hospitalario', 'superadmin'] as const)(
-    'confirma sesión y CSRF sin mostrar datos ni navegar para el rol %s', async (role) => {
+    'confirma sesión y CSRF sin mostrar datos y navega según el rol (rol %s)', async (role) => {
       vi.useFakeTimers();
       const login = deferred<Response>(), csrfReply = deferred<Response>(), csrfRequested = deferred<boolean>();
       const requests: Array<{ url: string; init?: RequestInit }> = [];
@@ -74,7 +80,7 @@ describe('AUTH-01 Inicio de sesión', () => {
         return csrfReply.promise;
       });
       const view = renderRoute('/ingresar');
-      const before = outsideLive(view), storage = [localStorage.length, sessionStorage.length];
+      const storage = [localStorage.length, sessionStorage.length];
       const actor = { role, displayName: 'Persona sintética', ...(role === 'admin_hospitalario' ? { hospitalName: 'Hospital sintético' } : {}) };
       const session = { data: { actor, aal: 1, mfaRequired: role !== 'donante' } };
       fillLogin(view);
@@ -85,7 +91,7 @@ describe('AUTH-01 Inicio de sesión', () => {
       expect(post.url).toBe('/api/v1/auth/sessions');
       expect(post.init).toMatchObject({ method: 'POST', credentials: 'same-origin', cache: 'no-store', referrerPolicy: 'no-referrer' });
       expect(String(headers.get('content-type'))).toMatch(/application\/json/i);
-      expect(JSON.parse(String(post.init?.body))).toEqual({ email: 'persona@ejemplo.test', password: 'clave-sintetica' });
+      expect(JSON.parse(String(post.init?.body))).toEqual({ email: 'persona@example.test', password: 'clave-sintetica' });
       expect(headers.get('idempotency-key')?.length).toBeGreaterThanOrEqual(16);
       expect(headers.get('idempotency-key')?.length).toBeLessThanOrEqual(255);
 
@@ -97,13 +103,19 @@ describe('AUTH-01 Inicio de sesión', () => {
       expect(view.querySelector('[aria-live="polite"]')?.textContent).not.toMatch(successMessage);
       await act(async () => { csrfReply.resolve(jsonResponse(csrf)); await acknowledged; });
 
-      const message = view.querySelector('[aria-live="polite"]')?.textContent ?? '';
-      expect(view.querySelector('h1')?.textContent).toBe('Iniciar sesión');
-      expect(outsideLive(view)).toBe(before);
-      expect(message).not.toContain(actor.displayName);
-      expect(message).not.toContain(role);
-      expect(message).not.toContain(unverifiedSessionWarning);
-      if ('hospitalName' in actor) expect(message).not.toContain(actor.hospitalName);
+      expect([localStorage.length, sessionStorage.length]).toEqual(storage);
+      if (role === 'donante') {
+        // El área del donante tiene guard: entra con la sesión ya verificada, sin volver a pedirla.
+        expect(view.querySelector('main h1')?.textContent).toBe('Mi perfil');
+        expect(requests.map(({ url }) => url).slice(0, 2)).toEqual(['/api/v1/auth/sessions', '/api/v1/auth/csrf-token']);
+        expect(requests.some(({ url }) => url.endsWith('/auth/session'))).toBe(false);
+        return;
+      }
+      // Hospital y superadmin entran con aal 1: la sesión verificada los lleva a completar MFA, sin exponer sus datos.
+      expect(view.querySelector('h1')?.textContent).toBe('Verifica tu identidad');
+      expect(view.textContent).not.toContain(actor.displayName);
+      if ('hospitalName' in actor) expect(view.textContent).not.toContain(actor.hospitalName);
+      expect(getAuthSession()).toMatchObject({ role, aal: 1, mfaRequired: true });
       expect([localStorage.length, sessionStorage.length]).toEqual(storage);
       expect(vi.getTimerCount()).toBe(0);
     },
@@ -135,7 +147,7 @@ describe('AUTH-01 Inicio de sesión', () => {
     expect(keys.every((key) => key !== null && key.length >= 16 && key.length <= 255)).toBe(true);
     const retryFailed = waitForLive(view, failureMessage);
     await act(async () => { second.resolve(jsonResponse({ error: { code: 'AUTHENTICATION_REQUIRED' } }, 401)); await retryFailed; });
-    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain(unverifiedSessionWarning);
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain(rejectedMessage);
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -156,13 +168,26 @@ describe('AUTH-01 Inicio de sesión', () => {
       else reply.resolve(jsonResponse({ error: { code: 'AUTHENTICATION_REQUIRED' } }, 401));
       await failed;
     });
-    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain(unverifiedSessionWarning);
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain(failure === 'network' ? unverifiedSessionWarning : rejectedMessage);
     expect(requests).toHaveLength(1);
     expect(vi.getTimerCount()).toBe(0);
     expect(view.querySelector('h1')?.textContent).toBe('Iniciar sesión');
     expect(outsideLive(view)).toBe(before);
     expect(view.textContent).not.toMatch(/Persona sintética|AUTHENTICATION_REQUIRED|Fallo de red sintético/);
     expect([localStorage.length, sessionStorage.length]).toEqual(storage);
+  });
+
+  it.each([
+    [401, 'Revisa el correo y la contraseña. Si acabas de verificar tu correo, primero crea tu contraseña'],
+    [429, 'Espera unos minutos'],
+  ])('un %i del login muestra un mensaje propio y no el de sesión sin verificar', async (status, text) => {
+    vi.stubGlobal('fetch', async () => jsonResponse({ error: { code: 'X' } }, status));
+    const view = renderRoute('/ingresar');
+    fillLogin(view);
+    const shown = waitForLive(view, new RegExp(text));
+    submit(view);
+    await act(async () => { await shown; });
+    expect(view.textContent).not.toContain(unverifiedSessionWarning);
   });
 
   it('no confirma sesión ni conserva estado si falla el bootstrap CSRF', async () => {
@@ -266,16 +291,22 @@ describe('AUTH-01 Inicio de sesión', () => {
     expect.soft(requests.map(({ url }) => url)).toEqual(['/api/v1/auth/sessions']);
     const postsWhilePending = loginReplies.length;
 
-    const firstSession = { data: { actor: { role: 'donante', displayName: 'Primera persona sintética' }, aal: 1, mfaRequired: false } };
+    const firstSession = { data: { actor: { role: 'admin_hospitalario', displayName: 'Primera persona sintética' }, aal: 1, mfaRequired: true } };
     await act(async () => {
       loginReplies[0]!.resolve(jsonResponse(firstSession));
       await csrfStarted[0]!.promise;
       csrfReplies[0]!.resolve(jsonResponse(csrf));
     });
-    const firstMemory = { role: 'donante', aal: 1, mfaRequired: false, csrfToken: csrf.data.token };
+    const firstMemory = { role: 'admin_hospitalario', aal: 1, mfaRequired: true, csrfToken: csrf.data.token };
     expect.soft(getAuthSession()).toEqual(firstMemory);
     expect.soft(loginReplies).toHaveLength(postsWhilePending);
     expect.soft(csrfReplies).toHaveLength(1);
+    // El rol administrativo con aal 1 pasa a MFA. Con una sesión verificada /ingresar redirige, así que se
+    // descarta la sesión (expira) y «Cancelar» vuelve al formulario para seguir con el segundo envío.
+    expect.soft(view.querySelector('h1')?.textContent).toBe('Verifica tu identidad');
+    const stillFirst = loginReplies[1] !== undefined;
+    if (!stillFirst) act(() => { expireSession(); });
+    click(view.querySelector('a[href="/ingresar"]'));
     if (loginReplies[1]) {
       const failed = waitForLive(view, failureMessage);
       await act(async () => {
@@ -329,7 +360,7 @@ describe('AUTH-01 Inicio de sesión', () => {
     const live = view.querySelector('[aria-live="polite"]');
     const message = live?.textContent ?? '';
     expect.soft(live).not.toBeNull();
-    expect.soft(message).toContain(unverifiedSessionWarning);
+    expect.soft(message).toContain(rejectedMessage);
     expect.soft(message).not.toContain('Sesión iniciada');
     expect.soft(getAuthSession()).toBeNull();
     expect.soft(requests.map(({ url }) => url)).toEqual(['/api/v1/auth/sessions']);
@@ -349,21 +380,28 @@ describe('AUTH-01 Inicio de sesión', () => {
       await success;
     });
     expect(getAuthSession()).toEqual({ role: 'donante', aal: 1, mfaRequired: false, csrfToken: retryCsrf.data.token });
-    expect(requests.map(({ url }) => url)).toEqual([
+    // Después entra al área del donante, que ya pide su perfil.
+    expect(requests.map(({ url }) => url).filter((url) => url.includes('/auth/'))).toEqual([
       '/api/v1/auth/sessions', '/api/v1/auth/sessions', '/api/v1/auth/csrf-token',
     ]);
   });
 
-  it('en desarrollo ofrece entrar al recorrido del donante de prueba', () => {
+  it('ya no ofrece atajos a áreas demo: hospital y superadmin exigen sesión real', () => {
     const view = renderRoute('/ingresar');
-    expect(view.querySelector('a[href="/donante"]')?.textContent).toBe('Entrar como donante de prueba');
-    expect(view.querySelector('a[href="/donante/bienvenida"]')?.textContent).toBe('Entrar como donante nuevo');
-    expect(view.querySelector('a[href="/hospital"]')?.textContent).toBe('Entrar como hospital de prueba');
-    expect(view.querySelector('a[href="/superadmin"]')?.textContent).toBe('Entrar como superadmin de prueba');
+    expect(view.querySelector('a[href="/hospital"]')).toBeNull();
+    expect(view.querySelector('a[href="/superadmin"]')).toBeNull();
   });
 
   it('ofrece crear cuenta de donante', () => {
     const view = renderRoute('/ingresar');
+    expect(view.textContent).not.toContain('No pudimos cerrar la sesión');
     expect(view.querySelector('a[href="/registro"]')?.textContent).toBe('Crear cuenta');
+  });
+
+  it('si el cierre de sesión no se confirmó en el servidor, lo avisa', async () => {
+    await act(async () => { await logout(); }); // estado del módulo en reposo, como tras un logout real
+    const router = createMemoryRouter(routes, { initialEntries: [{ pathname: '/ingresar', state: { logoutFailed: true } }] });
+    const view = render(<RouterProvider router={router} />);
+    expect(view.textContent).toContain('No pudimos cerrar la sesión en el servidor');
   });
 });
