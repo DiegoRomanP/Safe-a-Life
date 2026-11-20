@@ -22,6 +22,8 @@ type Hospital = Data & {
   status: Status;
   reload: () => void;
   actionError: string | null;
+  /** La pantalla cambió: el aviso de error de la anterior se descarta, salvo el que se creó para la pantalla siguiente. */
+  routeChanged: () => void;
   // createHospitalNeed siempre crea un borrador; «activar» aplica además transitionOwnHospitalNeed. Si la activación falla,
   // el borrador existe: se devuelve igual y `actionError` explica qué pasó.
   createNeed: (need: NewNeed, activate: boolean) => Promise<HospitalNeed | null>;
@@ -41,7 +43,7 @@ async function loadAll(): Promise<Data> {
 
 function messageFor(error: unknown): string {
   const status = error instanceof ApiError ? error.status : undefined;
-  if (status === 409) return 'El estado cambió desde que abriste la pantalla. Actualizamos los datos; revisa e intenta de nuevo.';
+  if (status === 409) return 'El servidor no pudo aplicar el cambio con el estado actual. Actualizamos los datos; revisa e intenta de nuevo.';
   if (status === 400 || status === 422) return 'El servidor rechazó los datos (por ejemplo, la sede ya no está disponible). Revísalos e intenta de nuevo.';
   if (status === 403) return 'Tu cuenta no tiene acceso para esta acción.';
   if (status === 404) return 'Ya no existe o no está disponible.';
@@ -55,7 +57,11 @@ export function HospitalProvider({ children }: { children: ReactNode }) {
   const [data, setData] = useState<Data>(EMPTY);
   const [status, setStatus] = useState<Status>('loading');
   const [tries, setTries] = useState(0);
-  const [actionError, setActionError] = useState<string | null>(null);
+  // `carry`: el aviso está pensado para la pantalla siguiente (p. ej. borrador creado pero no activado) y sobrevive un cambio de ruta.
+  const [actionState, setActionState] = useState<{ message: string; carry: boolean } | null>(null);
+  const actionError = actionState?.message ?? null;
+  const setActionError = useCallback((message: string | null, carry = false) => setActionState(message ? { message, carry } : null), []);
+  const routeChanged = useCallback(() => setActionState((current) => (current?.carry ? { ...current, carry: false } : null)), []);
   const inFlight = useRef(false);
   const live = useRef(true);
   // Cada carga lleva un número: si otra se pidió después, la respuesta vieja se descarta.
@@ -114,6 +120,7 @@ export function HospitalProvider({ children }: { children: ReactNode }) {
       status,
       reload,
       actionError,
+      routeChanged,
       createNeed: (need, activate) =>
         act(async () => {
           const created = await createNeedRequest(need);
@@ -121,7 +128,7 @@ export function HospitalProvider({ children }: { children: ReactNode }) {
           try {
             return await transitionNeedRequest(created.needId, 'activa');
           } catch (error) {
-            if (live.current) setActionError(`La necesidad se creó como borrador, pero no se pudo activar. ${messageFor(error)}`);
+            if (live.current) setActionError(`La necesidad se creó como borrador, pero no se pudo activar. ${messageFor(error)}`, true);
             return created;
           }
         }),
@@ -129,7 +136,7 @@ export function HospitalProvider({ children }: { children: ReactNode }) {
       createSignup: (input) => ok(() => createSignupRequest(input)),
       reissueSignup: (signupId) => ok(() => reissueSignupRequest(signupId)),
     };
-  }, [data, status, reload, refresh, actionError]);
+  }, [data, status, reload, refresh, actionError, routeChanged, setActionError]);
 
   return <HospitalContext.Provider value={value}>{children}</HospitalContext.Provider>;
 }
