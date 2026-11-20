@@ -54,21 +54,22 @@ function activeDonor(name) {
   });
 }
 
-/** Lee del buzón local el enlace de invitación (dos tokens en el fragmento) enviado a `email`. */
-async function invitationLinkFor(email) {
+/** Lee del buzón local el primer enlace a `route` (token en el fragmento) enviado a `email`. */
+async function mailLinkFor(email, route) {
   for (let i = 0; i < 60; i += 1) {
     let files = [];
     try { files = readdirSync(mailbox); } catch { /* aún no existe */ }
     for (const file of files) {
       const html = readFileSync(path.join(mailbox, file), 'utf8');
       if (!html.includes(`<strong>Para:</strong> ${email}`)) continue;
-      const match = /href="([^"]*\/invitaciones#[^"]+)"/.exec(html);
+      const match = new RegExp(`href="([^"]*${route}#[^"]+)"`).exec(html);
       if (match) return match[1].replaceAll('&amp;', '&');
     }
     await delay(500);
   }
-  throw new Error(`No llegó la invitación de ${email} al buzón.`);
+  throw new Error(`No llegó el correo ${route} de ${email} al buzón.`);
 }
+const invitationLinkFor = (email) => mailLinkFor(email, '/invitaciones');
 
 async function snap(page, name) {
   if (shots) await page.screenshot({ path: path.join(shots, `${name}.png`), fullPage: true });
@@ -120,6 +121,46 @@ try {
   browser = await chromium.launch({ headless: process.env.E2E_HEADED !== '1', ...(process.env.E2E_CHROMIUM ? { executablePath: process.env.E2E_CHROMIUM } : {}) });
   const newPage = async () => { const page = await (await browser.newContext()).newPage(); page.setDefaultTimeout(15_000); return page; };
 
+  // 0. Registro de un donante nuevo por la UI (AUTH-02 + DON-01): correo y contraseña, enlace de verificación del buzón,
+  // ingreso y perfil obligatorio. Queda `activo` y es candidato real del lote del paso 2.
+  const newDonor = `registro-${Date.now()}@example.test`;
+  const reg = await newPage();
+  await reg.goto(`${WEB}/registro`);
+  await reg.getByLabel('Correo electrónico').fill(newDonor);
+  await reg.getByLabel('Contraseña de demostración').fill(DONOR_PASSWORD);
+  await reg.getByRole('button', { name: 'Continuar' }).click();
+  await reg.getByText('Revisa tu correo').waitFor();
+  check('registro: la pantalla responde neutra («Revisa tu correo»)', true);
+  await snap(reg, '00a-registro-enviado');
+  check('registro: la base guarda el perfil en pendiente_verificacion',
+    sql(`select p.status from app.donor_profiles p join auth.users u on u.id = p.donor_id where u.email = '${newDonor}'`).trim() === 'pendiente_verificacion');
+  await reg.goto(await mailLinkFor(newDonor, '/verificar-correo'));
+  await reg.getByRole('button', { name: 'Verificar correo' }).click();
+  await reg.getByText('Correo verificado').first().waitFor();
+  check('registro: el enlace del correo verifica la cuenta', true);
+  await snap(reg, '00b-correo-verificado');
+  // Barrera de sesión: verificar cierra las sesiones y exige fijar la contraseña con un segundo enlace antes de ingresar.
+  check('registro: tras verificar, la base exige fijar la contraseña',
+    sql(`select p.status || ':' || p.password_setup_required from app.donor_profiles p join auth.users u on u.id = p.donor_id where u.email = '${newDonor}'`) === 'incompleto:true');
+  await reg.goto(await mailLinkFor(newDonor, '/restablecer-contrasena'));
+  await reg.getByLabel('Nueva contraseña').fill(DONOR_PASSWORD);
+  await reg.getByRole('button', { name: 'Guardar contraseña' }).click();
+  await reg.getByRole('link', { name: /ingresar/i }).first().waitFor();
+  check('registro: el segundo enlace fija la contraseña', true);
+  await login(reg, newDonor, DONOR_PASSWORD);
+  await reg.waitForURL('**/donante/**');
+  if (!reg.url().includes('/donante/bienvenida')) await reg.goto(`${WEB}/donante/bienvenida`);
+  await reg.getByLabel('Nombre').fill('Donante Registrado E2E');
+  await reg.getByLabel('Grupo declarado').selectOption({ label: 'O+' });
+  await reg.getByLabel('Latitud').fill('-12.046');
+  await reg.getByLabel('Longitud').fill('-77.043');
+  await snap(reg, '00c-perfil');
+  await reg.getByRole('button', { name: 'Completar perfil' }).click();
+  await reg.getByText('Perfil completo').first().waitFor();
+  await snap(reg, '00d-perfil-completo');
+  check('registro: el perfil obligatorio deja la cuenta activa en la base',
+    sql(`select p.status from app.donor_profiles p join auth.users u on u.id = p.donor_id where u.email = '${newDonor}'`).trim() === 'activo');
+
   // 1. Superadmin: sesión + MFA y vistas reales.
   const sa = await newPage();
   await login(sa, SEED_USERS.superadmin.email, DEMO_PASSWORD, secrets[SEED_USERS.superadmin.email]);
@@ -151,6 +192,7 @@ try {
   await hospital.locator('table tbody tr').first().waitFor();
   check('hospital: solicita un lote y aparece en la tabla', (await hospital.locator('table tbody tr').count()) >= 1);
   await snap(hospital, '03-hospital-lote');
+  check('registro: el donante registrado por la UI recibe la invitación del lote', /\/invitaciones#/.test(await invitationLinkFor(newDonor)));
 
   // 3. Donante 1: abre el enlace del correo (sin sesión) y confirma con el botón.
   const linkOne = await invitationLinkFor(donorOne);
