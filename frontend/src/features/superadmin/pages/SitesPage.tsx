@@ -15,6 +15,7 @@ import { ActionError } from '../components/ActionError.js';
 import { ResultNotice, type Notice } from '../components/ResultNotice.js';
 import { useSuperadmin } from '../SuperadminContext.js';
 import type { Site } from '../types.js';
+import { TableScroll } from '../../../components/ui/TableScroll.js';
 
 type SiteState = 'activa' | 'revision' | 'inactiva';
 
@@ -138,7 +139,7 @@ export function SitesPage() {
       {visible.length === 0 ? (
         <EmptyState message="No hay sedes con esos filtros" detail="Cambia el hospital, el estado o la búsqueda." />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+        <TableScroll label="Sedes">
           <table className="w-full min-w-[760px] text-left">
             <caption className="sr-only">Sedes</caption>
             <thead>
@@ -180,7 +181,7 @@ export function SitesPage() {
               })}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       )}
 
       <Card title="Nueva sede">

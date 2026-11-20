@@ -79,7 +79,7 @@ export function AssistedSignupsPage() {
         El resultado será el mismo aunque el correo ya exista, para evitar enumeración de cuentas.
       </Alert>
       <ActionError />
-      <div aria-live="polite">
+      <div aria-live="polite" className="live-slot">
         {notice && (
           <div ref={noticeRef} tabIndex={-1} className="rounded-xl focus-visible:outline-focus">
             <SuccessNotice announce={false} message={notice.message} detail={notice.detail} />

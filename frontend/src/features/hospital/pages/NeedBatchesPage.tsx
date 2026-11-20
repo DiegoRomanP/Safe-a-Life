@@ -14,6 +14,7 @@ import { fetchBatches, requestBatch } from '../api.js';
 import { useHospital } from '../HospitalContext.js';
 import { needCode } from '../labels.js';
 import type { BatchRequestResult, InvitationBatch } from '../types.js';
+import { TableScroll } from '../../../components/ui/TableScroll.js';
 
 // HOS-05 Lotes de invitación. Datos de listOwnInvitationBatches; solicitar un lote usa requestInvitationBatch. El servidor elige a
 // los donantes (grupo compatible, disponibles, dentro del radio y con cupo): esta pantalla nunca los ve ni los elige.
@@ -50,7 +51,7 @@ export function NeedBatchesPage() {
       {!canRequest && need && (
         <Alert tone="info" title="Lotes no disponibles">Solo una necesidad activa admite nuevos lotes.</Alert>
       )}
-      <div aria-live="polite">
+      <div aria-live="polite" className="live-slot">
         {result && (
           <SuccessNotice
             message={result.createdInvitationCount === 0 ? 'No había donantes compatibles disponibles' : `Lote creado: ${result.createdInvitationCount} ${result.createdInvitationCount === 1 ? 'invitación' : 'invitaciones'}`}
@@ -72,7 +73,7 @@ export function NeedBatchesPage() {
 function BatchList({ batches }: { batches: InvitationBatch[] }) {
   if (batches.length === 0) return <EmptyState message="Todavía no hay lotes" detail="Solicita un lote para invitar a donantes compatibles." />;
   return (
-    <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+    <TableScroll label="Lotes de invitación">
       <table className="w-full min-w-[640px] text-left">
         <caption className="sr-only">Lotes de invitación</caption>
         <thead>
@@ -98,6 +99,6 @@ function BatchList({ batches }: { batches: InvitationBatch[] }) {
           ))}
         </tbody>
       </table>
-    </div>
+    </TableScroll>
   );
 }

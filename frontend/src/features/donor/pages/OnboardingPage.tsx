@@ -7,7 +7,7 @@ import { Alert } from '../../../components/ui/Alert.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { Button } from '../../../components/ui/Button.js';
 import { Card } from '../../../components/ui/Card.js';
-import { cx } from '../../../components/ui/cx.js';
+import { Switch } from '../../../components/ui/Switch.js';
 import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
@@ -106,7 +106,7 @@ export function OnboardingPage() {
         El grupo es declarado y la ubicación es aproximada. Ninguno determina elegibilidad médica.
       </Alert>
 
-      <div aria-live="polite">
+      <div aria-live="polite" className="live-slot">
         {done && (
           <div ref={resultRef} tabIndex={-1} className="rounded-xl focus-visible:outline-focus">
           <SuccessNotice
@@ -179,23 +179,7 @@ export function OnboardingPage() {
               <p id="onboarding-disponibilidad" className="text-sm font-semibold text-ink">
                 Disponibilidad inicial
               </p>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={isAvailable}
-                aria-labelledby="onboarding-disponibilidad"
-                onClick={() => setIsAvailable((value) => !value)}
-                className={cx(
-                  'flex min-h-12 w-full max-w-[220px] items-center gap-3 rounded-full border px-3 font-semibold',
-                  isAvailable ? 'border-success bg-success-soft text-success' : 'border-muted bg-neutral-soft text-muted',
-                )}
-              >
-                <span
-                  aria-hidden="true"
-                  className={cx('size-6 rounded-full', isAvailable ? 'bg-success' : 'border-2 border-muted bg-surface')}
-                />
-                {isAvailable ? 'Disponible' : 'No disponible'}
-              </button>
+              <Switch checked={isAvailable} labelledBy="onboarding-disponibilidad" onChange={setIsAvailable} />
             </div>
             {save.error === 'conflicto' ? (
               // completeDonorOnboarding responde 409 si el perfil ya está activo: no hay nada que revisar aquí.

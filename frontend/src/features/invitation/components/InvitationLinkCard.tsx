@@ -111,7 +111,7 @@ export function InvitationLinkCard({ preview, onConfirm, onUnavailable }: Invita
       <Alert tone="info" title="Antes de responder">
         {text.note}
       </Alert>
-      <div aria-live="assertive">
+      <div aria-live="assertive" className="live-slot">
         {failed && (
           <Alert tone="danger" title="No pudimos registrar tu respuesta">
             Intenta de nuevo en unos minutos. Si el problema sigue, ingresa a tu cuenta.

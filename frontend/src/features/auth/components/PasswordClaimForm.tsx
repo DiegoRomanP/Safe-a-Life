@@ -58,7 +58,7 @@ export function PasswordClaimForm({ submitLabel, claim, onDone, onLinkProblem }:
 
   return (
     <>
-      <div aria-live="polite">
+      <div aria-live="polite" className="live-slot">
         {failure && (
           <Alert tone="danger" title="No se pudo guardar">
             {failure === 'limite' ? 'Hiciste demasiados intentos. Espera unos minutos.' : 'Inténtalo de nuevo en unos minutos.'}

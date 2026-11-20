@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { bloodTypeLabel, formatDateTime } from '../../../lib/format.js';
 import { needCode, needStatusLabel, urgencyLabel } from '../labels.js';
 import type { HospitalNeed } from '../types.js';
+import { TableScroll } from '../../../components/ui/TableScroll.js';
 
 export type NeedsTableProps = { needs: HospitalNeed[]; caption: string };
 
@@ -9,7 +10,7 @@ export type NeedsTableProps = { needs: HospitalNeed[]; caption: string };
 // intenciones de asistir («2 de 3»), nunca en unidades.
 export function NeedsTable({ needs, caption }: NeedsTableProps) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+    <TableScroll label={caption}>
       <table className="w-full min-w-[720px] text-left">
         <caption className="sr-only">{caption}</caption>
         <thead>
@@ -26,7 +27,7 @@ export function NeedsTable({ needs, caption }: NeedsTableProps) {
           {needs.map((need) => (
             <tr key={need.needId} className="text-ink">
               <th scope="row" className="px-4 py-4 font-semibold">
-                <Link to={`/hospital/necesidades/${need.needId}`} className="rounded text-petrol underline underline-offset-4">
+                <Link to={`/hospital/necesidades/${need.needId}`} className="rounded whitespace-nowrap text-petrol underline underline-offset-4">
                   {needCode(need.needId)}
                 </Link>
               </th>
@@ -39,6 +40,6 @@ export function NeedsTable({ needs, caption }: NeedsTableProps) {
           ))}
         </tbody>
       </table>
-    </div>
+    </TableScroll>
   );
 }

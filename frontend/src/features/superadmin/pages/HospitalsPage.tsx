@@ -13,6 +13,7 @@ import { ActionError } from '../components/ActionError.js';
 import { ResultNotice, type Notice } from '../components/ResultNotice.js';
 import { useStepUpGate } from '../components/StepUpPanel.js';
 import { useSuperadmin } from '../SuperadminContext.js';
+import { TableScroll } from '../../../components/ui/TableScroll.js';
 
 type Errors = { publicName?: string; legalName?: string };
 
@@ -77,7 +78,7 @@ export function HospitalsPage() {
       <ActionError />
       <ResultNotice notice={notice} />
 
-      <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+      <TableScroll label="Hospitales">
         <table className="w-full min-w-[880px] text-left">
           <caption className="sr-only">Hospitales</caption>
           <thead>
@@ -117,7 +118,7 @@ export function HospitalsPage() {
             ))}
           </tbody>
         </table>
-      </div>
+      </TableScroll>
 
       <section aria-labelledby="resumen-institucional" className="flex flex-col gap-4">
         <h2 id="resumen-institucional" className="text-xl font-semibold text-ink">

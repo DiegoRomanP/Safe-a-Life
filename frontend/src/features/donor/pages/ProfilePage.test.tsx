@@ -14,7 +14,7 @@ beforeEach(() => { api = stubDonorApi(); });
 afterEach(async () => { clearAuthSession(); await act(async () => { await logout(); }); });
 
 function save(view: HTMLElement) {
-  click(view.querySelector('button[form="perfil-formulario"]'));
+  click(view.querySelector('#perfil-formulario button[type="submit"]'));
 }
 
 function inputByLabel(view: HTMLElement, label: string) {

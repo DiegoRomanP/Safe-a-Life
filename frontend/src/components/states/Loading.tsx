@@ -8,6 +8,7 @@ export function Loading({ message, detail, className }: LoadingProps) {
   return (
     <StatePanel
       role="status"
+      busy
       tone="info"
       symbol="…"
       title="Cargando"

@@ -5,6 +5,7 @@ import { Badge } from '../../../components/ui/Badge.js';
 import { formatDateTime } from '../../../lib/format.js';
 import { requestCode, requestStatusLabel, requestTitle } from '../labels.js';
 import { useSuperadmin } from '../SuperadminContext.js';
+import { TableScroll } from '../../../components/ui/TableScroll.js';
 
 // SA-05 Solicitudes de corrección o eliminación (listCorrectionRequests). Solo
 // metadatos: tipo, campos pedidos, estado y fechas; nunca valores personales.
@@ -17,7 +18,7 @@ export function AdminRequestsPage() {
       {requests.length === 0 ? (
         <EmptyState message="No hay solicitudes" />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+        <TableScroll label="Solicitudes de corrección o eliminación">
           <table className="w-full min-w-[760px] text-left">
             <caption className="sr-only">Solicitudes de corrección o eliminación</caption>
             <thead>
@@ -53,7 +54,7 @@ export function AdminRequestsPage() {
               })}
             </tbody>
           </table>
-        </div>
+        </TableScroll>
       )}
     </>
   );
