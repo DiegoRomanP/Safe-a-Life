@@ -38,7 +38,7 @@ export function AdminRequestsPage() {
                     <th scope="row" className="px-4 py-4 font-semibold">
                       <Link
                         to={`/superadmin/solicitudes/${request.requestId}`}
-                        className="rounded text-petrol underline underline-offset-4"
+                        className="-my-2.5 inline-flex min-h-11 items-center rounded text-petrol underline underline-offset-4"
                       >
                         {requestCode(request.requestId)}
                       </Link>

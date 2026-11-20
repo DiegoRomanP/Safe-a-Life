@@ -16,7 +16,7 @@ export function NeedsTable({ needs, caption }: NeedsTableProps) {
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr className="border-b border-line text-sm text-muted">
-            <th scope="col" className="px-4 py-4 font-semibold">Necesidad</th>
+            <th scope="col" className="sticky left-0 bg-surface px-4 py-4 font-semibold">Necesidad</th>
             <th scope="col" className="px-4 py-4 font-semibold">Grupo requerido</th>
             <th scope="col" className="px-4 py-4 font-semibold">Meta de intenciones</th>
             <th scope="col" className="px-4 py-4 font-semibold">Urgencia (informativa)</th>
@@ -27,8 +27,9 @@ export function NeedsTable({ needs, caption }: NeedsTableProps) {
         <tbody className="divide-y divide-line">
           {needs.map((need) => (
             <tr key={need.needId} className="text-ink">
-              <th scope="row" className="px-4 py-4 font-semibold">
-                <Link to={`/hospital/necesidades/${need.needId}`} className="rounded whitespace-nowrap text-petrol underline underline-offset-4">
+              {/* Columna fija: al desplazar en móvil, la fila sigue identificada. */}
+              <th scope="row" className="sticky left-0 bg-surface px-4 py-4 font-semibold">
+                <Link to={`/hospital/necesidades/${need.needId}`} className="-my-2.5 inline-flex min-h-11 items-center rounded whitespace-nowrap text-petrol underline underline-offset-4">
                   {needCode(need.needId)}
                 </Link>
               </th>
