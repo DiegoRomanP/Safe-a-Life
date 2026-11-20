@@ -16,6 +16,8 @@ const csrf = { data: { token: 'token-csrf-sintetico-de-prueba-000000' } };
 const successMessage = /Sesión iniciada/i;
 const failureMessage = /no se pudo|no fue posible|intenta|error/i;
 const unverifiedSessionWarning = 'Este intento no verificó la sesión localmente. Puede quedar una sesión activa en el servidor.';
+// 401: el servidor rechazó las credenciales; mensaje neutro propio.
+const rejectedMessage = 'Revisa el correo y la contraseña.';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return { ok: status >= 200 && status < 300, status, json: async () => body } as Response;
@@ -145,7 +147,7 @@ describe('AUTH-01 Inicio de sesión', () => {
     expect(keys.every((key) => key !== null && key.length >= 16 && key.length <= 255)).toBe(true);
     const retryFailed = waitForLive(view, failureMessage);
     await act(async () => { second.resolve(jsonResponse({ error: { code: 'AUTHENTICATION_REQUIRED' } }, 401)); await retryFailed; });
-    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain(unverifiedSessionWarning);
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain(rejectedMessage);
     expect(vi.getTimerCount()).toBe(0);
   });
 
@@ -166,13 +168,26 @@ describe('AUTH-01 Inicio de sesión', () => {
       else reply.resolve(jsonResponse({ error: { code: 'AUTHENTICATION_REQUIRED' } }, 401));
       await failed;
     });
-    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain(unverifiedSessionWarning);
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain(failure === 'network' ? unverifiedSessionWarning : rejectedMessage);
     expect(requests).toHaveLength(1);
     expect(vi.getTimerCount()).toBe(0);
     expect(view.querySelector('h1')?.textContent).toBe('Iniciar sesión');
     expect(outsideLive(view)).toBe(before);
     expect(view.textContent).not.toMatch(/Persona sintética|AUTHENTICATION_REQUIRED|Fallo de red sintético/);
     expect([localStorage.length, sessionStorage.length]).toEqual(storage);
+  });
+
+  it.each([
+    [401, 'Revisa el correo y la contraseña. Si acabas de verificar tu correo, primero crea tu contraseña'],
+    [429, 'Espera unos minutos'],
+  ])('un %i del login muestra un mensaje propio y no el de sesión sin verificar', async (status, text) => {
+    vi.stubGlobal('fetch', async () => jsonResponse({ error: { code: 'X' } }, status));
+    const view = renderRoute('/ingresar');
+    fillLogin(view);
+    const shown = waitForLive(view, new RegExp(text));
+    submit(view);
+    await act(async () => { await shown; });
+    expect(view.textContent).not.toContain(unverifiedSessionWarning);
   });
 
   it('no confirma sesión ni conserva estado si falla el bootstrap CSRF', async () => {
@@ -345,7 +360,7 @@ describe('AUTH-01 Inicio de sesión', () => {
     const live = view.querySelector('[aria-live="polite"]');
     const message = live?.textContent ?? '';
     expect.soft(live).not.toBeNull();
-    expect.soft(message).toContain(unverifiedSessionWarning);
+    expect.soft(message).toContain(rejectedMessage);
     expect.soft(message).not.toContain('Sesión iniciada');
     expect.soft(getAuthSession()).toBeNull();
     expect.soft(requests.map(({ url }) => url)).toEqual(['/api/v1/auth/sessions']);

@@ -63,6 +63,18 @@ export function LoginPage() {
               Abriendo tu área.
             </Alert>
           )}
+          {operationState === 'rejected' && (
+            // Neutro: no revela si el correo existe ni en qué paso del registro está.
+            <Alert tone="danger" title="No pudimos iniciar sesión">
+              Revisa el correo y la contraseña. Si acabas de verificar tu correo, primero crea tu contraseña con el enlace que te
+              enviamos.
+            </Alert>
+          )}
+          {operationState === 'limited' && (
+            <Alert tone="warning" title="Demasiados intentos">
+              Espera unos minutos antes de volver a intentarlo.
+            </Alert>
+          )}
           {operationState === 'error' && (
             <Alert tone="danger" title="No fue posible confirmar la sesión">
               Este intento no verificó la sesión localmente. Puede quedar una sesión activa en el servidor.
