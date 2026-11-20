@@ -1,8 +1,15 @@
 import { apiRequest } from '../../lib/api/http.js';
+import { parseCorrectionRequest } from '../../lib/api/correctionRequest.js';
+import { dataOf, listAll } from '../../lib/api/validate.js';
 import { ApiError } from '../../lib/demoApi.js';
 import { BLOOD_TYPES } from '../../lib/format.js';
 import { expireSession, getAuthSession } from '../auth/session/session.js';
-import type { DonorProfile } from './types.js';
+import type { CorrectionRequest, DonorProfile } from './types.js';
+
+// Cuerpo de createOwnCorrectionRequest (oneOf del contrato).
+export type NewCorrectionRequest =
+  | { type: 'correccion'; changes: { name?: string; newEmail?: string; declaredBloodType?: DonorProfile['declaredBloodType'] } }
+  | { type: 'eliminacion' };
 
 export type ParticipationPatch = Pick<DonorProfile, 'isAvailable' | 'approximateLocation'>;
 export type OnboardingData = Omit<DonorProfile, 'email'>;
@@ -48,4 +55,12 @@ export async function completeOwnOnboarding(data: OnboardingData): Promise<Donor
 /** updateOwnDonorParticipation: solo disponibilidad y zona aproximada. */
 export async function updateOwnParticipation(patch: ParticipationPatch): Promise<DonorProfile> {
   return profileOf(await call('PATCH', '/donors/me/profile', { body: patch, csrfToken: csrfToken() }));
+}
+
+/** listOwnCorrectionRequests (todas las páginas). */
+export const fetchOwnRequests = (): Promise<CorrectionRequest[]> => listAll(call, '/donors/me/correction-requests', parseCorrectionRequest);
+
+/** createOwnCorrectionRequest: 201 con la solicitud pendiente; 409 si ya hay una abierta sobre lo mismo. */
+export async function createOwnRequest(request: NewCorrectionRequest): Promise<CorrectionRequest> {
+  return parseCorrectionRequest(dataOf(await call('POST', '/donors/me/correction-requests', { body: request, csrfToken: csrfToken() })));
 }

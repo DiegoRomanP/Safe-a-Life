@@ -2,9 +2,9 @@ import { apiRequest } from '../../lib/api/http.js';
 import { ApiError } from '../../lib/demoApi.js';
 import { BLOOD_TYPES } from '../../lib/format.js';
 import { bool, dataOf, listAll as listAllShared, malformed, num, oneOf, rec, str } from '../../lib/api/validate.js';
+import { parseCorrectionRequest } from '../../lib/api/correctionRequest.js';
 import { clearStepUp, expireSession, getAuthSession } from '../auth/session/session.js';
 import type {
-  AdminCorrectionRequest,
   AuditEvent,
   ContextualDonorData,
   DonorValues,
@@ -79,22 +79,6 @@ const parseMembership = (value: unknown): Membership => {
   };
 };
 
-const REQUEST_STATUS = ['pendiente', 'aprobada', 'rechazada', 'en_ejecucion', 'completada', 'fallida'] as const;
-const REQUEST_FIELDS = ['name', 'email', 'declaredBloodType', 'deletion'] as const;
-const parseRequest = (value: unknown): AdminCorrectionRequest => {
-  const v = rec(value);
-  if (!Array.isArray(v.requestedFields)) malformed();
-  return {
-    requestId: str(v.requestId, 64),
-    type: oneOf(v.type, ['correccion', 'eliminacion']),
-    requestedFields: (v.requestedFields as unknown[]).map((field) => oneOf(field, REQUEST_FIELDS)),
-    status: oneOf(v.status, REQUEST_STATUS),
-    createdAt: str(v.createdAt, 40),
-    updatedAt: str(v.updatedAt, 40),
-    ...(v.decisionReason !== undefined ? { decisionReason: str(v.decisionReason, 300) } : {}),
-  };
-};
-
 const parseAudit = (value: unknown): AuditEvent => {
   const v = rec(value);
   return {
@@ -141,7 +125,7 @@ export const fetchTasks = async () => itemsOf(await call('GET', '/superadmin/tas
 export const fetchHospitals = () => listAll('/superadmin/hospitals', parseHospital);
 export const fetchMemberships = () => listAll('/superadmin/memberships', parseMembership);
 export const fetchAuditEvents = () => listAll('/superadmin/audit-events', parseAudit);
-export const fetchRequests = () => listAll('/superadmin/correction-requests', parseRequest);
+export const fetchRequests = () => listAll('/superadmin/correction-requests', parseCorrectionRequest);
 export const fetchConfiguration = async () => parseConfiguration(dataOf(await call('GET', '/superadmin/configuration')));
 export const fetchSites = async (hospitalId: string) =>
   itemsOf(await call('GET', `/superadmin/hospitals/${encodeURIComponent(hospitalId)}/sites`), parseSite);
@@ -162,7 +146,7 @@ export const revokeMembershipRequest = async (membershipId: string, reason: stri
   parseMembership(dataOf(await write('PATCH', `/superadmin/memberships/${encodeURIComponent(membershipId)}`, { status: 'revocada', reason })));
 
 export const decideRequestRequest = async (requestId: string, decision: 'aprobada' | 'rechazada', reason: string) =>
-  parseRequest(dataOf(await write('PATCH', `/superadmin/correction-requests/${encodeURIComponent(requestId)}`, { decision, reason })));
+  parseCorrectionRequest(dataOf(await write('PATCH', `/superadmin/correction-requests/${encodeURIComponent(requestId)}`, { decision, reason })));
 
 export const createAccessGrant = async (requestId: string, action: 'review' | 'execute', allowedFields: GrantField[], reason: string) =>
   parseGrant(dataOf(await write('POST', '/superadmin/access-grants', { requestId, action, allowedFields, reason })));
@@ -174,7 +158,7 @@ export async function fetchDonorData(requestId: string, grant: AccessGrant): Pro
 }
 
 export const executeRequestRequest = async (requestId: string, grant: AccessGrant) =>
-  parseRequest(dataOf(await write('POST', `/superadmin/correction-requests/${encodeURIComponent(requestId)}/executions`, undefined, { 'X-Contextual-Grant': grant.grantId })));
+  parseCorrectionRequest(dataOf(await write('POST', `/superadmin/correction-requests/${encodeURIComponent(requestId)}/executions`, undefined, { 'X-Contextual-Grant': grant.grantId })));
 
 export const setFinalDemoAtRequest = async (finalDemoAt: string) =>
   parseConfiguration(dataOf(await write('PATCH', '/superadmin/configuration', { finalDemoAt })));
