@@ -4,11 +4,10 @@ import { SuccessNotice } from '../../../components/states/SuccessNotice.js';
 import { Alert } from '../../../components/ui/Alert.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { Button } from '../../../components/ui/Button.js';
-import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { bloodTypeLabel, formatDateTime } from '../../../lib/format.js';
-import { useHospitalDemo } from '../HospitalDemoContext.js';
+import { ActionError } from '../components/ActionError.js';
+import { useHospital } from '../HospitalContext.js';
 import { needCode, needStatusLabel, urgencyLabel } from '../labels.js';
-import type { ConfirmedNeedResponse } from '../types.js';
 
 const backLink = (
   <Link to="/hospital/necesidades" className="self-start rounded font-semibold text-petrol underline underline-offset-4">
@@ -27,7 +26,7 @@ const createdMessage = {
 // cancelar usan transitionOwnHospitalNeed; cancelar pide confirmación.
 export function NeedDetailPage() {
   const { needId = '' } = useParams();
-  const { needs, sites, responsesOf, transitionNeed } = useHospitalDemo();
+  const { needs, sites, transitionNeed } = useHospital();
   const location = useLocation();
   const navigate = useNavigate();
   const [notice, setNotice] = useState<string | undefined>(() => {
@@ -76,13 +75,10 @@ export function NeedDetailPage() {
   const site = sites.find((item) => item.siteId === need.siteId)?.publicName ?? 'Sede';
   const status = needStatusLabel[need.status];
   const urgency = urgencyLabel[need.urgency];
-  const confirmed = responsesOf(need.needId).filter(
-    (item): item is ConfirmedNeedResponse => item.response === 'confirmada',
-  );
   const progress = Math.min(100, Math.round((need.confirmedIntentCount / need.targetConfirmations) * 100));
 
-  function apply(next: 'activa' | 'cancelada') {
-    transitionNeed(need!.needId, next);
+  async function apply(next: 'activa' | 'cancelada') {
+    if (!(await transitionNeed(need!.needId, next))) return;
     setConfirmingCancel(false);
     setNotice(next === 'activa' ? 'Necesidad activada' : 'Necesidad cancelada');
   }
@@ -106,14 +102,14 @@ export function NeedDetailPage() {
             Cancelar necesidad
           </Button>
         )}
-        {need.status === 'borrador' && <Button onClick={() => apply('activa')}>Activar necesidad</Button>}
+        {need.status === 'borrador' && <Button onClick={() => void apply('activa')}>Activar necesidad</Button>}
       </div>
 
       {confirmingCancel && (
         <Alert tone="warning" title={`¿Cancelar ${code}?`}>
           <p>La necesidad pasará a «Cancelada». Esta acción no se puede deshacer.</p>
           <div className="mt-3 flex flex-wrap gap-3">
-            <Button ref={confirmRef} variant="danger" onClick={() => apply('cancelada')}>
+            <Button ref={confirmRef} variant="danger" onClick={() => void apply('cancelada')}>
               Sí, cancelar necesidad
             </Button>
             <Button
@@ -129,6 +125,7 @@ export function NeedDetailPage() {
         </Alert>
       )}
 
+      <ActionError />
       <div aria-live="polite">
         {notice && (
           <div ref={noticeRef} tabIndex={-1} className="rounded-xl focus-visible:outline-focus">
@@ -183,51 +180,13 @@ export function NeedDetailPage() {
       </div>
 
       <section aria-labelledby="confirmaciones-titulo" className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 id="confirmaciones-titulo" className="text-xl font-semibold text-ink">
-              Confirmaciones afirmativas
-            </h2>
-            <p className="text-sm text-muted">Solo se muestran nombre, código por necesidad, grupo declarado y hora.</p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <LinkButton to={`/hospital/necesidades/${need.needId}/lotes`} variant="ghost">
-              Ver lotes y entregas
-            </LinkButton>
-            <LinkButton to={`/hospital/necesidades/${need.needId}/respuestas`} variant="secondary">
-              Ver todas las respuestas
-            </LinkButton>
-          </div>
-        </div>
-        {confirmed.length === 0 ? (
-          <p className="rounded-xl border border-line bg-surface p-6 text-muted">Todavía no hay confirmaciones.</p>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-line bg-surface">
-            <table className="w-full min-w-[640px] text-left">
-              <caption className="sr-only">{`Confirmaciones afirmativas de ${code}`}</caption>
-              <thead>
-                <tr className="border-b border-line text-sm text-muted">
-                  <th scope="col" className="px-4 py-4 font-semibold">Nombre</th>
-                  <th scope="col" className="px-4 py-4 font-semibold">Código</th>
-                  <th scope="col" className="px-4 py-4 font-semibold">Grupo declarado</th>
-                  <th scope="col" className="px-4 py-4 font-semibold">Respuesta</th>
-                  <th scope="col" className="px-4 py-4 font-semibold">Hora</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {confirmed.map((item) => (
-                  <tr key={item.needDonorCode} className="text-ink">
-                    <th scope="row" className="px-4 py-4 font-semibold">{item.donorName}</th>
-                    <td className="px-4 py-4">{item.needDonorCode}</td>
-                    <td className="px-4 py-4">{bloodTypeLabel(item.declaredBloodType)}</td>
-                    <td className="px-4 py-4">Confirmada</td>
-                    <td className="px-4 py-4">{formatDateTime(item.responseRecordedAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <h2 id="confirmaciones-titulo" className="text-xl font-semibold text-ink">
+          Confirmaciones afirmativas
+        </h2>
+        <p className="rounded-xl border border-line bg-surface p-6 text-muted">
+          Las invitaciones a donantes y sus respuestas todavía no están disponibles. Cuando se habiliten, aquí verás las
+          confirmaciones de esta necesidad y el conteo de intenciones se actualizará.
+        </p>
       </section>
 
       <Alert tone="warning" title="Verificación profesional externa">

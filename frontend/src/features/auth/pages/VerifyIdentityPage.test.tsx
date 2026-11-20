@@ -42,7 +42,8 @@ describe('AUTH-05 MFA', () => {
   it('una sesión que ya es aal 2 entra directo a su área', async () => {
     const view = renderRoute('/verificar-identidad', { ...adminAal1, aal: 2, mfaRequired: false });
     await settle();
-    expect(view.querySelector('main h1')?.textContent).toBe('Resumen operativo');
+    // Llegó al área del hospital (su navegación está montada); sus datos los pide el backend, que estas pruebas no simulan.
+    expect(view.querySelector('nav[aria-label="Cuenta del hospital"]')).not.toBeNull();
   });
 
   it('pide un código numérico de un solo uso', () => {
@@ -80,7 +81,8 @@ describe('AUTH-05 MFA', () => {
     expect(token?.url).toBe('/api/v1/auth/csrf-token');
     expect(getAuthSession()).toMatchObject({ role: 'admin_hospitalario', aal: 2, csrfToken: csrf.data.token });
     expect(getAuthSession()?.mfaChallengeId).toBeUndefined();
-    expect(view.querySelector('main h1')?.textContent).toBe('Resumen operativo');
+    // Llegó al área del hospital (su navegación está montada); sus datos los pide el backend, que estas pruebas no simulan.
+    expect(view.querySelector('nav[aria-label="Cuenta del hospital"]')).not.toBeNull();
   });
 
   it('un código incorrecto (401) avisa, limpia el campo y deja reintentar sin expulsar', async () => {
@@ -177,7 +179,8 @@ describe('AUTH-05 MFA', () => {
       await settle();
       expect(JSON.parse(String(calls[1]?.init?.body))).toEqual({ challengeId: ENROLL_CHALLENGE, code: '654321' });
       expect(getAuthSession()).toMatchObject({ aal: 2 });
-      expect(view.querySelector('main h1')?.textContent).toBe('Resumen operativo');
+      // Llegó al área del hospital (su navegación está montada); sus datos los pide el backend, que estas pruebas no simulan.
+    expect(view.querySelector('nav[aria-label="Cuenta del hospital"]')).not.toBeNull();
     });
 
     it('si ya hay un factor (409) pide ingresar de nuevo para recibir un reto', async () => {

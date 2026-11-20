@@ -2,12 +2,12 @@ import { PageHeader } from '../../../components/layout/PageHeader.js';
 import { EmptyState } from '../../../components/states/EmptyState.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { NeedsTable } from '../components/NeedsTable.js';
-import { useHospitalDemo } from '../HospitalDemoContext.js';
+import { useHospital } from '../HospitalContext.js';
 
 // Lista completa de necesidades del hospital (listOwnHospitalNeeds), destino
 // de «Necesidades» en la navegación. Usa la tabla de HOS-01.
 export function NeedsPage() {
-  const { needs } = useHospitalDemo();
+  const { needs } = useHospital();
 
   return (
     <>

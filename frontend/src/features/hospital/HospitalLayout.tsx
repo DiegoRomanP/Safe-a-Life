@@ -1,11 +1,10 @@
 import { AppLayout } from '../../components/layout/AppLayout.js';
-import { HospitalDemoProvider } from './HospitalDemoContext.js';
+import { HospitalProvider } from './HospitalContext.js';
 
-// Área del hospital: navegación de Penpot sobre el estado de demostración en
-// memoria (D-4).
+// Área del hospital: navegación de Penpot sobre los datos del backend real.
 export function HospitalLayout() {
   return (
-    <HospitalDemoProvider>
+    <HospitalProvider>
       <AppLayout
         navLabel="Cuenta del hospital"
         navItems={[
@@ -13,10 +12,10 @@ export function HospitalLayout() {
           { to: '/hospital/necesidades', label: 'Necesidades' },
           { to: '/hospital/altas', label: 'Altas asistidas' },
         ]}
-        accountTitle="Hospital Nacional Central"
+        accountTitle="Cuenta del hospital"
         accountRole="Hospital"
         initials="HA"
       />
-    </HospitalDemoProvider>
+    </HospitalProvider>
   );
 }
