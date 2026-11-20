@@ -7,8 +7,9 @@ Rama `feat/backend-developing`. Spec: `2026-10-12-especificacion-faltante-backen
 | Slice | Estado |
 | --- | --- |
 | 1. Dominio puro con pruebas | **Hecho** |
-| 2. Migración (`rbc_compatibility`, `haversine_m`, tablas) y pgTAP | Pendiente |
-| 3. RPC de lote y de respuesta, pruebas de carreras | Pendiente |
+| 2. Migración (`rbc_compatibility`, `haversine_m`, tablas) y pgTAP | **Hecho** en `feat/backend-developing` (F6-2, `20261022020000`); traído a esta cadena por merge `190b6e4` |
+| 3a. RPC de lote, token y concesión | **Hecho** (`20261022030000`, pgTAP 14); sin pruebas de carreras de integración ejecutadas aquí |
+| 3b. Reintento, lecturas del donante, cambio de respuesta e historial | **Hecho 2026-11-20** (`20261022040000_invitation_rpc_b.sql`, pgTAP `14b`, 51 pruebas). Sin revisión independiente |
 | 4. Cascadas, `worker_expire_needs`, `confirmedIntentCount` | Pendiente |
 | 5. Routers y Bruno | Pendiente |
 | 6. Semilla de 500 donantes y PER-02 | Pendiente |
