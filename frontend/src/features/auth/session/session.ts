@@ -1,6 +1,6 @@
 import { flushSync } from 'react-dom';
 import { ApiError } from '../../../lib/demoApi.js';
-import { deleteCurrentSession, enrollMfa as enrollMfaRequest, fetchCsrfToken, fetchCurrentSession, loginAndBootstrap, verifyMfa as verifyMfaRequest, type LoginSession, type MfaEnrollment } from '../../../lib/api/auth.js';
+import { deleteCurrentSession, enrollMfa as enrollMfaRequest, fetchCsrfToken, fetchCurrentSession, loginAndBootstrap, verifyMfa as verifyMfaRequest, verifyStepUp as verifyStepUpRequest, type LoginSession, type MfaEnrollment } from '../../../lib/api/auth.js';
 
 export type AuthSessionMemory = LoginSession & Readonly<{ csrfToken: string }>;
 export type AuthOperationState = 'idle' | 'pending' | 'success' | 'error' | 'expired';
@@ -14,6 +14,8 @@ let activeLogin: symbol | null = null;
 let epoch = 0;
 // Si el servidor no confirmó el cierre, sus cookies pueden seguir vivas: esta pestaña no las restaura hasta un login nuevo.
 let signedOutLocally = false;
+// Hasta cuándo vale el step-up (verifiedUntil del servidor, máx. 5 min). Solo es una pista de UX: el backend decide.
+let stepUpUntil = 0;
 const listeners = new Set<() => void>();
 
 function publish(state: AuthOperationState): void {
@@ -40,6 +42,7 @@ export function beginLogin(credentials: LoginCredentials): void {
   activeLogin = operation;
   epoch += 1;
   currentSession = null;
+  stepUpUntil = 0;
   publish('pending');
 
   void (async () => {
@@ -85,6 +88,7 @@ export async function logout(): Promise<void> {
   epoch += 1;
   restoring = null;
   currentSession = null;
+  stepUpUntil = 0;
   try {
     if (session) await deleteCurrentSession(session.csrfToken);
     signedOutLocally = false;
@@ -129,11 +133,27 @@ export async function verifyMfa(challengeId: string, code: string): Promise<Auth
   return currentSession;
 }
 
+export function isStepUpValid(now = Date.now()): boolean {
+  return now < stepUpUntil;
+}
+
+/** El backend rechazó una acción por step-up vencido: la próxima acción vuelve a pedir el código. */
+export function clearStepUp(): void {
+  stepUpUntil = 0;
+}
+
+/** POST /auth/step-up-verifications. Un 401 es código incorrecto, no sesión caída: no se expira la sesión. */
+export async function verifyStepUpCode(code: string): Promise<void> {
+  const until = await verifyStepUpRequest(requireSession().csrfToken, code);
+  stepUpUntil = Date.parse(until);
+}
+
 /** El backend respondió 401 a mitad de uso: la sesión ya no existe. Se olvida y el área vuelve a /ingresar con aviso. */
 export function expireSession(): void {
   epoch += 1;
   restoring = null;
   currentSession = null;
+  stepUpUntil = 0;
   publish('expired');
 }
 
