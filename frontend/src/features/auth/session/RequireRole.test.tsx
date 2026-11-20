@@ -101,3 +101,44 @@ describe('RequireRole (área del donante)', () => {
     expect(getAuthSession()).toBeNull();
   });
 });
+
+describe('RequireRole (áreas administrativas, aal 2)', () => {
+  const admin = { ...TEST_DONOR_SESSION, role: 'admin_hospitalario', mfaRequired: true } as const;
+
+  it('un administrador con aal 1 va a verificar su identidad, no al área', async () => {
+    const urls = stubFetch(() => json({}));
+
+    const view = renderRoute('/hospital', { ...admin, aal: 1 });
+    await settleRoute();
+
+    expect(view.querySelector('h1')?.textContent).toBe('Verifica tu identidad');
+    expect(urls).toEqual([]);
+  });
+
+  it('un administrador con aal 2 entra a su área', async () => {
+    stubFetch(() => json({}));
+    const view = renderRoute('/hospital', { ...admin, aal: 2, mfaRequired: false });
+    await settleRoute();
+    expect(view.querySelector('main h1')?.textContent).toBe('Resumen operativo');
+  });
+
+  it('el superadmin con aal 1 va a verificar su identidad', async () => {
+    const view = renderRoute('/superadmin', { ...admin, role: 'superadmin', aal: 1 });
+    await settleRoute();
+    expect(view.querySelector('h1')?.textContent).toBe('Verifica tu identidad');
+  });
+
+  it('un administrador no entra al área del superadmin ni sin sesión a ninguna', async () => {
+    stubFetch(() => json({ error: { code: 'AUTHENTICATION_REQUIRED' } }, 401));
+    const wrongRole = renderRoute('/superadmin', { ...admin, aal: 2 });
+    await settleRoute();
+    expect(wrongRole.querySelector('h1')?.textContent).toBe('Iniciar sesión');
+  });
+
+  it('sin sesión, /hospital vuelve a /ingresar', async () => {
+    stubFetch(() => json({ error: { code: 'AUTHENTICATION_REQUIRED' } }, 401));
+    const view = renderRoute('/hospital', null);
+    await settleRoute();
+    expect(view.querySelector('h1')?.textContent).toBe('Iniciar sesión');
+  });
+});

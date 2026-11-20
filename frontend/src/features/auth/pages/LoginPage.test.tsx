@@ -6,7 +6,7 @@ import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { routes } from '../../../app/routes.js';
 import { render } from '../../../test/render.js';
 import { renderRoute } from '../../../test/renderRoute.js';
-import { clearAuthSession, getAuthSession, logout } from '../session/session.js';
+import { clearAuthSession, expireSession, getAuthSession, logout } from '../session/session.js';
 
 setupRender();
 // La sesión vive en un módulo: sin limpiarla, un login de donante de una prueba redirigiría las siguientes.
@@ -66,7 +66,7 @@ describe('AUTH-01 Inicio de sesión', () => {
   });
 
   it.each(['donante', 'admin_hospitalario', 'superadmin'] as const)(
-    'confirma sesión y CSRF sin mostrar datos; solo el donante navega a su área (rol %s)', async (role) => {
+    'confirma sesión y CSRF sin mostrar datos y navega según el rol (rol %s)', async (role) => {
       vi.useFakeTimers();
       const login = deferred<Response>(), csrfReply = deferred<Response>(), csrfRequested = deferred<boolean>();
       const requests: Array<{ url: string; init?: RequestInit }> = [];
@@ -78,7 +78,7 @@ describe('AUTH-01 Inicio de sesión', () => {
         return csrfReply.promise;
       });
       const view = renderRoute('/ingresar');
-      const before = outsideLive(view), storage = [localStorage.length, sessionStorage.length];
+      const storage = [localStorage.length, sessionStorage.length];
       const actor = { role, displayName: 'Persona sintética', ...(role === 'admin_hospitalario' ? { hospitalName: 'Hospital sintético' } : {}) };
       const session = { data: { actor, aal: 1, mfaRequired: role !== 'donante' } };
       fillLogin(view);
@@ -109,13 +109,11 @@ describe('AUTH-01 Inicio de sesión', () => {
         expect(requests.some(({ url }) => url.endsWith('/auth/session'))).toBe(false);
         return;
       }
-      const message = view.querySelector('[aria-live="polite"]')?.textContent ?? '';
-      expect(view.querySelector('h1')?.textContent).toBe('Iniciar sesión');
-      expect(outsideLive(view)).toBe(before);
-      expect(message).not.toContain(actor.displayName);
-      expect(message).not.toContain(role);
-      expect(message).not.toContain(unverifiedSessionWarning);
-      if ('hospitalName' in actor) expect(message).not.toContain(actor.hospitalName);
+      // Hospital y superadmin entran con aal 1: la sesión verificada los lleva a completar MFA, sin exponer sus datos.
+      expect(view.querySelector('h1')?.textContent).toBe('Verifica tu identidad');
+      expect(view.textContent).not.toContain(actor.displayName);
+      if ('hospitalName' in actor) expect(view.textContent).not.toContain(actor.hospitalName);
+      expect(getAuthSession()).toMatchObject({ role, aal: 1, mfaRequired: true });
       expect([localStorage.length, sessionStorage.length]).toEqual(storage);
       expect(vi.getTimerCount()).toBe(0);
     },
@@ -278,7 +276,6 @@ describe('AUTH-01 Inicio de sesión', () => {
     expect.soft(requests.map(({ url }) => url)).toEqual(['/api/v1/auth/sessions']);
     const postsWhilePending = loginReplies.length;
 
-    // Rol sin área conectada: la prueba trata de logins superpuestos y debe quedarse en /ingresar.
     const firstSession = { data: { actor: { role: 'admin_hospitalario', displayName: 'Primera persona sintética' }, aal: 1, mfaRequired: true } };
     await act(async () => {
       loginReplies[0]!.resolve(jsonResponse(firstSession));
@@ -289,6 +286,12 @@ describe('AUTH-01 Inicio de sesión', () => {
     expect.soft(getAuthSession()).toEqual(firstMemory);
     expect.soft(loginReplies).toHaveLength(postsWhilePending);
     expect.soft(csrfReplies).toHaveLength(1);
+    // El rol administrativo con aal 1 pasa a MFA. Con una sesión verificada /ingresar redirige, así que se
+    // descarta la sesión (expira) y «Cancelar» vuelve al formulario para seguir con el segundo envío.
+    expect.soft(view.querySelector('h1')?.textContent).toBe('Verifica tu identidad');
+    const stillFirst = loginReplies[1] !== undefined;
+    if (!stillFirst) act(() => { expireSession(); });
+    click(view.querySelector('a[href="/ingresar"]'));
     if (loginReplies[1]) {
       const failed = waitForLive(view, failureMessage);
       await act(async () => {
@@ -368,11 +371,10 @@ describe('AUTH-01 Inicio de sesión', () => {
     ]);
   });
 
-  it('en desarrollo solo ofrece atajos a las áreas demo; el donante entra con sesión real', () => {
+  it('ya no ofrece atajos a áreas demo: hospital y superadmin exigen sesión real', () => {
     const view = renderRoute('/ingresar');
-    expect(view.querySelector('a[href^="/donante"]')).toBeNull();
-    expect(view.querySelector('a[href="/hospital"]')?.textContent).toBe('Entrar como hospital de prueba');
-    expect(view.querySelector('a[href="/superadmin"]')?.textContent).toBe('Entrar como superadmin de prueba');
+    expect(view.querySelector('a[href="/hospital"]')).toBeNull();
+    expect(view.querySelector('a[href="/superadmin"]')).toBeNull();
   });
 
   it('ofrece crear cuenta de donante', () => {
