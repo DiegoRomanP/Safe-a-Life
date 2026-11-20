@@ -77,7 +77,7 @@ export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initi
                     end={item.end}
                     className={({ isActive }) =>
                       cx(
-                        'block border-b-4 px-4 py-3 whitespace-nowrap transition-colors duration-150 focus-visible:outline-white focus-visible:-outline-offset-4 lg:border-b-0 lg:border-l-4 lg:px-5',
+                        'block border-b-4 px-4 py-3 whitespace-nowrap transition-[color,background-color,border-color] duration-150 focus-visible:outline-white focus-visible:-outline-offset-4 lg:border-b-0 lg:border-l-4 lg:px-5',
                         isActive ? 'border-white font-bold' : 'border-transparent text-white/85 hover:bg-white/10',
                       )
                     }
