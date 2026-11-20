@@ -1,10 +1,8 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { PageHeader } from '../../../components/layout/PageHeader.js';
 import { SaveErrorNotice } from '../../../components/states/SaveErrorNotice.js';
-import { SuccessNotice } from '../../../components/states/SuccessNotice.js';
 import { Alert } from '../../../components/ui/Alert.js';
-import { Badge } from '../../../components/ui/Badge.js';
 import { Button } from '../../../components/ui/Button.js';
 import { Card } from '../../../components/ui/Card.js';
 import { Switch } from '../../../components/ui/Switch.js';
@@ -35,14 +33,7 @@ export function OnboardingPage() {
   const [longitude, setLongitude] = useState('');
   const [isAvailable, setIsAvailable] = useState(true);
   const [errors, setErrors] = useState<Errors>({});
-  const [done, setDone] = useState(false);
-  const resultRef = useRef<HTMLDivElement>(null);
   const submitRef = useRef<HTMLButtonElement>(null);
-  // Al terminar desaparece el formulario: el foco pasa al resultado para no
-  // quedar en el body.
-  useEffect(() => {
-    if (done) resultRef.current?.focus();
-  }, [done]);
   const addressRef = useRef<HTMLInputElement>(null);
   const refs = {
     name: useRef<HTMLInputElement>(null),
@@ -64,13 +55,13 @@ export function OnboardingPage() {
     flushSync(() => setErrors(found));
     const first = (Object.keys(refs) as Array<keyof Errors>).find((key) => found[key]);
     if (first) return (mapboxEnabled && first === 'latitude' ? addressRef : refs[first]).current?.focus();
-    const result = await save.run({
+    // Al guardarse, DonorLayout detecta el perfil y lleva a Invitaciones: esta página no navega por sí misma.
+    await save.run({
       name: name.trim(),
       declaredBloodType: bloodType as BloodType,
       isAvailable,
       approximateLocation: { latitude: Number(latitude), longitude: Number(longitude) },
     });
-    if (result.ok) setDone(true);
   }
 
   // El aviso de conflicto desaparece al revisarlo: el foco vuelve al envío.
@@ -79,52 +70,17 @@ export function OnboardingPage() {
     submitRef.current?.focus();
   }
 
-  const steps = [
-    { title: 'Correo verificado', badge: 'Completado', tone: 'success' as const },
-    {
-      title: 'Grupo declarado',
-      badge: done ? `${bloodTypeLabel(bloodType as BloodType)} · Declarado` : 'Pendiente',
-      tone: done ? ('info' as const) : ('warning' as const),
-    },
-    { title: 'Ubicación aproximada', badge: done ? 'Completado' : 'Pendiente', tone: done ? ('success' as const) : ('warning' as const) },
-  ];
-
   return (
     <>
       <PageHeader
         title="Te damos la bienvenida"
         description="Completa lo esencial para recibir invitaciones de hospitales autorizados."
       />
-      <ol className="grid gap-4 md:grid-cols-3">
-        {steps.map((step, index) => (
-          <li key={step.title} className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-5">
-            <p className="text-sm font-semibold text-muted">{`${index + 1} de 3`}</p>
-            <h2 className="text-xl font-semibold text-ink">{step.title}</h2>
-            <Badge tone={step.tone} className="self-start">
-              {step.badge}
-            </Badge>
-          </li>
-        ))}
-      </ol>
       <Alert tone="warning" title="Antes de recibir una invitación">
         El grupo es declarado y la ubicación es aproximada. Ninguno determina elegibilidad médica.
       </Alert>
 
-      <div aria-live="polite" className="live-slot">
-        {done && (
-          <div ref={resultRef} tabIndex={-1} className="rounded-xl focus-visible:outline-focus">
-          <SuccessNotice
-            announce={false}
-            message="Perfil completo"
-            detail="Hospitales autorizados podrán considerarte en una preselección académica."
-            action={<LinkButton to="/donante/perfil">Ver mi perfil</LinkButton>}
-          />
-          </div>
-        )}
-      </div>
-
-      {!done && (
-        <Card title="Completa tu perfil">
+      <Card title="Completa tu perfil">
           <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-6">
             <div className="grid gap-6 md:grid-cols-2">
               <Field label="Nombre" hint="Usa un nombre de demostración." error={errors.name} required>
@@ -205,8 +161,7 @@ export function OnboardingPage() {
               </p>
             </div>
           </form>
-        </Card>
-      )}
+      </Card>
     </>
   );
 }

@@ -1,6 +1,8 @@
+import { useLocation } from 'react-router-dom';
 import { PageHeader } from '../../../components/layout/PageHeader.js';
 import { EmptyState } from '../../../components/states/EmptyState.js';
 import { QueryView } from '../../../components/states/QueryView.js';
+import { SuccessNotice } from '../../../components/states/SuccessNotice.js';
 import { Alert } from '../../../components/ui/Alert.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
@@ -14,9 +16,17 @@ import type { DonorInvitation } from '../types.js';
 export function InvitationsPage() {
   const { scenario, listInvitations } = useDonorDemo();
   const query = useDemoQuery(listInvitations, scenario);
+  // DonorLayout trae aquí al donante que acaba de completar su perfil (pantalla de enfoque).
+  const onboarded = (useLocation().state as { onboarded?: boolean } | null)?.onboarded === true;
 
   return (
     <>
+      {onboarded && (
+        <SuccessNotice
+          message="Perfil completo"
+          detail="Hospitales autorizados podrán considerarte en una preselección académica."
+        />
+      )}
       <PageHeader
         title="Mis invitaciones"
         description="Consulta solicitudes de hospitales autorizados y administra tu respuesta."
@@ -84,18 +94,7 @@ function InvitationList({ invitations }: { invitations: DonorInvitation[] }) {
   );
 }
 
-// Sin invitaciones: si además falta el perfil (404 esperado antes del onboarding), el siguiente paso es completarlo.
-// Mientras se consulta el perfil o si falla, se muestra el estado vacío sin acción.
+// El área del donante solo se abre con el perfil completo (DonorLayout), así que aquí no hace falta ofrecer completarlo.
 function NoInvitations() {
-  const { scenario, getProfile } = useDonorDemo();
-  const profile = useDemoQuery(getProfile, scenario);
-  const missing = profile.status === 'ready' && profile.data === null;
-  return (
-    <EmptyState
-      title="Aún no tienes invitaciones"
-      message={missing ? 'Completa tu perfil para poder recibir invitaciones' : 'No hay invitaciones activas'}
-      detail={missing ? 'Necesitamos tu nombre, grupo declarado, disponibilidad y zona aproximada.' : 'Cuando un hospital envíe una, aparecerá aquí.'}
-      action={missing ? <LinkButton to="/donante/bienvenida">Completar perfil</LinkButton> : undefined}
-    />
-  );
+  return <EmptyState title="Aún no tienes invitaciones" message="No hay invitaciones activas" detail="Cuando un hospital envíe una, aparecerá aquí." />;
 }

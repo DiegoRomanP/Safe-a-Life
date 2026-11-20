@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { logout } from '../../features/auth/session/session.js';
+import { useEffect, useRef, type ReactNode } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Badge } from '../ui/Badge.js';
 import { cx } from '../ui/cx.js';
 import { Brand } from './Brand.js';
+import { useSignOut } from './useSignOut.js';
 
 // end: la ruta solo está activa cuando coincide exacta (p. ej. «Resumen» en
 // /hospital no debe marcarse en /hospital/necesidades).
@@ -26,10 +26,9 @@ export type AppLayoutProps = {
 // «Cerrar sesión». La ruta activa lleva aria-current (NavLink) y un borde
 // blanco a la izquierda. Cerrar sesión borra la sesión del servidor y de memoria y vuelve a /ingresar.
 export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initials, devTools, notice }: AppLayoutProps) {
-  const navigate = useNavigate();
   const { pathname } = useLocation();
   const navRef = useRef<HTMLElement>(null);
-  const [closing, setClosing] = useState(false);
+  const { closing, signOut } = useSignOut();
   // En móvil la fila de pestañas se desplaza: centra la activa para que nunca quede cortada. Se ajusta scrollLeft del
   // <nav> (no scrollIntoView) para no mover la página; en lg no hay desbordamiento y no tiene efecto.
   useEffect(() => {
@@ -42,14 +41,6 @@ export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initi
     // Con la fuente web cargada cambian los anchos: se vuelve a centrar.
     void document.fonts?.ready.then(center);
   }, [pathname]);
-  const signOut = () => {
-    if (closing) return;
-    setClosing(true);
-    void logout().then(
-      () => navigate('/ingresar', { replace: true }),
-      () => navigate('/ingresar', { replace: true, state: { logoutFailed: true } }),
-    );
-  };
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas">

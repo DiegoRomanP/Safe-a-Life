@@ -3,6 +3,7 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setupRender } from '../../../test/render.js';
 import { TEST_DONOR_SESSION, renderRoute } from '../../../test/renderRoute.js';
+import { demoProfile } from '../../donor/demoData.js';
 import { clearAuthSession, getAuthSession, logout, restoreSession } from './session.js';
 
 setupRender();
@@ -29,15 +30,15 @@ describe('RequireRole (área del donante)', () => {
   it('tras recargar restaura la sesión de las cookies y muestra el área', async () => {
     const urls = stubFetch((url) => (url.endsWith('/auth/session')
       ? json({ data: { actor: { role: 'donante', displayName: 'Persona sintética' }, aal: 1, mfaRequired: false } })
-      : json(csrf)));
+      : url.endsWith('/donors/me/profile') ? json({ data: demoProfile }) : json(csrf)));
 
     const view = renderRoute('/donante/perfil', null);
     expect(view.textContent).toContain('Comprobando tu sesión.');
     expect(view.querySelector('main h1')).toBeNull();
     await settleRoute();
 
-    // Restaura primero; solo entonces el área pide el perfil.
-    expect(urls).toEqual(['/api/v1/auth/session', '/api/v1/auth/csrf-token', '/api/v1/donors/me/profile']);
+    // Restaura primero; solo entonces el área pide el perfil (la guarda del área y la propia página).
+    expect(urls).toEqual(['/api/v1/auth/session', '/api/v1/auth/csrf-token', '/api/v1/donors/me/profile', '/api/v1/donors/me/profile']);
     expect(view.querySelector('main h1')?.textContent).toBe('Mi perfil');
     expect(getAuthSession()).toEqual({ role: 'donante', aal: 1, mfaRequired: false, csrfToken: csrf.data.token });
   });
@@ -74,7 +75,7 @@ describe('RequireRole (área del donante)', () => {
   it('dos restauraciones simultáneas (p. ej. StrictMode) hacen un solo GET de sesión', async () => {
     const urls = stubFetch((url) => (url.endsWith('/auth/session')
       ? json({ data: { actor: { role: 'donante', displayName: 'Persona sintética' }, aal: 1, mfaRequired: false } })
-      : json(csrf)));
+      : url.endsWith('/donors/me/profile') ? json({ data: demoProfile }) : json(csrf)));
 
     const [first, second] = await Promise.all([restoreSession(), restoreSession()]);
 

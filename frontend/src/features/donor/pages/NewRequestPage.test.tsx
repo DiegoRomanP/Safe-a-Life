@@ -76,6 +76,7 @@ describe('DON-05 Nueva solicitud', () => {
       initialEntries: [{ pathname: '/donante/solicitudes/nueva', state: { kind: 'otro' } }],
     });
     const view = render(<RouterProvider router={router} />);
+    await settle();
     expect((view.querySelector('input[value="correccion"]') as HTMLInputElement).checked).toBe(true);
   });
 

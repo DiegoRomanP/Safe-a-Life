@@ -13,7 +13,7 @@ vi.mock('../../../lib/mapbox.js', () => ({
 
 setupRender();
 let api: DonorApiStub;
-beforeEach(() => { api = stubDonorApi(); });
+beforeEach(() => { api = stubDonorApi(null); });
 
 describe('DON-01 onboarding con dirección (Mapbox)', () => {
   it('no pide coordenadas, exige elegir una dirección y guarda su ubicación aproximada', async () => {
@@ -36,6 +36,7 @@ describe('DON-01 onboarding con dirección (Mapbox)', () => {
     await settle();
     click([...view.querySelectorAll('button')].find((b) => b.textContent === 'Miraflores, Lima, Perú') ?? null);
     click(view.querySelector('button[type="submit"]'));
+    await settle();
     await settle();
     expect(api.profile).toMatchObject({ approximateLocation: { latitude: -12.119, longitude: -77.037 } });
   });

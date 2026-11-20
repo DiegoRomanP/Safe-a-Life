@@ -4,11 +4,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { click, settle, setupRender, type } from '../../../test/render.js';
 import { renderRoute } from '../../../test/renderRoute.js';
 import { stubDonorApi, type DonorApiStub } from '../../../test/donorApi.js';
+import { demoProfile } from '../demoData.js';
 
 setupRender();
-// El perfil es real: un backend en memoria responde sus tres operaciones.
+// El perfil es real: un backend en memoria responde sus tres operaciones; empieza sin perfil (aún sin onboarding).
 let api: DonorApiStub;
-beforeEach(() => { api = stubDonorApi(); });
+beforeEach(() => { api = stubDonorApi(null); });
 
 function control(view: HTMLElement, label: string) {
   const element = [...view.querySelectorAll('label')].find((item) => item.textContent?.startsWith(label));
@@ -24,15 +25,13 @@ function choose(select: Element | null, value: string) {
 }
 
 describe('DON-01 Bienvenida y onboarding', () => {
-  it('muestra los tres pasos y el formulario de perfil', async () => {
+  it('muestra una pantalla única de enfoque: el formulario, sin navegación del área', async () => {
     const view = renderRoute('/donante/bienvenida');
     await settle();
     expect(view.querySelector('h1')?.textContent).toBe('Te damos la bienvenida');
-    expect([...view.querySelectorAll('main ol > li h2')].map((h) => h.textContent)).toEqual([
-      'Correo verificado',
-      'Grupo declarado',
-      'Ubicación aproximada',
-    ]);
+    expect(view.querySelector('form')).not.toBeNull();
+    expect(view.querySelector('nav[aria-label="Cuenta del donante"]')).toBeNull();
+    expect([...view.querySelectorAll('button')].some((b) => b.textContent === 'Cerrar sesión')).toBe(true);
     expect(view.textContent).toContain('Ninguno determina elegibilidad médica.');
   });
 
@@ -47,7 +46,7 @@ describe('DON-01 Bienvenida y onboarding', () => {
     expect(document.activeElement).toBe(control(view, 'Nombre'));
   });
 
-  it('completo: guarda el perfil en el backend, enfoca el resultado y lleva al perfil', async () => {
+  it('completo: guarda el perfil en el backend y lleva a Invitaciones con la navegación completa', async () => {
     const view = renderRoute('/donante/bienvenida');
     await settle();
     type(control(view, 'Nombre'), 'Persona Demo');
@@ -56,29 +55,28 @@ describe('DON-01 Bienvenida y onboarding', () => {
     type(control(view, 'Longitud'), '-77.04');
     click(view.querySelector('button[type="submit"]'));
     await settle();
-    const live = view.querySelector('[aria-live="polite"]');
-    expect(live?.textContent).toContain('Perfil completo');
+    await settle();
     expect(api.requests).toContain('PUT /donors/me/onboarding-profile');
     expect(api.profile).toMatchObject({ name: 'Persona Demo', declaredBloodType: 'O_NEG', isAvailable: true, approximateLocation: { latitude: -12.05, longitude: -77.04 } });
-    expect(live?.contains(document.activeElement)).toBe(true);
-    expect(view.textContent).toContain('O− · Declarado');
-    click(live?.querySelector('a[href="/donante/perfil"]') ?? null);
-    await settle();
-    expect((control(view, 'Nombre') as HTMLInputElement).value).toBe('Persona Demo');
+    expect(view.querySelector('main h1')?.textContent).toBe('Mis invitaciones');
+    expect(view.querySelector('nav[aria-label="Cuenta del donante"]')).not.toBeNull();
+    expect(view.textContent).toContain('Perfil completo');
   });
 
-  it('si el perfil ya está activo (409) ofrece ir al perfil en vez de un conflicto', async () => {
-    api.writeStatus = 409;
+  it('si el perfil ya estaba activo (409) sale de la pantalla de enfoque en vez de mostrar un conflicto', async () => {
     const view = renderRoute('/donante/bienvenida');
     await settle();
+    // Otra pestaña lo completó entre la carga y el envío.
+    api.profile = structuredClone(demoProfile);
+    api.writeStatus = 409;
     type(control(view, 'Nombre'), 'Persona Demo');
     choose(control(view, 'Grupo declarado'), 'O_NEG');
     type(control(view, 'Latitud'), '-12.05');
     type(control(view, 'Longitud'), '-77.04');
     click(view.querySelector('button[type="submit"]'));
     await settle();
-    expect(view.textContent).toContain('Tu perfil ya está completo');
+    await settle();
     expect(view.textContent).not.toContain('Otro cambio llegó antes');
-    expect(view.querySelector('main a[href="/donante/perfil"]')).not.toBeNull();
+    expect(view.querySelector('main h1')?.textContent).toBe('Mis invitaciones');
   });
 });

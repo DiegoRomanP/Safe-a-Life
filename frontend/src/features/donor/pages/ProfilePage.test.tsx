@@ -64,7 +64,8 @@ describe('DON-02 Mi perfil', () => {
     await settle();
     expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Cambios guardados');
     // Se guardó en el backend (PATCH con CSRF) y la vista volvió a leerlo.
-    expect(api.requests).toEqual(['GET /donors/me/profile', 'PATCH /donors/me/profile', 'GET /donors/me/profile']);
+    // La guarda del área y la página leen el perfil; tras guardar, ambas lo vuelven a leer.
+    expect(api.requests).toEqual(['GET /donors/me/profile', 'GET /donors/me/profile', 'PATCH /donors/me/profile', 'GET /donors/me/profile', 'GET /donors/me/profile']);
     expect(api.profile).toMatchObject({ isAvailable: false, approximateLocation: { latitude: -12.091, longitude: -77.05 } });
   });
 

@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import type { DemoScenario } from '../../lib/demoApi.js';
+import { errorKindOf, type DemoScenario } from '../../lib/demoApi.js';
 import { rememberNull } from '../../lib/rememberNull.js';
 import {
   changeInvitationResponse, completeOwnOnboarding, createOwnRequest, fetchOwnHistory, fetchOwnInvitation, fetchOwnInvitations, fetchOwnProfile,
@@ -64,7 +64,13 @@ export function DonorDemoProvider({ children }: { children: ReactNode; now?: () 
     refresh();
   }, [reloadProfile, refresh]);
   const completeOnboarding = useCallback(async (data: Omit<DonorProfile, 'email'>) => {
-    await completeOwnOnboarding(data);
+    try {
+      await completeOwnOnboarding(data);
+    } catch (error) {
+      // 409: el perfil ya estaba activo (p. ej. completado en otra pestaña); se vuelve a pedir para salir de la pantalla de enfoque.
+      if (errorKindOf(error) === 'conflicto') reloadProfile();
+      throw error;
+    }
     reloadProfile();
   }, [reloadProfile]);
   const createRequest = useCallback(async (request: NewCorrectionRequest) => {

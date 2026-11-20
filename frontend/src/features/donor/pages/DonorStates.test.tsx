@@ -23,11 +23,12 @@ const button = (view: HTMLElement, text: string) =>
   [...view.querySelectorAll('button')].find((item) => item.textContent === text) ?? null;
 
 describe('Estados de carga del área del donante', () => {
-  it('mientras llegan los datos anuncia la carga y mantiene la cabecera', async () => {
+  it('mientras llega el perfil anuncia la carga y después muestra la página con su cabecera', async () => {
     const view = renderRoute('/donante/invitaciones');
-    expect(view.querySelector('h1')?.textContent).toBe('Mis invitaciones');
-    expect(view.querySelector('main [role="status"]')?.textContent).toContain('Cargando tus invitaciones…');
+    // Primero la guarda del área consulta el perfil; después carga la página con su cabecera.
+    expect(view.textContent).toContain('Cargando tu cuenta…');
     await settle();
+    expect(view.querySelector('h1')?.textContent).toBe('Mis invitaciones');
     expect(view.querySelector('main [role="status"]')).toBeNull();
     expect(view.querySelectorAll('section[aria-label="Invitaciones"] li')).toHaveLength(3);
   });

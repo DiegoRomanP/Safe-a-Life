@@ -105,8 +105,8 @@ describe('AUTH-01 Inicio de sesión', () => {
 
       expect([localStorage.length, sessionStorage.length]).toEqual(storage);
       if (role === 'donante') {
-        // El área del donante tiene guard: entra con la sesión ya verificada, sin volver a pedirla.
-        expect(view.querySelector('main h1')?.textContent).toBe('Mi perfil');
+        // El área del donante tiene guard: entra con la sesión ya verificada, sin volver a pedirla, y su primer paso es consultar el perfil.
+        expect(requests.map(({ url }) => url)[2]).toBe('/api/v1/donors/me/profile');
         expect(requests.map(({ url }) => url).slice(0, 2)).toEqual(['/api/v1/auth/sessions', '/api/v1/auth/csrf-token']);
         expect(requests.some(({ url }) => url.endsWith('/auth/session'))).toBe(false);
         return;
