@@ -1,6 +1,6 @@
 import { flushSync } from 'react-dom';
 import { ApiError } from '../../../lib/demoApi.js';
-import { deleteCurrentSession, fetchCurrentSession, loginAndBootstrap, type LoginSession } from '../../../lib/api/auth.js';
+import { deleteCurrentSession, enrollMfa as enrollMfaRequest, fetchCurrentSession, loginAndBootstrap, verifyMfa as verifyMfaRequest, type LoginSession, type MfaEnrollment } from '../../../lib/api/auth.js';
 
 export type AuthSessionMemory = LoginSession & Readonly<{ csrfToken: string }>;
 export type AuthOperationState = 'idle' | 'pending' | 'success' | 'error' | 'expired';
@@ -96,6 +96,28 @@ export async function logout(): Promise<void> {
   } finally {
     publish('idle');
   }
+}
+
+function requireSession(): AuthSessionMemory {
+  if (!currentSession) throw new ApiError('sin_permiso', 401);
+  return currentSession;
+}
+
+/** Alta del factor TOTP con la sesión aal 1 en memoria. */
+export function enrollMfa(): Promise<MfaEnrollment> {
+  return enrollMfaRequest(requireSession().csrfToken);
+}
+
+/**
+ * Verifica el código TOTP y reemplaza la sesión por la de aal 2. Un 401 aquí es código incorrecto o vencido, no una sesión
+ * caída: no se expira la sesión para que la persona pueda reintentar.
+ */
+export async function verifyMfa(challengeId: string, code: string): Promise<AuthSessionMemory> {
+  const started = epoch;
+  const { session, csrfToken } = await verifyMfaRequest(requireSession().csrfToken, challengeId, code);
+  if (epoch !== started) throw new ApiError('sin_permiso', 401);
+  currentSession = Object.freeze({ ...session, csrfToken });
+  return currentSession;
 }
 
 /** El backend respondió 401 a mitad de uso: la sesión ya no existe. Se olvida y el área vuelve a /ingresar con aviso. */

@@ -7,15 +7,18 @@ import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { AuthCard, AuthShell } from '../components/AuthShell.js';
+import { requestPasswordRecovery } from '../../../lib/api/auth.js';
 import { emailError } from '../validation.js';
 
 // AUTH-04 Recuperar acceso (contenido de Penpot «SaL» con estilo «+»). El
 // resultado es siempre el mismo, exista o no la cuenta, igual que el 202 de
-// requestPasswordRecovery. Sin backend (D-4) no se envía nada.
+// requestPasswordRecovery.
 export function RecoverAccessPage() {
   const [email, setEmail] = useState('');
   const [error, setError] = useState<string>();
   const [sent, setSent] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [busy, setBusy] = useState(false);
   const emailRef = useRef<HTMLInputElement>(null);
   const resultRef = useRef<HTMLHeadingElement>(null);
 
@@ -23,13 +26,24 @@ export function RecoverAccessPage() {
     if (sent) resultRef.current?.focus();
   }, [sent]);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
     const found = emailError(email);
     flushSync(() => setError(found));
     if (found) return emailRef.current?.focus();
-    setEmail('');
-    setSent(true);
+    setBusy(true);
+    setFailed(false);
+    try {
+      await requestPasswordRecovery(email.trim());
+      setEmail('');
+      setSent(true);
+    } catch {
+      // Solo un fallo real (red, límite, 5xx) llega aquí: el 202 es el mismo exista o no la cuenta.
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -55,7 +69,7 @@ export function RecoverAccessPage() {
             <p className="text-muted">No confirmamos si una cuenta existe. Puedes volver a ingresar.</p>
           </div>
           <Alert tone="brand" title="Prototipo académico">
-            Esta pantalla no envía mensajes ni procesa cuentas reales.
+            No uses datos reales en este prototipo.
           </Alert>
           <div>
             <LinkButton to="/ingresar">Volver a ingresar</LinkButton>
@@ -66,7 +80,14 @@ export function RecoverAccessPage() {
           <h1 id="recuperar-titulo" className="text-3xl font-bold text-ink">
             Solicitar enlace de recuperación
           </h1>
-          <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-6">
+          <div aria-live="polite">
+            {failed && (
+              <Alert tone="danger" title="No pudimos enviar la solicitud">
+                Intenta de nuevo en unos minutos.
+              </Alert>
+            )}
+          </div>
+          <form noValidate onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-6">
             <Field
               label="Correo electrónico"
               hint="Usa una dirección de correo. El mensaje será igual para todos los casos."
@@ -88,7 +109,7 @@ export function RecoverAccessPage() {
               <LinkButton to="/ingresar" variant="ghost">
                 Volver a ingresar
               </LinkButton>
-              <Button type="submit">Enviar solicitud</Button>
+              <Button type="submit" disabled={busy}>Enviar solicitud</Button>
             </div>
           </form>
         </AuthCard>

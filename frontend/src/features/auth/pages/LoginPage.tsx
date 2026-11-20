@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import type { ActorRole, LoginSession } from '../../../lib/api/auth.js';
+import { destinationFor } from '../session/destination.js';
 import { beginLogin, getAuthOperationState, getAuthSession, subscribeAuthOperation } from '../session/session.js';
 import { Alert } from '../../../components/ui/Alert.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
@@ -8,11 +8,6 @@ import { AuthCard, AuthShell } from '../components/AuthShell.js';
 import { LoginForm } from '../components/LoginForm.js';
 
 // AUTH-01: con sesión verificada cada rol entra a su área; hospital y superadmin completan antes MFA (aal 2).
-const AREA: Record<ActorRole, string> = { donante: '/donante/perfil', admin_hospitalario: '/hospital', superadmin: '/superadmin' };
-
-function destinationFor(session: Pick<LoginSession, 'role' | 'aal'>): string {
-  return session.role !== 'donante' && session.aal !== 2 ? '/verificar-identidad' : AREA[session.role];
-}
 
 export function LoginPage() {
   const navigate = useNavigate();
