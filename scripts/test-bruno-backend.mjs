@@ -31,6 +31,8 @@ const SCENARIOS = [
   { folder: 'backend/donor-records/hospital', user: SEED_USERS.admin1.email, hospital: true },
   { folder: 'backend/privacy-requests/donor', privacyDonor: true },
   { folder: 'backend/privacy-requests/superadmin', user: SEED_USERS.superadmin.email, privacyAdmin: true },
+  { folder: 'backend/invitation-coordination/hospital', user: SEED_USERS.admin1.email, invitationHospital: true },
+  { folder: 'backend/invitation-coordination/donor', invitationDonor: true },
 ];
 
 function run(command, args) {
@@ -194,6 +196,40 @@ async function privacyAdminVars() {
   return { privacyRequestId: requestId, unknownRequestId: randomUUID() };
 }
 
+/** F6, lado hospital: donantes activos compatibles dentro del radio de la sede del demo, para que el lote tenga a quién invitar. */
+async function invitationHospitalVars() {
+  await activeDonorAccount('Donante Lote Uno');
+  await activeDonorAccount('Donante Lote Dos');
+  return { unknownNeedId: randomUUID() };
+}
+
+/**
+ * F6, lado donante: el runner hace de «bandeja de entrada». Crea una invitación con dos tokens que solo él conoce (en la base
+ * solo existen los hashes) sobre una necesidad activa de meta 2, y se los pasa a Bruno, que no puede leer el outbox cifrado.
+ */
+async function invitationDonorVars() {
+  const hash = (token) => createHash('sha256').update(token, 'utf8').digest('hex');
+  const confirmToken = randomBytes(32).toString('base64url');
+  const rejectToken = randomBytes(32).toString('base64url');
+  const email = await activeDonorAccount('Donante Invitado');
+  const hospital = '11111111-1111-4111-8111-111111111101';
+  const needId = sql(`insert into app.needs (hospital_id, site_id, created_by, component, required_blood_type, target_confirmations, radius_km, urgency, status, expires_at)
+    select '${hospital}', '22222222-2222-4222-8222-222222222201', id, 'RBC', 'A_POS', 2, 10, 'Normal', 'activa', now() + interval '12 hours'
+    from auth.users where email = 'admin1@example.test' returning need_id`).split('\n')[0];
+  const batchId = sql(`insert into app.invitation_batches (need_id, hospital_id, requested_by, created_invitation_count, queued_email_count)
+    select '${needId}', '${hospital}', id, 1, 1 from auth.users where email = 'admin1@example.test' returning batch_id`).split('\n')[0];
+  const outboxId = randomUUID();
+  sql(`insert into app.email_outbox (outbox_id, kind, recipient_user_id, idempotency_key, sealed_payload, not_after)
+    select '${outboxId}', 'invitacion', id, 'outbox-bruno-${outboxId}', 'sellado', now() + interval '12 hours' from auth.users where email = '${email}'`);
+  sql(`insert into app.invitations (need_id, batch_id, hospital_id, donor_id, need_donor_code, confirm_token_hash, reject_token_hash, current_outbox_id)
+    select '${needId}', '${batchId}', '${hospital}', id, app.new_need_donor_code('${needId}'), '${hash(confirmToken)}', '${hash(rejectToken)}', '${outboxId}'
+    from auth.users where email = '${email}'`);
+  return {
+    invDonorEmail: email, donorPassword: PRIVACY_PASSWORD, confirmToken, rejectToken,
+    unknownToken: randomBytes(32).toString('base64url'), unknownInvitationId: randomUUID(),
+  };
+}
+
 async function runScenario(scenario, baseUrl, mfaCode) {
   const key = `${path.basename(scenario.folder)}-${randomBytes(12).toString('hex')}`;
   const result = spawnSync('bru', [
@@ -205,6 +241,8 @@ async function runScenario(scenario, baseUrl, mfaCode) {
     ...(scenario.webhook ? Object.entries(webhookVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
     ...(scenario.donors ? Object.entries(await donorVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
     ...(scenario.privacyDonor ? Object.entries(await privacyDonorVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
+    ...(scenario.invitationHospital ? Object.entries(await invitationHospitalVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
+    ...(scenario.invitationDonor ? Object.entries(await invitationDonorVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
     ...(scenario.privacyAdmin ? Object.entries(await privacyAdminVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
     ...(scenario.hospital ? Object.entries(await hospitalVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),
     ...(scenario.tokens ? Object.entries(await tokenVars()).flatMap(([name, value]) => ['--env-var', `${name}=${value}`]) : []),

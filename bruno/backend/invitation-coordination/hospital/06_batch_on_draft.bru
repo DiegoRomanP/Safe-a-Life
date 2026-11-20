@@ -1,0 +1,23 @@
+meta {
+  name: No se lanza un lote sobre un borrador
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{needId}}/invitation-batches
+  body: none
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-batch-draft
+}
+
+tests {
+  test("responde 409: la necesidad no está activa", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+}

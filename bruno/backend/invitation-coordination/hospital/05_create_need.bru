@@ -1,0 +1,30 @@
+meta {
+  name: Crea una necesidad (meta 2)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-create
+}
+
+body:json {
+  {"component":"RBC","requiredBloodType":"A_POS","targetConfirmations":2,"siteId":"{{demoSiteId}}","urgency":"Normal","expiresInHours":12}
+}
+
+tests {
+  test("nace en borrador con conteo 0", function () {
+    expect(res.getStatus()).to.equal(201);
+    expect(res.getBody().data.status).to.equal("borrador");
+    expect(res.getBody().data.confirmedIntentCount).to.equal(0);
+    bru.setVar("needId", res.getBody().data.needId);
+  });
+}

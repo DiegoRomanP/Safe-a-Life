@@ -1,0 +1,27 @@
+meta {
+  name: La respuesta inicial es solo por token
+  type: http
+  seq: 7
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/donors/me/invitations/{{invitationId}}/response
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-change-initial
+}
+
+body:json {
+  { "response": "confirmada" }
+}
+
+tests {
+  test("sin respuesta previa responde 409", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+}

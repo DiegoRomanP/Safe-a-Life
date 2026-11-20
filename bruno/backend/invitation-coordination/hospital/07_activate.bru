@@ -1,0 +1,28 @@
+meta {
+  name: Activa la necesidad
+  type: http
+  seq: 8
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{needId}}
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-activate
+}
+
+body:json {
+  { "status": "activa" }
+}
+
+tests {
+  test("pasa a activa", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.status).to.equal("activa");
+  });
+}

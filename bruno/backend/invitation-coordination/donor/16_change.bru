@@ -1,0 +1,28 @@
+meta {
+  name: Cambia a rechazada desde la sesión
+  type: http
+  seq: 17
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/donors/me/invitations/{{invitationId}}/response
+  body: json
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-change
+}
+
+body:json {
+  { "response": "rechazada" }
+}
+
+tests {
+  test("200 rechazada", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.response).to.equal("rechazada");
+  });
+}
