@@ -27,7 +27,7 @@ export function SummaryPage() {
       <section aria-label="Indicadores" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard value={count('activa')} label="Necesidades activas" accent="petrol" />
         <StatCard value={count('meta_alcanzada')} label="Metas alcanzadas" accent="success" />
-        <StatCard value={confirmed} label="Intenciones confirmadas" accent="warning" />
+        <StatCard value={confirmed} label="Intenciones confirmadas" accent="success" />
         <StatCard value={count('borrador')} label="Borradores" accent="muted" />
       </section>
       <section aria-labelledby="atencion-titulo" className="flex flex-col gap-4">

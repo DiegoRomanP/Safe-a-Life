@@ -127,7 +127,7 @@ export function HospitalsPage() {
         <div className="grid gap-4 sm:grid-cols-3">
           <StatCard value={hospitals.filter((h) => h.isAuthorized).length} label="Hospitales autorizados" accent="petrol" />
           <StatCard value={sites.filter((s) => s.isActive).length} label="Sedes activas" accent="success" />
-          <StatCard value={memberships.filter((m) => m.status === 'activa').length} label="Administradores activos" accent="danger" />
+          <StatCard value={memberships.filter((m) => m.status === 'activa').length} label="Administradores activos" accent="petrol" />
         </div>
       </section>
 
