@@ -22,7 +22,7 @@ export function createWorkerLoop({ processor, gateway, pollMs, expireEveryMs = 6
   let lastExpire = Number.NEGATIVE_INFINITY;
   let lastMaintenance = Number.NEGATIVE_INFINITY;
   let timer: NodeJS.Timeout | undefined;
-  let running = false;
+  let current: Promise<void> | undefined;
   let stopped = true;
 
   async function tick(): Promise<void> {
@@ -46,12 +46,12 @@ export function createWorkerLoop({ processor, gateway, pollMs, expireEveryMs = 6
   function schedule(): void {
     if (stopped) return;
     timer = setTimeout(async () => {
-      if (running) return;
-      running = true;
+      if (current) return;
+      current = tick();
       try {
-        await tick();
+        await current;
       } finally {
-        running = false;
+        current = undefined;
         schedule();
       }
     }, pollMs);
@@ -64,9 +64,11 @@ export function createWorkerLoop({ processor, gateway, pollMs, expireEveryMs = 6
       stopped = false;
       schedule();
     },
-    stop(): void {
+    /** Detiene el bucle y resuelve cuando termina el ciclo en curso (apagado ordenado, L4). */
+    async stop(): Promise<void> {
       stopped = true;
       if (timer) clearTimeout(timer);
+      await current;
     },
   });
 }
