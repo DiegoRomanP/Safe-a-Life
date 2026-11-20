@@ -1,0 +1,18 @@
+meta {
+  name: La necesidad conserva su conteo
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{needId}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("confirmedIntentCount sigue en 0", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.confirmedIntentCount).to.equal(0);
+  });
+}

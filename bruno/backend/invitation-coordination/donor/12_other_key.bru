@@ -1,0 +1,21 @@
+meta {
+  name: Otra clave con el mismo enlace es 410
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/v1/invitation-actions/{{confirmToken}}/response
+  body: none
+  auth: inherit
+}
+
+headers {
+  Idempotency-Key: {{idempotencyKey}}-respond-again
+}
+
+tests {
+  test("responde 410: el enlace ya se usó", function () {
+    expect(res.getStatus()).to.equal(410);
+  });
+}

@@ -52,7 +52,7 @@ describe('worker: envío y estado final', () => {
   });
 
   it('para una invitación el destinatario sale de auth.users, no del payload', async () => {
-    const id = enqueue({ kind: 'invitacion', recipientUserEmail: SEED_USERS.donor1.email, payload: { token: TOKEN, hospitalName: 'Hospital Demo Uno', sitePublicName: 'Sede Central Uno', deadline: '14 de octubre de 2026' } });
+    const id = enqueue({ kind: 'invitacion', recipientUserEmail: SEED_USERS.donor1.email, payload: { token: TOKEN, rejectToken: `${TOKEN}rechazo`, hospitalName: 'Hospital Demo Uno', sitePublicName: 'Sede Central Uno', deadline: '14 de octubre de 2026' } });
     const sender = new ScriptedSender();
 
     await startWorker(sender).processor.runOnce(50);

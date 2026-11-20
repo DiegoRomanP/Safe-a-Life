@@ -1,0 +1,17 @@
+meta {
+  name: Una invitación ajena es 404
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors/me/invitations/{{unknownInvitationId}}
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("responde 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

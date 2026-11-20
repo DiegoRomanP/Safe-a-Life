@@ -1,0 +1,26 @@
+meta {
+  name: Las respuestas del hospital son opacas y sin datos personales
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{needId}}/responses
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("sin confirmaciones: solo campos opacos, no-store", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getHeader("cache-control")).to.contain("no-store");
+    var body = res.getBody().data;
+    expect(body.confirmedIntentCount).to.equal(0);
+    expect(body.items).to.have.length(bru.getVar("createdCount"));
+    body.items.forEach(function (item) {
+      expect(Object.keys(item).sort()).to.deep.equal(["delivery","needDonorCode","response","validity"]);
+      expect(item.response).to.equal("sin_respuesta");
+    });
+    expect(JSON.stringify(body)).to.not.match(/@example\.test|donor_id|latitude|longitude/);
+  });
+}

@@ -1,0 +1,18 @@
+meta {
+  name: El historial empieza vacío
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/api/v1/donors/me/responses
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("sin respuestas", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody().data.items).to.have.length(0);
+  });
+}

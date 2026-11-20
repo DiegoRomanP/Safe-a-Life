@@ -1,0 +1,17 @@
+meta {
+  name: Un donante no entra a las rutas del hospital
+  type: http
+  seq: 20
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{unknownInvitationId}}/invitation-batches
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("responde 403", function () {
+    expect(res.getStatus()).to.equal(403);
+  });
+}
