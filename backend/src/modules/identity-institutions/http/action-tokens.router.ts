@@ -41,7 +41,7 @@ export function registerActionTokenRoutes(app: Express, { tokens, secrets }: Act
   app.get('/api/v1/hospital-admin-invitation-actions/:token', async (req, res) => {
     noQuery(previewInvitation, req);
     const { token } = parse<{ token: string }>(previewInvitation, 'params', req);
-    const { hospitalName, expiresAt } = await tokens.previewAdminInvitation(token);
+    const { hospitalName, expiresAt } = await tokens.previewAdminInvitation(token, clientIpSubject(req, secrets.ipHmac));
     sendData(res, 200, ok(previewInvitation, { hospitalName, role: 'admin_hospitalario', expiresAt }));
   });
 
@@ -70,7 +70,7 @@ export function registerActionTokenRoutes(app: Express, { tokens, secrets }: Act
     const { token } = parse<{ token: string }>(completeReset, 'params', req);
     requireIdempotencyKey(req);
     const { newPassword } = parse<{ newPassword: string }>(completeReset, 'body', req);
-    await tokens.completePasswordReset(token, newPassword);
+    await tokens.completePasswordReset(token, newPassword, clientIpSubject(req, secrets.ipHmac));
     sendData(res, 200, ok(completeReset, { message: PASSWORD_CHANGED }));
   });
 }
