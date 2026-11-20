@@ -35,7 +35,12 @@ export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initi
   useEffect(() => {
     const nav = navRef.current;
     const active = nav?.querySelector<HTMLElement>('[aria-current="page"]');
-    if (nav && active) nav.scrollLeft = Math.max(0, active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2);
+    const center = () => {
+      if (nav && active) nav.scrollLeft = Math.max(0, active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2);
+    };
+    center();
+    // Con la fuente web cargada cambian los anchos: se vuelve a centrar.
+    void document.fonts?.ready.then(center);
   }, [pathname]);
   const signOut = () => {
     if (closing) return;
