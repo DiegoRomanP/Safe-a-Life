@@ -12,7 +12,8 @@ Rama `feat/backend-developing`. Spec: `2026-10-12-especificacion-faltante-backen
 | 3b. Reintento, lecturas del donante, cambio de respuesta e historial | **Hecho 2026-11-20** (`20261022040000_invitation_rpc_b.sql`, pgTAP `14b`, 51 pruebas). Sin revisión independiente |
 | 4a. Cascadas de cierre/cancelación e indisponibilidad, `worker_expire_needs`, `confirmedIntentCount` | **Hecho 2026-11-20** (`20261022050000_invitation_cascades.sql`, pgTAP `15`, 25 pruebas). Sin revisión independiente |
 | 4b. Proyección de `delivery` (trigger + `worker_record_attempt`/`ingest_email_event` con bloqueo invitación→outbox), `finish_deletion` (V15), `delivery_failure` en tareas, `worker_purge_invitation_grants` | **Hecho 2026-11-20** (`20261022060000_invitation_delivery.sql`, pgTAP `16`, 22 pruebas). La RPC de purga aún no la llama el worker (F6-5a). Sin revisión independiente; carreras de integración (interbloqueos) sin ejecutar |
-| 5. Routers y Bruno | Pendiente |
+| 5a. Consumidor de correo (dos tokens, `display`, el worker vence necesidades y purga concesiones) | **Hecho 2026-11-20** (`20261022070000_invitation_claim_display.sql`, pgTAP `17`, vitest backend 809). Sin revisión independiente ni clínica de la copia |
+| 5b. Módulo HTTP (application/infrastructure/http), composición y Bruno | Pendiente |
 | 6. Semilla de 500 donantes y PER-02 | Pendiente |
 | 7. Gates: `reviewer-back`, `clinical-safety-reviewer`, `security-privacy-auditor` | **No ejecutados** |
 

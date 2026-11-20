@@ -10,6 +10,8 @@ export type ClaimedMessage = Readonly<{
   notAfter: string;
   /** Correo de `auth.users` cuando el outbox tiene `recipient_user_id`; si no, el destinatario va en el payload. */
   recipient: string | null;
+  /** Solo `invitacion`: nombres públicos de hospital y sede, vigentes al enviar. */
+  display?: Readonly<{ hospitalName: string; sitePublicName: string }>;
 }>;
 
 export type AttemptRecord = Readonly<{

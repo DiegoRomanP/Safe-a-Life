@@ -51,7 +51,7 @@ export function createOutboxProcessor({
       const recipient = message.recipient ?? payload.recipient;
       if (recipient === undefined || recipient === null) return PERMANENT as SendResult;
       to = recipient;
-      email = renderEmail(message.kind, payload, appPublicUrl);
+      email = renderEmail(message.kind, payload, appPublicUrl, { notAfter: message.notAfter, ...(message.display ? { display: message.display } : {}) });
     } catch (error) {
       if (error instanceof SealedPayloadError) return PERMANENT as SendResult;
       throw error;
