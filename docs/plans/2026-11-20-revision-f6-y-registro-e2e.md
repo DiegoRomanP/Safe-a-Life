@@ -20,6 +20,13 @@ Paso 0 nuevo: `/registro` → buzón local (`/verificar-correo`) → barrera de 
 - Bruno CLI contra el backend real: todas las colecciones PASS.
 - E2E real en Chromium: 15/15 PASS (con `E2E_CHROMIUM` apuntando a `~/.cache/ms-playwright/chromium-1254/chrome-linux64/chrome`: falta el headless shell 1248 que pide la versión instalada de Playwright).
 
+## Verificación manual con Playwright (navegador, 3 roles, Supabase local)
+- **Donante nuevo:** registro → verificación → (ingreso antes de fijar contraseña: 401) → contraseña con el segundo enlace → ingreso → perfil obligatorio → `activo` en la base.
+- **Bug encontrado y corregido (`36a6871`):** un 401 del login mostraba «No fue posible confirmar la sesión… puede quedar una sesión activa», que confunde; ahora 401 da un mensaje neutro de credenciales (indica crear la contraseña si recién verificó) y 429 pide esperar.
+- **Superadmin:** contraseña + TOTP → tareas, hospitales, administradores (correos enmascarados); todas las llamadas 200.
+- **Admin de hospital:** contraseña + TOTP → crea y activa necesidad A+ → lote de 9 invitaciones `enviada`.
+- **Ciclo completo:** el donante registrado confirma por el enlace del correo; reabrir el enlace muestra «Enlace ya utilizado» (410); el hospital ve su nombre y grupo declarado y solo códigos para el resto; el donante retira la confirmación desde su sesión (historial `confirmada/token → rechazada/sesion`, auditoría con ambos eventos).
+
 ## Pendiente / límites
 - La migración `20261022110000` **no** está aplicada al Supabase remoto.
 - `list_superadmin_tasks` sigue mostrando fallos de entrega de donantes no activos o en eliminación: es INVOKER y el superadmin no lee `donor_profiles` por RLS; el reintento responde 409.
