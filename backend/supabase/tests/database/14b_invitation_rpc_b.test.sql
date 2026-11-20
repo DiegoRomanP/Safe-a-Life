@@ -4,7 +4,7 @@ begin;
 truncate app.invitation_retry_grants, app.invitation_response_history, app.invitations, app.invitation_batches, app.email_outbox, app.needs, app.sites,
   app.idempotency_records, app.session_barriers, app.admitted_sessions, app.donor_profiles, app.hospital_memberships, app.hospitals, app.user_accounts cascade;
 
-select plan(51);
+select plan(52);
 
 -- Ayudas ---------------------------------------------------------------------------------------------------------
 create function pg_temp.u(n int) returns uuid language sql immutable as $$ select ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
@@ -201,6 +201,14 @@ select is(api.retry_invitation_delivery('clave-retry-00000006', pg_temp.hr(pg_te
   'conflict', 'solo se reintenta una entrega fallida: «enviada» es conflict');
 select is(api.retry_invitation_delivery('clave-retry-00000007', pg_temp.hr(pg_temp.iid(6)), pg_temp.iid(6), (select j ->> 'grantSecret' from res where label = 'g6'), pg_temp.slot('r6')) ->> 'kind',
   'gone', 'con la necesidad vencida es gone');
+reset role;
+
+-- Un perfil que ya no está activo no cambia su respuesta (revisión F6, L-2).
+update app.donor_profiles set status = 'incompleto' where donor_id = pg_temp.u(12);
+set local role authenticated;
+select pg_temp.login(pg_temp.u(12));
+select is(api.change_own_invitation_response('clave-cambio-0000009', pg_temp.hc(pg_temp.iid(2), 'confirmada'), pg_temp.iid(2), 'confirmada') ->> 'kind', 'conflict',
+  'con el perfil no activo la respuesta no cambia');
 reset role;
 
 select * from finish();

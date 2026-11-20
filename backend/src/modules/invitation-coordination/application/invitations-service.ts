@@ -7,7 +7,9 @@ import type { NeedsRepository } from '../../need-records/application/needs.ports
 import { batchSize } from '../domain/batch-size.js';
 import type { BatchSlot, InvitationsRepository, PageQuery, RetrySlot } from './invitations.ports.js';
 
-const ACTION_LIMIT = 20;
+// El token tiene 256 bits: adivinarlo no es viable, así que el techo solo acota la carga. Se cuenta antes de validar el token
+// y varias personas pueden compartir una IP (red de un hospital), por eso es holgado.
+const ACTION_LIMIT = 60;
 const ACTION_WINDOW_SECONDS = 15 * 60;
 /** La vista previa no tiene efectos, pero cada llamada es una RPC de la sesión técnica compartida: tiene su propio techo por IP. */
 const PREVIEW_LIMIT = 60;
