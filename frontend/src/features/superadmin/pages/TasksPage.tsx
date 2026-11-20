@@ -1,17 +1,24 @@
+import { useState } from 'react';
 import { PageHeader } from '../../../components/layout/PageHeader.js';
 import { EmptyState } from '../../../components/states/EmptyState.js';
 import { Badge } from '../../../components/ui/Badge.js';
+import { Button } from '../../../components/ui/Button.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { StatCard } from '../../../components/ui/StatCard.js';
 import { formatDateTime } from '../../../lib/format.js';
 import { requestCode, taskKindLabel } from '../labels.js';
+import { ActionError } from '../components/ActionError.js';
+import { ResultNotice, type Notice } from '../components/ResultNotice.js';
+import { useStepUpGate } from '../components/StepUpPanel.js';
 import { useSuperadmin } from '../SuperadminContext.js';
 import type { SuperadminTask } from '../types.js';
 
 // SA-01 Tareas administrativas (Penpot «+»). Datos de listSuperadminTasks: tipo,
 // fecha y código opaco del recurso; nunca datos del padrón de donantes.
 export function TasksPage() {
-  const { tasks, requests } = useSuperadmin();
+  const { tasks, requests, retryDelivery } = useSuperadmin();
+  const { requireStepUp, stepUpPanel } = useStepUpGate();
+  const [notice, setNotice] = useState<Notice | null>(null);
   const count = (kind: SuperadminTask['kind']) => tasks.filter((task) => task.kind === kind).length;
   const sorted = [...tasks].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
@@ -23,12 +30,21 @@ export function TasksPage() {
       return request ? `/superadmin/solicitudes/${request.requestId}` : '/superadmin/solicitudes';
     }
     if (task.kind === 'hospital_review') return '/superadmin/sedes';
-    if (task.kind === 'delivery_failure') return '/superadmin/administradores';
     return null;
+  }
+
+  function retry(task: SuperadminTask) {
+    requireStepUp(`reintentar la entrega ${task.resourceCode ?? ''}`.trim(), async () => {
+      if (!(await retryDelivery(task.taskId))) return;
+      setNotice({ message: 'Reintento aceptado', detail: 'Se renovaron los enlaces y se encoló un correo nuevo.' });
+    });
   }
 
   return (
     <>
+      {stepUpPanel}
+      <ActionError />
+      <ResultNotice notice={notice} />
       <PageHeader title="Tareas administrativas" description="Resuelve acciones pendientes sin navegar el padrón de donantes." />
       <section aria-label="Indicadores" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard value={count('correction_request')} label="Solicitudes pendientes" accent="warning" />
@@ -55,6 +71,11 @@ export function TasksPage() {
                   <div className="flex flex-wrap items-center gap-4">
                     <Badge tone="warning">Pendiente</Badge>
                     <p className="text-sm text-ink">{formatDateTime(task.createdAt)}</p>
+                    {task.kind === 'delivery_failure' && (
+                      <Button variant="secondary" onClick={() => retry(task)}>
+                        Reintentar entrega<span className="sr-only"> {task.resourceCode}</span>
+                      </Button>
+                    )}
                     {target && (
                       <LinkButton to={target} variant="secondary">
                         Revisar<span className="sr-only"> {task.resourceCode}</span>
