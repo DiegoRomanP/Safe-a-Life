@@ -25,7 +25,7 @@ const linkCopy: TokenStatusCopy = {
   },
 };
 
-type Load = { phase: 'loading' } | { phase: 'ready'; preview: InvitationActionPreview } | { phase: 'error' };
+type Load = { phase: 'loading' } | { phase: 'ready'; preview: InvitationActionPreview } | { phase: 'error' } | { phase: 'limit' };
 
 // LINK-01 Responder invitación desde el correo (`/invitaciones#token`). Abrir la vista solo pide la vista previa mínima
 // (getInvitationActionPreview, sin efectos); la respuesta se registra únicamente al pulsar el botón.
@@ -44,7 +44,7 @@ export function InvitationLinkPage() {
         if (!active) return;
         if (error instanceof ApiError && (error.status === 404 || error.status === 400 || error.status === 403)) setStatus('invalid');
         else if (error instanceof ApiError && error.status === 410) setStatus('used');
-        else setLoad({ phase: 'error' });
+        else setLoad({ phase: error instanceof ApiError && error.status === 429 ? 'limit' : 'error' });
       },
     );
     return () => { active = false; };
@@ -58,6 +58,11 @@ export function InvitationLinkPage() {
   const valid =
     load.phase === 'ready' && token ? (
       <InvitationLinkCard preview={load.preview} onConfirm={() => respondWithToken(token)} onUnavailable={() => setStatus('used')} />
+    ) : load.phase === 'limit' ? (
+      // Sin reintento inmediato: volvería a chocar con el límite por IP (una red de hospital lo comparte).
+      <Alert tone="warning" title="Demasiadas consultas desde esta red">
+        Espera unos minutos y vuelve a abrir el enlace del correo.
+      </Alert>
     ) : load.phase === 'error' ? (
       <Alert tone="danger" title="No pudimos abrir la invitación">
         <Button onClick={retry}>Reintentar</Button>

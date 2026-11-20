@@ -47,7 +47,7 @@ function outsideLive(view: Element): string {
 
 function fillLogin(view: Element) {
   const [email, password] = [...view.querySelectorAll('input')];
-  type(email, ' persona@ejemplo.test ');
+  type(email, ' persona@example.test ');
   type(password, 'clave-sintetica');
 }
 
@@ -89,7 +89,7 @@ describe('AUTH-01 Inicio de sesión', () => {
       expect(post.url).toBe('/api/v1/auth/sessions');
       expect(post.init).toMatchObject({ method: 'POST', credentials: 'same-origin', cache: 'no-store', referrerPolicy: 'no-referrer' });
       expect(String(headers.get('content-type'))).toMatch(/application\/json/i);
-      expect(JSON.parse(String(post.init?.body))).toEqual({ email: 'persona@ejemplo.test', password: 'clave-sintetica' });
+      expect(JSON.parse(String(post.init?.body))).toEqual({ email: 'persona@example.test', password: 'clave-sintetica' });
       expect(headers.get('idempotency-key')?.length).toBeGreaterThanOrEqual(16);
       expect(headers.get('idempotency-key')?.length).toBeLessThanOrEqual(255);
 

@@ -26,31 +26,31 @@ describe('AUTH-04 Recuperar acceso', () => {
   it('envía el correo al backend y el resultado es neutral, sin repetirlo y con el título enfocado', async () => {
     const requests = stubRecovery(202);
     const view = renderRoute('/recuperar-acceso');
-    type(view.querySelector('input'), 'persona@ejemplo.test');
+    type(view.querySelector('input'), 'persona@example.test');
     click(view.querySelector('button[type="submit"]'));
     await settle();
 
     expect(requests).toHaveLength(1);
     expect(requests[0]?.url).toBe('/api/v1/auth/password-recovery-requests');
     expect(requests[0]?.init?.method).toBe('POST');
-    expect(JSON.parse(String(requests[0]?.init?.body))).toEqual({ email: 'persona@ejemplo.test' });
+    expect(JSON.parse(String(requests[0]?.init?.body))).toEqual({ email: 'persona@example.test' });
     const heading = view.querySelector('h1');
     expect(heading?.textContent).toBe('Si corresponde, enviaremos instrucciones');
     expect(document.activeElement).toBe(heading);
     expect(view.textContent).toContain('No confirmamos si una cuenta existe.');
-    expect(view.textContent).not.toContain('persona@ejemplo.test');
+    expect(view.textContent).not.toContain('persona@example.test');
   });
 
   it.each([429, 503])('si el backend falla (%i) no afirma que se envió y conserva el formulario', async (status) => {
     stubRecovery(status);
     const view = renderRoute('/recuperar-acceso');
-    type(view.querySelector('input'), 'persona@ejemplo.test');
+    type(view.querySelector('input'), 'persona@example.test');
     click(view.querySelector('button[type="submit"]'));
     await settle();
 
     expect(view.querySelector('h1')?.textContent).toBe('Solicitar enlace de recuperación');
     expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('No pudimos enviar la solicitud');
-    expect((view.querySelector('input') as HTMLInputElement).value).toBe('persona@ejemplo.test');
+    expect((view.querySelector('input') as HTMLInputElement).value).toBe('persona@example.test');
   });
 });
 

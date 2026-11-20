@@ -1,4 +1,7 @@
 {
+  "rewrites": [
+    { "source": "/((?!api/|health).*)", "destination": "/index.html" }
+  ],
   "headers": [
     {
       "source": "/(.*)",

@@ -88,6 +88,14 @@ describe('LINK-01 desde el correo', () => {
     expect(view.querySelector('h1')?.textContent).toBe('Enlace no disponible');
   });
 
+  it('el límite por IP (429) pide esperar y no ofrece un reintento inmediato', async () => {
+    stub.preview = () => reply(429, { error: { code: 'RATE_LIMITED' } });
+    const view = renderRoute(`/invitaciones#${TOKEN}`);
+    await settle();
+    expect(view.textContent).toContain('Espera unos minutos');
+    expect(view.querySelector('button')).toBeNull();
+  });
+
   it('un enlace gastado, cerrado o vencido (410) aclara que ya no admite respuestas', async () => {
     stub.preview = () => reply(410, { error: { code: 'ACTION_UNAVAILABLE' } });
     const view = renderRoute(`/invitaciones#${TOKEN}`);

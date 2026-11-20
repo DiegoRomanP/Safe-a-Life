@@ -16,7 +16,8 @@ export type TokenResponseOutcome = 'ok' | 'unavailable' | 'error';
 
 /**
  * recordInitialInvitationResponse: la acción la fija el token. 404/409/410 (enlace desconocido, gastado, cerrado o con la meta
- * alcanzada) son «no disponible»; cualquier otro fallo se puede reintentar con otra clave.
+ * alcanzada) son «no disponible»; ante un fallo sin resolver (red o 5xx) apiRequest reutiliza la misma clave, para que el
+ * reintento reciba la respuesta ya registrada y no un 410. 429 es «límite»: hay que esperar, no reintentar enseguida.
  */
 export async function respondWithToken(token: string): Promise<TokenResponseOutcome> {
   try {
