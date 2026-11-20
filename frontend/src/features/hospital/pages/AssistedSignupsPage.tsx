@@ -148,7 +148,7 @@ export function AssistedSignupsPage() {
               })}
             </ul>
           )}
-          <Alert tone="warning" title="Uso académico" className="mt-4">
+          <Alert tone="info" title="Uso académico" className="mt-4">
             Usa solo correos de prueba: este prototipo no es para datos reales.
           </Alert>
         </Card>
