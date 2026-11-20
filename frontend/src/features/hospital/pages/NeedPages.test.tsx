@@ -27,7 +27,7 @@ const button = (view: HTMLElement, text: string) =>
 
 function fillNeed(view: HTMLElement) {
   choose(control(view, 'Grupo requerido'), 'O_POS');
-  type(control(view, 'Meta de confirmaciones'), '4');
+  type(control(view, 'Meta de intenciones'), '4');
   choose(control(view, 'Sede'), '5b0a1c2d-3e4f-4a5b-8c6d-7e8f9a0b1c21');
 }
 

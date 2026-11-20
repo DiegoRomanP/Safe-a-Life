@@ -22,7 +22,7 @@ function choose(select: Element | null, value: string) {
 }
 function fillNeed(view: HTMLElement) {
   choose(control(view, 'Grupo requerido'), 'O_POS');
-  type(control(view, 'Meta de confirmaciones'), '4');
+  type(control(view, 'Meta de intenciones'), '4');
   choose(control(view, 'Sede'), SAN_BORJA);
 }
 

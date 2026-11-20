@@ -117,7 +117,7 @@ export function CreateNeedPage() {
                   />
                 )}
               </Field>
-              <Field label="Meta de confirmaciones" hint="Entre 1 y 50 intenciones de asistir." error={errors.target} required>
+              <Field label="Meta de intenciones" hint="Entre 1 y 50 intenciones de asistir." error={errors.target} required>
                 {(control) => (
                   <Input
                     {...control}
