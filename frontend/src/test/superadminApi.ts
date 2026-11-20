@@ -149,6 +149,8 @@ export function stubSuperadminApi(): SuperadminApiStub {
     if (membership) {
       const target = stub.memberships.find((item) => item.membershipId === membership[1]);
       if (!target) return error(404, 'NOT_FOUND');
+      // Cuerpo de revokeHospitalMembership: status const y motivo obligatorio.
+      if (body.status !== 'revocada' || typeof body.reason !== 'string' || !body.reason) return error(422, 'VALIDATION_ERROR');
       target.status = 'revocada';
       audit('membresia.revocada', code('MEM', target.membershipId), body.reason);
       return reply(200, { data: target });

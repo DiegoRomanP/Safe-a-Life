@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ApiError } from '../../lib/demoApi.js';
-import { isStepUpValid, verifyStepUpCode } from '../auth/session/session.js';
+import { expireSession, isStepUpValid, SESSION_LOST, verifyStepUpCode } from '../auth/session/session.js';
 import {
   approveSiteRequest,
   createAccessGrant,
@@ -74,6 +74,8 @@ type Superadmin = Data & {
 
 const SuperadminContext = createContext<Superadmin | null>(null);
 
+const GRANT_MAX_MS = 10 * 60_000;
+
 const EMPTY: Data = { tasks: [], hospitals: [], sites: [], memberships: [], requests: [], configuration: { finalDemoAt: null, isImmutable: false }, auditEvents: [] };
 
 async function loadAll(): Promise<Data> {
@@ -109,18 +111,34 @@ export function SuperadminProvider({ children, now = () => Date.now() }: { child
   const [donorData, setDonorData] = useState<Record<string, { data: ContextualDonorData; expiresAt: number }>>({});
   const inFlight = useRef(false);
   const live = useRef(true);
+  // Cada carga lleva un número: si otra se pidió después, la respuesta vieja se descarta.
+  const loadSeq = useRef(0);
+  const refresh = useCallback(async (): Promise<boolean> => {
+    const seq = (loadSeq.current += 1);
+    const next = await loadAll();
+    if (!live.current || seq !== loadSeq.current) return true;
+    setData(next);
+    return true;
+  }, []);
+  // Un temporizador por solicitud: los datos personales se borran al vencer el grant aunque nadie interactúe.
+  const purgeTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   useEffect(() => {
     live.current = true;
-    return () => { live.current = false; };
+    const timers = purgeTimers.current;
+    return () => {
+      live.current = false;
+      for (const timer of timers.values()) clearTimeout(timer);
+      timers.clear();
+    };
   }, []);
 
   useEffect(() => {
-    loadAll().then(
-      (next) => { if (live.current) { setData(next); setStatus('ready'); } },
+    refresh().then(
+      () => { if (live.current) setStatus('ready'); },
       () => { if (live.current) setStatus('error'); },
     );
-  }, [tries]);
+  }, [tries, refresh]);
 
   // Reintentar vuelve a mostrar «Cargando» (el estado inicial ya lo es).
   const reload = useCallback(() => {
@@ -137,7 +155,7 @@ export function SuperadminProvider({ children, now = () => Date.now() }: { child
       try {
         const result = await run();
         try {
-          if (live.current) setData(await loadAll());
+          await refresh();
         } catch {
           if (live.current) setActionError('El cambio se guardó, pero no pudimos actualizar la lista. Recarga la página.');
         }
@@ -145,7 +163,7 @@ export function SuperadminProvider({ children, now = () => Date.now() }: { child
       } catch (error) {
         if (live.current) setActionError(messageFor(error));
         // Un conflicto suele significar datos viejos: se refrescan sin ocultar el aviso.
-        if (error instanceof ApiError && error.status === 409) loadAll().then((next) => { if (live.current) setData(next); }, () => undefined);
+        if (error instanceof ApiError && error.status === 409) refresh().catch(() => undefined);
         return null;
       } finally {
         inFlight.current = false;
@@ -165,6 +183,8 @@ export function SuperadminProvider({ children, now = () => Date.now() }: { child
           await verifyStepUpCode(code);
           return 'ok';
         } catch (error) {
+          // Sin sesión local no es un código incorrecto: se vuelve a /ingresar en vez de dejar reintentar sin fin.
+          if (error instanceof ApiError && error.code === SESSION_LOST) expireSession();
           return error instanceof ApiError && error.status === 401 ? 'incorrecto' : 'error';
         }
       },
@@ -178,7 +198,14 @@ export function SuperadminProvider({ children, now = () => Date.now() }: { child
         ok(async () => {
           const grant = await createAccessGrant(requestId, 'review', allowedFields, reason);
           const result = await fetchDonorData(requestId, grant);
-          setDonorData((current) => ({ ...current, [requestId]: { data: result, expiresAt: Date.parse(grant.expiresAt) } }));
+          // Tope de 10 minutos medido en el cliente, por si el reloj local difiere del servidor.
+          const expiresAt = Math.min(Date.parse(grant.expiresAt), now() + GRANT_MAX_MS);
+          setDonorData((current) => ({ ...current, [requestId]: { data: result, expiresAt } }));
+          clearTimeout(purgeTimers.current.get(requestId));
+          purgeTimers.current.set(requestId, setTimeout(() => {
+            purgeTimers.current.delete(requestId);
+            setDonorData(({ [requestId]: _expired, ...rest }) => rest);
+          }, Math.max(0, expiresAt - now())));
           return true;
         }),
       donorDataFor: (requestId) => {
@@ -188,6 +215,7 @@ export function SuperadminProvider({ children, now = () => Date.now() }: { child
       decideRequest: (requestId, decision, reason) =>
         ok(async () => {
           const updated = await decideRequestRequest(requestId, decision, reason);
+          clearTimeout(purgeTimers.current.get(requestId));
           setDonorData(({ [requestId]: _dropped, ...rest }) => rest);
           return updated;
         }),
@@ -195,12 +223,13 @@ export function SuperadminProvider({ children, now = () => Date.now() }: { child
         ok(async () => {
           const grant = await createAccessGrant(requestId, 'execute', allowedFields, reason);
           const updated = await executeRequestRequest(requestId, grant);
+          clearTimeout(purgeTimers.current.get(requestId));
           setDonorData(({ [requestId]: _dropped, ...rest }) => rest);
           return updated;
         }),
       setFinalDemoAt: (iso) => ok(() => setFinalDemoAtRequest(iso)),
     };
-  }, [data, status, reload, actionError, donorData, now]);
+  }, [data, status, reload, refresh, actionError, donorData, now]);
 
   return <SuperadminContext.Provider value={value}>{children}</SuperadminContext.Provider>;
 }
