@@ -3,6 +3,7 @@ import { bloodTypeLabel, formatDateTime } from '../../../lib/format.js';
 import { needCode, needStatusLabel, urgencyLabel } from '../labels.js';
 import type { HospitalNeed } from '../types.js';
 import { TableScroll } from '../../../components/ui/TableScroll.js';
+import { Badge } from '../../../components/ui/Badge.js';
 
 export type NeedsTableProps = { needs: HospitalNeed[]; caption: string };
 
@@ -33,8 +34,8 @@ export function NeedsTable({ needs, caption }: NeedsTableProps) {
               </th>
               <td className="px-4 py-4">{bloodTypeLabel(need.requiredBloodType)}</td>
               <td className="px-4 py-4">{`${need.confirmedIntentCount} de ${need.targetConfirmations}`}</td>
-              <td className="px-4 py-4">{urgencyLabel[need.urgency].label}</td>
-              <td className="px-4 py-4">{needStatusLabel[need.status].label}</td>
+              <td className="px-4 py-4"><Badge tone={urgencyLabel[need.urgency].tone}>{urgencyLabel[need.urgency].label}</Badge></td>
+              <td className="px-4 py-4"><Badge tone={needStatusLabel[need.status].tone}>{needStatusLabel[need.status].label}</Badge></td>
               <td className="px-4 py-4">{formatDateTime(need.expiresAt)}</td>
             </tr>
           ))}

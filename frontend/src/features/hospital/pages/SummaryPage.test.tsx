@@ -32,6 +32,22 @@ describe('HOS-01 Resumen operativo', () => {
     expect(rows[0]?.textContent).toContain('24 sep 2026, 18:00 · Lima, UTC−5');
   });
 
+  it('la urgencia y el estado de la tabla se muestran como insignias con texto (M1)', async () => {
+    const view = renderRoute('/hospital');
+    await settle();
+    const badges = [...(view.querySelector('tbody tr')?.querySelectorAll('td span.rounded-full') ?? [])];
+    expect(badges).toHaveLength(2);
+    expect(badges.every((badge) => badge.textContent !== '')).toBe(true);
+  });
+
+  it('las intenciones confirmadas llevan acento de éxito, no de aviso (M2)', async () => {
+    const view = renderRoute('/hospital');
+    await settle();
+    const cards = [...view.querySelectorAll('section[aria-label="Indicadores"] > div')];
+    const confirmed = cards.find((card) => card.textContent?.includes('Intenciones confirmadas'));
+    expect(confirmed?.className).toContain('border-l-success');
+  });
+
   it('Necesidades lista todas y marca su enlace como actual', async () => {
     const view = renderRoute('/hospital');
     await settle();
