@@ -66,8 +66,8 @@ grant execute on function pg_temp.rows_changed(text) to authenticated;
 select is((select relrowsecurity and relforcerowsecurity from pg_class where oid = 'app.needs'::regclass), true,
   'app.needs tiene RLS habilitada y forzada');
 select is((select array_agg(p.proname::text order by p.proname) from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-  where n.nspname = 'api' and p.proname in ('create_need_draft', 'list_own_needs', 'get_own_need', 'transition_own_need') and p.prosecdef),
-  null, 'las RPC de necesidades son SECURITY INVOKER');
+  where n.nspname = 'api' and p.proname in ('create_need_draft', 'list_own_needs', 'get_own_need', 'transition_own_need', 'list_own_invitation_batches') and p.prosecdef),
+  null, 'las RPC de necesidades y la lista de lotes son SECURITY INVOKER');
 select is((select count(*)::int from pg_proc p join pg_namespace n on n.oid = p.pronamespace
   where n.nspname in ('api', 'app')
     and exists (select 1 from aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
