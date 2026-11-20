@@ -2,6 +2,7 @@ import express, { type Express } from 'express';
 import type { AddressInfo } from 'node:net';
 import { once } from 'node:events';
 import type { Server } from 'node:http';
+import { gzipSync } from 'node:zlib';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createApp } from './app.js';
 import { parseEnv } from './config/env.js';
@@ -87,6 +88,20 @@ describe('createApp', () => {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ relleno: 'x'.repeat(20 * 1024) }),
+    });
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error.code).toBe('BAD_REQUEST');
+  });
+
+  it('rechaza con 400 un cuerpo JSON comprimido sin descomprimirlo', async () => {
+    const mount = (app: Express) => app.post('/eco', (_req, res) => res.status(204).end());
+    const base = await serve(createApp({ config, logger: fakeLogger().logger, mount }));
+
+    const response = await fetch(`${base}/eco`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'content-encoding': 'gzip' },
+      body: gzipSync(JSON.stringify({ a: 1 })),
     });
 
     expect(response.status).toBe(400);

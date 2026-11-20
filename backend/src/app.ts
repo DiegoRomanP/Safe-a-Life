@@ -70,7 +70,8 @@ export function createApp({ config, logger, mountBeforeJson, mount, auditDenial 
   app.use(edgeGuard(config.edgeSecret ?? ''));
   app.use(originGuard(config.allowedOrigins));
   mountBeforeJson?.(app);
-  app.use(express.json({ limit: JSON_BODY_LIMIT }));
+  // El frontend nunca comprime peticiones: sin inflate no hay superficie de descompresión (GHSA-27r3-jxmh-p828).
+  app.use(express.json({ limit: JSON_BODY_LIMIT, inflate: false }));
 
   mount?.(app);
 

@@ -10,6 +10,7 @@ const RAW_LIMIT = '64kb';
  * Content-Type) es 400; una firma inválida o vencida es 401 sin detalle; un evento ignorado también es 204.
  */
 export function registerResendWebhookRoutes(app: Express, { ingester }: Readonly<{ ingester: WebhookIngester }>): void {
+  // `inflate` queda por defecto: la documentación de Resend/Svix no aclara si comprimen el envío (ver plan 2026-11-20).
   app.post('/api/v1/email-delivery/webhooks/resend', express.raw({ type: 'application/json', limit: RAW_LIMIT }), async (req, res) => {
     if (!Buffer.isBuffer(req.body) || Object.keys(req.query).length > 0) throw new ApiError('BAD_REQUEST');
     const result = await ingester.handle(
