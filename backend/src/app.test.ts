@@ -55,6 +55,8 @@ describe('createApp', () => {
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(response.headers.get('strict-transport-security')).toBe('max-age=31536000; includeSubDomains');
     expect(response.headers.get('etag')).toBeNull();
+    expect(response.headers.get('cross-origin-resource-policy')).toBe('same-origin');
+    expect(response.headers.get('permissions-policy')).toBe('camera=(), microphone=(), geolocation=(), payment=(), usb=()');
   });
 
   it('responde 404 con el envelope de error y un correlationId', async () => {
