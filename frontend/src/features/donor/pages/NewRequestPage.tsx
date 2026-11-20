@@ -190,7 +190,7 @@ export function NewRequestPage() {
             </div>
           )}
 
-          <SaveErrorNotice error={save.error} onReview={review} />
+          <SaveErrorNotice error={save.error} validationDetail="El servidor rechazó los datos de tu solicitud." onReview={review} />
           <div className="flex flex-wrap items-center gap-4">
             <Button
               ref={submitRef}

@@ -45,7 +45,7 @@ describe('apiRequest', () => {
   });
 
   it.each([
-    [403, 'sin_permiso'], [404, 'sin_permiso'], [409, 'conflicto'], [400, 'validacion'], [401, 'red'], [410, 'red'], [422, 'validacion'], [429, 'red'], [503, 'red'],
+    [403, 'sin_permiso'], [404, 'sin_permiso'], [409, 'conflicto'], [400, 'validacion'], [401, 'red'], [410, 'red'], [422, 'validacion'], [429, 'limite'], [503, 'red'],
   ] as const)('el estado %i se traduce a ApiError %s con status y code', async (status, kind) => {
     stubFetch(() => json({ error: { code: 'CODIGO', message: 'x' } }, status));
 
@@ -65,5 +65,22 @@ describe('apiRequest', () => {
     stubFetch(() => ({ ok: true, status: 204, json: async () => { throw new SyntaxError(); } }));
 
     expect(await apiRequest('DELETE', '/auth/sessions/current', { csrfToken: 't'.repeat(40) })).toBeNull();
+  });
+});
+
+describe('apiRequest: clave de idempotencia por intento', () => {
+  it('reutiliza la clave tras un fallo de red y la renueva tras una respuesta definitiva', async () => {
+    let attempts = 0;
+    const calls = stubFetch(() => {
+      attempts += 1;
+      if (attempts === 1) throw new TypeError('network');
+      return json({ data: {} }, 200);
+    });
+    await apiRequest('POST', '/y', { body: { a: 1 } }).catch(() => undefined);
+    await apiRequest('POST', '/y', { body: { a: 1 } });
+    await apiRequest('POST', '/y', { body: { a: 1 } });
+    const keys = calls.map((call) => new Headers(call.init.headers).get('Idempotency-Key'));
+    expect(keys[1]).toBe(keys[0]);
+    expect(keys[2]).not.toBe(keys[0]);
   });
 });

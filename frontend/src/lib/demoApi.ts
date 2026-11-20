@@ -3,7 +3,7 @@
 // cliente HTTP (D-4) se reemplaza esta capa y las vistas no cambian.
 
 /** Fallos que las vistas saben mostrar. */
-export type ApiErrorKind = 'red' | 'sin_permiso' | 'conflicto' | 'validacion';
+export type ApiErrorKind = 'red' | 'sin_permiso' | 'conflicto' | 'validacion' | 'limite';
 
 export class ApiError extends Error {
   /** `status` y `code` solo llegan del backend real (`lib/api/http.ts`). */

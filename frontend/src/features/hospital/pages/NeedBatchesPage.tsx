@@ -58,7 +58,7 @@ export function NeedBatchesPage() {
           />
         )}
       </div>
-      <SaveErrorNotice error={save.error} onReview={() => { save.reset(); setVersion((current) => current + 1); }} />
+      <SaveErrorNotice error={save.error} validationDetail="El servidor rechazó la solicitud del lote." onReview={() => { save.reset(); setVersion((current) => current + 1); }} />
       <QueryView query={query} loadingMessage="Cargando los lotes…" backTo="/hospital/necesidades" backLabel="Ir a necesidades">
         {(batches) => <BatchList batches={batches} />}
       </QueryView>
