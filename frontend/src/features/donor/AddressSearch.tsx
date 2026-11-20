@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react';
+import { useState, type KeyboardEvent, type Ref } from 'react';
 import { Button } from '../../components/ui/Button.js';
 import { Field } from '../../components/ui/Field.js';
 import { Input } from '../../components/ui/Input.js';
@@ -9,14 +9,18 @@ type Props = {
   // Inyectable para las pruebas.
   search?: typeof searchAddress;
   enabled?: boolean;
+  error?: string;
+  inputRef?: Ref<HTMLInputElement>;
+  // Hay una ubicación guardada: se avisa sin mostrar sus coordenadas.
+  hasLocation?: boolean;
 };
 
 // Busca una dirección en Perú con Mapbox y rellena latitud y longitud ya
 // redondeadas. No es un <form> para no enviar el formulario del perfil con Enter.
-export function AddressSearch({ onSelect, search = searchAddress, enabled = mapboxEnabled }: Props) {
+export function AddressSearch({ onSelect, search = searchAddress, enabled = mapboxEnabled, error, inputRef, hasLocation = false }: Props) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<AddressResult[]>([]);
-  const [status, setStatus] = useState('');
+  const [status, setStatus] = useState(hasLocation ? 'Ya tienes una ubicación guardada. Busca otra dirección para cambiarla.' : '');
   const [busy, setBusy] = useState(false);
   if (!enabled) return null;
 
@@ -44,10 +48,10 @@ export function AddressSearch({ onSelect, search = searchAddress, enabled = mapb
 
   return (
     <div className="flex flex-col gap-3">
-      <Field label="Buscar dirección" hint="Escribe tu calle o distrito, sin número exacto. Se envía a Mapbox solo para buscar; guardamos coordenadas redondeadas (~110 m).">
+      <Field label="Tu dirección" required={!hasLocation} error={error} hint="Escribe tu calle o distrito, sin número exacto, y elige una opción. Se envía a Mapbox solo para buscar; guardamos una ubicación aproximada (~110 m), no tu dirección.">
         {(control) => (
           <div className="flex gap-3">
-            <Input {...control} autoComplete="off" placeholder="Av. Arequipa, Miraflores" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={onKeyDown} />
+            <Input {...control} ref={inputRef} autoComplete="off" placeholder="Av. Arequipa, Miraflores" value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={onKeyDown} />
             <Button variant="secondary" aria-disabled={busy} onClick={() => void run()}>Buscar</Button>
           </div>
         )}

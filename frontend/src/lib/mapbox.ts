@@ -1,7 +1,8 @@
 // Búsqueda de direcciones con la Geocoding API v6 de Mapbox. Solo se usa un
 // token público (pk.) restringido por URL; sin token la búsqueda se oculta y
 // quedan los campos de latitud y longitud.
-const TOKEN: string | undefined = import.meta.env.VITE_MAPBOX_TOKEN || undefined;
+// En pruebas se ignora el .env local para que los formularios sean deterministas.
+const TOKEN: string | undefined = import.meta.env.MODE === 'test' ? undefined : import.meta.env.VITE_MAPBOX_TOKEN || undefined;
 export const mapboxEnabled = Boolean(TOKEN);
 
 export type AddressResult = { label: string; latitude: string; longitude: string };

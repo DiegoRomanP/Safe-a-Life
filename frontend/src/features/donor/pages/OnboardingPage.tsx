@@ -15,6 +15,7 @@ import { Select } from '../../../components/ui/Select.js';
 import { BLOOD_TYPES, bloodTypeLabel, type BloodType } from '../../../lib/format.js';
 import { useDemoMutation } from '../../../lib/useDemoMutation.js';
 import { useDonorDemo } from '../DonorDemoContext.js';
+import { mapboxEnabled } from '../../../lib/mapbox.js';
 import { AddressSearch } from '../AddressSearch.js';
 import { latitudeError, longitudeError } from '../location.js';
 
@@ -42,6 +43,7 @@ export function OnboardingPage() {
   useEffect(() => {
     if (done) resultRef.current?.focus();
   }, [done]);
+  const addressRef = useRef<HTMLInputElement>(null);
   const refs = {
     name: useRef<HTMLInputElement>(null),
     bloodType: useRef<HTMLSelectElement>(null),
@@ -55,12 +57,13 @@ export function OnboardingPage() {
     const found: Errors = {
       name: name.trim() ? (name.trim().length > 120 ? 'Usa como máximo 120 caracteres.' : undefined) : 'Ingresa tu nombre.',
       bloodType: bloodType ? undefined : 'Selecciona tu grupo declarado.',
-      latitude: latitudeError(latitude),
-      longitude: longitudeError(longitude),
+      // Con Mapbox no hay campos de coordenadas: basta con haber elegido una dirección.
+      latitude: mapboxEnabled ? (latitude ? undefined : 'Busca tu dirección y elige una opción.') : latitudeError(latitude),
+      longitude: mapboxEnabled ? undefined : longitudeError(longitude),
     };
     flushSync(() => setErrors(found));
     const first = (Object.keys(refs) as Array<keyof Errors>).find((key) => found[key]);
-    if (first) return refs[first].current?.focus();
+    if (first) return (mapboxEnabled && first === 'latitude' ? addressRef : refs[first]).current?.focus();
     const result = await save.run({
       name: name.trim(),
       declaredBloodType: bloodType as BloodType,
@@ -150,8 +153,9 @@ export function OnboardingPage() {
             </div>
             <fieldset className="flex flex-col gap-3">
               <legend className="text-sm font-semibold text-ink">Ubicación aproximada</legend>
-              <p className="text-sm text-muted">Máximo tres decimales; no uses tu domicilio real.</p>
-              <AddressSearch onSelect={(lat, lon) => { setLatitude(lat); setLongitude(lon); }} />
+              {!mapboxEnabled && <p className="text-sm text-muted">Máximo tres decimales; no uses tu domicilio real.</p>}
+              <AddressSearch inputRef={addressRef} error={errors.latitude} onSelect={(lat, lon) => { setLatitude(lat); setLongitude(lon); }} />
+              {!mapboxEnabled && (
               <div className="grid gap-6 md:grid-cols-2">
                 <Field label="Latitud" error={errors.latitude} required>
                   {(control) => (
@@ -176,6 +180,7 @@ export function OnboardingPage() {
                   )}
                 </Field>
               </div>
+              )}
             </fieldset>
             <div className="flex flex-col gap-3">
               <p id="onboarding-disponibilidad" className="text-sm font-semibold text-ink">
