@@ -5,8 +5,8 @@ import type { CorrectionRequest, DonorInvitation, InvitationResponse } from './t
 // texto (Penpot: «Estados expresados con texto e iconos»).
 export const urgencyLabel: Record<DonorInvitation['urgency'], { label: string; tone: Tone }> = {
   Normal: { label: 'Normal', tone: 'neutral' },
-  Urgente: { label: 'Urgente', tone: 'warning' },
-  Critica: { label: 'Crítica', tone: 'danger' },
+  Urgente: { label: 'Urgente', tone: 'urgent' },
+  Critica: { label: 'Crítica', tone: 'critical' },
 };
 
 export const responseLabel: Record<InvitationResponse, { label: string; tone: Tone }> = {

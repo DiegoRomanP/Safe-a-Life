@@ -49,7 +49,7 @@ export function ProfilePage() {
         title="Mi perfil"
         description="Administra tu disponibilidad y ubicación sintética aproximada."
       />
-      <Alert tone="brand" title="Tus datos están protegidos">
+      <Alert tone="info" title="Tus datos están protegidos">
         Nombre, correo y grupo declarado requieren una solicitud de corrección.
       </Alert>
       <QueryView query={query} loadingMessage="Cargando tu perfil…" backTo="/donante/invitaciones" backLabel="Ir a mis invitaciones">

@@ -26,7 +26,7 @@ export function AuditPage() {
   return (
     <>
       <PageHeader title="Auditoría minimizada" description="Eventos append-only con identificadores opacos y sin valores personales." />
-      <Alert tone="brand" title="Sin PII en auditoría">
+      <Alert tone="info" title="Sin PII en auditoría">
         No se guardan nombres, correos, coordenadas, tokens ni valores anteriores o nuevos.
       </Alert>
 

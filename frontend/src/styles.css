@@ -7,6 +7,7 @@
   --color-ink: #172b3a;
   --color-petrol: #164e63;
   --color-petrol-deep: #103b4b;
+  /* La marca solo se usa en identidad y CTA primarios, nunca en avisos (se confundía con el error). */
   --color-brand: #b4233c;
   --color-brand-deep: #8f1930;
   --color-canvas: #f6f8fa;
@@ -17,7 +18,11 @@
   --color-control-border: #7b8c99;
   --color-success: #166534;
   --color-warning: #854d0e;
-  --color-danger: #b91c1c;
+  /* Error de validación y acciones destructivas: matiz más anaranjado que brand (6,57:1 sobre surface). */
+  --color-danger: #b42318;
+  /* Urgencia clínica informativa, separada del error y de la marca: 7,05:1 sobre warning-soft y 9,16:1 sobre danger-soft. */
+  --color-urgent: #9a3412;
+  --color-critical: #7f1d1d;
   --color-focus: #0369a1;
   /* Fondos suaves de estados, badges y alertas (Penpot, 00 - Fundamentos). */
   --color-soft-blue: #eaf3f6;

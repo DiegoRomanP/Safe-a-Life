@@ -61,7 +61,7 @@ export function HomePage() {
         </section>
       </div>
 
-      <Alert tone="brand" title="Prototipo académico">
+      <Alert tone="info" title="Prototipo académico">
         Trabaja únicamente con datos sintéticos y no determina elegibilidad médica.
       </Alert>
 

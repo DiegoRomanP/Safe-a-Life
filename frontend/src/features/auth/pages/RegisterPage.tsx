@@ -80,7 +80,7 @@ export function RegisterPage() {
               correo no deseado.
             </p>
           </div>
-          <Alert tone="brand" title="Prototipo académico">
+          <Alert tone="info" title="Prototipo académico">
             Usa solo correos sintéticos.
             {import.meta.env.DEV && ' En desarrollo los mensajes llegan al buzón local del equipo.'}
           </Alert>
@@ -136,7 +136,7 @@ export function RegisterPage() {
                 )}
               </Field>
             </div>
-            <Alert tone="brand" title="Uso exclusivamente académico">
+            <Alert tone="info" title="Uso exclusivamente académico">
               La cuenta solo se activará cuando el correo esté verificado y el perfil obligatorio esté completo.
             </Alert>
             <div className="flex flex-wrap justify-between gap-3">

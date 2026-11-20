@@ -67,7 +67,7 @@ export function TokenConfirmCard({
           <p className="text-muted">{doneDetail}</p>
         </div>
         {!onConfirm && (
-          <Alert tone="brand" title="Prototipo académico">
+          <Alert tone="info" title="Prototipo académico">
             Esta pantalla no envía datos ni procesa cuentas reales.
           </Alert>
         )}

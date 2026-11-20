@@ -71,7 +71,7 @@ export function HospitalsPage() {
         description="Gestiona instituciones autorizadas y su estado operativo."
         actions={<Button onClick={() => publicRef.current?.focus()}>Nuevo hospital</Button>}
       />
-      <Alert tone="brand" title="Control central">
+      <Alert tone="info" title="Control central">
         Solo el superadmin puede crear o modificar hospitales y aprobar sus sedes.
       </Alert>
       {stepUpPanel}
