@@ -1,6 +1,7 @@
 import { apiRequest } from '../../lib/api/http.js';
 import { ApiError } from '../../lib/demoApi.js';
 import { BLOOD_TYPES } from '../../lib/format.js';
+import { bool, dataOf, listAll as listAllShared, malformed, num, oneOf, rec, str } from '../../lib/api/validate.js';
 import { clearStepUp, expireSession, getAuthSession } from '../auth/session/session.js';
 import type {
   AdminCorrectionRequest,
@@ -19,8 +20,6 @@ export type NewSite = Pick<Site, 'hospitalId' | 'publicName' | 'publicAddress' |
 export type AccessGrant = Readonly<{ grantId: string; expiresAt: string }>;
 
 const csrfToken = () => getAuthSession()?.csrfToken;
-const malformed = (): never => { throw new ApiError('red'); };
-
 // Un 401 es sesión caída (se expira). STEP_UP_REQUIRED es un 403 con el mensaje genérico: se olvida el step-up local para que
 // la próxima acción vuelva a pedir el código (el backend es quien decide).
 async function call(...args: Parameters<typeof apiRequest>): Promise<unknown> {
@@ -32,14 +31,6 @@ async function call(...args: Parameters<typeof apiRequest>): Promise<unknown> {
     throw error;
   }
 }
-
-type Rec = Record<string, unknown>;
-const rec = (value: unknown): Rec => (typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Rec) : malformed());
-const str = (value: unknown, max = 1000): string => (typeof value === 'string' && value.length <= max ? value : malformed());
-const bool = (value: unknown): boolean => (typeof value === 'boolean' ? value : malformed());
-const num = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) ? value : malformed());
-const oneOf = <T extends string>(value: unknown, allowed: readonly T[]): T => (allowed.includes(value as T) ? (value as T) : malformed());
-const dataOf = (body: unknown): unknown => rec(body).data;
 
 const parseTask = (value: unknown): SuperadminTask => {
   const v = rec(value);
@@ -136,23 +127,7 @@ const parseGrant = (value: unknown): AccessGrant => {
   return { grantId: str(v.grantId, 64), expiresAt: str(v.expiresAt, 40) };
 };
 
-const MAX_PAGES = 20;
-
-/** Sigue `nextCursor` de las listas paginadas (limit 100) hasta agotarlas. Tope de páginas para no iterar sin fin. */
-async function listAll<T>(path: string, parse: (value: unknown) => T): Promise<T[]> {
-  const items: T[] = [];
-  let cursor: string | null = null;
-  for (let page = 0; page < MAX_PAGES; page += 1) {
-    const query: string = `limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
-    const data = rec(dataOf(await call('GET', `${path}?${query}`)));
-    if (!Array.isArray(data.items)) malformed();
-    items.push(...(data.items as unknown[]).map(parse));
-    const next: unknown = rec(data.pagination).nextCursor;
-    if (next === null || next === undefined) return items;
-    cursor = str(next, 512);
-  }
-  throw new ApiError('red');
-}
+const listAll = <T>(path: string, parse: (value: unknown) => T) => listAllShared(call, path, parse);
 
 const itemsOf = <T>(body: unknown, parse: (value: unknown) => T): T[] => {
   const data = rec(dataOf(body));
