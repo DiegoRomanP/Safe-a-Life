@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { Brand } from '../../../components/layout/Brand.js';
@@ -10,7 +10,7 @@ import { Input } from '../../../components/ui/Input.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { ApiError } from '../../../lib/demoApi.js';
 import { destinationFor } from '../session/destination.js';
-import { enrollMfa, getAuthSession, verifyMfa } from '../session/session.js';
+import { enrollMfa, getAuthSession, SESSION_LOST, verifyMfa } from '../session/session.js';
 
 // El contrato acepta de 6 a 8 dígitos (verifyMfaChallenge).
 const CODE_SHAPE = /^[0-9]{6,8}$/;
@@ -41,6 +41,11 @@ export function VerifyIdentityPage() {
   const [busy, setBusy] = useState(false);
   const [relogin, setRelogin] = useState(false);
   const codeRef = useRef<HTMLInputElement>(null);
+
+  // Con el formulario del código recién mostrado (reto del alta) el foco pasa al campo.
+  useEffect(() => {
+    if (secret) codeRef.current?.focus();
+  }, [secret]);
 
   if (!session) return <Navigate to="/ingresar" replace />;
   if (session.role === 'donante' || session.aal === 2) return <Navigate to={destinationFor(session)} replace />;
@@ -73,6 +78,8 @@ export function VerifyIdentityPage() {
     try {
       navigate(destinationFor(await verifyMfa(challengeId, clean)), { replace: true });
     } catch (failure) {
+      // La sesión se perdió a mitad de la verificación (logout o expiración): no es un código incorrecto.
+      if (failure instanceof ApiError && failure.code === SESSION_LOST) return navigate('/ingresar', { replace: true });
       setCode('');
       setNotice(verifyFailure(failure));
       setBusy(false);
@@ -120,7 +127,7 @@ export function VerifyIdentityPage() {
             <LinkButton to="/ingresar">Volver a ingresar</LinkButton>
           ) : needsEnrollment ? (
             <div className="flex w-full max-w-[420px] flex-col gap-4">
-              <Button type="button" fullWidth disabled={busy} onClick={() => void startEnrollment()}>
+              <Button type="button" fullWidth aria-disabled={busy} aria-busy={busy} onClick={() => void startEnrollment()}>
                 Configurar autenticador
               </Button>
               <LinkButton to="/ingresar" variant="ghost" fullWidth>
@@ -133,7 +140,7 @@ export function VerifyIdentityPage() {
                 <div className="rounded-xl border border-line p-4 text-sm">
                   <p className="font-semibold text-ink">Agrega esta clave a tu aplicación autenticadora</p>
                   <p className="mt-1 text-muted">Elige «Ingresar clave manualmente» y escribe:</p>
-                  <p className="mt-2 break-all font-mono text-base tracking-wider text-ink">{secret}</p>
+                  <p aria-live="polite" className="mt-2 break-all font-mono text-base tracking-wider text-ink">{secret}</p>
                 </div>
               )}
               <Field label="Código de 6 dígitos" hint="El código cambia cada 30 segundos." error={error}>
@@ -150,7 +157,7 @@ export function VerifyIdentityPage() {
                   />
                 )}
               </Field>
-              <Button type="submit" fullWidth disabled={busy}>
+              <Button type="submit" fullWidth aria-disabled={busy} aria-busy={busy}>
                 Verificar y continuar
               </Button>
               <LinkButton to="/ingresar" variant="ghost" fullWidth>

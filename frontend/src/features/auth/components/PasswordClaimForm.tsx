@@ -32,12 +32,12 @@ export function PasswordClaimForm({ submitLabel, claim, onDone, onLinkProblem }:
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (inFlight.current) return;
+    setFailure(undefined);
     const found = newPasswordError(password);
     flushSync(() => setError(found));
     if (found) return passwordRef.current?.focus();
     inFlight.current = true;
     setPending(true);
-    setFailure(undefined);
     try {
       await claim(password);
       onDone();

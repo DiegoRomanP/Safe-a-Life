@@ -90,10 +90,14 @@ export async function enrollMfa(csrfToken: string): Promise<MfaEnrollment> {
   return parseEnrollment(await apiRequest('POST', '/auth/mfa-enrollments', { csrfToken }));
 }
 
-/** Completa el reto TOTP y eleva la sesión a aal 2. Las cookies rotan, así que se pide un CSRF nuevo. */
-export async function verifyMfa(csrfToken: string, challengeId: string, code: string): Promise<LoginResult> {
-  const session = parseSession(await apiRequest('POST', '/auth/mfa-verifications', { body: { challengeId, code }, csrfToken }));
-  return { session, csrfToken: parseCsrfToken(await apiRequest('GET', '/auth/csrf-token')) };
+/** Token CSRF de la sesión actual (ligado al session_id; se pide de nuevo si las cookies rotan). */
+export async function fetchCsrfToken(): Promise<string> {
+  return parseCsrfToken(await apiRequest('GET', '/auth/csrf-token'));
+}
+
+/** Completa el reto TOTP y eleva la sesión a aal 2. Las cookies rotan: quien llama pide un CSRF nuevo con `fetchCsrfToken`. */
+export async function verifyMfa(csrfToken: string, challengeId: string, code: string): Promise<LoginSession> {
+  return parseSession(await apiRequest('POST', '/auth/mfa-verifications', { body: { challengeId, code }, csrfToken }));
 }
 
 /** Respuesta siempre 202, exista o no la cuenta: no se interpreta nada del resultado. */
@@ -114,8 +118,7 @@ export async function fetchAdminInvitationPreview(token: string): Promise<AdminI
   return { hospitalName: data.hospitalName, expiresAt: data.expiresAt };
 }
 
-/** Reclama la invitación: crea la cuenta (aal 1, MFA pendiente) y abre sesión. */
-export async function claimAdminInvitation(token: string, password: string): Promise<LoginResult> {
-  const session = parseSession(await apiRequest('POST', `/hospital-admin-invitation-actions/${encodeURIComponent(token)}/claim`, { body: { password } }));
-  return { session, csrfToken: parseCsrfToken(await apiRequest('GET', '/auth/csrf-token')) };
+/** Reclama la invitación: crea la cuenta (aal 1, MFA pendiente) y abre sesión en las cookies. El CSRF se pide aparte. */
+export async function claimAdminInvitation(token: string, password: string): Promise<LoginSession> {
+  return parseSession(await apiRequest('POST', `/hospital-admin-invitation-actions/${encodeURIComponent(token)}/claim`, { body: { password } }));
 }

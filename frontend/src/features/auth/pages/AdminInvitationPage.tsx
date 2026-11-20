@@ -3,7 +3,7 @@ import { Alert } from '../../../components/ui/Alert.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { Loading } from '../../../components/states/Loading.js';
-import { claimAdminInvitation, fetchAdminInvitationPreview, type AdminInvitationPreview } from '../../../lib/api/auth.js';
+import { claimAdminInvitation, fetchAdminInvitationPreview, fetchCsrfToken, type AdminInvitationPreview } from '../../../lib/api/auth.js';
 import { PasswordClaimForm } from '../components/PasswordClaimForm.js';
 import { setAuthSession } from '../session/session.js';
 import { tokenStatusFor } from '../tokenStatus.js';
@@ -91,9 +91,12 @@ function ClaimAdminInvitation({ token, preview, onLinkProblem }: { token: string
   }, [done]);
 
   async function claim(password: string) {
-    const { session, csrfToken } = await claimAdminInvitation(token, password);
+    const session = await claimAdminInvitation(token, password);
+    // La cuenta ya existe y el enlace está consumido: un fallo del CSRF no debe presentarse como fallo del reclamo.
+    // Sin CSRF la sesión no queda en memoria y /verificar-identidad lleva a ingresar con la cuenta nueva.
+    const csrfToken = await fetchCsrfToken().catch(() => null);
     // La cuenta nace con aal 1: la sesión queda en memoria para configurar MFA en /verificar-identidad.
-    setAuthSession({ ...session, csrfToken });
+    if (csrfToken) setAuthSession({ ...session, csrfToken });
   }
 
   if (done) {

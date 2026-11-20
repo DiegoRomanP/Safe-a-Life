@@ -109,7 +109,7 @@ export function RecoverAccessPage() {
               <LinkButton to="/ingresar" variant="ghost">
                 Volver a ingresar
               </LinkButton>
-              <Button type="submit" disabled={busy}>Enviar solicitud</Button>
+              <Button type="submit" aria-disabled={busy} aria-busy={busy}>Enviar solicitud</Button>
             </div>
           </form>
         </AuthCard>

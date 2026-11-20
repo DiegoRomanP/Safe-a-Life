@@ -89,6 +89,23 @@ describe('Invitación de administrador de hospital', () => {
     expect(view.querySelector('a[href="/verificar-identidad"]')).not.toBeNull();
   });
 
+  it('si el CSRF falla tras un reclamo exitoso la cuenta se da por creada y no se abre sesión', async () => {
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const reply = (body: unknown, status: number) => ({ ok: status < 300, status, json: async () => body });
+      if (url.endsWith('/claim')) return reply(SESSION, 201);
+      if (url.endsWith('/csrf-token')) return reply({ error: { code: 'X' } }, 503);
+      return reply(PREVIEW, 200);
+    });
+    const view = renderRoute(`/invitacion-administrador#${TOKEN}`);
+    await settle();
+    type(view.querySelector('input[type="password"]'), 'clave-de-demo-larga');
+    click(view.querySelector('button[type="submit"]'));
+    await settle();
+    expect(document.activeElement?.textContent).toBe('Configura tu verificación en dos pasos');
+    expect(getAuthSession()).toBeNull();
+  });
+
   it('si el reclamo falla no abre sesión', async () => {
     stubInvitation(429);
     const view = renderRoute(`/invitacion-administrador#${TOKEN}`);
