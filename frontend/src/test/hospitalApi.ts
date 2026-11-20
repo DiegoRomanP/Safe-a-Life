@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { clearAuthSession, logout } from '../features/auth/session/session.js';
-import type { AssistedSignup, HospitalNeed, HospitalSite } from '../features/hospital/types.js';
+import type { AssistedSignup, HospitalNeed, HospitalSite, InvitationBatch, NeedResponse } from '../features/hospital/types.js';
 import { demoNeeds, demoSignups, demoSites } from './hospitalFixtures.js';
 import { TEST_DONOR_SESSION } from './renderRoute.js';
 
@@ -9,6 +9,11 @@ export type HospitalApiStub = {
   needs: HospitalNeed[];
   sites: HospitalSite[];
   signups: AssistedSignup[];
+  /** Lotes y respuestas de cualquier necesidad (el simulador no los separa por necesidad). */
+  batches: InvitationBatch[];
+  responses: NeedResponse[];
+  /** Invitaciones que crea el próximo lote (el servidor elige a los donantes). */
+  nextBatchSize: number;
   /** «MÉTODO ruta» de cada petición, en orden. */
   calls: string[];
   /** Cuerpo JSON de cada escritura, por «MÉTODO ruta». */
@@ -36,6 +41,9 @@ export function stubHospitalApi(): HospitalApiStub {
     needs: structuredClone(demoNeeds),
     sites: structuredClone(demoSites),
     signups: structuredClone(demoSignups),
+    batches: [],
+    responses: [],
+    nextBatchSize: 2,
     calls: [],
     bodies: {},
     forbidden: false,
@@ -59,6 +67,10 @@ export function stubHospitalApi(): HospitalApiStub {
       if (url === '/hospitals/me/sites') return page(stub.sites);
       if (url === '/hospitals/me/needs') return page(stub.needs);
       if (url === '/hospitals/me/assisted-signups') return page(stub.signups);
+      if (/^\/hospitals\/me\/needs\/[^/]+\/invitation-batches$/.test(url)) return page(stub.batches);
+      if (/^\/hospitals\/me\/needs\/[^/]+\/responses$/.test(url)) {
+        return reply(200, { data: { confirmedIntentCount: stub.responses.filter((r) => r.response === 'confirmada').length, items: stub.responses, pagination: { nextCursor: null } } });
+      }
       return error(404, 'NOT_FOUND');
     }
 
@@ -87,6 +99,15 @@ export function stubHospitalApi(): HospitalApiStub {
       if (!ALLOWED[target.status]?.includes(body.status)) return error(409, 'STATE_CONFLICT');
       target.status = body.status;
       return reply(200, { data: target });
+    }
+    const batch = /^POST \/hospitals\/me\/needs\/([^/]+)\/invitation-batches$/.exec(key);
+    if (batch) {
+      const target = stub.needs.find((need) => need.needId === batch[1]);
+      if (!target) return error(404, 'NOT_FOUND');
+      if (target.status !== 'activa') return error(409, 'STATE_CONFLICT');
+      const created = { batchId: crypto.randomUUID(), createdAt: new Date().toISOString(), createdInvitationCount: stub.nextBatchSize, deliveryCounts: { pendiente: stub.nextBatchSize, enviada: 0, entregada: 0, fallida: 0 } };
+      stub.batches.push(created);
+      return reply(201, { data: { batchId: created.batchId, createdInvitationCount: stub.nextBatchSize, queuedEmailCount: stub.nextBatchSize } });
     }
     if (key === 'POST /hospitals/me/assisted-signups') {
       const createdAt = new Date().toISOString();

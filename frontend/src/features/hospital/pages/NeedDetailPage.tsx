@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { SuccessNotice } from '../../../components/states/SuccessNotice.js';
+import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { Alert } from '../../../components/ui/Alert.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { Button } from '../../../components/ui/Button.js';
@@ -181,12 +182,16 @@ export function NeedDetailPage() {
 
       <section aria-labelledby="confirmaciones-titulo" className="flex flex-col gap-3">
         <h2 id="confirmaciones-titulo" className="text-xl font-semibold text-ink">
-          Confirmaciones afirmativas
+          Invitaciones y respuestas
         </h2>
-        <p className="rounded-xl border border-line bg-surface p-6 text-muted">
-          Las invitaciones a donantes y sus respuestas todavía no están disponibles. Cuando se habiliten, aquí verás las
-          confirmaciones de esta necesidad y el conteo de intenciones se actualizará.
-        </p>
+        <div className="flex flex-wrap gap-3">
+          <LinkButton to={`/hospital/necesidades/${encodeURIComponent(need.needId)}/lotes`} variant="secondary">
+            Lotes de invitación
+          </LinkButton>
+          <LinkButton to={`/hospital/necesidades/${encodeURIComponent(need.needId)}/respuestas`} variant="secondary">
+            Ver respuestas
+          </LinkButton>
+        </div>
       </section>
 
       <Alert tone="warning" title="Verificación profesional externa">

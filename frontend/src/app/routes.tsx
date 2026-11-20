@@ -20,7 +20,8 @@ import { ProfilePage } from '../features/donor/pages/ProfilePage.js';
 import { RequestsPage } from '../features/donor/pages/RequestsPage.js';
 import { HospitalLayout } from '../features/hospital/HospitalLayout.js';
 import { AssistedSignupsPage } from '../features/hospital/pages/AssistedSignupsPage.js';
-import { ComingSoonPage } from '../features/hospital/pages/ComingSoonPage.js';
+import { NeedBatchesPage } from '../features/hospital/pages/NeedBatchesPage.js';
+import { NeedResponsesPage } from '../features/hospital/pages/NeedResponsesPage.js';
 import { HospitalGate } from '../features/hospital/HospitalGate.js';
 import { CreateNeedPage } from '../features/hospital/pages/CreateNeedPage.js';
 import { NeedDetailPage } from '../features/hospital/pages/NeedDetailPage.js';
@@ -81,7 +82,7 @@ export const routes: RouteObject[] = [
           { path: 'solicitudes/nueva', element: <NewRequestPage />, handle: { title: 'Nueva solicitud' } },
         ],
       },
-      // Área del hospital: exige sesión real con MFA (aal 2). Sus datos vienen del backend; lotes y respuestas esperan a la coordinación de invitaciones.
+      // Área del hospital: exige sesión real con MFA (aal 2). Sus datos vienen del backend.
       {
         path: 'hospital',
         element: <RequireRole allow="admin_hospitalario"><HospitalLayout /></RequireRole>,
@@ -92,8 +93,8 @@ export const routes: RouteObject[] = [
             { path: 'necesidades', element: <NeedsPage />, handle: { title: 'Necesidades' } },
             { path: 'necesidades/nueva', element: <CreateNeedPage />, handle: { title: 'Crear necesidad' } },
             { path: 'necesidades/:needId', element: <NeedDetailPage />, handle: { title: 'Detalle de necesidad' } },
-            { path: 'necesidades/:needId/respuestas', element: <ComingSoonPage title="Respuestas" description="Respuestas de los donantes a esta necesidad." />, handle: { title: 'Respuestas' } },
-            { path: 'necesidades/:needId/lotes', element: <ComingSoonPage title="Lotes de invitación" description="Lotes de invitaciones y su entrega." />, handle: { title: 'Lotes de invitación' } },
+            { path: 'necesidades/:needId/respuestas', element: <NeedResponsesPage />, handle: { title: 'Respuestas' } },
+            { path: 'necesidades/:needId/lotes', element: <NeedBatchesPage />, handle: { title: 'Lotes de invitación' } },
             { path: 'altas', element: <AssistedSignupsPage />, handle: { title: 'Altas asistidas' } },
           ] },
         ],

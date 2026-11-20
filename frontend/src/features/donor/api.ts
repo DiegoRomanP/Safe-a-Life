@@ -1,10 +1,10 @@
 import { apiRequest } from '../../lib/api/http.js';
 import { parseCorrectionRequest } from '../../lib/api/correctionRequest.js';
-import { dataOf, listAll } from '../../lib/api/validate.js';
+import { dataOf, listAll, oneOf, rec, str } from '../../lib/api/validate.js';
 import { ApiError } from '../../lib/demoApi.js';
 import { BLOOD_TYPES } from '../../lib/format.js';
 import { expireSession, getAuthSession } from '../auth/session/session.js';
-import type { CorrectionRequest, DonorProfile } from './types.js';
+import type { CorrectionRequest, DonorInvitation, DonorProfile, InvitationResponse, ResponseHistoryItem } from './types.js';
 
 // Cuerpo de createOwnCorrectionRequest (oneOf del contrato).
 export type NewCorrectionRequest =
@@ -63,4 +63,38 @@ export const fetchOwnRequests = (): Promise<CorrectionRequest[]> => listAll(call
 /** createOwnCorrectionRequest: 201 con la solicitud pendiente; 409 si ya hay una abierta sobre lo mismo. */
 export async function createOwnRequest(request: NewCorrectionRequest): Promise<CorrectionRequest> {
   return parseCorrectionRequest(dataOf(await call('POST', '/donors/me/correction-requests', { body: request, csrfToken: csrfToken() })));
+}
+
+const URGENCIES = ['Normal', 'Urgente', 'Critica'] as const;
+const RESPONSES = ['sin_respuesta', 'confirmada', 'rechazada'] as const;
+
+// InvitationListItem: forma cerrada; una respuesta inesperada nunca se pinta a medias.
+const parseInvitation = (value: unknown): DonorInvitation => {
+  const v = rec(value);
+  return {
+    invitationId: str(v.invitationId, 64), hospitalName: str(v.hospitalName, 160), publicSiteName: str(v.publicSiteName, 160),
+    requiredBloodType: oneOf(v.requiredBloodType, BLOOD_TYPES), urgency: oneOf(v.urgency, URGENCIES), instructions: str(v.instructions, 1000),
+    expiresAt: str(v.expiresAt, 40), validity: oneOf(v.validity, ['activa', 'invalidada', 'vencida'] as const),
+    delivery: oneOf(v.delivery, ['pendiente', 'enviada', 'entregada', 'fallida'] as const), response: oneOf(v.response, RESPONSES),
+  };
+};
+
+/** listOwnInvitations (todas las páginas). */
+export const fetchOwnInvitations = (): Promise<DonorInvitation[]> => listAll(call, '/donors/me/invitations', parseInvitation);
+
+/** getOwnInvitation: una ajena o inexistente es 404 (se ve como «sin permiso»). */
+export async function fetchOwnInvitation(invitationId: string): Promise<DonorInvitation> {
+  return parseInvitation(rec(dataOf(await call('GET', `/donors/me/invitations/${encodeURIComponent(invitationId)}`))).invitation);
+}
+
+/** listOwnResponseHistory (todas las páginas). */
+export const fetchOwnHistory = (): Promise<ResponseHistoryItem[]> =>
+  listAll(call, '/donors/me/responses', (value): ResponseHistoryItem => {
+    const v = rec(value);
+    return { invitationId: str(v.invitationId, 64), response: oneOf(v.response, ['confirmada', 'rechazada'] as const), changedAt: str(v.changedAt, 40) };
+  });
+
+/** changeOwnInvitationResponse: 409 si ya no admite cambios (cerrada, vencida o meta alcanzada). */
+export async function changeInvitationResponse(invitationId: string, response: Exclude<InvitationResponse, 'sin_respuesta'>): Promise<void> {
+  await call('PATCH', `/donors/me/invitations/${encodeURIComponent(invitationId)}/response`, { body: { response }, csrfToken: csrfToken() });
 }

@@ -1,9 +1,9 @@
 import { apiRequest } from '../../lib/api/http.js';
-import { dataOf, int, listAll as listAllShared, oneOf, rec, str } from '../../lib/api/validate.js';
+import { dataOf, int, listAll as listAllShared, malformed, oneOf, rec, str } from '../../lib/api/validate.js';
 import { ApiError } from '../../lib/demoApi.js';
 import { BLOOD_TYPES } from '../../lib/format.js';
 import { expireSession, getAuthSession } from '../auth/session/session.js';
-import type { AssistedSignup, HospitalNeed, HospitalSite, NewNeed } from './types.js';
+import type { AssistedSignup, BatchRequestResult, HospitalNeed, HospitalSite, InvitationBatch, NeedResponse, NeedResponses, NewNeed } from './types.js';
 
 const csrfToken = () => getAuthSession()?.csrfToken;
 
@@ -76,3 +76,61 @@ export const createSignupRequest = async (input: { email: string; name?: string 
 export const reissueSignupRequest = async (signupId: string) => {
   await write('POST', `/hospitals/me/assisted-signups/${encodeURIComponent(signupId)}/activation-links`);
 };
+
+// --- Invitaciones (F6/F7) ---------------------------------------------------------------------------------------------
+const needPath = (needId: string) => `/hospitals/me/needs/${encodeURIComponent(needId)}`;
+const DELIVERY = ['pendiente', 'enviada', 'entregada', 'fallida'] as const;
+
+const parseBatch = (value: unknown): InvitationBatch => {
+  const v = rec(value);
+  const c = rec(v.deliveryCounts);
+  const count = (field: unknown) => int(field, 0, 50);
+  return {
+    batchId: str(v.batchId, 64), createdAt: str(v.createdAt, 40), createdInvitationCount: count(v.createdInvitationCount),
+    deliveryCounts: { pendiente: count(c.pendiente), enviada: count(c.enviada), entregada: count(c.entregada), fallida: count(c.fallida) },
+  };
+};
+
+/** listOwnInvitationBatches (todas las páginas). 404 = necesidad ajena o inexistente. */
+export const fetchBatches = (needId: string) => listAll(`${needPath(needId)}/invitation-batches`, parseBatch);
+
+/** requestInvitationBatch: el servidor elige a los donantes (compatibles, disponibles, dentro del radio) y encola los correos. */
+export async function requestBatch(needId: string): Promise<BatchRequestResult> {
+  const v = rec(dataOf(await write('POST', `${needPath(needId)}/invitation-batches`)));
+  return { batchId: str(v.batchId, 64), createdInvitationCount: int(v.createdInvitationCount, 0, 50), queuedEmailCount: int(v.queuedEmailCount, 0, 50) };
+}
+
+// Confirmada (nombre y grupo declarado) u opaca: forma cerrada de cada variante; un campo de más es un fallo.
+const parseResponse = (value: unknown): NeedResponse => {
+  const v = rec(value);
+  if (v.response === 'confirmada') {
+    if (Object.keys(v).length !== 5) malformed();
+    return {
+      needDonorCode: str(v.needDonorCode, 64), donorName: str(v.donorName, 120), declaredBloodType: oneOf(v.declaredBloodType, BLOOD_TYPES),
+      response: 'confirmada', responseRecordedAt: str(v.responseRecordedAt, 40),
+    };
+  }
+  if (Object.keys(v).length !== 4) malformed();
+  return {
+    needDonorCode: str(v.needDonorCode, 64), validity: oneOf(v.validity, ['activa', 'invalidada', 'vencida'] as const),
+    delivery: oneOf(v.delivery, DELIVERY), response: oneOf(v.response, ['sin_respuesta', 'rechazada'] as const),
+  };
+};
+
+/** listOwnNeedResponses (todas las páginas): el conteo de confirmaciones incluye las anonimizadas que no se listan. */
+export async function fetchNeedResponses(needId: string): Promise<NeedResponses> {
+  const items: NeedResponse[] = [];
+  let confirmedIntentCount = 0;
+  let cursor: string | null = null;
+  for (let page = 0; page < 20; page += 1) {
+    const query: string = `limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`;
+    const data = rec(dataOf(await call('GET', `${needPath(needId)}/responses?${query}`)));
+    if (!Array.isArray(data.items)) malformed();
+    confirmedIntentCount = int(data.confirmedIntentCount, 0, Number.MAX_SAFE_INTEGER);
+    items.push(...(data.items as unknown[]).map(parseResponse));
+    const next: unknown = rec(data.pagination).nextCursor;
+    if (next === null || next === undefined) return { confirmedIntentCount, items };
+    cursor = str(next, 512);
+  }
+  throw new ApiError('red');
+}

@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { click, settle, setupRender } from '../../../test/render.js';
 import { renderRoute } from '../../../test/renderRoute.js';
+import { stubDonorApi } from '../../../test/donorApi.js';
 
 setupRender();
+// Invitaciones, respuestas y perfil son reales: un backend en memoria los sirve.
+beforeEach(() => { stubDonorApi(); });
 
 function buttonByText(view: HTMLElement, text: string) {
   return [...view.querySelectorAll('button')].find((button) => button.textContent === text) ?? null;

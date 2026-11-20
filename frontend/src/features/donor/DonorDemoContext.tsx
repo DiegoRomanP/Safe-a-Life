@@ -1,16 +1,18 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
-import { ApiError, demoRead, demoWrite, type DemoScenario } from '../../lib/demoApi.js';
-import { completeOwnOnboarding, createOwnRequest, fetchOwnProfile, fetchOwnRequests, updateOwnParticipation, type NewCorrectionRequest, type ParticipationPatch } from './api.js';
-import { demoHistory, demoInvitations } from './demoData.js';
+import type { DemoScenario } from '../../lib/demoApi.js';
+import {
+  changeInvitationResponse, completeOwnOnboarding, createOwnRequest, fetchOwnHistory, fetchOwnInvitation, fetchOwnInvitations, fetchOwnProfile,
+  fetchOwnRequests, updateOwnParticipation, type NewCorrectionRequest, type ParticipationPatch,
+} from './api.js';
 import type { CorrectionRequest, DonorInvitation, DonorProfile, ResponseHistoryItem } from './types.js';
 
 export type { NewCorrectionRequest };
 
 export type HistoryEntry = ResponseHistoryItem & { hospitalName: string };
 
-// Operaciones del contrato que usa el área del donante. Todas son asíncronas,
-// como lo serán con el cliente HTTP. Cada lectura cambia de identidad cuando
-// cambian sus datos, para que la vista se revalide tras una escritura.
+// Operaciones del contrato que usa el área del donante. Todas son reales (el backend es la fuente: invitaciones, respuestas,
+// historial, perfil y solicitudes). Cada lectura cambia de identidad cuando cambian sus datos, para que la vista se revalide
+// tras una escritura. El nombre `DonorDemo` se conserva por los selectores de escenario de desarrollo (`scenario`).
 type DonorDemo = {
   scenario: DemoScenario;
   setScenario: (scenario: DemoScenario) => void;
@@ -29,66 +31,35 @@ type DonorDemo = {
 
 const DonorDemoContext = createContext<DonorDemo | null>(null);
 
-// Área del donante. El perfil es REAL: getOwnDonorProfile, completeDonorOnboarding
-// y updateOwnDonorParticipation van al backend y se guardan en la base. El resto
-// sigue siendo demo en memoria porque su backend no existe (F6 invitaciones e
-// historial): changeOwnInvitationResponse y el efecto de marcarse no disponible
-// sobre las invitaciones de ejemplo. Las solicitudes de corrección también son reales (F5). Esas respuestas pasan por demoRead/demoWrite y el
-// escenario elegido en desarrollo; recargar la página vuelve a sus datos iniciales.
-export function DonorDemoProvider({ children, now = () => new Date().toISOString() }: { children: ReactNode; now?: () => string }) {
+export function DonorDemoProvider({ children }: { children: ReactNode; now?: () => string }) {
   const [scenario, setScenario] = useState<DemoScenario>('normal');
-  const [invitations, setInvitations] = useState(demoInvitations);
-  const [history, setHistory] = useState(demoHistory);
-  // Cada escritura real del perfil da a getProfile una identidad nueva para que la vista se revalide.
+  // Cada escritura real da a sus lecturas una identidad nueva para que la vista se revalide.
+  const [version, setVersion] = useState(0);
+  const refresh = useCallback(() => setVersion((current) => current + 1), []);
   const [getProfile, setGetProfile] = useState(() => () => fetchOwnProfile());
   const reloadProfile = useCallback(() => setGetProfile(() => () => fetchOwnProfile()), []);
-  // Las solicitudes son reales: cada alta da a listRequests una identidad nueva y la vista se revalida.
   const [listRequests, setListRequests] = useState(() => () => fetchOwnRequests());
 
-  const listInvitations = useCallback(() => demoRead(scenario, () => invitations), [scenario, invitations]);
-  const getInvitation = useCallback(
-    (invitationId: string) =>
-      demoRead(scenario, () => {
-        const found = invitations.find((item) => item.invitationId === invitationId);
-        if (!found) throw new ApiError('sin_permiso');
-        return found;
-      }),
-    [scenario, invitations],
-  );
-  const listHistory = useCallback(
-    () =>
-      demoRead(scenario, () =>
-        history.map((item) => ({
-          ...item,
-          hospitalName: invitations.find((invitation) => invitation.invitationId === item.invitationId)?.hospitalName ?? 'Invitación',
-        })),
-      ),
-    [scenario, history, invitations],
-  );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- `version` solo cambia la identidad para revalidar.
+  const listInvitations = useCallback(() => fetchOwnInvitations(), [version]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const getInvitation = useCallback((invitationId: string) => fetchOwnInvitation(invitationId), [version]);
+  const listHistory = useCallback(async (): Promise<HistoryEntry[]> => {
+    const [history, invitations] = await Promise.all([fetchOwnHistory(), fetchOwnInvitations()]);
+    return history.map((item) => ({ ...item, hospitalName: invitations.find((i) => i.invitationId === item.invitationId)?.hospitalName ?? 'Invitación' }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [version]);
 
-  const respond = useCallback(
-    (invitationId: string, response: 'confirmada' | 'rechazada') =>
-      demoWrite(scenario, () => {
-        setInvitations((current) =>
-          current.map((item) => (item.invitationId === invitationId ? { ...item, response } : item)),
-        );
-        setHistory((current) => [{ invitationId, response, changedAt: now() }, ...current]);
-      }),
-    [scenario, now],
-  );
-  // La disponibilidad solo cambia en pantalla después de que el backend la guarda.
+  const respond = useCallback(async (invitationId: string, response: 'confirmada' | 'rechazada') => {
+    await changeInvitationResponse(invitationId, response);
+    refresh();
+  }, [refresh]);
+  // La disponibilidad solo cambia en pantalla después de que el backend la guarda; las invitaciones que invalida las trae él.
   const updateParticipation = useCallback(async (patch: ParticipationPatch) => {
     await updateOwnParticipation(patch);
     reloadProfile();
-    if (!patch.isAvailable) {
-      setInvitations((current) =>
-        current.map((item) =>
-          item.validity === 'activa' && item.response === 'sin_respuesta' ? { ...item, validity: 'invalidada' } : item,
-        ),
-      );
-    }
-  }, [reloadProfile]);
-  // completeDonorOnboarding: fija los campos obligatorios; el correo no cambia.
+    refresh();
+  }, [reloadProfile, refresh]);
   const completeOnboarding = useCallback(async (data: Omit<DonorProfile, 'email'>) => {
     await completeOwnOnboarding(data);
     reloadProfile();
@@ -101,17 +72,7 @@ export function DonorDemoProvider({ children, now = () => new Date().toISOString
 
   const value = useMemo<DonorDemo>(
     () => ({
-      scenario,
-      setScenario,
-      listInvitations,
-      getInvitation,
-      listHistory,
-      getProfile,
-      listRequests,
-      respond,
-      updateParticipation,
-      completeOnboarding,
-      createRequest,
+      scenario, setScenario, listInvitations, getInvitation, listHistory, getProfile, listRequests, respond, updateParticipation, completeOnboarding, createRequest,
     }),
     [scenario, listInvitations, getInvitation, listHistory, getProfile, listRequests, respond, updateParticipation, completeOnboarding, createRequest],
   );
