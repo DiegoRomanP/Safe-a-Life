@@ -4,12 +4,12 @@ import { EmptyState } from '../../../components/states/EmptyState.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { formatDateTime } from '../../../lib/format.js';
 import { requestCode, requestStatusLabel, requestTitle } from '../labels.js';
-import { useSuperadminDemo } from '../SuperadminDemoContext.js';
+import { useSuperadmin } from '../SuperadminContext.js';
 
 // SA-05 Solicitudes de corrección o eliminación (listCorrectionRequests). Solo
 // metadatos: tipo, campos pedidos, estado y fechas; nunca valores personales.
 export function AdminRequestsPage() {
-  const { requests } = useSuperadminDemo();
+  const { requests } = useSuperadmin();
 
   return (
     <>

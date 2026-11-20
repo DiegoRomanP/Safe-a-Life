@@ -1,10 +1,12 @@
 // @vitest-environment jsdom
 import { act } from 'react';
 import { describe, expect, it } from 'vitest';
-import { click, setupRender } from '../../../test/render.js';
+import { press, settle, setupRender } from '../../../test/render.js';
+import { registerSuperadminApi } from '../../../test/superadminApi.js';
 import { renderRoute } from '../../../test/renderRoute.js';
 
 setupRender();
+registerSuperadminApi();
 
 function control(view: HTMLElement, label: string) {
   const element = [...view.querySelectorAll('label')].find((item) => item.textContent?.startsWith(label));
@@ -23,8 +25,9 @@ const button = (view: HTMLElement, text: string) =>
   [...view.querySelectorAll('button')].find((item) => item.textContent === text) ?? null;
 
 describe('SA-07 Auditoría', () => {
-  it('lista eventos con fecha en hora de Lima y solo códigos opacos', () => {
+  it('lista eventos con fecha en hora de Lima y solo códigos opacos', async () => {
     const view = renderRoute('/superadmin/auditoria');
+    await settle();
     expect(view.querySelector('h1')?.textContent).toBe('Auditoría minimizada');
     const first = view.querySelector('tbody tr');
     expect(first?.textContent).toContain('24 sep 2026, 11:12 · Lima, UTC−5');
@@ -32,28 +35,31 @@ describe('SA-07 Auditoría', () => {
     expect(view.querySelector('tbody')?.textContent).not.toMatch(/@|example\.test/);
   });
 
-  it('filtra por resultado, anuncia el total y limpia los filtros', () => {
+  it('filtra por resultado, anuncia el total y limpia los filtros', async () => {
     const view = renderRoute('/superadmin/auditoria');
+    await settle();
     choose(control(view, 'Resultado'), 'denegado');
     expect(view.querySelectorAll('tbody tr')).toHaveLength(1);
     expect(view.querySelector('p[aria-live="polite"]')?.textContent).toBe('1 evento');
     expect(view.querySelector('tbody')?.textContent).toContain('Sin step-up reciente.');
-    click(button(view, 'Limpiar filtros'));
+    await press(button(view, 'Limpiar filtros'));
     expect(view.querySelectorAll('tbody tr')).toHaveLength(5);
   });
 
-  it('las acciones del superadmin quedan auditadas sin valores', () => {
+  it('las acciones del superadmin quedan auditadas sin valores', async () => {
     const view = renderRoute('/superadmin/sedes');
-    click([...view.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Aprobar')) ?? null);
-    click(view.querySelector('nav a[href="/superadmin/auditoria"]'));
+    await settle();
+    await press([...view.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Aprobar')) ?? null);
+    await press(view.querySelector('nav a[href="/superadmin/auditoria"]'));
     const first = view.querySelector('tbody tr');
     expect(first?.textContent).toContain('sede.aprobada');
     expect(first?.textContent).toContain('SED-B4D2');
     expect(first?.textContent).not.toContain('Villa El Salvador');
   });
 
-  it('el filtro de evento ofrece los eventos presentes', () => {
+  it('el filtro de evento ofrece los eventos presentes', async () => {
     const view = renderRoute('/superadmin/auditoria');
+    await settle();
     const options = [...(control(view, 'Evento') as HTMLSelectElement).options].map((option) => option.value);
     expect(options).toContain('lote.creado');
     choose(control(view, 'Evento'), 'lote.creado');

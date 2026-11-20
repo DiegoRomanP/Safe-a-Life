@@ -58,3 +58,9 @@ export async function settle() {
     });
   }
 }
+
+// Pulsa y deja terminar las respuestas del backend simulado y sus recargas.
+export async function press(element: Element | null) {
+  click(element);
+  await settle();
+}

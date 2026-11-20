@@ -7,7 +7,7 @@ import type {
   Site,
   SuperadminConfiguration,
   SuperadminTask,
-} from './types.js';
+} from '../features/superadmin/types.js';
 
 // Datos sintéticos de demostración, tomados de Penpot (SA-01 a SA-07). Solo
 // existen en memoria mientras no hay cliente HTTP (D-4). Los correos usan

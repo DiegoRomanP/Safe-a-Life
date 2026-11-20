@@ -1,11 +1,10 @@
 import { AppLayout } from '../../components/layout/AppLayout.js';
-import { SuperadminDemoProvider } from './SuperadminDemoContext.js';
+import { SuperadminProvider } from './SuperadminContext.js';
 
-// Área del superadmin: navegación de Penpot sobre el estado de demostración en
-// memoria (D-4). El superadmin no navega el padrón de donantes.
+// Área del superadmin: navegación de Penpot sobre los datos del backend real. El superadmin no navega el padrón de donantes.
 export function SuperadminLayout() {
   return (
-    <SuperadminDemoProvider>
+    <SuperadminProvider>
       <AppLayout
         navLabel="Administración central"
         navItems={[
@@ -21,6 +20,6 @@ export function SuperadminLayout() {
         accountRole="Superadmin"
         initials="SA"
       />
-    </SuperadminDemoProvider>
+    </SuperadminProvider>
   );
 }

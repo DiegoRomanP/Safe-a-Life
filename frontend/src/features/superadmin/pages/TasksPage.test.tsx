@@ -1,21 +1,25 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
-import { setupRender } from '../../../test/render.js';
+import { settle, setupRender } from '../../../test/render.js';
+import { registerSuperadminApi } from '../../../test/superadminApi.js';
 import { renderRoute } from '../../../test/renderRoute.js';
 
 setupRender();
+registerSuperadminApi();
 
 describe('SA-01 Tareas administrativas', () => {
-  it('cuenta las tareas por tipo y marca «Tareas» como página actual', () => {
+  it('cuenta las tareas por tipo y marca «Tareas» como página actual', async () => {
     const view = renderRoute('/superadmin');
+    await settle();
     expect(view.querySelector('h1')?.textContent).toBe('Tareas administrativas');
     const stats = [...view.querySelectorAll('section[aria-label="Indicadores"] > div')].map((card) => card.textContent);
     expect(stats).toEqual(['2Solicitudes pendientes', '1Sedes por revisar', '0Fallos de entrega', '0Políticas por moderar']);
     expect(view.querySelector('nav [aria-current="page"]')?.textContent).toBe('Tareas');
   });
 
-  it('ordena por fecha, muestra solo códigos opacos y enlaza cada tarea a su vista', () => {
+  it('ordena por fecha, muestra solo códigos opacos y enlaza cada tarea a su vista', async () => {
     const view = renderRoute('/superadmin');
+    await settle();
     const items = [...view.querySelectorAll('main li')];
     expect(items).toHaveLength(3);
     expect(items[0]?.textContent).toContain('SOL-91A2');
