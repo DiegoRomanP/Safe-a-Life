@@ -9,6 +9,8 @@ import type { BatchSlot, InvitationsRepository, PageQuery, RetrySlot } from './i
 
 const ACTION_LIMIT = 20;
 const ACTION_WINDOW_SECONDS = 15 * 60;
+/** La vista previa no tiene efectos, pero cada llamada es una RPC de la sesión técnica compartida: tiene su propio techo por IP. */
+const PREVIEW_LIMIT = 60;
 
 export interface InvitationsServiceDependencies {
   readonly repository: InvitationsRepository;
@@ -52,7 +54,11 @@ export function createInvitationsService({
       return repository.requestBatch({ key, hash: fingerprint([['needId', needId]]) }, needId, grant, slots);
     },
 
-    previewAction: (token: string) => repository.previewAction(hashToken(token)),
+    async previewAction(token: string, ipSubject: string) {
+      const decision = await limiter.consume('invitation-preview:ip', ipSubject, PREVIEW_LIMIT, ACTION_WINDOW_SECONDS);
+      if (!decision.allowed) throw new ApiError('RATE_LIMITED', undefined, { retryAfterSeconds: decision.retryAfterSeconds });
+      return repository.previewAction(hashToken(token));
+    },
 
     /** Respuesta inicial por enlace: la acción la fija el token; el límite por IP frena el sondeo de tokens. */
     async respondByToken(token: string, key: string, ipSubject: string) {

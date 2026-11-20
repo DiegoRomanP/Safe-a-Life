@@ -81,7 +81,7 @@ export function registerInvitationsRoutes(app: Express, { invitations, secrets }
     const { token: secret } = parse<{ token: string }>(preview, 'params', req);
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Referrer-Policy', 'no-referrer');
-    sendData(res, 200, ok(preview, await invitations.previewAction(secret)));
+    sendData(res, 200, ok(preview, await invitations.previewAction(secret, clientIpSubject(req, secrets.ipHmac))));
   });
 
   app.post('/api/v1/invitation-actions/:token/response', async (req, res) => {
