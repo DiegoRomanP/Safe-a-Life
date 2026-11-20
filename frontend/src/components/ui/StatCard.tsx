@@ -31,7 +31,7 @@ export function StatCard({ value, label, hint, accent, className }: StatCardProp
   return (
     <div
       className={cx(
-        'flex flex-col gap-1 rounded-xl border border-line bg-surface p-5',
+        'flex flex-col gap-1 rounded-xl border border-line bg-surface p-4 sm:p-5',
         accent && accentClass[accent],
         className,
       )}

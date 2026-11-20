@@ -51,7 +51,7 @@ export function TasksPage() {
       <ActionError />
       <ResultNotice notice={notice} />
       <PageHeader title="Tareas administrativas" description="Resuelve acciones pendientes sin navegar el padrón de donantes." />
-      <section aria-label="Indicadores" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section aria-label="Indicadores" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard value={count('correction_request')} label="Solicitudes pendientes" accent={accentWhenPending(count('correction_request'), 'warning')} />
         <StatCard value={count('hospital_review')} label="Sedes por revisar" accent="petrol" />
         <StatCard value={count('delivery_failure')} label="Fallos de entrega" accent={accentWhenPending(count('delivery_failure'), 'danger')} />

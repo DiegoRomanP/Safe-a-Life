@@ -24,7 +24,7 @@ export function SummaryPage() {
         description="Monitorea necesidades y confirmaciones de intención de tu hospital."
         actions={<LinkButton to="/hospital/necesidades/nueva">Crear necesidad</LinkButton>}
       />
-      <section aria-label="Indicadores" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section aria-label="Indicadores" className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <StatCard value={count('activa')} label="Necesidades activas" accent="petrol" />
         <StatCard value={count('meta_alcanzada')} label="Metas alcanzadas" accent="success" />
         <StatCard value={confirmed} label="Intenciones confirmadas" accent="success" />
