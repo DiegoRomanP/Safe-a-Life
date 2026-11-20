@@ -1,12 +1,19 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import type { ActorRole, LoginSession } from '../../../lib/api/auth.js';
 import { beginLogin, getAuthOperationState, getAuthSession, subscribeAuthOperation } from '../session/session.js';
 import { Alert } from '../../../components/ui/Alert.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { AuthCard, AuthShell } from '../components/AuthShell.js';
 import { LoginForm } from '../components/LoginForm.js';
 
-// AUTH-01: con sesión verificada, el donante entra a su área; hospital y superadmin todavía no están conectados.
+// AUTH-01: con sesión verificada cada rol entra a su área; hospital y superadmin completan antes MFA (aal 2).
+const AREA: Record<ActorRole, string> = { donante: '/donante/perfil', admin_hospitalario: '/hospital', superadmin: '/superadmin' };
+
+function destinationFor(session: Pick<LoginSession, 'role' | 'aal'>): string {
+  return session.role !== 'donante' && session.aal !== 2 ? '/verificar-identidad' : AREA[session.role];
+}
+
 export function LoginPage() {
   const navigate = useNavigate();
   const logoutFailed = (useLocation().state as { logoutFailed?: boolean } | null)?.logoutFailed === true;
@@ -16,11 +23,12 @@ export function LoginPage() {
     getAuthOperationState,
   );
   const pending = operationState === 'pending';
-  const isDonor = operationState === 'success' && getAuthSession()?.role === 'donante';
+  const session = operationState === 'success' ? getAuthSession() : null;
+  const destination = session ? destinationFor(session) : null;
 
   useEffect(() => {
-    if (isDonor) navigate('/donante/perfil', { replace: true });
-  }, [isDonor, navigate]);
+    if (destination) navigate(destination, { replace: true });
+  }, [destination, navigate]);
 
   return (
     <AuthShell
@@ -57,7 +65,7 @@ export function LoginPage() {
           {operationState === 'pending' && <Alert tone="info" title="Conectando">Verificando la sesión.</Alert>}
           {operationState === 'success' && (
             <Alert tone="success" title="Sesión iniciada">
-              {isDonor ? 'Abriendo tu perfil.' : 'Tu área todavía no está disponible en este prototipo.'}
+              Abriendo tu área.
             </Alert>
           )}
           {operationState === 'error' && (
@@ -77,18 +85,6 @@ export function LoginPage() {
           </LinkButton>
         </div>
 
-        {/* Solo en desarrollo: áreas aún demo, sin guard (el donante ya exige sesión real). */}
-        {import.meta.env.DEV && (
-          <div className="flex flex-col gap-2 rounded-xl border border-dashed border-muted p-4">
-            <p className="text-sm font-semibold text-muted">Solo DEV: recorridos con datos sintéticos</p>
-            <LinkButton to="/hospital" variant="ghost" fullWidth>
-              Entrar como hospital de prueba
-            </LinkButton>
-            <LinkButton to="/superadmin" variant="ghost" fullWidth>
-              Entrar como superadmin de prueba
-            </LinkButton>
-          </div>
-        )}
       </AuthCard>
     </AuthShell>
   );

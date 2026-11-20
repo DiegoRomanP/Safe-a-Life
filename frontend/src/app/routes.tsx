@@ -80,10 +80,10 @@ export const routes: RouteObject[] = [
           { path: 'solicitudes/nueva', element: <NewRequestPage />, handle: { title: 'Nueva solicitud' } },
         ],
       },
-      // Área del hospital. Sin backend (D-4) todavía no hay guard de sesión.
+      // Área del hospital: exige sesión real con MFA (aal 2). Sus datos siguen demo hasta conectar F4.
       {
         path: 'hospital',
-        element: <HospitalLayout />,
+        element: <RequireRole allow="admin_hospitalario"><HospitalLayout /></RequireRole>,
         handle: { area: 'Hospital' },
         children: [
           { index: true, element: <SummaryPage />, handle: { title: 'Resumen' } },
@@ -95,10 +95,10 @@ export const routes: RouteObject[] = [
           { path: 'altas', element: <AssistedSignupsPage />, handle: { title: 'Altas asistidas' } },
         ],
       },
-      // Área del superadmin. Sin backend (D-4) todavía no hay guard de sesión ni AAL2.
+      // Área del superadmin: exige sesión real con MFA (aal 2). Sus datos siguen demo hasta conectar F3.
       {
         path: 'superadmin',
-        element: <SuperadminLayout />,
+        element: <RequireRole allow="superadmin"><SuperadminLayout /></RequireRole>,
         handle: { area: 'Superadmin' },
         children: [
           { index: true, element: <TasksPage />, handle: { title: 'Tareas' } },
