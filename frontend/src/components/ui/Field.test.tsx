@@ -28,7 +28,7 @@ describe('Field con Input', () => {
     const message = view.querySelector(`#${CSS.escape(input?.getAttribute('aria-describedby') ?? '')}`);
     expect(message?.textContent).toBe('Usaremos este correo para verificar la cuenta.');
     expect(input?.hasAttribute('aria-invalid')).toBe(false);
-    expect(input?.className).toContain('border-line');
+    expect(input?.className).toContain('border-control-border');
   });
 
   it('en error muestra el mensaje en lugar de la ayuda y marca aria-invalid', () => {
@@ -94,5 +94,20 @@ describe('Select', () => {
     const select = view.querySelector('select');
     expect(select?.getAttribute('aria-invalid')).toBe('true');
     expect(select?.className).toContain('border-danger');
+  });
+});
+
+describe('estilos de controles', () => {
+  it('limita el aspecto de solo lectura a input y textarea, no a select (A1)', () => {
+    const view = render(<Select options={[{ value: 'a', label: 'A' }]} aria-label="Sede" />);
+    const select = view.querySelector('select');
+    // Un <select> siempre cumple :read-only; con «read-only:» sin acotar parecería deshabilitado.
+    expect(select?.className).not.toMatch(/(^|\s)read-only:/);
+    expect(select?.className).toContain('[&:is(input,textarea):read-only]:border-dashed');
+  });
+
+  it('usa el token de borde de control con contraste ≥ 3:1 (A3)', () => {
+    const view = render(<Input aria-label="Correo" />);
+    expect(view.querySelector('input')?.className).toContain('border-control-border');
   });
 });

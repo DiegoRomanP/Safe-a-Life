@@ -13,6 +13,8 @@
   --color-surface: #ffffff;
   --color-muted: #526271;
   --color-line: #d9e0e5;
+  /* Borde de controles editables (WCAG 1.4.11): 3,47:1 sobre surface y 3,26:1 sobre canvas. `line` queda para divisores. */
+  --color-control-border: #7b8c99;
   --color-success: #166534;
   --color-warning: #854d0e;
   --color-danger: #b91c1c;

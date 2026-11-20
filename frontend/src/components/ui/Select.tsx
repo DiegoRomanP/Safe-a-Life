@@ -22,7 +22,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   return (
     <select
       ref={ref}
-      className={cx(controlClass, invalid ? 'border-danger' : 'border-line', className)}
+      className={cx(controlClass, invalid ? 'border-danger' : 'border-control-border', className)}
       {...initial}
       {...props}
     >
