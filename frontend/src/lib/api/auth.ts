@@ -100,3 +100,22 @@ export async function verifyMfa(csrfToken: string, challengeId: string, code: st
 export async function requestPasswordRecovery(email: string): Promise<void> {
   await apiRequest('POST', '/auth/password-recovery-requests', { body: { email } });
 }
+
+export type AdminInvitationPreview = Readonly<{ hospitalName: string; expiresAt: string }>;
+
+/** Vista previa del enlace de invitación (GET): no consume el token. */
+export async function fetchAdminInvitationPreview(token: string): Promise<AdminInvitationPreview> {
+  const body = await apiRequest('GET', `/hospital-admin-invitation-actions/${encodeURIComponent(token)}`);
+  if (!isRecord(body) || !hasOnlyKeys(body, ['data']) || !isRecord(body.data)) throw new Error();
+  const { data } = body;
+  if (!hasOnlyKeys(data, ['hospitalName', 'role', 'expiresAt']) || data.role !== 'admin_hospitalario') throw new Error();
+  if (typeof data.hospitalName !== 'string' || data.hospitalName.length > 160) throw new Error();
+  if (typeof data.expiresAt !== 'string' || !Number.isFinite(Date.parse(data.expiresAt))) throw new Error();
+  return { hospitalName: data.hospitalName, expiresAt: data.expiresAt };
+}
+
+/** Reclama la invitación: crea la cuenta (aal 1, MFA pendiente) y abre sesión. */
+export async function claimAdminInvitation(token: string, password: string): Promise<LoginResult> {
+  const session = parseSession(await apiRequest('POST', `/hospital-admin-invitation-actions/${encodeURIComponent(token)}/claim`, { body: { password } }));
+  return { session, csrfToken: parseCsrfToken(await apiRequest('GET', '/auth/csrf-token')) };
+}

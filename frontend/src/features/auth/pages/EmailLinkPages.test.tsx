@@ -87,11 +87,27 @@ describe('AUTH-02 paso 2: enlace vencido', () => {
 });
 
 describe('Confirmar cambio de correo', () => {
-  it('confirma con un botón explícito y enfoca el resultado', () => {
+  it('confirma con un botón explícito (POST al enlace) y enfoca el resultado', async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({ url: String(input), init });
+      return { ok: true, status: 200, json: async () => ({ data: { message: 'ok' } }) };
+    });
     const view = renderRoute(`/cambiar-correo#${TOKEN}`);
     expect(view.querySelector('h1')?.textContent).toBe('Confirma tu nuevo correo');
+    expect(requests).toEqual([]);
     click(buttonByText(view, 'Confirmar nuevo correo'));
+    await settle();
+    expect(requests.map(({ url, init }) => [url, init?.method])).toEqual([[`/api/v1/donor-email-change-actions/${TOKEN}`, 'POST']]);
     expect(document.activeElement?.textContent).toBe('Correo actualizado');
+  });
+
+  it('un enlace vencido (410) lo muestra y no confirma', async () => {
+    vi.stubGlobal('fetch', async () => ({ ok: false, status: 410, json: async () => ({ error: { code: 'X' } }) }));
+    const view = renderRoute(`/cambiar-correo#${TOKEN}`);
+    click(buttonByText(view, 'Confirmar nuevo correo'));
+    await settle();
+    expect(view.querySelector('h1')?.textContent).toBe('Enlace vencido');
   });
 
   it('el enlace vencido pide una nueva solicitud desde la cuenta', () => {
