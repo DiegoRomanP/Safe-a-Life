@@ -3,7 +3,8 @@ import { ApiError } from '../../../lib/demoApi.js';
 import { deleteCurrentSession, enrollMfa as enrollMfaRequest, fetchCsrfToken, fetchCurrentSession, loginAndBootstrap, verifyMfa as verifyMfaRequest, verifyStepUp as verifyStepUpRequest, type LoginSession, type MfaEnrollment } from '../../../lib/api/auth.js';
 
 export type AuthSessionMemory = LoginSession & Readonly<{ csrfToken: string }>;
-export type AuthOperationState = 'idle' | 'pending' | 'success' | 'error' | 'expired';
+// rejected = 401 (credenciales rechazadas: el servidor no dice por qué); limited = 429; error = cualquier otro fallo sin resolver.
+export type AuthOperationState = 'idle' | 'pending' | 'success' | 'error' | 'rejected' | 'limited' | 'expired';
 type LoginCredentials = Readonly<{ email: string; password: string }>;
 
 // null means no locally verified session; it does not prove server logout.
@@ -53,11 +54,12 @@ export function beginLogin(credentials: LoginCredentials): void {
       signedOutLocally = false;
       activeLogin = null;
       publish('success');
-    } catch {
+    } catch (error) {
       if (activeLogin !== operation) return;
       currentSession = null;
       activeLogin = null;
-      publish('error');
+      const status = error instanceof ApiError ? error.status : 0;
+      publish(status === 401 ? 'rejected' : status === 429 ? 'limited' : 'error');
     }
   })();
 }
