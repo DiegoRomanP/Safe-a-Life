@@ -10,6 +10,16 @@ La aceptación fija la **dirección y las reglas**; los gates de la sección
 «Gates de aceptación» siguen abiertos hasta que existan SQL, RLS y pruebas
 reales, y se marcan solo con evidencia.
 
+Enmendado el 2026-10-22 (F6, aprobación A4 de la persona usuaria, «opción 1 en
+todo, con dos condiciones de salida»; ver
+[`2026-10-22-f6-contrato-reconciliado.md`](../plans/2026-10-22-f6-contrato-reconciliado.md)
+§3 y §8): ítems 14 y 15 de la allowlist, nota en los ítems 7 y 8, regla 7 de
+la sección V2 y sección «Orden de bloqueos». Revisado por
+`security-privacy-auditor` (2026-10-22): PASS con correcciones M1–M3 aplicadas.
+Enmienda H1 (decidida por la persona usuaria el 2026-10-22): patrón F5 en dos
+pasos para el lote y el reintento (ítems 5, 15 y 16 y regla 8); **pendiente de
+revisión del auditor**, no es un PASS.
+
 ## Fecha
 
 2026-10-12
@@ -90,11 +100,18 @@ otro driver ahora; su presencia no prueba que el scaffold legacy sea seguro.
       asistida, cambio de email, recuperación, invitación de admin y respuesta a
       invitación.
    4. Vinculación de cuentas nuevas: `user_accounts`, membresía y perfil.
-   5. `api.request_invitation_batch` (lee perfiles de donantes).
+   5. `api.request_invitation_batch` (lee perfiles de donantes). Enmienda
+      (2026-10-22, F6, H1 (decidido por la persona usuaria el 2026-10-22)): pasa a ejecutarse con la sesión **técnica**
+      (`app.is_api_technical()`), no con la del admin, y consume la concesión de
+      `api.authorize_invitation_batch` (ítem 16) junto con los slots.
    6. `api.list_own_need_responses` (nombre y grupo de los confirmados).
    7. Cambios de respuesta y de disponibilidad que afectan a la necesidad o al
-      outbox.
-   8. Transición de necesidad con cascada a invitaciones y outbox.
+      outbox. Enmienda (2026-10-22, F6, aprobación A4): `api.update_own_participation`
+      pasa de INVOKER a DEFINER, porque su cascada escribe en el outbox, que solo
+      toca `app_privileged`.
+   8. Transición de necesidad con cascada a invitaciones y outbox. Enmienda
+      (2026-10-22, F6, aprobación A4): `api.transition_own_need` pasa de INVOKER a
+      DEFINER por el mismo motivo.
    9. Ejecución de solicitudes de corrección o eliminación.
    10. Funciones `worker_*`, `ingest_email_event` y la revocación de sesiones
        del adaptador de `service_role` (ADR-006), si la API de Auth no la
@@ -127,6 +144,69 @@ otro driver ahora; su presencia no prueba que el scaffold legacy sea seguro.
        la regla 6. `worker_purge_expired` ya no devuelve `staleAccounts`.
        Tiene pruebas pgTAP (privilegios, aislamiento y conteos) y de integración
        (carrera con la activación y la vinculación).
+   14. `api.list_own_invitations(int, timestamptz, uuid)` y
+       `api.get_own_invitation(uuid)` (añadidas el 2026-10-22 por la aprobación
+       A4 de la persona usuaria, opción 1, F6; ver
+       [el contrato reconciliado](../plans/2026-10-22-f6-contrato-reconciliado.md)
+       §3 y §8): lecturas propias del donante que cruzan propietarios (la
+       invitación del donante con datos de la necesidad, la sede y el hospital).
+       Razón: como INVOKER exigirían políticas de donante en `app.needs`,
+       `app.hospitals` y `app.sites`, y una política de `hospitals` que consulte
+       invitaciones, cuya política llama a `admin_hospital_id()` (INVOKER, lee
+       `app.hospitals` bajo RLS), produce recursión infinita de RLS. Son propiedad
+       de `app_privileged`, `EXECUTE` solo para `authenticated`, resuelven al
+       donante con `app.d_require` (rol `donante` y barrera de sesión), devuelven
+       solo las invitaciones de ese donante y su salida se limita a la lista
+       positiva del plan §2.3 «Lecturas» y del esquema OpenAPI
+       (`hospitalName = hospitals.public_name`, `publicSiteName`,
+       `instructions` y la `validity` proyectada, además de los campos propios de
+       la invitación que declara OpenAPI); no exponen hashes, `donor_id` ni
+       códigos internos. Deberán tener pruebas pgTAP de donante ajeno, rol
+       distinto y barrera abierta (exigidas en F6-3). **Condición de salida (A4.5):** si
+       `security-privacy-auditor` rechaza los ítems 14 y 15 antes de F6-2, solo
+       las lecturas (este ítem) pasan a INVOKER con hospital, sede, grupo,
+       urgencia, plazo e instrucciones copiados en la invitación al crearla; el
+       ítem 15 sigue DEFINER.
+   15. `api.retry_invitation_delivery(text, text, uuid, jsonb)` (añadida el
+       2026-10-22 por la aprobación A4, F6): reintento manual de entrega
+       (operación `retryInvitationDelivery`, ADR-005 punto 4). Solo superadmin con
+       AAL2 y step-up vigente (si no, `forbidden`, `mfa_required` o
+       `step_up_required`); el superadmin no puede leer la necesidad ni el
+       outbox con su JWT, de ahí la DEFINER. Propiedad de `app_privileged`;
+       genera tokens nuevos, inserta una fila nueva de outbox y reinicia la
+       proyección de la invitación; escribe auditoría y sigue la convención de
+       idempotencia. Deberá tener pruebas pgTAP de rol, AAL, step-up y replay
+       (exigidas en F6-3). Enmienda (2026-10-22, H1 (decidido por la persona usuaria el 2026-10-22)): patrón F5 en dos pasos.
+       `api.authorize_invitation_retry(uuid)` (DEFINER de `app_privileged`,
+       superadmin, AAL2 y step-up vigente) valida la invitación y emite una
+       concesión de un solo uso ligada a esa invitación y a ese superadmin, con
+       las mismas reglas de la concesión del ítem 16. `api.retry_invitation_delivery`
+       pasa a sesión **técnica** (`app.is_api_technical()`): consume la concesión
+       junto con el slot (hashes y payload sellado generados por la aplicación) y
+       el superadmin ya no los elige. Express orquesta los dos pasos; el contrato
+       HTTP no cambia. Pendiente de revisión de `security-privacy-auditor` (no es
+       un PASS).
+   16. `api.authorize_invitation_batch(uuid)` (añadida el 2026-10-22, F6, H1 (decidido por la persona usuaria el 2026-10-22);
+       pendiente de revisión de `security-privacy-auditor`, no es un PASS): primer
+       paso del lote de invitaciones, paralelo a F5 (altas asistidas, donde el
+       hospital no elige el hash del token porque un admin podía reclamar cuentas
+       con correos ajenos). DEFINER de `app_privileged`, `EXECUTE` solo para
+       `authenticated`; `d_require(admin, aal2)` y después `d_admin_hospital_id()`;
+       comprueba que la necesidad es del hospital del admin y emite una
+       **concesión de un solo uso** ligada a la necesidad y al admin, con
+       vencimiento ≤ 2 min, en una tabla propia (`app.invitation_grants`) sin
+       acceso para `authenticated` (solo `app_privileged`; RLS `TO app_privileged`).
+       `api.request_invitation_batch` (técnica) la consume en la misma transacción
+       que escribe el lote y valida que no esté usada ni vencida ni ligada a otra
+       necesidad; el actor de idempotencia sale de la concesión, nunca de un
+       argumento del cliente. Una concesión no consumida (p. ej. un replay que
+       responde sin ella) vence sin efecto. Deberán existir pruebas pgTAP
+       (exigidas en F6-3) de privilegios, concesión reutilizada, vencida, de otro
+       admin o de otra necesidad, y de que `authenticated` no accede a la tabla.
+
+   Los ítems 14, 15 y 16 son de `app_privileged`. **La lista de DEFINER
+   propiedad de `postgres` sigue en siete** (regla 6): los ítems 14, 15 y 16 no
+   añaden ninguna ni ningún uso de `service_role` (ADR-006 intacto).
 
    Nota: `api.consume_idempotency_key` (clave de un solo uso para MFA y
    step-up) **no** es DEFINER: es INVOKER, exige cuenta de aplicación con rol
@@ -205,6 +285,74 @@ otro driver ahora; su presencia no prueba que el scaffold legacy sea seguro.
    ajenos). `api.sync_assisted_signup_status()` es una función de trigger en
    `api` (app_privileged no puede ser propietario de funciones en `app`) que
    nadie ejecuta por RPC.
+
+7. **Orden de comprobación en las DEFINER con sesión de usuario** (añadida el
+   2026-10-22, F6, aprobación A4). Toda DEFINER que opera con la sesión de un
+   usuario llama **primero** a `app.d_require` (rol, AAL y barrera de sesión de
+   ADR-007) y solo después a helpers como `app.d_admin_hospital_id()`, que no
+   mira la barrera. Las de la sesión técnica (token, webhook, barrera) exigen
+   `app.is_api_technical()` y las del worker `app.is_worker()`. Excepción
+   explícita: `api.link_admin_account` opera con la sesión del invitado, que aún
+   no tiene cuenta de aplicación, y por eso usa `jwt_sub` y `d_session_admitted`
+   en lugar de `d_require`. Deberá existir una prueba pgTAP (exigida en F6-3)
+   que compruebe que, con la barrera abierta, cada DEFINER de usuario responde
+   `unauthenticated`. Las pruebas `02_identity_hardening.test.sql:43-45` y
+   `03_need_records.test.sql:68-70` deberán ampliarse (no debilitarse) con las
+   funciones nuevas en F6-3/F6-4.
+
+8. **Ninguna RPC con sesión de usuario persiste hashes o secretos elegidos por el
+   cliente** (añadida el 2026-10-22, F6, H1 (decidido por la persona usuaria el 2026-10-22)). Es la regla ya aplicada en F5 (el
+   hospital registra el alta y la sesión técnica emite el hash del token). En F6
+   la sesión del usuario solo **autoriza** (`authorize_invitation_batch`,
+   `authorize_invitation_retry`) y la sesión técnica **ejecuta** con los hashes y
+   payloads que genera la aplicación. La lista de DEFINER de `postgres` sigue en
+   siete y no hay ningún uso nuevo de `service_role`.
+
+### Orden de bloqueos
+
+Añadido el 2026-10-22 (F6, aprobación A4 opción 1 en D3; ver
+[el contrato reconciliado](../plans/2026-10-22-f6-contrato-reconciliado.md) §1 D3).
+Orden canónico de adquisición de bloqueos para evitar interbloqueos entre rutas
+que comparten invitaciones:
+
+| Ruta | Orden de adquisición |
+| --- | --- |
+| Originada en la necesidad (lote, token, sesión, transición, reintento, vencimiento) | `needs` (`FOR UPDATE`, una fila; el vencimiento, varias con `SKIP LOCKED`) → lock asesor global `invitation-quota` (solo el lote) → `invitations` (`FOR UPDATE`, `order by invitation_id`) → `email_outbox` (`FOR UPDATE`, `order by outbox_id`, solo `pendiente`) → inserciones. En el lote y el reintento la concesión (fila propia, de un solo uso) se consume tras bloquear la necesidad y antes de `claim_idempotency` |
+| Originada en el donante (participación) | `donor_profiles` propio (`FOR UPDATE`) → `invitation-quota` (solo si pasa a no disponible) → invitaciones del donante (`order by invitation_id`) → outbox |
+| Eliminación V15 (`finish_deletion`) | `correction_requests` (`FOR UPDATE`) → invitaciones del donante → outbox |
+| Worker (`worker_record_attempt`, `ingest_email_event`) | invitación de la fila (búsqueda sin bloqueo, luego `FOR UPDATE`) → fila de outbox |
+| Worker (`claim`, `expire_outbox`, leases agotados) | fila de outbox con `FOR UPDATE SKIP LOCKED`; si el resultado se proyecta a una invitación (ADR-005 punto 4), invitación vigente con `FOR UPDATE SKIP LOCKED` → outbox, sin esperar nunca |
+
+Reglas:
+
+1. La cuota 3/24 h usa **un único lock asesor transaccional**
+   (`hashtextextended('invitation-quota', 0)`), tomado tras el bloqueo de la
+   necesidad y **antes** de `claim_idempotency`. Serializa los lotes de todos los
+   hospitales.
+2. Las rutas de la necesidad nunca bloquean `donor_profiles`, la barrera de
+   sesión ni `auth.users` (salvo el `KEY SHARE` implícito de la FK del outbox al
+   insertar). Las rutas del donante nunca bloquean `needs`. **Invariante:**
+   `invitations.donor_id` y el historial de respuestas **no** tienen FK a
+   `donor_profiles`; si se añadiera, el lote tomaría `KEY SHARE` sobre el perfil
+   y se interbloquearía con la participación.
+3. **Toda espera de bloqueo va antes de `claim_idempotency`**, que fija
+   `lock_timeout = 2s` para el resto de la transacción (una espera posterior
+   puede fallar con `55P03` y devolver 500), salvo los `KEY SHARE` de inserción.
+4. El reintento de entrega no bloquea filas antiguas del outbox (ya finales).
+
+**Riesgo residual (borrado del usuario de Auth).** GoTrue borra `auth.users` en
+un orden que el proyecto no controla (involucra `auth.users`, el `email_outbox.recipient_user_id`
+a NULL y la cascada a `donor_profiles`; el orden exacto depende de los triggers de
+integridad referencial y no está verificado) y puede chocar con la participación o el
+vencimiento con `40P01`. Se documenta como 500 reintentable con la misma clave
+(el claim se revierte) y F6-4 deberá incluir la prueba de esa carrera.
+
+**Condición de salida (A4.3).** Puerta de rendimiento en F6-6: 5 lotes
+concurrentes sobre 500 donantes sintéticos con p95 ≤ 1 s y ningún `55P03` ni
+`statement_timeout`. Si no se cumple, la decisión vuelve a la persona usuaria
+para elegir la alternativa de locks por donante en orden de `donor_id`. El
+umbral de 1 s es una puerta interna propuesta por el asistente; PER-02 (p95 < 2 s)
+sigue vigente como requisito del producto.
 
 ### Convención de respuesta de toda RPC con efectos
 

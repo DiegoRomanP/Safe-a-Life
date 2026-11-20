@@ -233,8 +233,8 @@ mutuamente excluyentes**: cada invitación pertenece a un solo estado y la suma
 es `createdInvitationCount`. No representan acumulados ni número de intentos;
 `enviada` excluye las invitaciones ya `entregada`. Los dos ejemplos canónicos
 conservan ocho invitaciones con conteos `0/2/6/0`, no catorce eventos acumulados.
-AP-02 sigue pendiente: la relación operativa entre estado agregado e intentos y
-cuándo un error transitorio pasa a `fallida` no quedan resueltos por esta
+AP-02 está resuelta por ADR-005 (V5): la relación entre estado agregado e intentos
+y cuándo un error transitorio pasa a `fallida` las define ese ADR, no esta
 proyección. No se introducen reintentos, transiciones ni umbrales de fallo terminal.
 
 ## 7. Respuestas y errores
@@ -442,8 +442,9 @@ Las pruebas y revisiones de este paquete no sustituyen las de producción de §1
   confirmar prefijo de versión, esquema de éxito/error y límites de paginación.
 - AP-01, AP-03, AP-05 y AP-09 quedaron resueltos en la revisión 1.2 de la línea
   base: aplicar esas reglas a alta asistida, proyección hospitalaria, verificación
-  de email e invitaciones/tokens. AP-02, AP-04, AP-06, AP-07 y AP-08 siguen
-  pendientes y bloquean solo las cláusulas que dependen de ellos.
+  de email e invitaciones/tokens. AP-02, AP-06, AP-07 y AP-08 están resueltas por
+  ADR-005 (aceptado el 2026-10-12) y AP-04 por V6 y la ratificación F6; no se
+  reabren desde textos obsoletos.
 - `.opencode/references/project-requirements.md` y `Save_a_Life.xlsx` se
   sincronizan con RF-PRO-05: no pedir, aceptar, guardar o inferir historia de
   donación ni implementar filtro postdonación.
