@@ -119,7 +119,8 @@ describe('RequireRole (áreas administrativas, aal 2)', () => {
     stubFetch(() => json({}));
     const view = renderRoute('/hospital', { ...admin, aal: 2, mfaRequired: false });
     await settleRoute();
-    expect(view.querySelector('main h1')?.textContent).toBe('Resumen operativo');
+    // Llegó al área del hospital (su navegación está montada); sus datos los pide el backend, que estas pruebas no simulan.
+    expect(view.querySelector('nav[aria-label="Cuenta del hospital"]')).not.toBeNull();
   });
 
   it('el superadmin con aal 1 va a verificar su identidad', async () => {
