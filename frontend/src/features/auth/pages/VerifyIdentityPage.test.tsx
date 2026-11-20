@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
+import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { click, settle, setupRender, type } from '../../../test/render.js';
 import { TEST_DONOR_SESSION, renderRoute } from '../../../test/renderRoute.js';
-import { clearAuthSession, getAuthSession } from '../session/session.js';
+import { clearAuthSession, expireSession, getAuthSession, logout } from '../session/session.js';
 
 setupRender();
 afterEach(() => clearAuthSession());
@@ -94,6 +95,51 @@ describe('AUTH-05 MFA', () => {
     expect(view.querySelector('h1')?.textContent).toBe('Verifica tu identidad');
   });
 
+  it('un segundo envío mientras el primero sigue en curso no repite la petición', async () => {
+    let answer!: () => void;
+    const calls: Call[] = [];
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+      calls.push({ url: String(input), init });
+      if (String(input).endsWith('/auth/mfa-verifications')) return new Promise((resolve) => { answer = () => resolve(reply(elevated)); });
+      return Promise.resolve(reply(csrf));
+    });
+    const view = renderRoute('/verificar-identidad', withChallenge);
+    submitCode(view, '123456');
+    click(view.querySelector('button[type="submit"]'));
+    expect(calls.filter((c) => c.url.endsWith('/auth/mfa-verifications'))).toHaveLength(1);
+    await act(async () => { answer(); });
+    await settle();
+  });
+
+  it('si la sesión se pierde durante la verificación vuelve a /ingresar, no habla de código incorrecto', async () => {
+    let answer!: () => void;
+    vi.stubGlobal('fetch', (input: RequestInfo | URL) => {
+      if (String(input).endsWith('/auth/mfa-verifications')) return new Promise((resolve) => { answer = () => resolve(reply(elevated)); });
+      return Promise.resolve(reply(csrf));
+    });
+    const view = renderRoute('/verificar-identidad', withChallenge);
+    submitCode(view, '123456');
+    act(() => { expireSession(); });
+    await act(async () => { answer(); });
+    await settle();
+
+    expect(view.querySelector('h1')?.textContent).toBe('Iniciar sesión');
+    expect(view.textContent).not.toContain('El código es incorrecto');
+    expect(getAuthSession()).toBeNull();
+    await logout(); // expireSession deja el estado «expired» a nivel de módulo: se restablece para los demás tests
+  });
+
+  it('si el CSRF nuevo falla tras elevar la sesión vuelve a ingresar sin decir que el código fue incorrecto', async () => {
+    stubFetch((url) => (url.endsWith('/auth/mfa-verifications') ? reply(elevated) : reply({ error: { code: 'X' } }, 503)));
+    const view = renderRoute('/verificar-identidad', withChallenge);
+    submitCode(view, '123456');
+    await settle();
+
+    expect(view.querySelector('h1')?.textContent).toBe('Iniciar sesión');
+    expect(view.textContent).not.toContain('El código es incorrecto');
+    expect(getAuthSession()).toBeNull();
+  });
+
   it('demasiados intentos (429) lo dice sin reintentar', async () => {
     stubFetch(() => reply({ error: { code: 'RATE_LIMITED' } }, 429));
     const view = renderRoute('/verificar-identidad', withChallenge);
@@ -125,6 +171,7 @@ describe('AUTH-05 MFA', () => {
       expect(calls[0]?.url).toBe('/api/v1/auth/mfa-enrollments');
       expect(new Headers(calls[0]?.init?.headers).get('x-csrf-token')).toBe(adminAal1.csrfToken);
       expect(view.textContent).toContain('JBSWY3DPEHPK3PXP');
+      expect(document.activeElement).toBe(view.querySelector('input'));
 
       submitCode(view, '654321');
       await settle();

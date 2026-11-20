@@ -1,6 +1,6 @@
 import { flushSync } from 'react-dom';
 import { ApiError } from '../../../lib/demoApi.js';
-import { deleteCurrentSession, enrollMfa as enrollMfaRequest, fetchCurrentSession, loginAndBootstrap, verifyMfa as verifyMfaRequest, type LoginSession, type MfaEnrollment } from '../../../lib/api/auth.js';
+import { deleteCurrentSession, enrollMfa as enrollMfaRequest, fetchCsrfToken, fetchCurrentSession, loginAndBootstrap, verifyMfa as verifyMfaRequest, type LoginSession, type MfaEnrollment } from '../../../lib/api/auth.js';
 
 export type AuthSessionMemory = LoginSession & Readonly<{ csrfToken: string }>;
 export type AuthOperationState = 'idle' | 'pending' | 'success' | 'error' | 'expired';
@@ -98,8 +98,11 @@ export async function logout(): Promise<void> {
   }
 }
 
+/** Marca el 401 de «ya no hay sesión local» para distinguirlo de un código incorrecto (también 401 del backend). */
+export const SESSION_LOST = 'SESSION_LOST';
+
 function requireSession(): AuthSessionMemory {
-  if (!currentSession) throw new ApiError('sin_permiso', 401);
+  if (!currentSession) throw new ApiError('sin_permiso', 401, SESSION_LOST);
   return currentSession;
 }
 
@@ -114,8 +117,14 @@ export function enrollMfa(): Promise<MfaEnrollment> {
  */
 export async function verifyMfa(challengeId: string, code: string): Promise<AuthSessionMemory> {
   const started = epoch;
-  const { session, csrfToken } = await verifyMfaRequest(requireSession().csrfToken, challengeId, code);
-  if (epoch !== started) throw new ApiError('sin_permiso', 401);
+  const session = await verifyMfaRequest(requireSession().csrfToken, challengeId, code);
+  // El servidor ya elevó la sesión y el reto está consumido: si el CSRF nuevo falla, la memoria no es confiable y la salida
+  // es volver a ingresar (la sesión de aal 2 sigue en las cookies).
+  const csrfToken = await fetchCsrfToken().catch(() => null);
+  if (epoch !== started || csrfToken === null) {
+    currentSession = null;
+    throw new ApiError('sin_permiso', 401, SESSION_LOST);
+  }
   currentSession = Object.freeze({ ...session, csrfToken });
   return currentSession;
 }
