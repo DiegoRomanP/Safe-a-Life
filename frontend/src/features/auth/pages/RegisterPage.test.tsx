@@ -33,7 +33,7 @@ describe('AUTH-02 Registro', () => {
 
   it('pide contraseña nueva de al menos 12 caracteres', () => {
     const view = renderRoute('/registro');
-    const { passwordInput } = fill(view, 'persona@ejemplo.test', 'corta');
+    const { passwordInput } = fill(view, 'persona@example.test', 'corta');
     expect(passwordInput?.getAttribute('autocomplete')).toBe('new-password');
     expect(view.textContent).toContain('La contraseña debe tener al menos 12 caracteres.');
     expect(document.activeElement).toBe(passwordInput);
@@ -41,30 +41,30 @@ describe('AUTH-02 Registro', () => {
 
   it('una contraseña corta no llega al backend', () => {
     const requests = stubReply(202);
-    fill(renderRoute('/registro'), 'persona@ejemplo.test', 'corta');
+    fill(renderRoute('/registro'), 'persona@example.test', 'corta');
     expect(requests).toEqual([]);
   });
 
   it('con datos válidos hace un POST y muestra el resultado neutral con el foco en el título', async () => {
     const requests = stubReply(202);
     const view = renderRoute('/registro');
-    fill(view, ' persona@ejemplo.test ', 'clave-de-demo-larga');
+    fill(view, ' persona@example.test ', 'clave-de-demo-larga');
     await settle();
 
     expect(requests.map(({ url, init }) => `${init?.method} ${url}`)).toEqual(['POST /api/v1/donor-registrations']);
-    expect(JSON.parse(String(requests[0]?.init?.body))).toEqual({ email: 'persona@ejemplo.test', password: 'clave-de-demo-larga' });
+    expect(JSON.parse(String(requests[0]?.init?.body))).toEqual({ email: 'persona@example.test', password: 'clave-de-demo-larga' });
     const heading = view.querySelector('h1');
     expect(heading?.textContent).toBe('Revisa tu correo');
     expect(document.activeElement).toBe(heading);
     expect(view.textContent).toContain('Si el correo puede registrarse');
-    expect(view.textContent).not.toContain('persona@ejemplo.test');
+    expect(view.textContent).not.toContain('persona@example.test');
     expect(view.querySelector('input')).toBeNull();
   });
 
   it.each([[429, 'demasiados intentos'], [503, 'Inténtalo de nuevo']] as const)('un %i avisa sin mostrar éxito y vacía la contraseña', async (status, text) => {
     stubReply(status);
     const view = renderRoute('/registro');
-    const { passwordInput } = fill(view, 'persona@ejemplo.test', 'clave-de-demo-larga');
+    const { passwordInput } = fill(view, 'persona@example.test', 'clave-de-demo-larga');
     await settle();
 
     expect(view.textContent?.toLowerCase()).toContain(text.toLowerCase());
@@ -80,7 +80,7 @@ describe('AUTH-02 Registro', () => {
       return new Promise((resolve) => { release = () => resolve({ ok: true, status: 202, json: async () => ({ data: {} }) }); });
     });
     const view = renderRoute('/registro');
-    fill(view, 'persona@ejemplo.test', 'clave-de-demo-larga');
+    fill(view, 'persona@example.test', 'clave-de-demo-larga');
     const [, passwordInput] = [...view.querySelectorAll('input')];
     type(passwordInput, 'clave-de-demo-larga');
     click(view.querySelector('button[type="submit"]'));
@@ -93,7 +93,7 @@ describe('AUTH-02 Registro', () => {
   it('un 422 marca la contraseña y le lleva el foco', async () => {
     stubReply(422);
     const view = renderRoute('/registro');
-    const { passwordInput } = fill(view, 'persona@ejemplo.test', 'clave-de-demo-larga');
+    const { passwordInput } = fill(view, 'persona@example.test', 'clave-de-demo-larga');
     await settle();
     expect(view.textContent).toContain('Revisa el correo y elige otra contraseña.');
     expect(document.activeElement).toBe(passwordInput);

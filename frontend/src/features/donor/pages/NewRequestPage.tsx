@@ -160,7 +160,7 @@ export function NewRequestPage() {
                   ref={emailRef}
                   type="email"
                   autoComplete="email"
-                  placeholder="nombre@ejemplo.test"
+                  placeholder="nombre@example.test"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                 />
