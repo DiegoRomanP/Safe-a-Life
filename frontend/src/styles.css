@@ -58,6 +58,17 @@
   }
 }
 
+/* Pista de desplazamiento horizontal solo con CSS: las capas «local» se mueven con el contenido y tapan la sombra del
+   extremo ya alcanzado, así que la sombra solo aparece del lado donde queda contenido oculto (y nada si no desborda). */
+@utility scroll-shadow-x {
+  background:
+    linear-gradient(to right, var(--scroll-bg, var(--color-surface)) 30%, transparent) left / 2.5rem 100% no-repeat local,
+    linear-gradient(to left, var(--scroll-bg, var(--color-surface)) 30%, transparent) right / 2.5rem 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, var(--scroll-shade, rgb(23 43 58 / 0.25)), transparent) left / 1rem 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, var(--scroll-shade, rgb(23 43 58 / 0.25)), transparent) right / 1rem 100% no-repeat scroll,
+    var(--scroll-bg, var(--color-surface));
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

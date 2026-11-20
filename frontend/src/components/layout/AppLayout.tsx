@@ -1,5 +1,5 @@
-import { useState, type ReactNode } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { logout } from '../../features/auth/session/session.js';
 import { Badge } from '../ui/Badge.js';
 import { cx } from '../ui/cx.js';
@@ -27,7 +27,16 @@ export type AppLayoutProps = {
 // blanco a la izquierda. Cerrar sesión borra la sesión del servidor y de memoria y vuelve a /ingresar.
 export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initials, devTools, notice }: AppLayoutProps) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const navRef = useRef<HTMLElement>(null);
   const [closing, setClosing] = useState(false);
+  // En móvil la fila de pestañas se desplaza: centra la activa para que nunca quede cortada. Se ajusta scrollLeft del
+  // <nav> (no scrollIntoView) para no mover la página; en lg no hay desbordamiento y no tiene efecto.
+  useEffect(() => {
+    const nav = navRef.current;
+    const active = nav?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (nav && active) nav.scrollLeft = Math.max(0, active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2);
+  }, [pathname]);
   const signOut = () => {
     if (closing) return;
     setClosing(true);
@@ -68,7 +77,12 @@ export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initi
       <div className="flex flex-1 flex-col lg:flex-row">
         {/* Móvil: una fila de pestañas desplazable con indicador inferior y «Cerrar sesión» al lado; lg: rail vertical. */}
         <aside className="flex items-stretch bg-petrol text-white lg:w-60 lg:shrink-0 lg:flex-col lg:py-8">
-          <nav aria-label={navLabel} className="min-w-0 flex-1 overflow-x-auto [scrollbar-color:rgb(255_255_255/0.35)_transparent] [scrollbar-width:thin] lg:flex-none lg:overflow-visible">
+          {/* scroll-shadow-x: un brillo en el borde indica que hay más secciones hacia ese lado. */}
+          <nav
+            ref={navRef}
+            aria-label={navLabel}
+            className="relative min-w-0 flex-1 scroll-shadow-x overflow-x-auto [--scroll-bg:var(--color-petrol)] [--scroll-shade:rgb(255_255_255/0.5)] [scrollbar-color:rgb(255_255_255/0.35)_transparent] [scrollbar-width:thin] lg:flex-none lg:overflow-visible"
+          >
             <ul className="flex lg:flex-col">
               {navItems.map((item) => (
                 <li key={item.to}>
@@ -88,13 +102,13 @@ export function AppLayout({ navLabel, navItems, accountTitle, accountRole, initi
               ))}
             </ul>
           </nav>
-          <div className="flex shrink-0 flex-col items-start justify-center gap-1 border-l border-white/20 px-4 lg:mt-auto lg:border-l-0 lg:px-6">
+          <div className="flex shrink-0 flex-col items-start justify-center gap-1 border-l border-white/20 px-2 lg:mt-auto lg:border-l-0 lg:px-4">
             <p className="hidden text-sm text-white/85 lg:block">Sesión protegida</p>
             <button
               type="button"
               onClick={signOut}
               aria-disabled={closing}
-              className="rounded text-sm font-semibold text-white underline-offset-4 hover:underline focus-visible:outline-white aria-disabled:opacity-70"
+              className="inline-flex min-h-11 items-center rounded px-2 text-sm font-semibold text-white underline-offset-4 hover:underline focus-visible:outline-white aria-disabled:opacity-70"
             >
               {closing ? 'Cerrando sesión…' : 'Cerrar sesión'}
             </button>
