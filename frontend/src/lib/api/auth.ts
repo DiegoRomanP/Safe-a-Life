@@ -70,3 +70,33 @@ export async function fetchCurrentSession(): Promise<LoginResult | null> {
 export async function deleteCurrentSession(csrfToken: string): Promise<void> {
   await apiRequest('DELETE', '/auth/sessions/current', { csrfToken });
 }
+
+export type MfaEnrollment = Readonly<{ factorId: string; otpauthUri: string; challengeId: string }>;
+
+const UUID = /^[\da-f]{8}-(?:[\da-f]{4}-){3}[\da-f]{12}$/i;
+
+function parseEnrollment(value: unknown): MfaEnrollment {
+  if (!isRecord(value) || !hasOnlyKeys(value, ['data']) || !isRecord(value.data)) throw new Error();
+  const { data } = value;
+  if (!hasOnlyKeys(data, ['factorId', 'otpauthUri', 'challengeId'])) throw new Error();
+  const { factorId, otpauthUri, challengeId } = data;
+  if (typeof factorId !== 'string' || !UUID.test(factorId) || typeof challengeId !== 'string' || !UUID.test(challengeId)) throw new Error();
+  if (typeof otpauthUri !== 'string' || otpauthUri.length > 512 || !otpauthUri.startsWith('otpauth://')) throw new Error();
+  return { factorId, otpauthUri, challengeId };
+}
+
+/** Alta del factor TOTP (solo admin/superadmin sin factor verificado). El URI contiene el secreto: no se guarda ni se registra. */
+export async function enrollMfa(csrfToken: string): Promise<MfaEnrollment> {
+  return parseEnrollment(await apiRequest('POST', '/auth/mfa-enrollments', { csrfToken }));
+}
+
+/** Completa el reto TOTP y eleva la sesión a aal 2. Las cookies rotan, así que se pide un CSRF nuevo. */
+export async function verifyMfa(csrfToken: string, challengeId: string, code: string): Promise<LoginResult> {
+  const session = parseSession(await apiRequest('POST', '/auth/mfa-verifications', { body: { challengeId, code }, csrfToken }));
+  return { session, csrfToken: parseCsrfToken(await apiRequest('GET', '/auth/csrf-token')) };
+}
+
+/** Respuesta siempre 202, exista o no la cuenta: no se interpreta nada del resultado. */
+export async function requestPasswordRecovery(email: string): Promise<void> {
+  await apiRequest('POST', '/auth/password-recovery-requests', { body: { email } });
+}

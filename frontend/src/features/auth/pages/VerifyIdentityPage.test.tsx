@@ -1,40 +1,145 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
-import { click, setupRender, type } from '../../../test/render.js';
-import { renderRoute } from '../../../test/renderRoute.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { click, settle, setupRender, type } from '../../../test/render.js';
+import { TEST_DONOR_SESSION, renderRoute } from '../../../test/renderRoute.js';
+import { clearAuthSession, getAuthSession } from '../session/session.js';
 
 setupRender();
+afterEach(() => clearAuthSession());
 
-describe('AUTH-05 MFA y step-up', () => {
+const CHALLENGE = '8f14e45f-ceea-4e67-a4cd-0f6b3c2d1a10';
+const ENROLL_CHALLENGE = '1b4e28ba-2fa1-41d2-883f-0016d3cca427';
+const csrf = { data: { token: 'token-csrf-mfa-sintetico-0000000000000' } };
+const adminAal1 = { ...TEST_DONOR_SESSION, role: 'admin_hospitalario', aal: 1, mfaRequired: true } as const;
+const withChallenge = { ...adminAal1, mfaChallengeId: CHALLENGE } as const;
+const elevated = { data: { actor: { role: 'admin_hospitalario', displayName: 'Persona sintética' }, aal: 2, mfaRequired: false } };
+
+type Call = { url: string; init?: RequestInit };
+const reply = (body: unknown, status = 200) => ({ ok: status < 300, status, json: async () => body });
+
+function stubFetch(handler: (url: string) => ReturnType<typeof reply>): Call[] {
+  const calls: Call[] = [];
+  vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+    calls.push({ url: String(input), init });
+    return handler(String(input));
+  });
+  return calls;
+}
+
+function submitCode(view: Element, code: string) {
+  type(view.querySelector('input'), code);
+  click(view.querySelector('button[type="submit"]'));
+}
+
+describe('AUTH-05 MFA', () => {
+  it('sin sesión vuelve a /ingresar', async () => {
+    const view = renderRoute('/verificar-identidad', null);
+    await settle();
+    expect(view.querySelector('h1')?.textContent).toBe('Iniciar sesión');
+  });
+
+  it('una sesión que ya es aal 2 entra directo a su área', async () => {
+    const view = renderRoute('/verificar-identidad', { ...adminAal1, aal: 2, mfaRequired: false });
+    await settle();
+    expect(view.querySelector('main h1')?.textContent).toBe('Resumen operativo');
+  });
+
   it('pide un código numérico de un solo uso', () => {
-    const view = renderRoute('/verificar-identidad');
+    const view = renderRoute('/verificar-identidad', withChallenge);
     expect(view.querySelector('h1')?.textContent).toBe('Verifica tu identidad');
     const input = view.querySelector('input');
     expect(input?.getAttribute('inputmode')).toBe('numeric');
     expect(input?.getAttribute('autocomplete')).toBe('one-time-code');
     expect(view.textContent).toContain('Acceso administrativo');
+    expect(view.querySelector('a[href="/ingresar"]')?.textContent).toBe('Cancelar');
   });
 
-  it.each(['12345', '12a456', '123456789'])('rechaza «%s» y enfoca el campo', (code) => {
-    const view = renderRoute('/verificar-identidad');
+  it.each(['12345', '12a456', '123456789'])('rechaza «%s» sin llamar al backend y enfoca el campo', (code) => {
+    const calls = stubFetch(() => reply({}));
+    const view = renderRoute('/verificar-identidad', withChallenge);
     const input = view.querySelector('input');
-    type(input, code);
-    click(view.querySelector('button[type="submit"]'));
+    submitCode(view, code);
     expect(view.textContent).toContain('Ingresa el código de 6 dígitos de tu aplicación.');
     expect(document.activeElement).toBe(input);
+    expect(calls).toEqual([]);
   });
 
-  it('con un código válido avisa que la verificación aún no existe y limpia el campo', () => {
-    const view = renderRoute('/verificar-identidad');
-    const input = view.querySelector('input');
-    type(input, '123 456');
-    click(view.querySelector('button[type="submit"]'));
-    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Por ahora no se envían datos.');
-    expect((input as HTMLInputElement).value).toBe('');
+  it('un código válido eleva la sesión a aal 2 y abre el área del rol', async () => {
+    const calls = stubFetch((url) => (url.endsWith('/auth/mfa-verifications') ? reply(elevated) : reply(csrf)));
+    const view = renderRoute('/verificar-identidad', withChallenge);
+    submitCode(view, '123 456');
+    await settle();
+
+    const [verify, token] = calls;
+    expect(verify?.url).toBe('/api/v1/auth/mfa-verifications');
+    expect(verify?.init?.method).toBe('POST');
+    expect(JSON.parse(String(verify?.init?.body))).toEqual({ challengeId: CHALLENGE, code: '123456' });
+    expect(new Headers(verify?.init?.headers).get('x-csrf-token')).toBe(adminAal1.csrfToken);
+    // El CSRF va ligado a la sesión: tras elevarla se pide uno nuevo.
+    expect(token?.url).toBe('/api/v1/auth/csrf-token');
+    expect(getAuthSession()).toMatchObject({ role: 'admin_hospitalario', aal: 2, csrfToken: csrf.data.token });
+    expect(getAuthSession()?.mfaChallengeId).toBeUndefined();
+    expect(view.querySelector('main h1')?.textContent).toBe('Resumen operativo');
   });
 
-  it('«Cancelar» vuelve al ingreso', () => {
-    const view = renderRoute('/verificar-identidad');
-    expect(view.querySelector('a[href="/ingresar"]')?.textContent).toBe('Cancelar');
+  it('un código incorrecto (401) avisa, limpia el campo y deja reintentar sin expulsar', async () => {
+    stubFetch(() => reply({ error: { code: 'AUTHENTICATION_REQUIRED' } }, 401));
+    const view = renderRoute('/verificar-identidad', withChallenge);
+    submitCode(view, '000000');
+    await settle();
+
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('El código es incorrecto o venció.');
+    expect((view.querySelector('input') as HTMLInputElement).value).toBe('');
+    expect(getAuthSession()).toMatchObject({ aal: 1 });
+    expect(view.querySelector('h1')?.textContent).toBe('Verifica tu identidad');
+  });
+
+  it('demasiados intentos (429) lo dice sin reintentar', async () => {
+    stubFetch(() => reply({ error: { code: 'RATE_LIMITED' } }, 429));
+    const view = renderRoute('/verificar-identidad', withChallenge);
+    submitCode(view, '000000');
+    await settle();
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Demasiados intentos');
+  });
+
+  describe('sin factor enrolado (primer ingreso)', () => {
+    const enrollment = {
+      data: {
+        factorId: '9b2d7c1e-4a55-4f0e-8a3c-2f6d5e1b7c90',
+        otpauthUri: 'otpauth://totp/SaveALife:persona?secret=JBSWY3DPEHPK3PXP&issuer=SaveALife',
+        challengeId: ENROLL_CHALLENGE,
+      },
+    };
+
+    it('ofrece configurar el autenticador, muestra la clave y verifica con el reto del alta', async () => {
+      const calls = stubFetch((url) => {
+        if (url.endsWith('/auth/mfa-enrollments')) return reply(enrollment, 201);
+        if (url.endsWith('/auth/mfa-verifications')) return reply(elevated);
+        return reply(csrf);
+      });
+      const view = renderRoute('/verificar-identidad', adminAal1);
+      expect(view.querySelector('input')).toBeNull();
+      click([...view.querySelectorAll('button')].find((b) => b.textContent === 'Configurar autenticador') ?? null);
+      await settle();
+
+      expect(calls[0]?.url).toBe('/api/v1/auth/mfa-enrollments');
+      expect(new Headers(calls[0]?.init?.headers).get('x-csrf-token')).toBe(adminAal1.csrfToken);
+      expect(view.textContent).toContain('JBSWY3DPEHPK3PXP');
+
+      submitCode(view, '654321');
+      await settle();
+      expect(JSON.parse(String(calls[1]?.init?.body))).toEqual({ challengeId: ENROLL_CHALLENGE, code: '654321' });
+      expect(getAuthSession()).toMatchObject({ aal: 2 });
+      expect(view.querySelector('main h1')?.textContent).toBe('Resumen operativo');
+    });
+
+    it('si ya hay un factor (409) pide ingresar de nuevo para recibir un reto', async () => {
+      stubFetch(() => reply({ error: { code: 'STATE_CONFLICT' } }, 409));
+      const view = renderRoute('/verificar-identidad', adminAal1);
+      click([...view.querySelectorAll('button')].find((b) => b.textContent === 'Configurar autenticador') ?? null);
+      await settle();
+      expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Vuelve a ingresar');
+      expect(view.querySelector('input')).toBeNull();
+    });
   });
 });
