@@ -145,7 +145,8 @@ export function clearStepUp(): void {
 /** POST /auth/step-up-verifications. Un 401 es código incorrecto, no sesión caída: no se expira la sesión. */
 export async function verifyStepUpCode(code: string): Promise<void> {
   const until = await verifyStepUpRequest(requireSession().csrfToken, code);
-  stepUpUntil = Date.parse(until);
+  // Tope local de 5 minutos (ADR-004): no se confía en un `verifiedUntil` más largo para la pista de UX.
+  stepUpUntil = Math.min(Date.parse(until), Date.now() + 5 * 60_000);
 }
 
 /** El backend respondió 401 a mitad de uso: la sesión ya no existe. Se olvida y el área vuelve a /ingresar con aviso. */

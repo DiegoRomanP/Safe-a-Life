@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { act } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { press, settle, setupRender, type } from '../../../test/render.js';
+import { clearAuthSession } from '../../auth/session/session.js';
 import { renderRoute } from '../../../test/renderRoute.js';
 import { registerSuperadminApi } from '../../../test/superadminApi.js';
 
@@ -20,6 +22,8 @@ async function stepUp(view: HTMLElement, code = '123456') {
   type(control(view, 'Código de 6 dígitos'), code);
   await press(button(view, 'Verificar y continuar'));
 }
+
+afterEach(() => { vi.useRealTimers(); });
 
 describe('Superadmin contra el backend', () => {
   it('pide cada lista al backend y las sedes por hospital', async () => {
@@ -73,6 +77,16 @@ describe('Superadmin contra el backend', () => {
     expect(view.querySelector('#step-up-titulo')?.textContent).toBe('Verificación requerida');
   });
 
+  it('si la sesión se pierde durante el step-up vuelve a /ingresar en vez de decir que el código es incorrecto', async () => {
+    const view = renderRoute('/superadmin/hospitales');
+    await settle();
+    await press(button(view, 'Autorizar'));
+    clearAuthSession();
+    await stepUp(view);
+    expect(view.querySelector('h1')?.textContent).toBe('Iniciar sesión');
+    expect(view.textContent).not.toContain('El código es incorrecto');
+  });
+
   it('un conflicto (409) se anuncia, no muestra éxito y refresca los datos', async () => {
     const view = renderRoute('/superadmin/hospitales');
     await settle();
@@ -93,6 +107,20 @@ describe('Superadmin contra el backend', () => {
     expect(api().lastGrantHeader).toMatch(/^[0-9a-f-]{36}$/);
     expect(view.textContent).toContain('A−');
     expect(JSON.stringify(Object.entries(localStorage))).not.toContain('A−');
+  });
+
+  it('los datos del donante se borran al vencer el acceso contextual aunque nadie interactúe', async () => {
+    // Solo los temporizadores se simulan; el tiempo real sigue avanzando para que las respuestas simuladas lleguen.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'], shouldAdvanceTime: true });
+    const view = renderRoute(`/superadmin/solicitudes/${CORRECTION}`);
+    await settle();
+    type(view.querySelector('#acceso-motivo'), 'Revisar la corrección pedida.');
+    await press(button(view, 'Ver datos de la solicitud'));
+    await stepUp(view);
+    expect(view.textContent).toContain('A−');
+
+    await act(async () => { vi.advanceTimersByTime(10 * 60_000 + 1_000); });
+    expect(view.textContent).not.toContain('A−');
   });
 
   it('ejecutar emite un grant de ejecución y lo envía en la cabecera, con el step-up exigido', async () => {
