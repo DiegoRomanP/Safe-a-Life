@@ -107,7 +107,7 @@ function InvitationDetail({ invitation, refreshing, onReload }: InvitationDetail
           )}
           {save.pending && <p className="text-sm text-muted">Guardando tu respuesta…</p>}
         </div>
-        <SaveErrorNotice error={save.error} onReview={review} />
+        <SaveErrorNotice error={save.error} validationDetail="El servidor rechazó tu respuesta." onReview={review} />
 
         {canRespond ? (
           <>

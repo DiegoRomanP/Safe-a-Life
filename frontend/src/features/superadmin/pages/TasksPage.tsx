@@ -19,6 +19,7 @@ export function TasksPage() {
   const { tasks, requests, retryDelivery } = useSuperadmin();
   const { requireStepUp, stepUpPanel } = useStepUpGate();
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [retrying, setRetrying] = useState<string | null>(null);
   const count = (kind: SuperadminTask['kind']) => tasks.filter((task) => task.kind === kind).length;
   const sorted = [...tasks].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
@@ -35,7 +36,11 @@ export function TasksPage() {
 
   function retry(task: SuperadminTask) {
     requireStepUp(`reintentar la entrega ${task.resourceCode ?? ''}`.trim(), async () => {
-      if (!(await retryDelivery(task.taskId))) return;
+      setNotice(null);
+      setRetrying(task.taskId);
+      const accepted = await retryDelivery(task.taskId);
+      setRetrying(null);
+      if (!accepted) return;
       setNotice({ message: 'Reintento aceptado', detail: 'El servidor procesará la entrega de nuevo si la invitación sigue vigente.' });
     });
   }
@@ -72,7 +77,7 @@ export function TasksPage() {
                     <Badge tone="warning">Pendiente</Badge>
                     <p className="text-sm text-ink">{formatDateTime(task.createdAt)}</p>
                     {task.kind === 'delivery_failure' && (
-                      <Button variant="secondary" onClick={() => retry(task)}>
+                      <Button variant="secondary" aria-disabled={retrying !== null} aria-busy={retrying === task.taskId} onClick={() => { if (retrying === null) retry(task); }}>
                         Reintentar entrega<span className="sr-only"> {task.resourceCode}</span>
                       </Button>
                     )}

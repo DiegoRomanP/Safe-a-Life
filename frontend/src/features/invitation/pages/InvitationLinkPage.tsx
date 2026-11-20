@@ -42,7 +42,7 @@ export function InvitationLinkPage() {
       (preview) => active && setLoad({ phase: 'ready', preview }),
       (error: unknown) => {
         if (!active) return;
-        if (error instanceof ApiError && error.status === 404) setStatus('invalid');
+        if (error instanceof ApiError && (error.status === 404 || error.status === 400 || error.status === 403)) setStatus('invalid');
         else if (error instanceof ApiError && error.status === 410) setStatus('used');
         else setLoad({ phase: 'error' });
       },
