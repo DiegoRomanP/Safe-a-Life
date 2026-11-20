@@ -48,9 +48,9 @@ describe('Estados de carga del área del donante', () => {
   });
 
   it('un error de red ofrece reintentar y se recupera al volver la conexión', async () => {
+    api.readStatus = 503;
     const view = renderRoute('/donante/solicitudes');
     await settle();
-    await scenario(view, 'error');
     const alert = view.querySelector('main [role="alert"]');
     expect(alert?.textContent).toContain('No pudimos cargar la información');
     expect(view.querySelector('tbody')).toBeNull();
@@ -66,7 +66,9 @@ describe('Estados de carga del área del donante', () => {
     await settle();
     expect(view.querySelector('main [role="alert"]')).not.toBeNull();
     expect(document.activeElement).toBe(region);
-    await scenario(view, 'normal');
+    api.readStatus = 200;
+    click(button(view, 'Reintentar'));
+    await settle();
     expect(view.querySelector('tbody tr th')?.textContent).toBe('SOL-7F21');
   });
 
@@ -173,7 +175,7 @@ describe('Envíos de formularios del donante', () => {
   it('un conflicto al crear la solicitud no navega y al revisarlo el foco vuelve al envío', async () => {
     const view = renderRoute('/donante/solicitudes/nueva');
     await settle();
-    await scenario(view, 'conflicto');
+    api.writeStatus = 409;
     const name = [...view.querySelectorAll('label')].find((item) => item.textContent?.startsWith('Nombre nuevo'));
     type(view.querySelector(`#${CSS.escape(name?.getAttribute('for') ?? '')}`), 'Persona Demo');
     click(view.querySelector('button[type="submit"]'));

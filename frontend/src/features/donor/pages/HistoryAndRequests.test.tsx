@@ -1,9 +1,12 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { click, settle, setupRender } from '../../../test/render.js';
 import { renderRoute } from '../../../test/renderRoute.js';
+import { stubDonorApi } from '../../../test/donorApi.js';
 
 setupRender();
+// Las solicitudes son reales: un backend en memoria las sirve.
+beforeEach(() => { stubDonorApi(); });
 
 describe('DON-04 Historial de respuestas', () => {
   it('lista las respuestas con hospital y fecha en hora de Lima', async () => {
