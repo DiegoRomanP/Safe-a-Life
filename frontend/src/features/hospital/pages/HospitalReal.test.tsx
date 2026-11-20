@@ -85,6 +85,18 @@ describe('Hospital contra el backend', () => {
     expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Borrador guardado');
   });
 
+  it('un error de una pantalla no reaparece en otra al navegar', async () => {
+    const view = renderRoute(`/hospital/necesidades/${A104}`);
+    await settle();
+    api().needs.find((need) => need.needId === A104)!.status = 'cerrada';
+    await press(button(view, 'Cancelar necesidad'));
+    await press(button(view, 'Sí, cancelar necesidad'));
+    expect(alerts(view)).toContain('El servidor no pudo aplicar el cambio');
+    await press(view.querySelector('nav a[href="/hospital/altas"]'));
+    expect(view.querySelector('h1')?.textContent).toBe('Altas asistidas');
+    expect(alerts(view)).toBe('');
+  });
+
   it('una sede rechazada por el servidor (422) se anuncia y no navega', async () => {
     const view = renderRoute('/hospital/necesidades/nueva');
     await settle();
@@ -102,7 +114,7 @@ describe('Hospital contra el backend', () => {
     api().needs.find((need) => need.needId === A104)!.status = 'cerrada';
     await press(button(view, 'Cancelar necesidad'));
     await press(button(view, 'Sí, cancelar necesidad'));
-    expect(alerts(view)).toContain('El estado cambió');
+    expect(alerts(view)).toContain('El servidor no pudo aplicar el cambio');
     expect(view.querySelector('[aria-live="polite"]')?.textContent).not.toContain('Necesidad cancelada');
     expect(button(view, 'Cancelar necesidad')).toBeNull();
   });

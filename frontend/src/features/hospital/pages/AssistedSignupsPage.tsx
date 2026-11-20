@@ -148,8 +148,8 @@ export function AssistedSignupsPage() {
               })}
             </ul>
           )}
-          <Alert tone="warning" title="Límite de demostración" className="mt-4">
-            Los estados y el envío son sintéticos; no se envían correos reales.
+          <Alert tone="warning" title="Uso académico" className="mt-4">
+            Usa solo correos de prueba: este prototipo no es para datos reales.
           </Alert>
         </Card>
       </div>
