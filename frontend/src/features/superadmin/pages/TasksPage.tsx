@@ -36,7 +36,7 @@ export function TasksPage() {
   function retry(task: SuperadminTask) {
     requireStepUp(`reintentar la entrega ${task.resourceCode ?? ''}`.trim(), async () => {
       if (!(await retryDelivery(task.taskId))) return;
-      setNotice({ message: 'Reintento aceptado', detail: 'Se renovaron los enlaces y se encoló un correo nuevo.' });
+      setNotice({ message: 'Reintento aceptado', detail: 'El servidor procesará la entrega de nuevo si la invitación sigue vigente.' });
     });
   }
 
