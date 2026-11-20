@@ -40,6 +40,7 @@
     "test:backend:integration": "node scripts/test-backend-integration.mjs",
     "test:contract": "node --test scripts/prism-contract.test.mjs && node scripts/test-prism-contract.mjs",
     "test:bruno": "node scripts/test-bruno.mjs",
+    "perf:invitations": "node --import tsx backend/scripts/perf-invitation-batch.ts",
     "test:bruno:backend": "node --import tsx scripts/test-bruno-backend.mjs",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present && npm run lint:root",

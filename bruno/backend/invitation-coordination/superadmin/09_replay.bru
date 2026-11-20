@@ -1,0 +1,21 @@
+meta {
+  name: La misma clave devuelve el mismo resultado
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/v1/superadmin/invitations/{{failedInvitationId}}/delivery-retries
+  body: none
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-retry
+}
+
+tests {
+  test("replay 202", function () { expect(res.getStatus()).to.equal(202); });
+}

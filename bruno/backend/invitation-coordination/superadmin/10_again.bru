@@ -1,0 +1,21 @@
+meta {
+  name: Tras el reintento la entrega ya no está fallida
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/v1/superadmin/invitations/{{failedInvitationId}}/delivery-retries
+  body: none
+  auth: inherit
+}
+
+headers {
+  Origin: {{appOrigin}}
+  X-CSRF-Token: {{csrfToken}}
+  Idempotency-Key: {{idempotencyKey}}-retry-again
+}
+
+tests {
+  test("409: pendiente", function () { expect(res.getStatus()).to.equal(409); });
+}
