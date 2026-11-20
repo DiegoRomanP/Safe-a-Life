@@ -79,4 +79,22 @@ describe('Detalle de invitación', () => {
     expect(view.querySelector('main')?.textContent).toContain('Por seguridad no mostramos más información.');
     expect(view.textContent).not.toContain('no-existe');
   });
+
+  it('sin perfil activo, el estado vacío invita a completar el perfil (B3)', async () => {
+    stubDonorApi(null).invitations = [];
+    const view = renderRoute('/donante/invitaciones');
+    await settle();
+    expect(view.textContent).toContain('Aún no tienes invitaciones');
+    expect(view.textContent).not.toContain('Sin resultados');
+    const cta = [...view.querySelectorAll('a')].find((a) => a.textContent === 'Completar perfil');
+    expect(cta?.getAttribute('href')).toBe('/donante/bienvenida');
+  });
+
+  it('con perfil activo y sin invitaciones, no ofrece completar el perfil', async () => {
+    stubDonorApi().invitations = [];
+    const view = renderRoute('/donante/invitaciones');
+    await settle();
+    expect(view.textContent).toContain('Aún no tienes invitaciones');
+    expect([...view.querySelectorAll('a')].some((a) => a.textContent === 'Completar perfil')).toBe(false);
+  });
 });
