@@ -1,6 +1,6 @@
 begin;
 -- Aislamiento: las pruebas corren sobre una base que puede estar sembrada. Todo se revierte con el rollback.
-truncate app.sites, app.hospital_memberships, app.hospitals, app.user_accounts cascade;
+truncate app.sites, app.hospital_memberships, app.hospitals, app.user_accounts, app.rate_limit_events cascade;
 alter table app.configuration disable trigger configuration_guard;
 update app.configuration set final_demo_at = null;
 alter table app.configuration enable trigger configuration_guard;
