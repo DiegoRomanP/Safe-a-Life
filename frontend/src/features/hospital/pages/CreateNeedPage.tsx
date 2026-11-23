@@ -30,7 +30,7 @@ function rangeError(value: string, min: number, max: number, unit: string): stri
 
 const reminders = [
   { term: 'Meta', detail: 'Expresa intenciones de asistir, no unidades de sangre.' },
-  { term: 'Urgencia', detail: 'No amplía el radio ni crea lotes automáticos.' },
+  { term: 'Urgencia', detail: 'No amplía el radio ni cambia a quién se invita.' },
   { term: 'Preselección', detail: 'La matriz es académica y no determina elegibilidad.' },
   { term: 'Datos', detail: 'No incluyas pacientes, diagnósticos ni historias clínicas.' },
 ];
@@ -98,7 +98,7 @@ export function CreateNeedPage() {
       <Link to="/hospital/necesidades" className="self-start rounded font-semibold text-petrol underline underline-offset-4">
         Volver a necesidades
       </Link>
-      <PageHeader title="Crear necesidad" description="Define una meta de intenciones de asistir para glóbulos rojos. Al publicar, se invita a los donantes compatibles más cercanos." />
+      <PageHeader title="Crear necesidad" description="Define una meta de intenciones de asistir para glóbulos rojos. Al publicar, se solicita un primer lote de invitaciones a donantes compatibles." />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_304px]">
         <Card title="Información de la necesidad">
           <ActionError />

@@ -72,3 +72,22 @@ impide dos escrituras a la vez.
 - Las dos fases de la parte B se intentaron delegar a subagentes en paralelo y fallaron por el mismo hook que bloquea las llamadas
   al subagente; las hizo la sesión principal siguiendo las skills `security-and-hardening`, `ci-cd-and-automation` y
   `shipping-and-launch`. La revisión independiente de la parte B tampoco existe todavía.
+
+## Revisión independiente (subagente de solo lectura, 2026-11-23)
+
+Se lanzó con los roles security-privacy-auditor y clinical-safety-reviewer sobre los commits b692c95…5d6b23f. Sin hallazgos críticos.
+Ejecutó `openapi:api:check`, `check:headers` (27/27), 90 + 58 tests y pgTAP; solo `09_privacy_execution` falló, por datos locales residuales.
+
+**Abiertos (no corregidos):**
+- **Alto: diferenciación entre lecturas.** El k=3 vale por lectura. Con borradores de radios (1–50 km), grupos receptores y sedes distintas se restan
+  totales, anillos y celdas para aislar a una persona (corona y grupo sanguíneo); con 3 sedes, ~1 km². Demostrado en la base local. ADR-008 lo subestima.
+  Mitigación propuesta: tope por hospital (~20/h) con el `RateLimiter` del servicio, cubos gruesos («menos de 5 / 5–9 / 10–24 / 25+») y auditoría de consultas.
+  Requiere decisión de la persona usuaria; el redondeo a múltiplos de 5 por sí solo no basta.
+- **Medio:** sin tope ni auditoría en `getNeedCoverage` (el contrato declara 429 que nada emite); `app.invitation_candidates` es copia a mano del lote real
+  (hoy idéntica, cubierta por un solo caso pgTAP: conviene que el lote la consuma o ampliar la prueba de paridad); la cobertura de un borrador no exige
+  sede activa y aprobada (el lote real sí: publicar daría 409).
+- **Bajo:** aviso clínico ausente en la sección de cobertura; fallo parcial ambiguo en `createNeed`; el gateway no rechaza conteos 1–2; CI sin job de ESLint
+  aunque CLAUDE.md lo dice; mensaje 429 subestima el tope de 20 lotes/hora.
+- **Corregido tras la revisión:** dos textos de `CreateNeedPage` desfasados con «Publicar e invitar».
+- Pruebas que faltan: pgTAP de cupo 3/24 h, invitación previa, eliminación en ejecución, polígono, rol, sede no aprobada y `service_role`/`public` sin ejecución;
+  router de cobertura (401/403/AAL1); Bruno negativos; frontend (429 en el segundo paso, doble clic).
