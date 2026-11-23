@@ -1366,7 +1366,7 @@
                 "examples": {
                   "cobertura": {
                     "summary": "Necesidad con una celda visible",
-                    "value": { "data": { "site": { "latitude": -12.046374, "longitude": -77.042793 }, "radiusKm": 10, "compatibleCount": 6, "nextBatchCount": 6, "rings": [{ "fromKm": 0, "toKm": 2.5, "count": 5 }, { "fromKm": 2.5, "toKm": 5, "count": 1 }, { "fromKm": 5, "toKm": 7.5, "count": 0 }, { "fromKm": 7.5, "toKm": 10, "count": 0 }], "cells": [{ "latitude": -12.065, "longitude": -77.045, "count": 4 }] } }
+                    "value": { "data": { "site": { "latitude": -12.046374, "longitude": -77.042793 }, "radiusKm": 10, "compatibleCount": 6, "nextBatchCount": 6, "rings": [{ "fromKm": 0, "toKm": 10, "count": 6 }], "cells": [{ "latitude": -12.065, "longitude": -77.045, "count": 4 }] } }
                   }
                 }
               }
@@ -2757,21 +2757,21 @@
       },
       "NeedCoverageEnvelope": {
         "type": "object", "additionalProperties": false, "required": ["data"],
-        "example": { "data": { "site": { "latitude": -12.046374, "longitude": -77.042793 }, "radiusKm": 10, "compatibleCount": 6, "nextBatchCount": 6, "rings": [{ "fromKm": 0, "toKm": 2.5, "count": 5 }, { "fromKm": 2.5, "toKm": 5, "count": 1 }, { "fromKm": 5, "toKm": 7.5, "count": 0 }, { "fromKm": 7.5, "toKm": 10, "count": 0 }], "cells": [{ "latitude": -12.065, "longitude": -77.045, "count": 4 }] } },
+        "example": { "data": { "site": { "latitude": -12.046374, "longitude": -77.042793 }, "radiusKm": 10, "compatibleCount": 6, "nextBatchCount": 6, "rings": [{ "fromKm": 0, "toKm": 10, "count": 6 }], "cells": [{ "latitude": -12.065, "longitude": -77.045, "count": 4 }] } },
         "properties": {
           "data": {
             "type": "object", "additionalProperties": false,
-            "description": "Solo agregados (RF-VIS-01/02). Las celdas de rejilla de 0,01° se devuelven con su centro y solo si tienen al menos 3 donantes; el resto aparece únicamente en los anillos y en el total.",
+            "description": "Solo agregados (RF-VIS-01/02) con supresión k-anónima (k = 3): ni un grupo de anillos, ni una celda, ni el total revelan 1 o 2 personas. Las celdas de rejilla de 0,01° se devuelven con su centro y solo si tienen al menos 3 donantes.",
             "required": ["site", "radiusKm", "compatibleCount", "nextBatchCount", "rings", "cells"],
             "properties": {
               "site": { "type": "object", "additionalProperties": false, "required": ["latitude", "longitude"], "description": "Sede de la necesidad (dato público del hospital, no de un donante).", "properties": { "latitude": { "type": "number", "minimum": -90, "maximum": 90 }, "longitude": { "type": "number", "minimum": -180, "maximum": 180 } } },
               "radiusKm": { "type": "integer", "minimum": 1, "maximum": 50 },
-              "compatibleCount": { "type": "integer", "minimum": 0, "description": "Donantes que cumplen hoy todos los filtros del lote." },
-              "nextBatchCount": { "type": "integer", "minimum": 0, "maximum": 50, "description": "Invitaciones que crearía un lote ahora: min(compatibleCount, min(50, max(5, 2 × meta))). Nunca se rellena." },
+              "compatibleCount": { "type": ["integer", "null"], "minimum": 0, "description": "Donantes que cumplen hoy todos los filtros del lote. `null` = hay 1 o 2 (menos de 3): no se revela; el 0 sí se dice." },
+              "nextBatchCount": { "type": ["integer", "null"], "minimum": 0, "maximum": 50, "description": "Invitaciones que crearía un lote ahora: min(compatibleCount, min(50, max(5, 2 × meta))). Nunca se rellena. `null` cuando compatibleCount es `null`." },
               "rings": {
-                "type": "array", "minItems": 4, "maxItems": 4,
-                "description": "Cuatro anillos iguales hasta el radio; cada donante cae en uno solo.",
-                "items": { "type": "object", "additionalProperties": false, "required": ["fromKm", "toKm", "count"], "properties": { "fromKm": { "type": "number", "minimum": 0 }, "toKm": { "type": "number", "minimum": 0 }, "count": { "type": "integer", "minimum": 0 } } }
+                "type": "array", "minItems": 1, "maxItems": 4,
+                "description": "Grupos contiguos de los cuatro anillos de radio/4 hasta el radio; cada donante cae en uno solo. Los anillos se fusionan hasta que cada grupo tiene al menos 3 donantes (un grupo con 1 o 2 situaría a una persona en una corona alrededor de la sede); con 1 o 2 candidatos en total hay un solo grupo con `count: null`.",
+                "items": { "type": "object", "additionalProperties": false, "required": ["fromKm", "toKm", "count"], "properties": { "fromKm": { "type": "number", "minimum": 0 }, "toKm": { "type": "number", "minimum": 0 }, "count": { "type": ["integer", "null"], "minimum": 0 } } }
               },
               "cells": {
                 "type": "array", "maxItems": 500,

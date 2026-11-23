@@ -82,7 +82,7 @@ The npm workspace has four members: `apps/web`, `apps/mock-api`, `backend` and
   lint, run `openapi:types`, and rerun the contract/Bruno tests.
 - **Ratification status.** Ratified for implementation (`x-ratification` in
   `docs/openapi.json`): the 14 donor-registration / profile / assisted-signup / email-change operations of F5, the nine privacy-request operations of F7 (implemented without account deletion in Auth, see `docs/plans/2026-10-20-privacy-requests.md`), the five admin-invitation / password-recovery operations of F2b, the Resend webhook of F4, the four need operations of F3 (`createHospitalNeed`,
-  list, get and transition of own needs), the health pair and the 21
+  list, get and transition of own needs), `getNeedCoverage` (aggregate-only donor coverage, ADR-008), the health pair and the 21
   identity-institutions operations of F2a (session, MFA, step-up, hospitals,
   sites, memberships, configuration, audit, task queue). The rest are drafts.
   Implementing any of them, or changing behavior around open AP items, needs

@@ -52,6 +52,7 @@ prueba el estado actual).
 | [ADR-005](decisions/ADR-005-email-outbox-worker.md) | Email, outbox y worker | Aprobado |
 | [ADR-006](decisions/ADR-006-allowlist-service-role.md) | Allowlist de `service_role` | Aprobado |
 | [ADR-007](decisions/ADR-007-barrera-de-sesion-tras-reset-de-contrasena.md) | Barrera de sesión tras reset de contraseña | Aprobado |
+| [ADR-008](decisions/ADR-008-publicar-e-invitar-y-cobertura-agregada.md) | Publicar e invitar y cobertura agregada | Aprobado |
 
 Un ADR aceptado no se cambia sin decisión de la persona usuaria.
 

@@ -2145,7 +2145,7 @@ Fuentes: RF-MAT-01..05 y ERS 7.2. Pasos en orden:
 
 Además:
 
-- Lotes **solo manuales**.
+- Lotes **solicitados por el admin** (antes «solo manuales»; [ADR-008](../decisions/ADR-008-publicar-e-invitar-y-cobertura-agregada.md), 2026-11-23): al publicar, la interfaz pide el primer lote en la misma acción con la sesión y el AAL2 del admin; no hay envío sin una acción del admin ni actor de sistema.
 - Urgencia, reconocimiento y tiempo no influyen.
 - Las altas asistidas no reclamadas no participan.
 - Invitaciones, outbox y auditoría se guardan en una sola transacción.

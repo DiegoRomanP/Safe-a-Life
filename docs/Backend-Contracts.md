@@ -82,6 +82,16 @@ workspaces, incluido `backend`. `npm run dev` solo inicia Vite y el mock web;
 no inicia el backend; para eso existe `npm run dev:backend`. La presencia de
 rutas de negocio no sustituye pruebas de Auth, autorización, RLS y persistencia.
 
+## Adición 2026-11-23: cobertura agregada de una necesidad
+
+La persona usuaria ratificó el 2026-11-23 **una** operación nueva del módulo `invitation-coordination`:
+`getNeedCoverage` (`GET /api/v1/hospitals/me/needs/{needId}/coverage`), con solo agregados (grupos de anillos y celdas de
+al menos 3 donantes, `null` bajo 3; sin ubicación, distancia, nombre ni id de personas). No ratifica operaciones vecinas. Decisión y límites en
+[ADR-008](decisions/ADR-008-publicar-e-invitar-y-cobertura-agregada.md). Corte estático de `docs/openapi.json` tras la adición:
+59 paths, 74 operaciones, 101 schemas y 67 operaciones con `x-ratification` ratificada (los recuentos de 2026-10-20 de arriba
+son históricos). Implementada en `backend` (migración `20261123000000_need_coverage.sql`, router de invitaciones) y probada con
+pgTAP, Vitest y Bruno contra el backend real.
+
 ## Alcance de la ratificación
 
 El acuerdo inicial ratificó únicamente la creación en `borrador`, la entrada
