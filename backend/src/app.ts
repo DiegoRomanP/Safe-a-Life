@@ -3,6 +3,7 @@ import type { AppConfig } from './config/env.js';
 import { correlationIdMiddleware } from './shared/http/correlation-id.js';
 import { createErrorHandler, notFoundHandler } from './shared/http/errors.js';
 import { edgeGuard } from './shared/http/edge-guard.js';
+import { httpsOnly } from './shared/http/https-only.js';
 import { originGuard } from './shared/http/origin-guard.js';
 import { securityHeaders } from './shared/http/security-headers.js';
 import { denialKindFor, type DenialAuditor } from './shared/audit/denial-audit.js';
@@ -10,7 +11,7 @@ import { findPrincipal } from './shared/auth/principal.js';
 import type { Logger } from './shared/observability/logger.js';
 
 export interface AppDependencies {
-  readonly config: Pick<AppConfig, 'allowedOrigins' | 'trustedProxies'> & Partial<Pick<AppConfig, 'edgeSecret'>>;
+  readonly config: Pick<AppConfig, 'allowedOrigins' | 'trustedProxies'> & Partial<Pick<AppConfig, 'edgeSecret' | 'production'>>;
   readonly logger: Logger;
   /** Rutas que necesitan el body crudo (webhook firmado); corren antes de `express.json`. */
   readonly mountBeforeJson?: (app: express.Express) => void;
@@ -68,6 +69,8 @@ export function createApp({ config, logger, mountBeforeJson, mount, auditDenial 
   app.use(correlationIdMiddleware);
   app.use(requestLogger(logger, auditDenial));
   app.use(edgeGuard(config.edgeSecret ?? ''));
+  // Tras el edgeGuard: X-Forwarded-Proto solo es creíble si la petición pasó por el borde de confianza.
+  app.use(httpsOnly(config.production === true));
   app.use(originGuard(config.allowedOrigins));
   mountBeforeJson?.(app);
   // El frontend nunca comprime peticiones: sin inflate no hay superficie de descompresión (GHSA-27r3-jxmh-p828).

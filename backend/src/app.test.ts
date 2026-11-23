@@ -53,9 +53,11 @@ describe('createApp', () => {
     expect(response.headers.get('content-security-policy')).toBe("default-src 'none'; frame-ancestors 'none'");
     expect(response.headers.get('referrer-policy')).toBe('no-referrer');
     expect(response.headers.get('cache-control')).toBe('no-store');
-    expect(response.headers.get('strict-transport-security')).toBe('max-age=31536000; includeSubDomains');
+    expect(response.headers.get('strict-transport-security')).toBe('max-age=63072000; includeSubDomains');
     expect(response.headers.get('etag')).toBeNull();
     expect(response.headers.get('cross-origin-resource-policy')).toBe('same-origin');
+    expect(response.headers.get('cross-origin-opener-policy')).toBe('same-origin');
+    expect(response.headers.get('x-permitted-cross-domain-policies')).toBe('none');
     expect(response.headers.get('permissions-policy')).toBe('camera=(), microphone=(), geolocation=(), payment=(), usb=()');
   });
 
