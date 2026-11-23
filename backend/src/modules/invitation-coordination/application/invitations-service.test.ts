@@ -114,3 +114,19 @@ describe('respuesta por token', () => {
     expect(seen.respond).toBeUndefined();
   });
 });
+
+describe('cobertura agregada', () => {
+  it('delega en el repositorio con la sesión de la persona y el id de la necesidad, sin preparar tokens ni slots', async () => {
+    const coverage = { site: { latitude: -12.04, longitude: -77.04 }, radiusKm: 10, compatibleCount: 0, nextBatchCount: 0, rings: [], cells: [] };
+    const seen: unknown[] = [];
+    const service = createInvitationsService({
+      repository: { getCoverage: async (...args: unknown[]) => { seen.push(args); return coverage; } } as Partial<InvitationsRepository> as InvitationsRepository,
+      needs: { get: async () => { throw new Error('no debe leer la necesidad'); } },
+      limiter: { consume: async () => ({ allowed: true }) } as never,
+      seal: () => { throw new Error('no debe sellar nada'); },
+    });
+    await expect(service.getCoverage('jwt', NEED)).resolves.toBe(coverage);
+    expect(seen).toEqual([['jwt', NEED]]);
+  });
+});
+

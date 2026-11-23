@@ -52,6 +52,8 @@ export function createInvitationsService({
      * Lote de invitaciones. La autorización resuelve antes el replay de la misma clave (sin tope ni estado); si no lo es, la meta
      * de la necesidad propia (404 si es ajena) fija cuántos slots se preparan.
      */
+    getCoverage: (accessToken: string, needId: string) => repository.getCoverage(accessToken, needId),
+
     async requestBatch(accessToken: string, key: string, needId: string) {
       const envelope = { key, hash: fingerprint([['needId', needId]]) };
       const grant = await repository.authorizeBatch(accessToken, envelope, needId);

@@ -767,6 +767,43 @@ export function createApp(initialState: DemoState = createDemoState()) {
     response.json({ data });
   });
 
+  // Cobertura sintética y determinista: solo agregados, celdas con al menos 3 donantes (k = 3), nunca una persona.
+  app.get('/api/v1/hospitals/me/needs/:needId/coverage', (request, response) => {
+    const session = actorForRole(request, response, state.sessions, ['admin_hospitalario']);
+    if (!session) return;
+    const parsedNeedId = uuidSchema.safeParse(request.params.needId);
+    if (!parsedNeedId.success) {
+      sendError(response, 400, 'BAD_REQUEST', 'Solicitud malformada.');
+      return;
+    }
+    const need = state.needs.find((candidate) => candidate.needId === parsedNeedId.data
+      && candidate.hospitalId === session.actor.hospitalId);
+    if (!need) {
+      sendError(response, 404, 'RESOURCE_NOT_FOUND', 'El recurso no está disponible.');
+      return;
+    }
+    const status = needStatusForRead(need, Date.now());
+    if (status !== 'borrador' && status !== 'activa') {
+      sendError(response, 409, 'STATE_CONFLICT', 'La operación entra en conflicto con el estado actual.');
+      return;
+    }
+    const step = need.radiusKm / 4;
+    const perRing = [6, 4, 2, 1];
+    const compatibleCount = perRing.reduce((sum, count) => sum + count, 0);
+    const data: ApiSchemas['NeedCoverageEnvelope']['data'] = {
+      site: { latitude: -12.046374, longitude: -77.042793 },
+      radiusKm: need.radiusKm,
+      compatibleCount,
+      nextBatchCount: Math.min(compatibleCount, Math.min(50, Math.max(5, 2 * need.targetConfirmations))),
+      rings: perRing.map((count, index) => ({ fromKm: Number((step * index).toFixed(2)), toKm: Number((step * (index + 1)).toFixed(2)), count })),
+      cells: [
+        { latitude: -12.045, longitude: -77.045, count: 4 },
+        { latitude: -12.055, longitude: -77.035, count: 3 },
+      ],
+    };
+    response.set('Cache-Control', 'no-store').json({ data });
+  });
+
   app.post('/api/v1/hospitals/me/needs/:needId/invitation-batches', (request, response) => {
     const session = actorForRole(request, response, state.sessions, ['admin_hospitalario']);
     if (!session) return;

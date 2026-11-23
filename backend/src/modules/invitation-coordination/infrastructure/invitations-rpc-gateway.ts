@@ -1,10 +1,10 @@
-import { asNumber, asString, closedRecord, oneOf } from '../../../shared/persistence/guards.js';
+import { asArray, asNumber, asString, closedRecord, oneOf } from '../../../shared/persistence/guards.js';
 import { pageOf } from '../../../shared/persistence/page.js';
 import type { RpcInvoker } from '../../../shared/persistence/rpc-invoker.js';
 import { NEED_STATUSES } from '../../need-records/domain/need-state.js';
 import type {
   ActionPreview, BatchResult, ConfirmedResponse, DeliveryCounts, InvitationBatchView, InvitationItem, InvitationResponseResult,
-  InvitationsRepository, OpaqueResponse, OwnInvitationDetail, ResponseHistoryItem,
+  InvitationsRepository, NeedCoverage, OpaqueResponse, OwnInvitationDetail, ResponseHistoryItem,
 } from '../application/invitations.ports.js';
 
 const BLOOD_TYPES = ['O_NEG', 'O_POS', 'A_NEG', 'A_POS', 'B_NEG', 'B_POS', 'AB_NEG', 'AB_POS'] as const;
@@ -53,6 +53,24 @@ export const parseItem = (value: unknown): InvitationItem => {
   });
 };
 
+/** Forma cerrada: un campo de más (por ejemplo, una posición individual) es un fallo, no un dato que se cuele al hospital. */
+function parseCoverage(reply: Record<string, unknown>): NeedCoverage {
+  const row = closedRecord(reply, ['kind', 'site', 'radiusKm', 'compatibleCount', 'nextBatchCount', 'rings', 'cells']);
+  const site = closedRecord(row.site, ['latitude', 'longitude']);
+  return Object.freeze({
+    site: Object.freeze({ latitude: asNumber(site.latitude), longitude: asNumber(site.longitude) }),
+    radiusKm: asNumber(row.radiusKm), compatibleCount: asNumber(row.compatibleCount), nextBatchCount: asNumber(row.nextBatchCount),
+    rings: Object.freeze(asArray(row.rings).map((value) => {
+      const ring = closedRecord(value, ['fromKm', 'toKm', 'count']);
+      return Object.freeze({ fromKm: asNumber(ring.fromKm), toKm: asNumber(ring.toKm), count: asNumber(ring.count) });
+    })),
+    cells: Object.freeze(asArray(row.cells).map((value) => {
+      const cell = closedRecord(value, ['latitude', 'longitude', 'count']);
+      return Object.freeze({ latitude: asNumber(cell.latitude), longitude: asNumber(cell.longitude), count: asNumber(cell.count) });
+    })),
+  });
+}
+
 const batchOf = (reply: Record<string, unknown>): BatchResult => Object.freeze({
   batchId: asString(reply.batchId), createdInvitationCount: asNumber(reply.createdInvitationCount), queuedEmailCount: asNumber(reply.queuedEmailCount),
 });
@@ -96,6 +114,10 @@ export function createInvitationsRpcGateway(rpc: RpcInvoker, technical: RpcInvok
     async listNeedResponses(accessToken, needId, { limit, cursor }) {
       const reply = await rpc({ accessToken, name: 'list_own_need_responses', okKinds: ['ok'], args: { p_need_id: needId, p_limit: limit, ...cursorArgs(cursor) } });
       return Object.freeze({ ...pageOf(reply, parseNeedResponse), confirmedIntentCount: asNumber(reply.confirmedIntentCount) });
+    },
+
+    async getCoverage(accessToken, needId) {
+      return parseCoverage(await rpc({ accessToken, name: 'get_need_coverage', okKinds: ['ok'], args: { p_need_id: needId } }));
     },
 
     async listOwn(accessToken, { limit, cursor }) {

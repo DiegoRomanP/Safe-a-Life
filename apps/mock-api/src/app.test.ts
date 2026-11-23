@@ -1066,3 +1066,36 @@ describe('mock API demo slice', () => {
     expect(closedBatch.status).toBe(409);
   });
 });
+
+describe('cobertura agregada sintética (getNeedCoverage)', () => {
+  const needId = '4c117ef2-3ebd-43f2-8629-c06d5c8df68f';
+  const foreignNeedId = 'd3ed0c32-264b-4b25-858c-3f8aa1b6678f';
+  const path = (id: string) => `/api/v1/hospitals/me/needs/${id}/coverage`;
+
+  it('devuelve solo agregados: forma cerrada, anillos que suman el total y celdas con al menos 3 donantes', async () => {
+    const app = createApp(createDemoState());
+    const cookie = await login(app, 'hospital.demo@example.test');
+
+    const result = await request(app).get(path(needId)).set('Cookie', cookie);
+
+    expect(result.status).toBe(200);
+    expect(result.headers['cache-control']).toBe('no-store');
+    const data = result.body.data;
+    expect(Object.keys(data).sort()).toEqual(['cells', 'compatibleCount', 'nextBatchCount', 'radiusKm', 'rings', 'site']);
+    expect(data.rings).toHaveLength(4);
+    expect(data.rings.reduce((sum: number, ring: { count: number }) => sum + ring.count, 0)).toBe(data.compatibleCount);
+    for (const cell of data.cells) expect(cell.count).toBeGreaterThanOrEqual(3);
+  });
+
+  it('una necesidad de otro hospital es 404 y una cerrada es 409; un donante no entra', async () => {
+    const state = createDemoState();
+    const app = createApp(state);
+    const hospital = await login(app, 'hospital.demo@example.test');
+    const donor = await login(app, 'pendiente.demo@example.test');
+
+    expect((await request(app).get(path(foreignNeedId)).set('Cookie', hospital)).status).toBe(404);
+    expect((await request(app).get(path(needId)).set('Cookie', donor)).status).toBe(403);
+    state.needs.find((need) => need.needId === needId)!.status = 'cerrada';
+    expect((await request(app).get(path(needId)).set('Cookie', hospital)).status).toBe(409);
+  });
+});

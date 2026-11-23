@@ -1,0 +1,17 @@
+meta {
+  name: La cobertura de una necesidad ajena o inexistente es 404
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{unknownNeedId}}/coverage
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("responde 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

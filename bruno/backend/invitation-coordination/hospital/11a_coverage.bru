@@ -1,0 +1,33 @@
+meta {
+  name: La cobertura de una necesidad activa solo trae agregados
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/v1/hospitals/me/needs/{{needId}}/coverage
+  body: none
+  auth: inherit
+}
+
+tests {
+  test("200 con forma cerrada, sin ids ni posiciones individuales", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getHeader("cache-control")).to.equal("no-store");
+    var d = res.getBody().data;
+    expect(Object.keys(d).sort()).to.deep.equal(["cells", "compatibleCount", "nextBatchCount", "radiusKm", "rings", "site"]);
+    expect(Object.keys(d.site).sort()).to.deep.equal(["latitude", "longitude"]);
+  });
+  test("cuatro anillos que suman el total y celdas con al menos 3 donantes", function () {
+    var d = res.getBody().data;
+    expect(d.rings).to.have.length(4);
+    var sum = 0;
+    d.rings.forEach(function (r) { expect(Object.keys(r).sort()).to.deep.equal(["count", "fromKm", "toKm"]); sum += r.count; });
+    expect(sum).to.equal(d.compatibleCount);
+    d.cells.forEach(function (c) {
+      expect(Object.keys(c).sort()).to.deep.equal(["count", "latitude", "longitude"]);
+      expect(c.count).to.be.at.least(3);
+    });
+    expect(d.nextBatchCount).to.be.at.most(d.compatibleCount);
+  });
+}

@@ -51,3 +51,29 @@ describe('gateway de invitaciones', () => {
     expect(calls[0]).toMatchObject({ accessToken: 'tecnica', name: 'get_invitation_action_preview', args: { p_token_hash: 'a'.repeat(64) } });
   });
 });
+
+describe('cobertura agregada del hospital', () => {
+  const COVERAGE = {
+    kind: 'ok', site: { latitude: -12.046374, longitude: -77.042793 }, radiusKm: 10, compatibleCount: 6, nextBatchCount: 6,
+    rings: [{ fromKm: 0, toKm: 2.5, count: 5 }, { fromKm: 2.5, toKm: 5, count: 1 }, { fromKm: 5, toKm: 7.5, count: 0 }, { fromKm: 7.5, toKm: 10, count: 0 }],
+    cells: [{ latitude: -12.065, longitude: -77.045, count: 4 }],
+  };
+
+  it('llama con la sesión de la persona (no la técnica) y solo con el id de la necesidad', async () => {
+    const { calls, gateway } = harness(COVERAGE);
+    const { kind: _kind, ...expected } = COVERAGE;
+    await expect(gateway.getCoverage('jwt', 'need')).resolves.toEqual(expected);
+    expect(calls[0]).toMatchObject({ accessToken: 'jwt', name: 'get_need_coverage', args: { p_need_id: 'need' } });
+  });
+
+  it.each([
+    ['una posición individual en una celda', { ...COVERAGE, cells: [{ latitude: -12.065, longitude: -77.045, count: 4, donorId: 'x' }] }],
+    ['un id o distancia en un anillo', { ...COVERAGE, rings: [{ fromKm: 0, toKm: 2.5, count: 5, distanceM: 120 }] }],
+    ['un campo de más en la raíz', { ...COVERAGE, donors: [] }],
+    ['un campo de más en la sede', { ...COVERAGE, site: { latitude: 1, longitude: 2, name: 'x' } }],
+  ])('rechaza %s (forma cerrada)', async (_label, reply) => {
+    const { gateway } = harness(reply);
+    await expect(gateway.getCoverage('jwt', 'need')).rejects.toThrow(PersistenceError);
+  });
+});
+

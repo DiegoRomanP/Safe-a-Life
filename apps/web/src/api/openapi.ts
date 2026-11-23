@@ -644,6 +644,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/hospitals/me/needs/{needId}/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description UUID de necesidad; la autorización también verifica hospital propietario. */
+                needId: components["parameters"]["NeedId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Consulta la cobertura agregada de donantes compatibles
+         * @description Cuenta los donantes que el lote real elegiría (grupo compatible, disponibles, dentro del radio, con cupo). Nunca devuelve ubicación, distancia, nombre ni id de una persona: solo anillos por radio y celdas de unos 1,1 km con al menos 3 donantes (las celdas con menos se omiten). Disponible para una necesidad propia en borrador o activa.
+         */
+        get: operations["getNeedCoverage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/hospitals/me/needs/{needId}/responses": {
         parameters: {
             query?: {
@@ -1448,6 +1471,74 @@ export interface components {
             data: {
                 items: components["schemas"]["InvitationBatchRecord"][];
                 pagination: components["schemas"]["Pagination"];
+            };
+        };
+        /**
+         * @example {
+         *       "data": {
+         *         "site": {
+         *           "latitude": -12.046374,
+         *           "longitude": -77.042793
+         *         },
+         *         "radiusKm": 10,
+         *         "compatibleCount": 6,
+         *         "nextBatchCount": 6,
+         *         "rings": [
+         *           {
+         *             "fromKm": 0,
+         *             "toKm": 2.5,
+         *             "count": 5
+         *           },
+         *           {
+         *             "fromKm": 2.5,
+         *             "toKm": 5,
+         *             "count": 1
+         *           },
+         *           {
+         *             "fromKm": 5,
+         *             "toKm": 7.5,
+         *             "count": 0
+         *           },
+         *           {
+         *             "fromKm": 7.5,
+         *             "toKm": 10,
+         *             "count": 0
+         *           }
+         *         ],
+         *         "cells": [
+         *           {
+         *             "latitude": -12.065,
+         *             "longitude": -77.045,
+         *             "count": 4
+         *           }
+         *         ]
+         *       }
+         *     }
+         */
+        NeedCoverageEnvelope: {
+            /** @description Solo agregados (RF-VIS-01/02). Las celdas de rejilla de 0,01° se devuelven con su centro y solo si tienen al menos 3 donantes; el resto aparece únicamente en los anillos y en el total. */
+            data: {
+                /** @description Sede de la necesidad (dato público del hospital, no de un donante). */
+                site: {
+                    latitude: number;
+                    longitude: number;
+                };
+                radiusKm: number;
+                /** @description Donantes que cumplen hoy todos los filtros del lote. */
+                compatibleCount: number;
+                /** @description Invitaciones que crearía un lote ahora: min(compatibleCount, min(50, max(5, 2 × meta))). Nunca se rellena. */
+                nextBatchCount: number;
+                /** @description Cuatro anillos iguales hasta el radio; cada donante cae en uno solo. */
+                rings: {
+                    fromKm: number;
+                    toKm: number;
+                    count: number;
+                }[];
+                cells: {
+                    latitude: number;
+                    longitude: number;
+                    count: number;
+                }[];
             };
         };
         OpaqueHospitalResponse: {
@@ -4062,6 +4153,38 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["UnprocessableEntity"];
+            429: components["responses"]["TooManyRequests"];
+            500: components["responses"]["InternalServerError"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    getNeedCoverage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description UUID de necesidad; la autorización también verifica hospital propietario. */
+                needId: components["parameters"]["NeedId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cobertura agregada; sin datos de personas. */
+            200: {
+                headers: {
+                    "Cache-Control"?: "no-store";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NeedCoverageEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             429: components["responses"]["TooManyRequests"];
             500: components["responses"]["InternalServerError"];
             503: components["responses"]["ServiceUnavailable"];

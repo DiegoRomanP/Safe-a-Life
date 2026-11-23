@@ -33,6 +33,7 @@ export function registerInvitationsRoutes(app: Express, { invitations, secrets }
   const guards = guardsFor(secrets);
   const listBatches = compileOperation('listOwnInvitationBatches');
   const requestBatch = compileOperation('requestInvitationBatch');
+  const coverage = compileOperation('getNeedCoverage');
   const listResponses = compileOperation('listOwnNeedResponses');
   const preview = compileOperation('getInvitationActionPreview');
   const respond = compileOperation('recordInitialInvitationResponse');
@@ -58,6 +59,14 @@ export function registerInvitationsRoutes(app: Express, { invitations, secrets }
     const id = canonicalId(needId);
     const key = requireIdempotencyKey(req);
     sendData(res, 201, ok(requestBatch, await invitations.requestBatch(token(res), key, id)));
+  });
+
+  app.get('/api/v1/hospitals/me/needs/:needId/coverage', ...guards.adminRead, async (req, res) => {
+    noQuery(coverage, req);
+    const { needId } = parse<{ needId: string }>(coverage, 'params', req);
+    // Agregados de la cartera de donantes: no se guardan en cachés (el contrato ya declara no-store; sendData lo aplica a toda la API).
+    res.setHeader('Cache-Control', 'no-store');
+    sendData(res, 200, ok(coverage, await invitations.getCoverage(token(res), canonicalId(needId))));
   });
 
   app.get('/api/v1/hospitals/me/needs/:needId/responses', ...guards.adminRead, async (req, res) => {

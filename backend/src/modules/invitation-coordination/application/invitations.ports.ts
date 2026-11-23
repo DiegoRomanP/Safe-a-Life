@@ -24,6 +24,17 @@ export type OpaqueResponse = Readonly<{
 }>;
 export type NeedResponsesPage = Page<ConfirmedResponse | OpaqueResponse> & Readonly<{ confirmedIntentCount: number }>;
 
+/**
+ * Cobertura agregada para el mapa del hospital (RF-VIS-01/02): sede, anillos por radio y celdas de al menos 3 donantes.
+ * Nunca lleva ubicación, distancia, nombre ni id de una persona.
+ */
+export type CoverageRing = Readonly<{ fromKm: number; toKm: number; count: number }>;
+export type CoverageCell = Readonly<{ latitude: number; longitude: number; count: number }>;
+export type NeedCoverage = Readonly<{
+  site: Readonly<{ latitude: number; longitude: number }>; radiusKm: number; compatibleCount: number; nextBatchCount: number;
+  rings: readonly CoverageRing[]; cells: readonly CoverageCell[];
+}>;
+
 export type ActionPreview = Readonly<{ hospitalName: string; publicSiteName: string; intendedAction: 'confirmar' | 'rechazar'; expiresAt: string }>;
 export type InvitationResponseResult = Readonly<{ response: 'confirmada' | 'rechazada'; recordedAt: string; needStatus: NeedStatus }>;
 
@@ -50,6 +61,8 @@ export interface InvitationsRepository {
   /** Con la clave de idempotencia: si el lote ya se creó con ella, devuelve ese resultado en vez de una concesión. */
   authorizeBatch(accessToken: string, envelope: Envelope, needId: string): Promise<Grant | { replayed: BatchResult }>;
   listNeedResponses(accessToken: string, needId: string, query: PageQuery): Promise<NeedResponsesPage>;
+  /** Solo agregados, con la sesión del admin: el hospital y el rol salen de la sesión, no de la petición. */
+  getCoverage(accessToken: string, needId: string): Promise<NeedCoverage>;
 
   listOwn(accessToken: string, query: PageQuery): Promise<Page<InvitationItem>>;
   getOwn(accessToken: string, invitationId: string): Promise<OwnInvitationDetail>;
