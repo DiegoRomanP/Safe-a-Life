@@ -18,16 +18,20 @@ tests {
     expect(Object.keys(d).sort()).to.deep.equal(["cells", "compatibleCount", "nextBatchCount", "radiusKm", "rings", "site"]);
     expect(Object.keys(d.site).sort()).to.deep.equal(["latitude", "longitude"]);
   });
-  test("cuatro anillos que suman el total y celdas con al menos 3 donantes", function () {
+  test("grupos de anillos y celdas con al menos 3 donantes; el total, si se dice, es la suma", function () {
     var d = res.getBody().data;
-    expect(d.rings).to.have.length(4);
+    expect(d.rings.length).to.be.within(1, 4);
     var sum = 0;
-    d.rings.forEach(function (r) { expect(Object.keys(r).sort()).to.deep.equal(["count", "fromKm", "toKm"]); sum += r.count; });
-    expect(sum).to.equal(d.compatibleCount);
+    d.rings.forEach(function (r) {
+      expect(Object.keys(r).sort()).to.deep.equal(["count", "fromKm", "toKm"]);
+      // k = 3: un grupo nunca revela 1 o 2 personas (null = menos de 3; el 0 sí se dice).
+      if (r.count === null) { expect(d.compatibleCount).to.equal(null); } else { expect(r.count === 0 || r.count >= 3).to.equal(true); sum += r.count; }
+    });
+    if (d.compatibleCount !== null) { expect(sum).to.equal(d.compatibleCount); expect([1, 2]).to.not.include(d.compatibleCount); }
     d.cells.forEach(function (c) {
       expect(Object.keys(c).sort()).to.deep.equal(["count", "latitude", "longitude"]);
       expect(c.count).to.be.at.least(3);
     });
-    expect(d.nextBatchCount).to.be.at.most(d.compatibleCount);
+    if (d.nextBatchCount !== null) { expect(d.nextBatchCount).to.be.at.most(d.compatibleCount); }
   });
 }

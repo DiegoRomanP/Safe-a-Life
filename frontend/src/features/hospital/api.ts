@@ -141,18 +141,25 @@ const exactly = (value: Record<string, unknown>, keys: readonly string[]) => {
   return value;
 };
 
+// 0 o al menos 3: un conteo de 1 o 2 identificaría a una persona y el servidor nunca lo envía.
+const countOrZero = (value: unknown, max: number): number => {
+  const n = int(value, 0, max);
+  return n === 1 || n === 2 ? malformed() : n;
+};
+
 const parseCoverage = (value: unknown): NeedCoverage => {
   const v = exactly(rec(value), ['site', 'radiusKm', 'compatibleCount', 'nextBatchCount', 'rings', 'cells']);
   const site = exactly(rec(v.site), ['latitude', 'longitude']);
-  if (!Array.isArray(v.rings) || v.rings.length !== 4 || !Array.isArray(v.cells) || v.cells.length > 500) malformed();
+  if (!Array.isArray(v.rings) || v.rings.length < 1 || v.rings.length > 4 || !Array.isArray(v.cells) || v.cells.length > 500) malformed();
   return {
     site: { latitude: num(site.latitude), longitude: num(site.longitude) },
     radiusKm: int(v.radiusKm, 1, 50),
-    compatibleCount: int(v.compatibleCount, 0, Number.MAX_SAFE_INTEGER),
-    nextBatchCount: int(v.nextBatchCount, 0, 50),
+    // `null` = menos de 3 (k-anonimato). Nunca llega 1 o 2: si llegara, se rechaza la respuesta entera.
+    compatibleCount: v.compatibleCount === null ? null : countOrZero(v.compatibleCount, 50_000),
+    nextBatchCount: v.nextBatchCount === null ? null : int(v.nextBatchCount, 0, 50),
     rings: (v.rings as unknown[]).map((ring) => {
       const r = exactly(rec(ring), ['fromKm', 'toKm', 'count']);
-      return { fromKm: num(r.fromKm), toKm: num(r.toKm), count: int(r.count, 0, Number.MAX_SAFE_INTEGER) };
+      return { fromKm: num(r.fromKm), toKm: num(r.toKm), count: r.count === null ? null : countOrZero(r.count, 50_000) };
     }),
     // Las celdas con menos de 3 donantes no llegan nunca (k-anonimato): si llegara una, se rechaza la respuesta entera.
     cells: (v.cells as unknown[]).map((cell) => {

@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import type { NeedCoverage } from '../types.js';
 
 const km = (value: number) => value.toLocaleString('es-PE', { maximumFractionDigits: 2 });
-const donors = (count: number) => `${count} ${count === 1 ? 'donante compatible sin invitar' : 'donantes compatibles sin invitar'}`;
+const donors = (count: number | null) => (count === null ? 'Menos de 3 donantes compatibles sin invitar' : `${count} ${count === 1 ? 'donante compatible sin invitar' : 'donantes compatibles sin invitar'}`);
 
 // Zoom que deja el radio dentro del mapa (~420 px de alto); fijo y sin fitBounds para no depender del tamaño del contenedor.
 const zoomFor = (radiusKm: number) => Math.min(14, Math.max(8, Math.round(14 - Math.log2(radiusKm))));
@@ -45,7 +45,7 @@ export function CoverageMap({ coverage }: { coverage: NeedCoverage }) {
       <div className="flex flex-col gap-1">
         <h2 id="cobertura-titulo" className="text-xl font-semibold text-ink">Cobertura de donantes compatibles</h2>
         <p className="text-muted">
-          {`${donors(coverage.compatibleCount)} dentro de ${km(radiusKm)} km. Un lote invitaría hoy a ${coverage.nextBatchCount}.`}
+          {`${donors(coverage.compatibleCount)} dentro de ${km(radiusKm)} km.${coverage.nextBatchCount === null ? '' : ` Un lote invitaría hoy a ${coverage.nextBatchCount}.`}`}
         </p>
       </div>
       <div
@@ -64,15 +64,15 @@ export function CoverageMap({ coverage }: { coverage: NeedCoverage }) {
         </thead>
         <tbody>
           {coverage.rings.map((ring) => (
-            <tr key={ring.fromKm} className="border-b border-line last:border-0">
+            <tr key={`${ring.fromKm}-${ring.toKm}`} className="border-b border-line last:border-0">
               <th scope="row" className="py-2 pr-4 font-normal text-ink">{`${km(ring.fromKm)}–${km(ring.toKm)} km`}</th>
-              <td className="py-2 text-ink">{ring.count}</td>
+              <td className="py-2 text-ink">{ring.count === null ? 'Menos de 3' : ring.count}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <p className="text-sm text-muted">
-        Solo se muestran conteos agregados; nunca la ubicación de una persona. Las zonas con menos de 3 donantes no se dibujan.
+        Solo se muestran conteos agregados; nunca la ubicación de una persona. Las zonas y las distancias con menos de 3 donantes no se detallan.
       </p>
     </section>
   );

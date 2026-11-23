@@ -1072,7 +1072,7 @@ describe('cobertura agregada sintética (getNeedCoverage)', () => {
   const foreignNeedId = 'd3ed0c32-264b-4b25-858c-3f8aa1b6678f';
   const path = (id: string) => `/api/v1/hospitals/me/needs/${id}/coverage`;
 
-  it('devuelve solo agregados: forma cerrada, anillos que suman el total y celdas con al menos 3 donantes', async () => {
+  it('devuelve solo agregados: forma cerrada, grupos de anillos y celdas con al menos 3 donantes y que suman el total', async () => {
     const app = createApp(createDemoState());
     const cookie = await login(app, 'hospital.demo@example.test');
 
@@ -1082,7 +1082,7 @@ describe('cobertura agregada sintética (getNeedCoverage)', () => {
     expect(result.headers['cache-control']).toBe('no-store');
     const data = result.body.data;
     expect(Object.keys(data).sort()).toEqual(['cells', 'compatibleCount', 'nextBatchCount', 'radiusKm', 'rings', 'site']);
-    expect(data.rings).toHaveLength(4);
+    for (const ring of data.rings) expect(ring.count).toBeGreaterThanOrEqual(3);
     expect(data.rings.reduce((sum: number, ring: { count: number }) => sum + ring.count, 0)).toBe(data.compatibleCount);
     for (const cell of data.cells) expect(cell.count).toBeGreaterThanOrEqual(3);
   });

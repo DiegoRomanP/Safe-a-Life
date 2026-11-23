@@ -166,7 +166,9 @@ try {
   const sa = await newPage();
   await login(sa, SEED_USERS.superadmin.email, DEMO_PASSWORD, secrets[SEED_USERS.superadmin.email]);
   await sa.waitForURL('**/superadmin');
-  check('superadmin: entra con contraseña + TOTP y ve Tareas administrativas', (await sa.locator('h1').textContent()) === 'Tareas administrativas');
+  // Espera el título: leer el h1 justo tras la navegación competía con la carga de la vista (falla intermitente).
+  await sa.getByRole('heading', { level: 1, name: 'Tareas administrativas' }).waitFor();
+  check('superadmin: entra con contraseña + TOTP y ve Tareas administrativas', true);
   await snap(sa, '01-superadmin-tareas');
   await sa.goto(`${WEB}/superadmin/hospitales`);
   await sa.getByText('Hospital Demo Uno').first().waitFor();

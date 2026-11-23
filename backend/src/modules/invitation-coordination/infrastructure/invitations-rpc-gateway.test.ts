@@ -55,7 +55,7 @@ describe('gateway de invitaciones', () => {
 describe('cobertura agregada del hospital', () => {
   const COVERAGE = {
     kind: 'ok', site: { latitude: -12.046374, longitude: -77.042793 }, radiusKm: 10, compatibleCount: 6, nextBatchCount: 6,
-    rings: [{ fromKm: 0, toKm: 2.5, count: 5 }, { fromKm: 2.5, toKm: 5, count: 1 }, { fromKm: 5, toKm: 7.5, count: 0 }, { fromKm: 7.5, toKm: 10, count: 0 }],
+    rings: [{ fromKm: 0, toKm: 10, count: 6 }],
     cells: [{ latitude: -12.065, longitude: -77.045, count: 4 }],
   };
 
@@ -64,6 +64,11 @@ describe('cobertura agregada del hospital', () => {
     const { kind: _kind, ...expected } = COVERAGE;
     await expect(gateway.getCoverage('jwt', 'need')).resolves.toEqual(expected);
     expect(calls[0]).toMatchObject({ accessToken: 'jwt', name: 'get_need_coverage', args: { p_need_id: 'need' } });
+  });
+
+  it('con menos de 3 candidatos acepta el total y los grupos como null («menos de 3»), nunca como un número', async () => {
+    const { gateway } = harness({ ...COVERAGE, compatibleCount: null, nextBatchCount: null, rings: [{ fromKm: 0, toKm: 10, count: null }], cells: [] });
+    await expect(gateway.getCoverage('jwt', 'need')).resolves.toMatchObject({ compatibleCount: null, nextBatchCount: null, rings: [{ count: null }] });
   });
 
   it.each([

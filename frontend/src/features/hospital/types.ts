@@ -69,13 +69,15 @@ export type NeedResponses = { confirmedIntentCount: number; items: NeedResponse[
 export type BatchRequestResult = { batchId: string; createdInvitationCount: number; queuedEmailCount: number };
 
 /** Cobertura agregada (getNeedCoverage): nunca la ubicación, distancia, nombre o id de una persona (RF-VIS-01/02). */
-export type CoverageRing = { fromKm: number; toKm: number; count: number };
+/** Grupo contiguo de anillos con al menos 3 donantes (o 0); `count: null` = hay 1 o 2 y no se revela. */
+export type CoverageRing = { fromKm: number; toKm: number; count: number | null };
 export type CoverageCell = { latitude: number; longitude: number; count: number };
 export type NeedCoverage = {
   site: { latitude: number; longitude: number };
   radiusKm: number;
-  compatibleCount: number;
-  nextBatchCount: number;
+  /** `null` = hay 1 o 2 (menos de 3): no se revela. */
+  compatibleCount: number | null;
+  nextBatchCount: number | null;
   rings: CoverageRing[];
   cells: CoverageCell[];
 };

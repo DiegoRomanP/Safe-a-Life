@@ -28,10 +28,11 @@ export type NeedResponsesPage = Page<ConfirmedResponse | OpaqueResponse> & Reado
  * Cobertura agregada para el mapa del hospital (RF-VIS-01/02): sede, anillos por radio y celdas de al menos 3 donantes.
  * Nunca lleva ubicación, distancia, nombre ni id de una persona.
  */
-export type CoverageRing = Readonly<{ fromKm: number; toKm: number; count: number }>;
+/** Un grupo contiguo de anillos con al menos 3 donantes; `count: null` = hay 1 o 2 (no se revela). */
+export type CoverageRing = Readonly<{ fromKm: number; toKm: number; count: number | null }>;
 export type CoverageCell = Readonly<{ latitude: number; longitude: number; count: number }>;
 export type NeedCoverage = Readonly<{
-  site: Readonly<{ latitude: number; longitude: number }>; radiusKm: number; compatibleCount: number; nextBatchCount: number;
+  site: Readonly<{ latitude: number; longitude: number }>; radiusKm: number; compatibleCount: number | null; nextBatchCount: number | null;
   rings: readonly CoverageRing[]; cells: readonly CoverageCell[];
 }>;
 

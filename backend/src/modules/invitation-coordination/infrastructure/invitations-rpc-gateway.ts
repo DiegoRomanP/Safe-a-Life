@@ -53,16 +53,18 @@ export const parseItem = (value: unknown): InvitationItem => {
   });
 };
 
+const nullableNumber = (value: unknown): number | null => (value === null ? null : asNumber(value));
+
 /** Forma cerrada: un campo de más (por ejemplo, una posición individual) es un fallo, no un dato que se cuele al hospital. */
 function parseCoverage(reply: Record<string, unknown>): NeedCoverage {
   const row = closedRecord(reply, ['kind', 'site', 'radiusKm', 'compatibleCount', 'nextBatchCount', 'rings', 'cells']);
   const site = closedRecord(row.site, ['latitude', 'longitude']);
   return Object.freeze({
     site: Object.freeze({ latitude: asNumber(site.latitude), longitude: asNumber(site.longitude) }),
-    radiusKm: asNumber(row.radiusKm), compatibleCount: asNumber(row.compatibleCount), nextBatchCount: asNumber(row.nextBatchCount),
+    radiusKm: asNumber(row.radiusKm), compatibleCount: nullableNumber(row.compatibleCount), nextBatchCount: nullableNumber(row.nextBatchCount),
     rings: Object.freeze(asArray(row.rings).map((value) => {
       const ring = closedRecord(value, ['fromKm', 'toKm', 'count']);
-      return Object.freeze({ fromKm: asNumber(ring.fromKm), toKm: asNumber(ring.toKm), count: asNumber(ring.count) });
+      return Object.freeze({ fromKm: asNumber(ring.fromKm), toKm: asNumber(ring.toKm), count: nullableNumber(ring.count) });
     })),
     cells: Object.freeze(asArray(row.cells).map((value) => {
       const cell = closedRecord(value, ['latitude', 'longitude', 'count']);

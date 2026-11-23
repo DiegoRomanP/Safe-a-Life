@@ -1486,23 +1486,8 @@ export interface components {
          *         "rings": [
          *           {
          *             "fromKm": 0,
-         *             "toKm": 2.5,
-         *             "count": 5
-         *           },
-         *           {
-         *             "fromKm": 2.5,
-         *             "toKm": 5,
-         *             "count": 1
-         *           },
-         *           {
-         *             "fromKm": 5,
-         *             "toKm": 7.5,
-         *             "count": 0
-         *           },
-         *           {
-         *             "fromKm": 7.5,
          *             "toKm": 10,
-         *             "count": 0
+         *             "count": 6
          *           }
          *         ],
          *         "cells": [
@@ -1516,7 +1501,7 @@ export interface components {
          *     }
          */
         NeedCoverageEnvelope: {
-            /** @description Solo agregados (RF-VIS-01/02). Las celdas de rejilla de 0,01° se devuelven con su centro y solo si tienen al menos 3 donantes; el resto aparece únicamente en los anillos y en el total. */
+            /** @description Solo agregados (RF-VIS-01/02) con supresión k-anónima (k = 3): ni un grupo de anillos, ni una celda, ni el total revelan 1 o 2 personas. Las celdas de rejilla de 0,01° se devuelven con su centro y solo si tienen al menos 3 donantes. */
             data: {
                 /** @description Sede de la necesidad (dato público del hospital, no de un donante). */
                 site: {
@@ -1524,15 +1509,15 @@ export interface components {
                     longitude: number;
                 };
                 radiusKm: number;
-                /** @description Donantes que cumplen hoy todos los filtros del lote. */
-                compatibleCount: number;
-                /** @description Invitaciones que crearía un lote ahora: min(compatibleCount, min(50, max(5, 2 × meta))). Nunca se rellena. */
-                nextBatchCount: number;
-                /** @description Cuatro anillos iguales hasta el radio; cada donante cae en uno solo. */
+                /** @description Donantes que cumplen hoy todos los filtros del lote. `null` = hay 1 o 2 (menos de 3): no se revela; el 0 sí se dice. */
+                compatibleCount: number | null;
+                /** @description Invitaciones que crearía un lote ahora: min(compatibleCount, min(50, max(5, 2 × meta))). Nunca se rellena. `null` cuando compatibleCount es `null`. */
+                nextBatchCount: number | null;
+                /** @description Grupos contiguos de los cuatro anillos de radio/4 hasta el radio; cada donante cae en uno solo. Los anillos se fusionan hasta que cada grupo tiene al menos 3 donantes (un grupo con 1 o 2 situaría a una persona en una corona alrededor de la sede); con 1 o 2 candidatos en total hay un solo grupo con `count: null`. */
                 rings: {
                     fromKm: number;
                     toKm: number;
-                    count: number;
+                    count: number | null;
                 }[];
                 cells: {
                     latitude: number;

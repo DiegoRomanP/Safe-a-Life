@@ -1,8 +1,10 @@
 -- need-coverage: cobertura AGREGADA de donantes compatibles para una necesidad propia (mapa del hospital).
 -- Decisiones de la persona usuaria (2026-11-23): el hospital ve sede + radio + conteos agregados; nunca la ubicación, la
 -- distancia, el nombre ni el id de una persona (RF-VIS-01/02). Aquí se cumple con tres reglas:
---  1. Las celdas de ~1 km (rejilla de 0,01° ≈ 1,1 km) solo se devuelven con >= 3 donantes (supresión k-anónima, k = 3); lo que
---     queda fuera de esas celdas solo se ve en los anillos por radio y en el total.
+--  1. Supresión k-anónima (k = 3) en TODO lo que se devuelve: las celdas (rejilla de 0,01° ≈ 1,1 km) solo salen con >= 3 donantes;
+--     los anillos por radio se fusionan con el siguiente hasta que cada grupo tiene >= 3 (un anillo con 1 o 2 donantes situaría a
+--     una persona en una corona de radio/4 alrededor de la sede); y si en total hay 1 o 2 candidatos, ni el total ni el lote
+--     siguiente se revelan (`null` = «menos de 3»). El 0 sí se dice: no identifica a nadie.
 --  2. Se reutilizan los filtros del lote (app.invitation_candidates) para que el conteo sea el que el lote real elegiría.
 --     request_invitation_batch NO se modifica: la paridad la prueba pgTAP (20_need_coverage.test.sql).
 --  3. DEFINER (ADR-003 ítem 6): el admin no puede leer donor_profiles; la función cruza el perfil y devuelve solo agregados.
@@ -33,6 +35,7 @@ language sql stable set search_path = '' as $$
 $$;
 
 -- Cobertura de una necesidad propia en borrador o activa. Una ajena es indistinguible de una inexistente (sin IDOR).
+-- Recorre los candidatos una vez para el total y los anillos y otra para las celdas (no una por anillo).
 create function api.get_need_coverage(p_need_id uuid) returns jsonb
 language plpgsql stable security definer set search_path = '' as $$
 declare
@@ -41,7 +44,13 @@ declare
   v_need app.needs;
   v_site app.sites;
   v_total int;
-  v_rings jsonb;
+  v_c int[];
+  v_q double precision;
+  v_groups jsonb := '[]'::jsonb;
+  v_acc int := 0;
+  v_start int := 0;
+  v_last int;
+  v_b int;
   v_cells jsonb;
 begin
   v_fail := app.d_require('{admin_hospitalario}', true, false);
@@ -56,36 +65,62 @@ begin
   select * into v_site from app.sites where site_id = v_need.site_id and hospital_id = v_hospital;
   if not found then return jsonb_build_object('kind', 'not_found'); end if;
 
-  select count(*) into v_total from app.invitation_candidates(p_need_id);
+  -- Cuatro anillos iguales de radio/4 (metros); el último incluye el borde. Cada candidato cae en uno solo.
+  v_q := v_need.radius_km * 250.0;
+  select count(*)::int, array[
+           count(*) filter (where k.distance_m <= v_q)::int,
+           count(*) filter (where k.distance_m > v_q and k.distance_m <= 2 * v_q)::int,
+           count(*) filter (where k.distance_m > 2 * v_q and k.distance_m <= 3 * v_q)::int,
+           count(*) filter (where k.distance_m > 3 * v_q)::int]
+    into v_total, v_c
+  from app.invitation_candidates(p_need_id) k;
 
-  -- Cuatro anillos iguales hasta el radio (el último incluye el borde). Cada candidato cae en uno solo.
-  select jsonb_agg(jsonb_build_object(
-           'fromKm', round(v_need.radius_km * (b - 1) / 4.0, 2), 'toKm', round(v_need.radius_km * b / 4.0, 2),
-           'count', (select count(*) from app.invitation_candidates(p_need_id) k
-                     where k.distance_m > v_need.radius_km * 1000.0 * (b - 1) / 4.0 - (case when b = 1 then 1 else 0 end)
-                       and k.distance_m <= v_need.radius_km * 1000.0 * b / 4.0)) order by b)
-    into v_rings
-  from generate_series(1, 4) b;
+  if v_total in (1, 2) then
+    -- Menos de 3 en total: ni el total ni los anillos ni las celdas se revelan.
+    v_groups := jsonb_build_array(jsonb_build_object('fromKm', 0, 'toKm', v_need.radius_km, 'count', null));
+    v_cells := '[]'::jsonb;
+  else
+    -- Fusiona anillos contiguos hasta que cada grupo tenga >= 3; los ceros se absorben en el grupo siguiente.
+    for v_b in 1 .. 4 loop
+      v_acc := v_acc + v_c[v_b];
+      if v_acc >= 3 then
+        v_groups := v_groups || jsonb_build_array(jsonb_build_object(
+          'fromKm', round(v_need.radius_km * v_start / 4.0, 2), 'toKm', round(v_need.radius_km * v_b / 4.0, 2), 'count', v_acc));
+        v_acc := 0;
+        v_start := v_b;
+      end if;
+    end loop;
+    if v_acc > 0 then
+      -- 1 o 2 sobrantes al final: se suman al último grupo (existe, porque el total es >= 3) y este llega hasta el radio.
+      v_last := jsonb_array_length(v_groups) - 1;
+      v_groups := jsonb_set(v_groups, array[v_last::text], (v_groups -> v_last)
+        || jsonb_build_object('toKm', v_need.radius_km, 'count', (v_groups -> v_last ->> 'count')::int + v_acc));
+    elsif v_start < 4 then
+      -- Cola sin donantes (o ninguno en total): un grupo con cero.
+      v_groups := v_groups || jsonb_build_array(jsonb_build_object(
+        'fromKm', round(v_need.radius_km * v_start / 4.0, 2), 'toKm', v_need.radius_km, 'count', 0));
+    end if;
 
-  -- Celdas de 0,01° con al menos 3 donantes; el centro (no la posición del donante) es lo único que sale.
-  select coalesce(jsonb_agg(jsonb_build_object('latitude', t.clat, 'longitude', t.clon, 'count', t.n) order by t.n desc, t.clat, t.clon), '[]'::jsonb)
-    into v_cells
-  from (
-    select ((floor(k.latitude * 100) + 0.5) / 100)::numeric(7, 3) as clat, ((floor(k.longitude * 100) + 0.5) / 100)::numeric(8, 3) as clon, count(*)::int as n
-    from app.invitation_candidates(p_need_id) k
-    group by 1, 2
-    having count(*) >= 3
-    order by count(*) desc, 1, 2
-    limit 500
-  ) t;
+    -- Celdas de 0,01° con al menos 3 donantes; el centro (no la posición del donante) es lo único que sale.
+    select coalesce(jsonb_agg(jsonb_build_object('latitude', t.clat, 'longitude', t.clon, 'count', t.n) order by t.n desc, t.clat, t.clon), '[]'::jsonb)
+      into v_cells
+    from (
+      select ((floor(k.latitude * 100) + 0.5) / 100)::numeric(7, 3) as clat, ((floor(k.longitude * 100) + 0.5) / 100)::numeric(8, 3) as clon, count(*)::int as n
+      from app.invitation_candidates(p_need_id) k
+      group by 1, 2
+      having count(*) >= 3
+      order by count(*) desc, 1, 2
+      limit 500
+    ) t;
+  end if;
 
   return jsonb_build_object('kind', 'ok',
     'site', jsonb_build_object('latitude', v_site.latitude, 'longitude', v_site.longitude),
     'radiusKm', v_need.radius_km,
-    'compatibleCount', v_total,
+    'compatibleCount', case when v_total in (1, 2) then null else v_total end,
     -- batchSize(meta) = min(50, max(5, 2 * meta)) (batch-size.ts); nunca se rellena con quien no es candidato.
-    'nextBatchCount', least(v_total, least(50, greatest(5, 2 * v_need.target_confirmations))),
-    'rings', v_rings,
+    'nextBatchCount', case when v_total in (1, 2) then null else least(v_total, least(50, greatest(5, 2 * v_need.target_confirmations))) end,
+    'rings', v_groups,
     'cells', v_cells);
 end;
 $$;
