@@ -63,14 +63,56 @@ describe('Hospital contra el backend', () => {
     expect(api().needs[0]?.status).toBe('borrador');
   });
 
-  it('«Activar necesidad» hace POST y luego PATCH, cada uno con su petición', async () => {
+  it('«Publicar e invitar» hace POST, PATCH y POST del lote, cada uno con su petición, y cuenta las invitaciones', async () => {
     const view = renderRoute('/hospital/necesidades/nueva');
     await settle();
     fillNeed(view);
-    await press(button(view, 'Activar necesidad'));
+    await press(button(view, 'Publicar e invitar'));
+    const id = api().needs[0]!.needId;
     const writes = api().calls.filter((call) => !call.startsWith('GET'));
-    expect(writes.slice(0, 2)).toEqual(['POST /hospitals/me/needs', `PATCH /hospitals/me/needs/${api().needs[0]!.needId}`]);
+    expect(writes.slice(0, 3)).toEqual(['POST /hospitals/me/needs', `PATCH /hospitals/me/needs/${id}`, `POST /hospitals/me/needs/${id}/invitation-batches`]);
     expect(api().needs[0]?.status).toBe('activa');
+    expect(api().batches).toHaveLength(1);
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('2 invitaciones creadas y 2 correos en cola de envío.');
+  });
+
+  it('si el lote falla, la necesidad queda activa, no se anuncia ningún envío y se explica cómo pedirlo', async () => {
+    const view = renderRoute('/hospital/necesidades/nueva');
+    await settle();
+    fillNeed(view);
+    api().batchStatus = 409;
+    await press(button(view, 'Publicar e invitar'));
+    expect(api().needs[0]?.status).toBe('activa');
+    expect(api().batches).toHaveLength(0);
+    expect(alerts(view)).toContain('se activó, pero no se pudo solicitar el lote de invitaciones');
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('No se pudo solicitar el lote de invitaciones');
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).not.toMatch(/correos en cola/);
+  });
+
+  it('sin donantes compatibles lo dice y no promete correos', async () => {
+    const view = renderRoute('/hospital/necesidades/nueva');
+    await settle();
+    fillNeed(view);
+    api().nextBatchSize = 0;
+    await press(button(view, 'Publicar e invitar'));
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('No había donantes compatibles disponibles: no se envió ningún correo.');
+  });
+
+  it('publicar desde el detalle de un borrador activa y pide el lote', async () => {
+    const draft = api().needs.find((need) => need.status === 'borrador')!;
+    const view = renderRoute(`/hospital/necesidades/${draft.needId}`);
+    await settle();
+    await press(button(view, 'Publicar e invitar'));
+    expect(api().calls).toContain(`POST /hospitals/me/needs/${draft.needId}/invitation-batches`);
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Necesidad publicada');
+  });
+
+  it('«Guardar borrador» no pide ningún lote', async () => {
+    const view = renderRoute('/hospital/necesidades/nueva');
+    await settle();
+    fillNeed(view);
+    await press(button(view, 'Guardar borrador'));
+    expect(api().calls.some((call) => call.startsWith('POST') && call.endsWith('/invitation-batches'))).toBe(false);
   });
 
   it('si la activación falla, el borrador queda creado, se abre su detalle y se explica qué pasó', async () => {
@@ -78,8 +120,9 @@ describe('Hospital contra el backend', () => {
     const view = renderRoute('/hospital/necesidades/nueva');
     await settle();
     fillNeed(view);
-    await press(button(view, 'Activar necesidad'));
+    await press(button(view, 'Publicar e invitar'));
     expect(api().needs[0]?.status).toBe('borrador');
+    expect(api().batches).toHaveLength(0);
     expect(view.querySelector('h1')?.textContent).toMatch(/^Necesidad NEC-/);
     expect(alerts(view)).toContain('se creó como borrador, pero no se pudo activar');
     expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Borrador guardado');

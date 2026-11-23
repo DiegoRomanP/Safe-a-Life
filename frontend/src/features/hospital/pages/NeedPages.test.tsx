@@ -44,7 +44,7 @@ describe('HOS-02 Crear necesidad', () => {
     const view = renderRoute('/hospital/necesidades/nueva');
     await settle();
     type(control(view, 'Vencimiento en horas'), '75');
-    await press(button(view, 'Activar necesidad'));
+    await press(button(view, 'Publicar e invitar'));
     expect(view.textContent).toContain('Selecciona el grupo requerido.');
     expect(view.textContent).toContain('Ingresa un número entero de 1 a 50 intenciones.');
     expect(view.textContent).toContain('Usa un valor de 1 a 72 horas.');
@@ -63,12 +63,12 @@ describe('HOS-02 Crear necesidad', () => {
     expect(view.textContent).toContain('0 de 4');
   });
 
-  it('«Activar necesidad» la crea activa', async () => {
+  it('«Publicar e invitar» la crea activa', async () => {
     const view = renderRoute('/hospital/necesidades/nueva');
     await settle();
     fillNeed(view);
-    await press(button(view, 'Activar necesidad'));
-    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Necesidad activada');
+    await press(button(view, 'Publicar e invitar'));
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Necesidad publicada');
     expect(button(view, 'Cancelar necesidad')).not.toBeNull();
   });
 });
@@ -82,7 +82,9 @@ describe('HOS-03 Detalle de necesidad', () => {
     expect(bar?.getAttribute('aria-valuenow')).toBe('2');
     expect(bar?.getAttribute('aria-valuemax')).toBe('3');
     expect(bar?.getAttribute('aria-valuetext')).toBe('2 de 3 intenciones');
-    expect(view.querySelector('tbody')).toBeNull();
+    // Solo la tabla de anillos de la cobertura: no hay tabla de confirmaciones ni de respuestas en esta pantalla.
+    expect(view.querySelectorAll('table')).toHaveLength(1);
+    expect(view.querySelector('table caption')?.textContent).toBe('Donantes compatibles sin invitar, por distancia a la sede');
     expect(view.textContent).toContain('Lotes de invitación');
   });
 
@@ -132,7 +134,7 @@ describe('Lotes de invitación (reales)', () => {
     expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Lote creado: 2 invitaciones');
     const row = view.querySelector('tbody tr');
     expect(row?.textContent).toContain('2');
-    expect([...view.querySelectorAll('thead th')].map((th) => th.textContent)).toEqual(['Creado', 'Invitaciones', 'Pendientes', 'Enviadas', 'Entregadas', 'Fallidas']);
+    expect([...view.querySelectorAll('[aria-label="Lotes de invitación"] thead th')].map((th) => th.textContent)).toEqual(['Creado', 'Invitaciones', 'Pendientes', 'Enviadas', 'Entregadas', 'Fallidas']);
   });
 
   it('un lote sin donantes disponibles lo dice y no promete correos', async () => {
@@ -193,5 +195,40 @@ describe('Respuestas (reales)', () => {
     await settle();
     expect(view.textContent).not.toContain('x@example.test');
     expect(view.querySelector('main [role="alert"]')).not.toBeNull();
+  });
+});
+
+describe('Cobertura agregada en la necesidad', () => {
+  const GOAL_REACHED = '02210d4e-2f3a-4b4c-9d5e-6f7a8b9c0d12'; // meta_alcanzada: ya no admite lotes ni cobertura
+
+  it('una necesidad activa pide y muestra la cobertura', async () => {
+    const view = renderRoute(`/hospital/necesidades/${A104}`);
+    await settle();
+    expect(view.textContent).toContain('Cobertura de donantes compatibles');
+    expect(api().calls).toContain(`GET /hospitals/me/needs/${A104}/coverage`);
+    expect(view.textContent).toContain('6 donantes compatibles sin invitar dentro de 10 km');
+  });
+
+  it('una necesidad con la meta alcanzada no la pide', async () => {
+    const view = renderRoute(`/hospital/necesidades/${GOAL_REACHED}`);
+    await settle();
+    expect(view.querySelector('h1')?.textContent).toMatch(/^Necesidad NEC-/);
+    expect(view.textContent).not.toContain('Cobertura de donantes compatibles');
+    expect(api().calls.some((call) => call.endsWith('/coverage'))).toBe(false);
+  });
+
+  it('si la respuesta de cobertura es inválida, no se pinta nada a medias y el resto de la necesidad sigue disponible', async () => {
+    (api().coverage as unknown as Record<string, unknown>).donors = [];
+    const view = renderRoute(`/hospital/necesidades/${A104}`);
+    await settle();
+    expect(view.querySelector('h1')?.textContent).toBe('Necesidad NEC-A104');
+    expect(view.querySelector('.leaflet-container')).toBeNull();
+    expect(button(view, 'Cancelar necesidad')).not.toBeNull();
+  });
+
+  it('la pantalla de lotes de una necesidad activa muestra la cobertura bajo la lista', async () => {
+    const view = renderRoute(`/hospital/necesidades/${B087}/lotes`);
+    await settle();
+    expect(view.textContent).toContain('Cobertura de donantes compatibles');
   });
 });

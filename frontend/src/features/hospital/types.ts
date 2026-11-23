@@ -67,3 +67,15 @@ export type AssistedSignup = {
 
 export type NeedResponses = { confirmedIntentCount: number; items: NeedResponse[] };
 export type BatchRequestResult = { batchId: string; createdInvitationCount: number; queuedEmailCount: number };
+
+/** Cobertura agregada (getNeedCoverage): nunca la ubicación, distancia, nombre o id de una persona (RF-VIS-01/02). */
+export type CoverageRing = { fromKm: number; toKm: number; count: number };
+export type CoverageCell = { latitude: number; longitude: number; count: number };
+export type NeedCoverage = {
+  site: { latitude: number; longitude: number };
+  radiusKm: number;
+  compatibleCount: number;
+  nextBatchCount: number;
+  rings: CoverageRing[];
+  cells: CoverageCell[];
+};

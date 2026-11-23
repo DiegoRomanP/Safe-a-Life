@@ -11,6 +11,7 @@ import { formatDateTime } from '../../../lib/format.js';
 import { useDemoMutation } from '../../../lib/useDemoMutation.js';
 import { useDemoQuery } from '../../../lib/useDemoQuery.js';
 import { fetchBatches, requestBatch } from '../api.js';
+import { CoverageSection } from '../components/CoverageSection.js';
 import { useHospital } from '../HospitalContext.js';
 import { needCode } from '../labels.js';
 import type { BatchRequestResult, InvitationBatch } from '../types.js';
@@ -63,6 +64,7 @@ export function NeedBatchesPage() {
       <QueryView query={query} loadingMessage="Cargando los lotes…" backTo="/hospital/necesidades" backLabel="Ir a necesidades">
         {(batches) => <BatchList batches={batches} />}
       </QueryView>
+      {need?.status === 'activa' && <CoverageSection needId={needId} version={String(version)} />}
       <Alert tone="info" title="Cómo se eligen los donantes">
         El servidor elige a quienes tienen grupo compatible, están disponibles, dentro del radio y con cupo diario. La urgencia no cambia la selección.
       </Alert>

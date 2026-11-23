@@ -1,7 +1,7 @@
 import { act } from 'react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import { clearAuthSession, logout } from '../features/auth/session/session.js';
-import type { AssistedSignup, HospitalNeed, HospitalSite, InvitationBatch, NeedResponse } from '../features/hospital/types.js';
+import type { AssistedSignup, HospitalNeed, HospitalSite, InvitationBatch, NeedCoverage, NeedResponse } from '../features/hospital/types.js';
 import { demoNeeds, demoSignups, demoSites } from './hospitalFixtures.js';
 import { TEST_DONOR_SESSION } from './renderRoute.js';
 
@@ -12,6 +12,8 @@ export type HospitalApiStub = {
   /** Lotes y respuestas de cualquier necesidad (el simulador no los separa por necesidad). */
   batches: InvitationBatch[];
   responses: NeedResponse[];
+  /** Cobertura agregada que devuelve getNeedCoverage (el simulador no la calcula). */
+  coverage: NeedCoverage;
   /** Invitaciones que crea el próximo lote (el servidor elige a los donantes). */
   nextBatchSize: number;
   /** «MÉTODO ruta» de cada petición, en orden. */
@@ -26,6 +28,8 @@ export type HospitalApiStub = {
   writeStatus: number | null;
   /** Si no es null, solo los PATCH (transiciones) responden con ese estado. */
   transitionStatus: number | null;
+  /** Si no es null, solo el POST del lote responde con ese estado. */
+  batchStatus: number | null;
 };
 
 const reply = (status: number, body: unknown) => ({ ok: status >= 200 && status < 300, status, json: async () => body });
@@ -43,6 +47,11 @@ export function stubHospitalApi(): HospitalApiStub {
     signups: structuredClone(demoSignups),
     batches: [],
     responses: [],
+    coverage: {
+      site: { latitude: -12.046374, longitude: -77.042793 }, radiusKm: 10, compatibleCount: 6, nextBatchCount: 6,
+      rings: [{ fromKm: 0, toKm: 2.5, count: 5 }, { fromKm: 2.5, toKm: 5, count: 1 }, { fromKm: 5, toKm: 7.5, count: 0 }, { fromKm: 7.5, toKm: 10, count: 0 }],
+      cells: [{ latitude: -12.065, longitude: -77.045, count: 4 }],
+    },
     nextBatchSize: 2,
     calls: [],
     bodies: {},
@@ -50,6 +59,7 @@ export function stubHospitalApi(): HospitalApiStub {
     readStatus: null,
     writeStatus: null,
     transitionStatus: null,
+    batchStatus: null,
   };
 
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -68,6 +78,7 @@ export function stubHospitalApi(): HospitalApiStub {
       if (url === '/hospitals/me/needs') return page(stub.needs);
       if (url === '/hospitals/me/assisted-signups') return page(stub.signups);
       if (/^\/hospitals\/me\/needs\/[^/]+\/invitation-batches$/.test(url)) return page(stub.batches);
+      if (/^\/hospitals\/me\/needs\/[^/]+\/coverage$/.test(url)) return reply(200, { data: stub.coverage });
       if (/^\/hospitals\/me\/needs\/[^/]+\/responses$/.test(url)) {
         return reply(200, { data: { confirmedIntentCount: stub.responses.filter((r) => r.response === 'confirmada').length, items: stub.responses, pagination: { nextCursor: null } } });
       }
@@ -102,6 +113,7 @@ export function stubHospitalApi(): HospitalApiStub {
     }
     const batch = /^POST \/hospitals\/me\/needs\/([^/]+)\/invitation-batches$/.exec(key);
     if (batch) {
+      if (stub.batchStatus) return error(stub.batchStatus);
       const target = stub.needs.find((need) => need.needId === batch[1]);
       if (!target) return error(404, 'NOT_FOUND');
       if (target.status !== 'activa') return error(409, 'STATE_CONFLICT');

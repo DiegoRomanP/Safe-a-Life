@@ -7,9 +7,16 @@ import {
   fetchSignups,
   fetchSites,
   reissueSignupRequest,
+  requestBatch,
   transitionNeedRequest,
 } from './api.js';
-import type { AssistedSignup, HospitalNeed, HospitalSite, NeedStatus, NewNeed } from './types.js';
+import type { AssistedSignup, BatchRequestResult, HospitalNeed, HospitalSite, NeedStatus, NewNeed } from './types.js';
+
+/**
+ * Resultado de publicar: la necesidad ya activa y el primer lote de invitaciones, o `null` si el lote falló (la necesidad
+ * queda activa y `actionError` explica qué pasó; el hospital puede pedir el lote desde «Lotes de invitación»).
+ */
+export type PublishOutcome = { need: HospitalNeed; invitation: BatchRequestResult | null };
 
 type Data = { needs: HospitalNeed[]; sites: HospitalSite[]; signups: AssistedSignup[] };
 
@@ -24,9 +31,12 @@ type Hospital = Data & {
   actionError: string | null;
   /** La pantalla cambió: el aviso de error de la anterior se descarta, salvo el que se creó para la pantalla siguiente. */
   routeChanged: () => void;
-  // createHospitalNeed siempre crea un borrador; «activar» aplica además transitionOwnHospitalNeed. Si la activación falla,
-  // el borrador existe: se devuelve igual y `actionError` explica qué pasó.
-  createNeed: (need: NewNeed, activate: boolean) => Promise<HospitalNeed | null>;
+  // createHospitalNeed siempre crea un borrador; «publicar» aplica además transitionOwnHospitalNeed y pide el primer lote
+  // (ADR-008): son las mismas operaciones de siempre, con la sesión y el AAL2 del admin. Si la activación falla, el borrador
+  // existe: se devuelve igual (sin lote) y `actionError` explica qué pasó.
+  createNeed: (need: NewNeed, publish: boolean) => Promise<PublishOutcome | null>;
+  /** Activa un borrador propio y pide el primer lote de invitaciones en la misma acción. */
+  publishNeed: (needId: string) => Promise<PublishOutcome | null>;
   transitionNeed: (needId: string, status: Extract<NeedStatus, 'activa' | 'cerrada' | 'cancelada'>) => Promise<boolean>;
   createSignup: (input: { email: string; name?: string }) => Promise<boolean>;
   reissueSignup: (signupId: string) => Promise<boolean>;
@@ -114,6 +124,15 @@ export function HospitalProvider({ children }: { children: ReactNode }) {
       }
     };
     const ok = async (run: () => Promise<unknown>) => (await act(run)) !== null;
+    // Cada paso es su propia petición con su Idempotency-Key. Si el lote falla, la necesidad ya está activa: no se deshace nada.
+    const inviteFirstBatch = async (needId: string): Promise<BatchRequestResult | null> => {
+      try {
+        return await requestBatch(needId);
+      } catch (error) {
+        if (live.current) setActionError(`La necesidad se activó, pero no se pudo solicitar el lote de invitaciones. ${messageFor(error)} Puedes pedirlo desde «Lotes de invitación».`, true);
+        return null;
+      }
+    };
 
     return {
       ...data,
@@ -121,16 +140,23 @@ export function HospitalProvider({ children }: { children: ReactNode }) {
       reload,
       actionError,
       routeChanged,
-      createNeed: (need, activate) =>
-        act(async () => {
+      createNeed: (need, publish) =>
+        act(async (): Promise<PublishOutcome> => {
           const created = await createNeedRequest(need);
-          if (!activate) return created;
+          if (!publish) return { need: created, invitation: null };
+          let active: HospitalNeed;
           try {
-            return await transitionNeedRequest(created.needId, 'activa');
+            active = await transitionNeedRequest(created.needId, 'activa');
           } catch (error) {
             if (live.current) setActionError(`La necesidad se creó como borrador, pero no se pudo activar. ${messageFor(error)}`, true);
-            return created;
+            return { need: created, invitation: null };
           }
+          return { need: active, invitation: await inviteFirstBatch(active.needId) };
+        }),
+      publishNeed: (needId) =>
+        act(async (): Promise<PublishOutcome> => {
+          const active = await transitionNeedRequest(needId, 'activa');
+          return { need: active, invitation: await inviteFirstBatch(active.needId) };
         }),
       transitionNeed: (needId, next) => ok(() => transitionNeedRequest(needId, next)),
       createSignup: (input) => ok(() => createSignupRequest(input)),

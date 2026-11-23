@@ -184,14 +184,20 @@ try {
   await hospital.getByLabel(/Sede/).selectOption({ index: 1 });
   await hospital.getByLabel(/Vencimiento en horas/).fill('12');
   await snap(hospital, '02-hospital-nueva-necesidad');
-  await hospital.getByRole('button', { name: 'Activar necesidad' }).click();
+  // ADR-008: «Publicar e invitar» activa la necesidad y pide el primer lote en la misma acción (sin pulsar «Solicitar lote»).
+  await hospital.getByRole('button', { name: 'Publicar e invitar' }).click();
   await hospital.waitForURL(/\/hospital\/necesidades\/[0-9a-f-]{36}$/);
-  check('hospital: crea y activa una necesidad real', true);
+  check('hospital: crea, publica y envía el primer lote en una sola acción', true);
+  await hospital.getByText(/invitaci(ón|ones) creadas?/).waitFor();
   const needUrl = hospital.url();
+  // La cobertura es solo agregada: el mapa existe, trae la tabla de anillos y ningún texto de una persona.
+  await hospital.getByRole('heading', { name: 'Cobertura de donantes compatibles' }).waitFor();
+  await hospital.locator('.leaflet-container').waitFor();
+  check('hospital: el mapa de cobertura muestra anillos agregados', (await hospital.locator('table caption', { hasText: 'Donantes compatibles sin invitar' }).isVisible()) && (await hospital.getByText('nunca la ubicación de una persona').isVisible()));
+  await snap(hospital, '02b-hospital-cobertura');
   await hospital.goto(`${needUrl}/lotes`);
-  await hospital.getByRole('button', { name: 'Solicitar lote' }).click();
   await hospital.locator('table tbody tr').first().waitFor();
-  check('hospital: solicita un lote y aparece en la tabla', (await hospital.locator('table tbody tr').count()) >= 1);
+  check('hospital: el lote automático aparece en la tabla', (await hospital.locator('table tbody tr').count()) >= 1);
   await snap(hospital, '03-hospital-lote');
   check('registro: el donante registrado por la UI recibe la invitación del lote', /\/invitaciones#/.test(await invitationLinkFor(newDonor)));
 

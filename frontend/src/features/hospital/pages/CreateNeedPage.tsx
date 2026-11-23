@@ -37,7 +37,7 @@ const reminders = [
 
 // HOS-02 Crear necesidad (Penpot «+»). Arma el cuerpo de createHospitalNeed:
 // componente fijo RBC, grupo, meta de 1 a 50 intenciones, sede propia, radio
-// de 1 a 50 km, urgencia y vencimiento de 1 a 72 horas. «Activar» crea y
+// de 1 a 50 km, urgencia y vencimiento de 1 a 72 horas. «Publicar e invitar» crea y
 // luego aplica transitionOwnHospitalNeed.
 export function CreateNeedPage() {
   const { sites, createNeed } = useHospital();
@@ -75,7 +75,7 @@ export function CreateNeedPage() {
     flushSync(() => setErrors(found));
     const first = (Object.keys(refs) as Array<keyof Errors>).find((key) => found[key]);
     if (first) return refs[first].current?.focus();
-    const created = await createNeed(
+    const outcome = await createNeed(
       {
         requiredBloodType: bloodType as BloodType,
         targetConfirmations: Number(target),
@@ -87,8 +87,10 @@ export function CreateNeedPage() {
       activate,
     );
     // Si la activación falló, el borrador existe: se abre su detalle (que muestra el motivo) en vez de perderlo.
-    if (!created) return;
-    navigate(`/hospital/necesidades/${created.needId}`, { state: { created: created.status === 'activa' ? 'activa' : 'borrador' } });
+    if (!outcome) return;
+    navigate(`/hospital/necesidades/${outcome.need.needId}`, {
+      state: { created: outcome.need.status === 'activa' ? 'activa' : 'borrador', invitation: outcome.invitation },
+    });
   }
 
   return (
@@ -96,7 +98,7 @@ export function CreateNeedPage() {
       <Link to="/hospital/necesidades" className="self-start rounded font-semibold text-petrol underline underline-offset-4">
         Volver a necesidades
       </Link>
-      <PageHeader title="Crear necesidad" description="Define una meta de intenciones de asistir para glóbulos rojos." />
+      <PageHeader title="Crear necesidad" description="Define una meta de intenciones de asistir para glóbulos rojos. Al publicar, se invita a los donantes compatibles más cercanos." />
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_304px]">
         <Card title="Información de la necesidad">
           <ActionError />
@@ -181,14 +183,14 @@ export function CreateNeedPage() {
                 Guardar borrador
               </Button>
               <Button type="submit" name="modo" value="activar">
-                Activar necesidad
+                Publicar e invitar
               </Button>
             </div>
           </form>
         </Card>
         <aside aria-labelledby="antes-titulo" className="rounded-xl bg-panel p-6 text-white">
           <h2 id="antes-titulo" className="text-xl font-semibold">
-            Antes de activar
+            Antes de publicar
           </h2>
           <dl className="mt-6 flex flex-col gap-6">
             {reminders.map((item) => (

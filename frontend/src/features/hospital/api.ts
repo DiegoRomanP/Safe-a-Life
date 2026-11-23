@@ -1,9 +1,9 @@
 import { apiRequest } from '../../lib/api/http.js';
-import { dataOf, int, listAll as listAllShared, malformed, oneOf, rec, str } from '../../lib/api/validate.js';
+import { dataOf, int, listAll as listAllShared, malformed, num, oneOf, rec, str } from '../../lib/api/validate.js';
 import { ApiError } from '../../lib/demoApi.js';
 import { BLOOD_TYPES } from '../../lib/format.js';
 import { expireSession, getAuthSession } from '../auth/session/session.js';
-import type { AssistedSignup, BatchRequestResult, HospitalNeed, HospitalSite, InvitationBatch, NeedResponse, NeedResponses, NewNeed } from './types.js';
+import type { AssistedSignup, BatchRequestResult, HospitalNeed, HospitalSite, InvitationBatch, NeedCoverage, NeedResponse, NeedResponses, NewNeed } from './types.js';
 
 const csrfToken = () => getAuthSession()?.csrfToken;
 
@@ -133,4 +133,36 @@ export async function fetchNeedResponses(needId: string): Promise<NeedResponses>
     cursor = str(next, 512);
   }
   throw new ApiError('red');
+}
+
+// Forma cerrada: un campo de más (una posición individual, un id) es un fallo, no un dato que se pinte.
+const exactly = (value: Record<string, unknown>, keys: readonly string[]) => {
+  if (Object.keys(value).length !== keys.length || keys.some((key) => !(key in value))) malformed();
+  return value;
+};
+
+const parseCoverage = (value: unknown): NeedCoverage => {
+  const v = exactly(rec(value), ['site', 'radiusKm', 'compatibleCount', 'nextBatchCount', 'rings', 'cells']);
+  const site = exactly(rec(v.site), ['latitude', 'longitude']);
+  if (!Array.isArray(v.rings) || v.rings.length !== 4 || !Array.isArray(v.cells) || v.cells.length > 500) malformed();
+  return {
+    site: { latitude: num(site.latitude), longitude: num(site.longitude) },
+    radiusKm: int(v.radiusKm, 1, 50),
+    compatibleCount: int(v.compatibleCount, 0, Number.MAX_SAFE_INTEGER),
+    nextBatchCount: int(v.nextBatchCount, 0, 50),
+    rings: (v.rings as unknown[]).map((ring) => {
+      const r = exactly(rec(ring), ['fromKm', 'toKm', 'count']);
+      return { fromKm: num(r.fromKm), toKm: num(r.toKm), count: int(r.count, 0, Number.MAX_SAFE_INTEGER) };
+    }),
+    // Las celdas con menos de 3 donantes no llegan nunca (k-anonimato): si llegara una, se rechaza la respuesta entera.
+    cells: (v.cells as unknown[]).map((cell) => {
+      const c = exactly(rec(cell), ['latitude', 'longitude', 'count']);
+      return { latitude: num(c.latitude), longitude: num(c.longitude), count: int(c.count, 3, Number.MAX_SAFE_INTEGER) };
+    }),
+  };
+};
+
+/** getNeedCoverage: solo agregados de una necesidad propia en borrador o activa. 404 = ajena o inexistente. */
+export async function fetchCoverage(needId: string): Promise<NeedCoverage> {
+  return parseCoverage(dataOf(await call('GET', `${needPath(needId)}/coverage`)));
 }

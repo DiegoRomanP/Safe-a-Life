@@ -7,6 +7,8 @@ import { Badge } from '../../../components/ui/Badge.js';
 import { Button } from '../../../components/ui/Button.js';
 import { bloodTypeLabel, formatDateTime } from '../../../lib/format.js';
 import { ActionError } from '../components/ActionError.js';
+import { CoverageSection } from '../components/CoverageSection.js';
+import type { BatchRequestResult } from '../types.js';
 import { useHospital } from '../HospitalContext.js';
 import { needCode, needStatusLabel, urgencyLabel } from '../labels.js';
 
@@ -17,22 +19,32 @@ const backLink = (
 );
 
 const createdMessage = {
-  activa: 'Necesidad activada',
+  activa: 'Necesidad publicada',
   borrador: 'Borrador guardado',
 } as const;
 
+// Qué pasó con el primer lote al publicar: nunca se promete un envío que el servidor no hizo.
+function invitationDetail(invitation: BatchRequestResult | null | undefined): string {
+  if (invitation === undefined) return '';
+  if (invitation === null) return ' No se pudo solicitar el lote de invitaciones: pídelo desde «Lotes de invitación».';
+  if (invitation.createdInvitationCount === 0) return ' No había donantes compatibles disponibles: no se envió ningún correo.';
+  return ` ${invitation.createdInvitationCount} ${invitation.createdInvitationCount === 1 ? 'invitación' : 'invitaciones'} creadas y ${invitation.queuedEmailCount} correos en cola de envío.`;
+}
+
 // HOS-03 Detalle de necesidad (Penpot «+»). Datos de getOwnHospitalNeed y de
 // la proyección de listOwnNeedResponses: de las respuestas solo se muestran
-// las confirmadas, con nombre, código, grupo declarado y hora. Activar y
-// cancelar usan transitionOwnHospitalNeed; cancelar pide confirmación.
+// las confirmadas, con nombre, código, grupo declarado y hora. «Publicar e
+// invitar» activa el borrador y pide el primer lote en la misma acción (ADR-008);
+// cancelar usa transitionOwnHospitalNeed y pide confirmación.
 export function NeedDetailPage() {
   const { needId = '' } = useParams();
-  const { needs, sites, transitionNeed } = useHospital();
+  const { needs, sites, transitionNeed, publishNeed } = useHospital();
   const location = useLocation();
   const navigate = useNavigate();
-  const [notice, setNotice] = useState<string | undefined>(() => {
-    const created = (location.state as { created?: keyof typeof createdMessage } | null)?.created;
-    return created ? createdMessage[created] : undefined;
+  // `extra`: lo que ocurrió con el lote de invitaciones (solo al publicar).
+  const [notice, setNotice] = useState<{ message: string; extra: string } | undefined>(() => {
+    const state = location.state as { created?: keyof typeof createdMessage; invitation?: BatchRequestResult | null } | null;
+    return state?.created ? { message: createdMessage[state.created], extra: state.created === 'activa' ? invitationDetail(state.invitation) : '' } : undefined;
   });
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const noticeRef = useRef<HTMLDivElement>(null);
@@ -78,10 +90,15 @@ export function NeedDetailPage() {
   const urgency = urgencyLabel[need.urgency];
   const progress = Math.min(100, Math.round((need.confirmedIntentCount / need.targetConfirmations) * 100));
 
-  async function apply(next: 'activa' | 'cancelada') {
-    if (!(await transitionNeed(need!.needId, next))) return;
+  async function publish() {
+    const outcome = await publishNeed(need!.needId);
+    if (outcome) setNotice({ message: createdMessage.activa, extra: invitationDetail(outcome.invitation) });
+  }
+
+  async function cancel() {
+    if (!(await transitionNeed(need!.needId, 'cancelada'))) return;
     setConfirmingCancel(false);
-    setNotice(next === 'activa' ? 'Necesidad activada' : 'Necesidad cancelada');
+    setNotice({ message: 'Necesidad cancelada', extra: '' });
   }
 
   return (
@@ -103,14 +120,14 @@ export function NeedDetailPage() {
             Cancelar necesidad
           </Button>
         )}
-        {need.status === 'borrador' && <Button onClick={() => void apply('activa')}>Activar necesidad</Button>}
+        {need.status === 'borrador' && <Button onClick={() => void publish()}>Publicar e invitar</Button>}
       </div>
 
       {confirmingCancel && (
         <Alert tone="warning" title={`¿Cancelar ${code}?`}>
           <p>La necesidad pasará a «Cancelada». Esta acción no se puede deshacer.</p>
           <div className="mt-3 flex flex-wrap gap-3">
-            <Button ref={confirmRef} variant="danger" onClick={() => void apply('cancelada')}>
+            <Button ref={confirmRef} variant="danger" onClick={() => void cancel()}>
               Sí, cancelar necesidad
             </Button>
             <Button
@@ -130,7 +147,7 @@ export function NeedDetailPage() {
       <div aria-live="polite" className="live-slot">
         {notice && (
           <div ref={noticeRef} tabIndex={-1} className="rounded-xl focus-visible:outline-focus">
-            <SuccessNotice announce={false} message={notice} detail={`Estado actual: ${status.label}.`} />
+            <SuccessNotice announce={false} message={notice.message} detail={`Estado actual: ${status.label}.${notice.extra}`} />
           </div>
         )}
       </div>
@@ -179,6 +196,8 @@ export function NeedDetailPage() {
           </dl>
         </section>
       </div>
+
+      {(need.status === 'borrador' || need.status === 'activa') && <CoverageSection needId={need.needId} version={need.status} />}
 
       <section aria-labelledby="confirmaciones-titulo" className="flex flex-col gap-3">
         <h2 id="confirmaciones-titulo" className="text-xl font-semibold text-ink">
