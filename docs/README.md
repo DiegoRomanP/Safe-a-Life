@@ -63,6 +63,7 @@ Un ADR aceptado no se cambia sin decisión de la persona usuaria.
 | [openapi.json](openapi.json) | Contrato OpenAPI 3.1 | Vigente (ratificación por operación) | La API; de él se generan los tipos y validadores |
 | [Reglas de API](Api-Rules.md) | Convenciones | Borrador | Errores, paginación, idempotencia, seguridad |
 | [Contratos backend](Backend-Contracts.md) | Ratificación por operación | Vigente | Qué operaciones están ratificadas |
+| [Runbook de despliegue](Deploy-Runbook.md) | Orden, variables y verificación en staging | Preparado, sin desplegar | Cuando se vaya a desplegar |
 | [Contrato de aplicación: necesidad en borrador](Need-Draft-Application-Spec.md) | Contrato privado | Aprobado como base de `need-records` (ADR-003) | Puertos y errores de `createHospitalNeed` |
 
 ### 4. Backend

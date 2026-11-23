@@ -66,5 +66,9 @@ impide dos escrituras a la vez.
   Si OSM las bloquea hay que cambiar de proveedor.
 - **El Supabase remoto no tiene la migración**; `readiness` devuelve 503 contra él hasta `supabase db push`.
 - Decisión abierta: tope por admin a `getNeedCoverage` o redondeo del total.
-- Parte B restante: `vercel.json` (rewrites `/api` y `/health`, `X-Edge-Secret`), Dockerfile, `render.yaml`, CI de cabeceras,
-  `docs/Deploy-Runbook.md`, ajuste de timeouts del servidor (`keepAliveTimeout` de 5 s puede dar 502 tras el balanceador).
+- Parte B (hecha en local, **nada desplegado**): ver `docs/Deploy-Runbook.md`. Queda por verificar en staging: que el transform
+  `request.headers` de `routes` se aplique a un destino externo (la documentación no lo dice de forma expresa), los saltos de
+  `TRUSTED_PROXIES` y el `keepAliveTimeout` de 5 s frente al balanceador de Render (no se tocó `server.ts`).
+- Las dos fases de la parte B se intentaron delegar a subagentes en paralelo y fallaron por el mismo hook que bloquea las llamadas
+  al subagente; las hizo la sesión principal siguiendo las skills `security-and-hardening`, `ci-cd-and-automation` y
+  `shipping-and-launch`. La revisión independiente de la parte B tampoco existe todavía.
