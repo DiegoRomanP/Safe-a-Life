@@ -54,9 +54,9 @@ describe('gateway de invitaciones', () => {
 
 describe('cobertura agregada del hospital', () => {
   const COVERAGE = {
-    kind: 'ok', site: { latitude: -12.046374, longitude: -77.042793 }, radiusKm: 10, compatibleCount: 6, nextBatchCount: 6,
-    rings: [{ fromKm: 0, toKm: 10, count: 6 }],
-    cells: [{ latitude: -12.065, longitude: -77.045, count: 4 }],
+    kind: 'ok', site: { latitude: -12.046374, longitude: -77.042793 }, radiusKm: 10, compatibleCount: 5, nextBatchCount: 5,
+    rings: [{ fromKm: 0, toKm: 10, count: 5 }],
+    cells: [{ latitude: -12.065, longitude: -77.045, count: 5 }],
   };
 
   it('llama con la sesión de la persona (no la técnica) y solo con el id de la necesidad', async () => {
@@ -66,7 +66,7 @@ describe('cobertura agregada del hospital', () => {
     expect(calls[0]).toMatchObject({ accessToken: 'jwt', name: 'get_need_coverage', args: { p_need_id: 'need' } });
   });
 
-  it('con menos de 3 candidatos acepta el total y los grupos como null («menos de 3»), nunca como un número', async () => {
+  it('con menos de 5 candidatos acepta el total y los grupos como null («menos de 5»), nunca como un número', async () => {
     const { gateway } = harness({ ...COVERAGE, compatibleCount: null, nextBatchCount: null, rings: [{ fromKm: 0, toKm: 10, count: null }], cells: [] });
     await expect(gateway.getCoverage('jwt', 'need')).resolves.toMatchObject({ compatibleCount: null, nextBatchCount: null, rings: [{ count: null }] });
   });
@@ -75,6 +75,9 @@ describe('cobertura agregada del hospital', () => {
     ['una posición individual en una celda', { ...COVERAGE, cells: [{ latitude: -12.065, longitude: -77.045, count: 4, donorId: 'x' }] }],
     ['un id o distancia en un anillo', { ...COVERAGE, rings: [{ fromKm: 0, toKm: 2.5, count: 5, distanceM: 120 }] }],
     ['un campo de más en la raíz', { ...COVERAGE, donors: [] }],
+    ['un total exacto (no es un cubo)', { ...COVERAGE, compatibleCount: 6 }],
+    ['un grupo con 1 a 4 personas', { ...COVERAGE, rings: [{ fromKm: 0, toKm: 10, count: 2 }] }],
+    ['una celda con menos de 5', { ...COVERAGE, cells: [{ latitude: -12.065, longitude: -77.045, count: 4 }] }],
     ['un campo de más en la sede', { ...COVERAGE, site: { latitude: 1, longitude: 2, name: 'x' } }],
   ])('rechaza %s (forma cerrada)', async (_label, reply) => {
     const { gateway } = harness(reply);

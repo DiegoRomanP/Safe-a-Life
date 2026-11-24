@@ -206,7 +206,7 @@ describe('Cobertura agregada en la necesidad', () => {
     await settle();
     expect(view.textContent).toContain('Cobertura de donantes compatibles');
     expect(api().calls).toContain(`GET /hospitals/me/needs/${A104}/coverage`);
-    expect(view.textContent).toContain('6 donantes compatibles sin invitar dentro de 10 km');
+    expect(view.textContent).toContain('Al menos 5 donantes compatibles sin invitar dentro de 10 km');
   });
 
   it('una necesidad con la meta alcanzada no la pide', async () => {

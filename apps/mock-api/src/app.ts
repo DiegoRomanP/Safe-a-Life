@@ -787,20 +787,20 @@ export function createApp(initialState: DemoState = createDemoState()) {
       sendError(response, 409, 'STATE_CONFLICT', 'La operación entra en conflicto con el estado actual.');
       return;
     }
-    // Grupos de anillos con al menos 3 donantes (k = 3), como el servidor real.
-    const compatibleCount = 13;
+    // Grupos de anillos con al menos 5 donantes (k = 5) y conteos en cubos (0, 5, 10, 25), como el servidor real.
+    const compatibleCount = 10;
     const data: ApiSchemas['NeedCoverageEnvelope']['data'] = {
       site: { latitude: -12.046374, longitude: -77.042793 },
       radiusKm: need.radiusKm,
       compatibleCount,
-      nextBatchCount: Math.min(compatibleCount, Math.min(50, Math.max(5, 2 * need.targetConfirmations))),
+      nextBatchCount: 10,
       rings: [
         { fromKm: 0, toKm: Number((need.radiusKm / 2).toFixed(2)), count: 10 },
-        { fromKm: Number((need.radiusKm / 2).toFixed(2)), toKm: need.radiusKm, count: 3 },
+        { fromKm: Number((need.radiusKm / 2).toFixed(2)), toKm: need.radiusKm, count: 5 },
       ],
       cells: [
-        { latitude: -12.045, longitude: -77.045, count: 4 },
-        { latitude: -12.055, longitude: -77.035, count: 3 },
+        { latitude: -12.045, longitude: -77.045, count: 5 },
+        { latitude: -12.055, longitude: -77.035, count: 5 },
       ],
     };
     response.set('Cache-Control', 'no-store').json({ data });

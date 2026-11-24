@@ -1,4 +1,5 @@
 import { asArray, asNumber, asString, closedRecord, oneOf } from '../../../shared/persistence/guards.js';
+import { PersistenceError } from '../../../shared/persistence/errors.js';
 import { pageOf } from '../../../shared/persistence/page.js';
 import type { RpcInvoker } from '../../../shared/persistence/rpc-invoker.js';
 import { NEED_STATUSES } from '../../need-records/domain/need-state.js';
@@ -53,7 +54,14 @@ export const parseItem = (value: unknown): InvitationItem => {
   });
 };
 
-const nullableNumber = (value: unknown): number | null => (value === null ? null : asNumber(value));
+// Conteos de cobertura: solo cubos (0, 5, 10, 25) o null (menos de 5). Un 1 a 4 o un valor exacto identificaría a alguien: es un fallo.
+const COVERAGE_BUCKETS = new Set([0, 5, 10, 25]);
+const bucketOf = (value: unknown, allowed: readonly number[]): number => {
+  const n = asNumber(value);
+  if (!allowed.includes(n)) throw new PersistenceError('shape');
+  return n;
+};
+const nullableNumber = (value: unknown): number | null => (value === null ? null : bucketOf(value, [...COVERAGE_BUCKETS]));
 
 /** Forma cerrada: un campo de más (por ejemplo, una posición individual) es un fallo, no un dato que se cuele al hospital. */
 function parseCoverage(reply: Record<string, unknown>): NeedCoverage {
@@ -68,7 +76,7 @@ function parseCoverage(reply: Record<string, unknown>): NeedCoverage {
     })),
     cells: Object.freeze(asArray(row.cells).map((value) => {
       const cell = closedRecord(value, ['latitude', 'longitude', 'count']);
-      return Object.freeze({ latitude: asNumber(cell.latitude), longitude: asNumber(cell.longitude), count: asNumber(cell.count) });
+      return Object.freeze({ latitude: asNumber(cell.latitude), longitude: asNumber(cell.longitude), count: bucketOf(cell.count, [5, 10, 25]) });
     })),
   });
 }

@@ -91,3 +91,17 @@ Ejecutó `openapi:api:check`, `check:headers` (27/27), 90 + 58 tests y pgTAP; so
 - **Corregido tras la revisión:** dos textos de `CreateNeedPage` desfasados con «Publicar e invitar».
 - Pruebas que faltan: pgTAP de cupo 3/24 h, invitación previa, eliminación en ejecución, polígono, rol, sede no aprobada y `service_role`/`public` sin ejecución;
   router de cobertura (401/403/AAL1); Bruno negativos; frontend (429 en el segundo paso, doble clic).
+
+## Mitigación tras la revisión independiente (2026-11-23, decisión de la persona usuaria: tope por hospital + cubos gruesos)
+
+Aplicado: k = 5; conteos en cubos 0/5/10/25 (`null` = menos de 5); celdas solo con 5 o más; tope de 20 consultas por hora **por
+administrador** (no por hospital: el servicio solo tiene el id de la sesión; la diferencia es menor porque cada admin cuenta aparte);
+sede activa y aprobada obligatoria (409); el gateway rechaza cualquier valor fuera de cubo; pgTAP 26 casos (cubos, fusión, sede sin aprobar, paridad
+contra los candidatos exactos), pruebas del servicio (429), del gateway y del validador del frontend; avisos «al menos» y aviso clínico en el mapa.
+Evidencia: `npm test` (mock 52, web 15, backend 862, frontend 393), `lint`, `openapi:api:check`, pgTAP completo en base limpia (PASS),
+`test:bruno:backend` y `test:e2e:real` (16 PASS).
+
+**Sigue abierto:** auditoría de cada consulta de cobertura; que `request_invitation_batch` consuma `app.invitation_candidates` en vez de
+una copia (la paridad hoy se prueba con un escenario); pruebas pgTAP de cupo 3/24 h, invitación previa, eliminación en ejecución, rol y polígono;
+router de cobertura (401/403/AAL1) y Bruno negativos; 429 y doble clic en el frontend; CI sin job de ESLint; subir la revisión independiente de la parte B
+a una segunda vuelta tras estos cambios.

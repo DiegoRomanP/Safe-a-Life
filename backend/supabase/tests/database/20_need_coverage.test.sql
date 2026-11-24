@@ -5,7 +5,7 @@ begin;
 truncate app.invitation_response_history, app.invitations, app.invitation_batches, app.email_outbox, app.needs, app.sites, app.assisted_signups,
   app.idempotency_records, app.correction_requests, app.session_barriers, app.admitted_sessions, app.donor_profiles, app.hospital_memberships, app.hospitals, app.user_accounts cascade;
 
-select plan(24);
+select plan(26);
 
 -- Ayudas ---------------------------------------------------------------------------------------------------------
 create function pg_temp.u(n int) returns uuid language sql immutable as $$ select ('00000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $$;
@@ -36,6 +36,8 @@ begin
 exception when raise_exception then
   return substr(sqlerrm, 10);
 end $$;
+create function pg_temp.cand(p_need uuid) returns int language sql security definer as $$ select count(*)::int from app.invitation_candidates(p_need) $$;
+create function pg_temp.bk(p_n int) returns int language sql security definer as $$ select app.coverage_bucket(p_n) $$;
 create temp table res (label text primary key, j jsonb);
 grant all on res to authenticated;
 grant execute on all functions in schema pg_temp to authenticated;
@@ -43,10 +45,10 @@ grant execute on all functions in schema pg_temp to authenticated;
 -- Fixtures --------------------------------------------------------------------------------------------------------
 insert into auth.users (id, instance_id, aud, role, email)
 select pg_temp.u(n), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'pgtap-cov-' || n || '@example.test'
-from (select generate_series(1, 4) n union all select generate_series(11, 24)) t;
+from (select generate_series(1, 4) n union all select generate_series(11, 26)) t;
 insert into app.user_accounts (user_id, role, display_name)
 select pg_temp.u(n), case n when 1 then 'admin_hospitalario' when 2 then 'admin_hospitalario' when 4 then 'api_technical' else 'donante' end::app.actor_role, null
-from (select generate_series(1, 2) n union select 4 union all select generate_series(11, 24)) t;
+from (select generate_series(1, 2) n union select 4 union all select generate_series(11, 26)) t;
 insert into app.hospitals (hospital_id, public_name, legal_name, is_authorized) values
   (pg_temp.hid(1), 'Hospital Cobertura A', 'Hospital Cobertura A S.A.', true), (pg_temp.hid(2), 'Hospital Cobertura B', 'Hospital Cobertura B S.A.', true);
 insert into app.hospital_memberships (membership_id, user_id, hospital_id, status, email_hint) values
@@ -54,13 +56,14 @@ insert into app.hospital_memberships (membership_id, user_id, hospital_id, statu
   ('30000000-0000-4000-8000-000000000902', pg_temp.u(2), pg_temp.hid(2), 'activa', 'b***@example.test');
 insert into app.sites (site_id, hospital_id, public_name, public_address, public_instructions, latitude, longitude, is_active, is_approved) values
   ('22222222-2222-4222-8222-222222220901', pg_temp.hid(1), 'Sede Cobertura A', 'Cercado de Lima', null, -12.046374, -77.042793, true, true),
-  ('22222222-2222-4222-8222-222222220902', pg_temp.hid(2), 'Sede Cobertura B', 'Miraflores', null, -12.119700, -77.037500, true, true);
+  ('22222222-2222-4222-8222-222222220902', pg_temp.hid(2), 'Sede Cobertura B', 'Miraflores', null, -12.119700, -77.037500, true, true),
+  ('22222222-2222-4222-8222-222222220903', pg_temp.hid(1), 'Sede Cobertura A sin aprobar', 'Cercado de Lima', null, -12.046374, -77.042793, true, false);
 -- Donantes (lon -77,043 salvo indicación). Para una necesidad A_POS son compatibles: A_POS, A_NEG, O_POS y O_NEG.
---  11..14: A_POS en la misma celda de 0,01° (lat -12,061..-12,064, a 1,6-2,0 km): celda con 4 -> visible, anillo 1.
+--  11..14 y 25: A_POS en la misma celda de 0,01° (lat -12,061..-12,065, a 1,6-2,0 km): celda con 5 -> visible (k = 5), anillo 1.
 --  15: O_POS solo en su celda (0,5 km): contado en el anillo 1, celda suprimida (k < 3).
 --  16: A_POS a 3,2 km: anillo 2, celda suprimida.
 --  17: B_POS (incompatible); 18: no disponible; 19: fuera del radio de 10 km (11,5 km); 20: perfil incompleto.
---  21..24: B_NEG en la misma celda (lat -12,080, a 3,8 km): con 17 y 15 forman los candidatos de una necesidad B_POS.
+--  21..24 y 26: B_NEG en la misma celda (lat -12,080, a 3,8 km): con 17 y 15 forman los 7 candidatos de una necesidad B_POS.
 create temp table donors (n int, blood text, lat numeric, avail boolean, status text);
 insert into donors values
   (11, 'A_POS', -12.061, true, 'activo'), (12, 'A_POS', -12.062, true, 'activo'), (13, 'A_POS', -12.063, true, 'activo'), (14, 'A_POS', -12.064, true, 'activo'),
@@ -70,6 +73,7 @@ insert into donors values
   (18, 'A_POS', -12.050, false, 'activo'),
   (19, 'A_POS', -12.150, true, 'activo'),
   (20, 'A_POS', null, null, 'incompleto'),
+  (25, 'A_POS', -12.065, true, 'activo'), (26, 'B_NEG', -12.080, true, 'activo'),
   (21, 'B_NEG', -12.080, true, 'activo'), (22, 'B_NEG', -12.080, true, 'activo'), (23, 'B_NEG', -12.080, true, 'activo'), (24, 'B_NEG', -12.080, true, 'activo');
 insert into app.donor_profiles (donor_id, name, declared_blood_type, is_available, latitude, longitude, location_polygon_version, status, email_verified_at)
 select pg_temp.u(n), case when status = 'activo' then 'Donante Sintético ' || n end, case when status = 'activo' then blood end, avail,
@@ -82,9 +86,10 @@ from (values
   (2, 1, '22222222-2222-4222-8222-222222220901'::uuid, 'borrador', 'A_POS'),
   (3, 1, '22222222-2222-4222-8222-222222220901'::uuid, 'cancelada', 'A_POS'),
   (4, 2, '22222222-2222-4222-8222-222222220902'::uuid, 'activa', 'A_POS'),
-  (5, 1, '22222222-2222-4222-8222-222222220901'::uuid, 'activa', 'B_POS'),  -- candidatos: 17, 15 y 21..24 (6)
+  (5, 1, '22222222-2222-4222-8222-222222220901'::uuid, 'activa', 'B_POS'),  -- candidatos: 17, 15, 21..24 y 26 (7)
   (6, 1, '22222222-2222-4222-8222-222222220901'::uuid, 'activa', 'O_POS'),  -- candidato: solo el 15 (1 < 3)
-  (7, 1, '22222222-2222-4222-8222-222222220901'::uuid, 'activa', 'O_NEG')  -- ninguno (solo recibe O_NEG)
+  (7, 1, '22222222-2222-4222-8222-222222220901'::uuid, 'activa', 'O_NEG'),  -- ninguno (solo recibe O_NEG)
+  (8, 1, '22222222-2222-4222-8222-222222220903'::uuid, 'borrador', 'A_POS')  -- sede sin aprobar
 ) t (k, h, s, status, blood);
 
 -- Autorización -----------------------------------------------------------------------------------------------------------
@@ -100,28 +105,31 @@ select is(api.get_need_coverage(pg_temp.nid(1)) ->> 'kind', 'mfa_required', 'el 
 select pg_temp.login(pg_temp.u(1), 'aal2');
 insert into res values ('own', api.get_need_coverage(pg_temp.nid(1)));
 select is((select j ->> 'kind' from res where label = 'own'), 'ok', 'el admin ve la cobertura de su necesidad activa');
-select is((select (j ->> 'compatibleCount')::int from res where label = 'own'), 6, 'cuenta solo compatibles, disponibles, activos y dentro del radio');
-select is((select (j ->> 'nextBatchCount')::int from res where label = 'own'), 6, 'nextBatchCount = min(compatibles, batchSize(meta 3) = 6)');
--- Anillos reales [5, 1, 0, 0]: el 1 del segundo anillo no se muestra solo (situaría a una persona en una corona de 2,5 km): se
--- suma al grupo anterior y este llega hasta el radio.
-select is((select j -> 'rings' from res where label = 'own'), '[{"fromKm": 0, "toKm": 10, "count": 6}]'::jsonb, 'los anillos con menos de 3 se fusionan: ningún grupo revela 1 o 2 personas');
-select is((select j -> 'cells' from res where label = 'own'), '[{"latitude": -12.065, "longitude": -77.045, "count": 4}]'::jsonb,
-  'solo se devuelve la celda con >= 3 donantes y con su centro, no con posiciones individuales');
+select is((select (j ->> 'compatibleCount')::int from res where label = 'own'), 5, '7 candidatos reales (compatibles, disponibles, activos, dentro del radio) salen en el cubo «al menos 5»');
+select is((select (j ->> 'nextBatchCount')::int from res where label = 'own'), 5, 'nextBatchCount = cubo de min(7, batchSize(meta 3) = 6) = 5');
+-- Anillos reales [6, 1, 0, 0]: el 1 del segundo anillo no se muestra solo (situaría a una persona en una corona de 2,5 km): se
+-- suma al grupo anterior (7), que llega hasta el radio y sale en el cubo 5.
+select is((select j -> 'rings' from res where label = 'own'), '[{"fromKm": 0, "toKm": 10, "count": 5}]'::jsonb, 'los anillos con menos de 5 se fusionan y salen en cubos: ningún grupo revela 1 a 4 personas');
+select is((select j -> 'cells' from res where label = 'own'), '[{"latitude": -12.065, "longitude": -77.045, "count": 5}]'::jsonb,
+  'solo se devuelve la celda con >= 5 donantes y con su centro, no con posiciones individuales');
 select is((select j -> 'site' from res where label = 'own'), '{"latitude": -12.046374, "longitude": -77.042793}'::jsonb, 'devuelve la sede propia');
 select is((select array_agg(k order by k) from res, jsonb_object_keys(j) k where label = 'own'),
   array['cells', 'compatibleCount', 'kind', 'nextBatchCount', 'radiusKm', 'rings', 'site'], 'forma cerrada: ningún id, nombre ni distancia individual');
 
 -- Fusión y supresión de pequeños -------------------------------------------------------------------------------------------
 insert into res values ('b_pos', api.get_need_coverage(pg_temp.nid(5))), ('o_pos', api.get_need_coverage(pg_temp.nid(6))), ('ab_neg', api.get_need_coverage(pg_temp.nid(7)));
-select is((select j -> 'rings' from res where label = 'b_pos'), '[{"fromKm": 0, "toKm": 5, "count": 6}, {"fromKm": 5, "toKm": 10, "count": 0}]'::jsonb,
-  'anillos [2, 4, 0, 0]: se fusionan los dos primeros (6) y la cola vacía queda como un grupo con cero');
-select is((select j -> 'cells' from res where label = 'b_pos'), '[{"latitude": -12.075, "longitude": -77.045, "count": 4}]'::jsonb, 'celda con 4 B_NEG; los candidatos sueltos (1 por celda) no se dibujan');
-select is((select j -> 'compatibleCount' from res where label = 'o_pos'), 'null'::jsonb, 'con 1 candidato el total no se revela (null = menos de 3)');
+select is((select j -> 'rings' from res where label = 'b_pos'), '[{"fromKm": 0, "toKm": 5, "count": 5}, {"fromKm": 5, "toKm": 10, "count": 0}]'::jsonb,
+  'anillos [2, 5, 0, 0]: se fusionan los dos primeros (7, cubo 5) y la cola vacía queda como un grupo con cero');
+select is((select j -> 'cells' from res where label = 'b_pos'), '[{"latitude": -12.075, "longitude": -77.045, "count": 5}]'::jsonb, 'celda con 5 B_NEG; los candidatos sueltos (1 por celda) no se dibujan');
+select is((select j -> 'compatibleCount' from res where label = 'o_pos'), 'null'::jsonb, 'con 1 candidato el total no se revela (null = menos de 5)');
 select is((select j -> 'nextBatchCount' from res where label = 'o_pos'), 'null'::jsonb, 'con 1 candidato el lote siguiente tampoco');
 select is((select j -> 'rings' from res where label = 'o_pos'), '[{"fromKm": 0, "toKm": 10, "count": null}]'::jsonb, 'con 1 candidato hay un solo grupo sin conteo');
 select is((select j -> 'cells' from res where label = 'o_pos'), '[]'::jsonb, 'con 1 candidato no hay celdas');
 select is((select (j ->> 'compatibleCount')::int from res where label = 'ab_neg'), 0, 'con 0 candidatos se dice 0: no identifica a nadie');
 select is((select j -> 'rings' from res where label = 'ab_neg'), '[{"fromKm": 0, "toKm": 10, "count": 0}]'::jsonb, 'con 0 candidatos, un grupo con cero');
+
+select is(api.get_need_coverage(pg_temp.nid(8)) ->> 'kind', 'conflict', 'con la sede sin aprobar no hay cobertura (publicar daría 409)');
+select is((select array_agg(pg_temp.bk(n) order by n) from unnest(array[0, 1, 4, 5, 9, 10, 24, 25, 100]) n), array[0, null, null, 5, 5, 10, 10, 25, 25], 'cubos: 0 se dice; 1 a 4 = null; luego 5, 10 y 25');
 
 -- Aislamiento y estados ----------------------------------------------------------------------------------------------------
 select is(api.get_need_coverage(pg_temp.nid(4)) ->> 'kind', 'not_found', 'una necesidad de otro hospital es indistinguible de una inexistente');
@@ -131,7 +139,7 @@ select is(api.get_need_coverage(null) ->> 'kind', 'invalid', 'id nulo: invalid')
 
 -- Paridad con el lote real ---------------------------------------------------------------------------------------------------
 select pg_temp.login(pg_temp.u(4), 'aal1');
-select is(pg_temp.batch_size(pg_temp.nid(1), 6), 'created:6', 'paridad: el lote real crea tantas invitaciones como candidatos cuenta la cobertura');
+select is(pg_temp.batch_size(pg_temp.nid(1), 6), 'created:' || least(6, pg_temp.cand(pg_temp.nid(1))), 'paridad: el lote real crea min(candidatos exactos, tamaño del lote) invitaciones');
 
 -- Privilegios ----------------------------------------------------------------------------------------------------------------
 reset role;

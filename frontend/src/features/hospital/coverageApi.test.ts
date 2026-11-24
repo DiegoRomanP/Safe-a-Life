@@ -23,9 +23,10 @@ describe('fetchCoverage', () => {
     ['un campo de más en la sede', (c: Record<string, any>) => ({ ...c, site: { ...c.site, name: 'x' } })],
     ['ningún grupo de anillos', (c: Record<string, any>) => ({ ...c, rings: [] })],
     ['más de cuatro grupos de anillos', (c: Record<string, any>) => ({ ...c, rings: Array.from({ length: 5 }, () => c.rings[0]) })],
-    ['un grupo con 1 o 2 personas', (c: Record<string, any>) => ({ ...c, rings: [{ fromKm: 0, toKm: 10, count: 2 }] })],
-    ['un total de 1 o 2 personas', (c: Record<string, any>) => ({ ...c, compatibleCount: 1 })],
-    ['una celda con menos de 3 donantes', (c: Record<string, any>) => ({ ...c, cells: [{ ...c.cells[0], count: 2 }] })],
+    ['un grupo con 1 a 4 personas', (c: Record<string, any>) => ({ ...c, rings: [{ fromKm: 0, toKm: 10, count: 2 }] })],
+    ['un total de 1 a 4 personas', (c: Record<string, any>) => ({ ...c, compatibleCount: 1 })],
+    ['una celda con menos de 5 donantes', (c: Record<string, any>) => ({ ...c, cells: [{ ...c.cells[0], count: 4 }] })],
+    ['un total exacto que no es un cubo', (c: Record<string, any>) => ({ ...c, compatibleCount: 7 })],
     ['un conteo negativo', (c: Record<string, any>) => ({ ...c, compatibleCount: -1 })],
   ])('rechaza %s', async (_label, mutate) => {
     api().coverage = mutate(structuredClone(api().coverage)) as never;

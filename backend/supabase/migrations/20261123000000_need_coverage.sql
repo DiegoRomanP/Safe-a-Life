@@ -1,14 +1,22 @@
 -- need-coverage: cobertura AGREGADA de donantes compatibles para una necesidad propia (mapa del hospital).
 -- Decisiones de la persona usuaria (2026-11-23): el hospital ve sede + radio + conteos agregados; nunca la ubicación, la
 -- distancia, el nombre ni el id de una persona (RF-VIS-01/02). Aquí se cumple con tres reglas:
---  1. Supresión k-anónima (k = 3) en TODO lo que se devuelve: las celdas (rejilla de 0,01° ≈ 1,1 km) solo salen con >= 3 donantes;
---     los anillos por radio se fusionan con el siguiente hasta que cada grupo tiene >= 3 (un anillo con 1 o 2 donantes situaría a
---     una persona en una corona de radio/4 alrededor de la sede); y si en total hay 1 o 2 candidatos, ni el total ni el lote
---     siguiente se revelan (`null` = «menos de 3»). El 0 sí se dice: no identifica a nadie.
+--  1. Supresión k-anónima (k = 5) y cubos gruesos en TODO lo que se devuelve (revisión independiente del 2026-11-23: con k = 3 y
+--     conteos exactos, restar lecturas de borradores con radios, grupos o sedes distintos aislaba a una persona): las celdas
+--     (rejilla de 0,01° ≈ 1,1 km) solo salen con >= 5 donantes; los anillos se fusionan con el siguiente hasta que cada grupo
+--     tiene >= 5; y todo conteo se redondea hacia abajo a un cubo {5, 10, 25} («al menos N»). `null` = «menos de 5» (1 a 4) y el
+--     0 sí se dice: no identifica a nadie. El tope de consultas por hospital lo aplica la API (20 por hora).
 --  2. Se reutilizan los filtros del lote (app.invitation_candidates) para que el conteo sea el que el lote real elegiría.
 --     request_invitation_batch NO se modifica: la paridad la prueba pgTAP (20_need_coverage.test.sql).
 --  3. DEFINER (ADR-003 ítem 6): el admin no puede leer donor_profiles; la función cruza el perfil y devuelve solo agregados.
 --     Las coordenadas del donante nunca salen de la función: se redondean a la celda antes de construir el JSON.
+
+-- Cubo grueso de un conteo (hacia abajo): 0 se dice; 1 a 4 = null («menos de 5»); luego 5, 10 y 25 («al menos N»).
+create function app.coverage_bucket(p_n int) returns int
+language sql immutable set search_path = '' as $$
+  select case when p_n = 0 then 0 when p_n < 5 then null when p_n < 10 then 5 when p_n < 25 then 10 else 25 end
+$$;
+grant execute on function app.coverage_bucket(int) to app_privileged;
 
 -- Candidatos del lote para una necesidad: mismos filtros que api.request_invitation_batch (matriz RBC, polígono, radio con borde
 -- incluido, disponibilidad, perfil activo con cuenta de donante, sin invitación previa a esta necesidad, sin eliminación en
@@ -47,6 +55,7 @@ declare
   v_c int[];
   v_q double precision;
   v_groups jsonb := '[]'::jsonb;
+  v_raw jsonb;
   v_acc int := 0;
   v_start int := 0;
   v_last int;
@@ -64,6 +73,8 @@ begin
   if app.need_status(v_need) not in ('borrador', 'activa') then return jsonb_build_object('kind', 'conflict'); end if;
   select * into v_site from app.sites where site_id = v_need.site_id and hospital_id = v_hospital;
   if not found then return jsonb_build_object('kind', 'not_found'); end if;
+  -- Mismo criterio que publicar y que el lote (O9): con la sede inactiva o sin aprobar, la cobertura prometería un envío imposible.
+  if not (v_site.is_active and v_site.is_approved) then return jsonb_build_object('kind', 'conflict'); end if;
 
   -- Cuatro anillos iguales de radio/4 (metros); el último incluye el borde. Cada candidato cae en uno solo.
   v_q := v_need.radius_km * 250.0;
@@ -75,15 +86,15 @@ begin
     into v_total, v_c
   from app.invitation_candidates(p_need_id) k;
 
-  if v_total in (1, 2) then
-    -- Menos de 3 en total: ni el total ni los anillos ni las celdas se revelan.
+  if v_total between 1 and 4 then
+    -- Menos de 5 en total: ni el total ni los anillos ni las celdas se revelan.
     v_groups := jsonb_build_array(jsonb_build_object('fromKm', 0, 'toKm', v_need.radius_km, 'count', null));
     v_cells := '[]'::jsonb;
   else
-    -- Fusiona anillos contiguos hasta que cada grupo tenga >= 3; los ceros se absorben en el grupo siguiente.
+    -- Fusiona anillos contiguos hasta que cada grupo tenga >= 5; los ceros se absorben en el grupo siguiente.
     for v_b in 1 .. 4 loop
       v_acc := v_acc + v_c[v_b];
-      if v_acc >= 3 then
+      if v_acc >= 5 then
         v_groups := v_groups || jsonb_build_array(jsonb_build_object(
           'fromKm', round(v_need.radius_km * v_start / 4.0, 2), 'toKm', round(v_need.radius_km * v_b / 4.0, 2), 'count', v_acc));
         v_acc := 0;
@@ -91,7 +102,7 @@ begin
       end if;
     end loop;
     if v_acc > 0 then
-      -- 1 o 2 sobrantes al final: se suman al último grupo (existe, porque el total es >= 3) y este llega hasta el radio.
+      -- 1 a 4 sobrantes al final: se suman al último grupo (existe, porque el total es >= 5) y este llega hasta el radio.
       v_last := jsonb_array_length(v_groups) - 1;
       v_groups := jsonb_set(v_groups, array[v_last::text], (v_groups -> v_last)
         || jsonb_build_object('toKm', v_need.radius_km, 'count', (v_groups -> v_last ->> 'count')::int + v_acc));
@@ -101,26 +112,30 @@ begin
         'fromKm', round(v_need.radius_km * v_start / 4.0, 2), 'toKm', v_need.radius_km, 'count', 0));
     end if;
 
-    -- Celdas de 0,01° con al menos 3 donantes; el centro (no la posición del donante) es lo único que sale.
-    select coalesce(jsonb_agg(jsonb_build_object('latitude', t.clat, 'longitude', t.clon, 'count', t.n) order by t.n desc, t.clat, t.clon), '[]'::jsonb)
+    -- Celdas de 0,01° con al menos 5 donantes (cubo del conteo); el centro (no la posición del donante) es lo único que sale.
+    select coalesce(jsonb_agg(jsonb_build_object('latitude', t.clat, 'longitude', t.clon, 'count', app.coverage_bucket(t.n)) order by t.n desc, t.clat, t.clon), '[]'::jsonb)
       into v_cells
     from (
       select ((floor(k.latitude * 100) + 0.5) / 100)::numeric(7, 3) as clat, ((floor(k.longitude * 100) + 0.5) / 100)::numeric(8, 3) as clon, count(*)::int as n
       from app.invitation_candidates(p_need_id) k
       group by 1, 2
-      having count(*) >= 3
+      having count(*) >= 5
       order by count(*) desc, 1, 2
       limit 500
     ) t;
   end if;
 
+  -- Los grupos llevan el conteo exacto solo hasta aquí: salen en cubos.
+  select coalesce(jsonb_agg(case when g ->> 'count' is null then g else g || jsonb_build_object('count', app.coverage_bucket((g ->> 'count')::int)) end order by o), '[]'::jsonb)
+    into v_raw from jsonb_array_elements(v_groups) with ordinality t(g, o);
+
   return jsonb_build_object('kind', 'ok',
     'site', jsonb_build_object('latitude', v_site.latitude, 'longitude', v_site.longitude),
     'radiusKm', v_need.radius_km,
-    'compatibleCount', case when v_total in (1, 2) then null else v_total end,
+    'compatibleCount', to_jsonb(app.coverage_bucket(v_total)),
     -- batchSize(meta) = min(50, max(5, 2 * meta)) (batch-size.ts); nunca se rellena con quien no es candidato.
-    'nextBatchCount', case when v_total in (1, 2) then null else least(v_total, least(50, greatest(5, 2 * v_need.target_confirmations))) end,
-    'rings', v_groups,
+    'nextBatchCount', to_jsonb(app.coverage_bucket(least(v_total, least(50, greatest(5, 2 * v_need.target_confirmations))))),
+    'rings', v_raw,
     'cells', v_cells);
 end;
 $$;

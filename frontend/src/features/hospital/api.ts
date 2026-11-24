@@ -141,11 +141,13 @@ const exactly = (value: Record<string, unknown>, keys: readonly string[]) => {
   return value;
 };
 
-// 0 o al menos 3: un conteo de 1 o 2 identificaría a una persona y el servidor nunca lo envía.
-const countOrZero = (value: unknown, max: number): number => {
-  const n = int(value, 0, max);
-  return n === 1 || n === 2 ? malformed() : n;
+// Cubos (hacia abajo): el servidor nunca manda un conteo exacto ni un 1 a 4, que identificarían a alguien. Un valor fuera del cubo
+// rechaza la respuesta entera.
+const bucket = (value: unknown, allowed: readonly number[]): number => {
+  const n = num(value);
+  return allowed.includes(n) ? n : malformed();
 };
+const COUNT_BUCKETS = [0, 5, 10, 25] as const;
 
 const parseCoverage = (value: unknown): NeedCoverage => {
   const v = exactly(rec(value), ['site', 'radiusKm', 'compatibleCount', 'nextBatchCount', 'rings', 'cells']);
@@ -154,17 +156,17 @@ const parseCoverage = (value: unknown): NeedCoverage => {
   return {
     site: { latitude: num(site.latitude), longitude: num(site.longitude) },
     radiusKm: int(v.radiusKm, 1, 50),
-    // `null` = menos de 3 (k-anonimato). Nunca llega 1 o 2: si llegara, se rechaza la respuesta entera.
-    compatibleCount: v.compatibleCount === null ? null : countOrZero(v.compatibleCount, 50_000),
-    nextBatchCount: v.nextBatchCount === null ? null : int(v.nextBatchCount, 0, 50),
+    // `null` = menos de 5 (k-anonimato).
+    compatibleCount: v.compatibleCount === null ? null : bucket(v.compatibleCount, COUNT_BUCKETS),
+    nextBatchCount: v.nextBatchCount === null ? null : bucket(v.nextBatchCount, COUNT_BUCKETS),
     rings: (v.rings as unknown[]).map((ring) => {
       const r = exactly(rec(ring), ['fromKm', 'toKm', 'count']);
-      return { fromKm: num(r.fromKm), toKm: num(r.toKm), count: r.count === null ? null : countOrZero(r.count, 50_000) };
+      return { fromKm: num(r.fromKm), toKm: num(r.toKm), count: r.count === null ? null : bucket(r.count, COUNT_BUCKETS) };
     }),
-    // Las celdas con menos de 3 donantes no llegan nunca (k-anonimato): si llegara una, se rechaza la respuesta entera.
+    // Las celdas con menos de 5 donantes no llegan nunca (k-anonimato).
     cells: (v.cells as unknown[]).map((cell) => {
       const c = exactly(rec(cell), ['latitude', 'longitude', 'count']);
-      return { latitude: num(c.latitude), longitude: num(c.longitude), count: int(c.count, 3, Number.MAX_SAFE_INTEGER) };
+      return { latitude: num(c.latitude), longitude: num(c.longitude), count: bucket(c.count, [5, 10, 25]) };
     }),
   };
 };

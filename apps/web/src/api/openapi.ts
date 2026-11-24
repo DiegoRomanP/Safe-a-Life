@@ -656,7 +656,7 @@ export interface paths {
         };
         /**
          * Consulta la cobertura agregada de donantes compatibles
-         * @description Cuenta los donantes que el lote real elegiría (grupo compatible, disponibles, dentro del radio, con cupo). Nunca devuelve ubicación, distancia, nombre ni id de una persona: solo anillos por radio y celdas de unos 1,1 km con al menos 3 donantes (las celdas con menos se omiten). Disponible para una necesidad propia en borrador o activa.
+         * @description Cuenta los donantes que el lote real elegiría (grupo compatible, disponibles, dentro del radio, con cupo). Nunca devuelve ubicación, distancia, nombre ni id de una persona: solo anillos por radio y celdas de unos 1,1 km con al menos 3 donantes (las celdas con menos de 5 se omiten; los conteos van en cubos 5/10/25 y hay un tope de 20 consultas por hora por administrador). Disponible para una necesidad propia en borrador o activa.
          */
         get: operations["getNeedCoverage"];
         put?: never;
@@ -1481,27 +1481,27 @@ export interface components {
          *           "longitude": -77.042793
          *         },
          *         "radiusKm": 10,
-         *         "compatibleCount": 6,
-         *         "nextBatchCount": 6,
+         *         "compatibleCount": 5,
+         *         "nextBatchCount": 5,
          *         "rings": [
          *           {
          *             "fromKm": 0,
          *             "toKm": 10,
-         *             "count": 6
+         *             "count": 5
          *           }
          *         ],
          *         "cells": [
          *           {
          *             "latitude": -12.065,
          *             "longitude": -77.045,
-         *             "count": 4
+         *             "count": 5
          *           }
          *         ]
          *       }
          *     }
          */
         NeedCoverageEnvelope: {
-            /** @description Solo agregados (RF-VIS-01/02) con supresión k-anónima (k = 3): ni un grupo de anillos, ni una celda, ni el total revelan 1 o 2 personas. Las celdas de rejilla de 0,01° se devuelven con su centro y solo si tienen al menos 3 donantes. */
+            /** @description Solo agregados (RF-VIS-01/02) con supresión k-anónima (k = 5) y cubos gruesos: ni un grupo de anillos, ni una celda, ni el total revelan 1 a 4 personas, y los conteos son «al menos N». Las celdas de rejilla de 0,01° se devuelven con su centro y solo si tienen al menos 5 donantes. */
             data: {
                 /** @description Sede de la necesidad (dato público del hospital, no de un donante). */
                 site: {
@@ -1509,20 +1509,28 @@ export interface components {
                     longitude: number;
                 };
                 radiusKm: number;
-                /** @description Donantes que cumplen hoy todos los filtros del lote. `null` = hay 1 o 2 (menos de 3): no se revela; el 0 sí se dice. */
-                compatibleCount: number | null;
-                /** @description Invitaciones que crearía un lote ahora: min(compatibleCount, min(50, max(5, 2 × meta))). Nunca se rellena. `null` cuando compatibleCount es `null`. */
-                nextBatchCount: number | null;
-                /** @description Grupos contiguos de los cuatro anillos de radio/4 hasta el radio; cada donante cae en uno solo. Los anillos se fusionan hasta que cada grupo tiene al menos 3 donantes (un grupo con 1 o 2 situaría a una persona en una corona alrededor de la sede); con 1 o 2 candidatos en total hay un solo grupo con `count: null`. */
+                /**
+                 * @description Donantes que cumplen hoy todos los filtros del lote. Cubo hacia abajo: 0, 5, 10 o 25 («al menos N»); `null` = hay 1 a 4 (menos de 5): no se revela; el 0 sí se dice.
+                 * @enum {integer|null}
+                 */
+                compatibleCount: 0 | 5 | 10 | 25 | null;
+                /**
+                 * @description Invitaciones que crearía un lote ahora: min(compatibleCount, min(50, max(5, 2 × meta))). Nunca se rellena. `null` cuando compatibleCount es `null`.
+                 * @enum {integer|null}
+                 */
+                nextBatchCount: 0 | 5 | 10 | 25 | null;
+                /** @description Grupos contiguos de los cuatro anillos de radio/4 hasta el radio; cada donante cae en uno solo. Los anillos se fusionan hasta que cada grupo tiene al menos 5 donantes (un grupo con 1 a 4 situaría a una persona en una corona alrededor de la sede); con 1 a 4 candidatos en total hay un solo grupo con `count: null`. Los conteos salen en cubos (0, 5, 10, 25). */
                 rings: {
                     fromKm: number;
                     toKm: number;
-                    count: number | null;
+                    /** @enum {integer|null} */
+                    count: 0 | 5 | 10 | 25 | null;
                 }[];
                 cells: {
                     latitude: number;
                     longitude: number;
-                    count: number;
+                    /** @enum {integer} */
+                    count: 5 | 10 | 25;
                 }[];
             };
         };

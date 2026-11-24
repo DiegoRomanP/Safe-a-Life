@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import { clientIpSubject } from '../../../shared/http/client-ip.js';
+import { hmacSha256Hex } from '../../../shared/crypto/hmac.js';
 import { ApiError } from '../../../shared/http/errors.js';
 import { sendData } from '../../../shared/http/respond.js';
 import {
@@ -66,7 +67,8 @@ export function registerInvitationsRoutes(app: Express, { invitations, secrets }
     const { needId } = parse<{ needId: string }>(coverage, 'params', req);
     // Agregados de la cartera de donantes: no se guardan en cachés (el contrato ya declara no-store; sendData lo aplica a toda la API).
     res.setHeader('Cache-Control', 'no-store');
-    sendData(res, 200, ok(coverage, await invitations.getCoverage(token(res), canonicalId(needId))));
+    const subject = hmacSha256Hex(secrets.ipHmac, `coverage:${requirePrincipal(res).userId}`);
+    sendData(res, 200, ok(coverage, await invitations.getCoverage(token(res), canonicalId(needId), subject)));
   });
 
   app.get('/api/v1/hospitals/me/needs/:needId/responses', ...guards.adminRead, async (req, res) => {

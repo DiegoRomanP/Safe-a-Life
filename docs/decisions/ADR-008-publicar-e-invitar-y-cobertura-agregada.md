@@ -35,11 +35,13 @@ RF-VIS-01/02 (el hospital nunca ve la ubicación, la distancia, el nombre ni el 
    - Mismos filtros que el lote real (`app.invitation_candidates`): grupo compatible por la matriz RBC, perfil activo y
      disponible, polígono `DEMO_ONLY-1`, radio con borde incluido, sin invitación previa a la necesidad, sin eliminación en
      ejecución y cuota 3/24 h. `request_invitation_batch` no se modificó; una prueba pgTAP comprueba la paridad.
-   - **Supresión k-anónima (k = 3) en todo lo que se devuelve:** una celda con menos de 3 donantes no se devuelve; los
-     anillos contiguos se fusionan hasta que cada grupo tiene al menos 3 (con radio de 1 km un anillo mide 250 m: un anillo
-     con 1 o 2 donantes situaría a una persona en esa corona); y con 1 o 2 candidatos en total, el total, el lote siguiente
-     y el grupo único valen `null` («menos de 3»). El 0 sí se dice. Nunca hay ids, nombres, posiciones ni distancias
-     individuales. Esto lo encontró la revisión del 2026-11-23 sobre la primera versión, que solo suprimía celdas.
+   - **Supresión k-anónima (k = 5) y cubos gruesos en todo lo que se devuelve:** una celda con menos de 5 donantes no se
+     devuelve; los anillos contiguos se fusionan hasta que cada grupo tiene al menos 5 (con radio de 1 km un anillo mide 250 m);
+     todo conteo sale en un cubo hacia abajo (0, 5, 10 o 25, «al menos N») y `null` significa «menos de 5». Nunca hay ids,
+     nombres, posiciones ni distancias individuales. La primera versión usaba k = 3 y conteos exactos; la revisión independiente
+     del 2026-11-23 mostró que restando lecturas de borradores con radios, grupos o sedes distintos se podía aislar a una persona.
+   - **Tope por administrador:** 20 consultas por hora (429 `RATE_LIMITED`), con el limitador compartido y un sujeto HMAC.
+     La sede debe estar activa y aprobada (si no, 409), como al publicar.
    - Admin hospitalario con AAL2; una necesidad ajena es indistinguible de una inexistente (404); solo borrador o activa
      (otro estado, 409); `Cache-Control: no-store`. Función `SECURITY DEFINER` `api.get_need_coverage` (ADR-003 ítem 6),
      añadida a la lista cerrada de funciones DEFINER de la prueba pgTAP 02.
@@ -63,11 +65,10 @@ RF-VIS-01/02 (el hospital nunca ve la ubicación, la distancia, el nombre ni el 
 - Tras un lote, los invitados dejan de ser candidatos: la cobertura mostrará «sin invitar» y puede bajar a cero.
 - Riesgo residual aceptado: restar las celdas visibles al grupo de anillos revela que existen 1 o 2 donantes en celdas
   suprimidas dentro de ese grupo (de 3 o más), nunca su posición.
-- Riesgo residual **abierto, pendiente de decisión**: un admin puede crear necesidades en borrador con radios o sedes
-  distintos y comparar totales para acotar cuántos donantes hay entre dos radios (por ejemplo, 10 y 11 km). Es la misma
-  clase de dato que ya revela `createdInvitationCount` del lote (cuántos candidatos hay en un radio), pero esta lectura no
-  gasta cuota ni envía correos y no tiene tope propio. Mitigaciones posibles, sin implementar: tope por admin y hora a
-  `getNeedCoverage` como el de 20 lotes por hora, o redondear el total a múltiplos de 5.
+- Riesgo residual, **reducido pero no eliminado**: con cubos de 5/10/25, k = 5 y 20 consultas por hora por administrador, comparar
+  lecturas de borradores distintos ya no da conteos exactos, pero un admin persistente con varias sedes y grupos puede seguir
+  acotando zonas de forma gruesa. No hay auditoría específica de cada consulta (la función es `stable`); pendiente si se quiere
+  detectar sondeos. El tope es por administrador, no por hospital.
 - Las teselas de OpenStreetMap envían al proveedor el área consultada y el origen (`Referer` limitado al origen); no se
   envía ningún dato de personas. Para tráfico real conviene un proveedor de teselas con contrato.
 - La migración `20261123000000_need_coverage.sql` sube la versión esperada del esquema: `readiness` responde 503 contra un

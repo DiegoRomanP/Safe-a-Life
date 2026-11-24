@@ -13,6 +13,13 @@ const ACTION_LIMIT = 60;
 const ACTION_WINDOW_SECONDS = 15 * 60;
 /** La vista previa no tiene efectos, pero cada llamada es una RPC de la sesión técnica compartida: tiene su propio techo por IP. */
 const PREVIEW_LIMIT = 60;
+/**
+ * Cobertura agregada (ADR-008): cada consulta recorre la cartera de donantes y, restando lecturas de borradores con radios, grupos
+ * o sedes distintos, se puede acotar la zona de una persona. El tope por administrador (20 por hora) frena el sondeo; los cubos
+ * gruesos y k = 5 del SQL reducen lo que cada lectura revela.
+ */
+const COVERAGE_LIMIT = 20;
+const COVERAGE_WINDOW_SECONDS = 60 * 60;
 
 export interface InvitationsServiceDependencies {
   readonly repository: InvitationsRepository;
@@ -52,7 +59,12 @@ export function createInvitationsService({
      * Lote de invitaciones. La autorización resuelve antes el replay de la misma clave (sin tope ni estado); si no lo es, la meta
      * de la necesidad propia (404 si es ajena) fija cuántos slots se preparan.
      */
-    getCoverage: (accessToken: string, needId: string) => repository.getCoverage(accessToken, needId),
+    /** `subject` es el HMAC del administrador (nunca su id en claro): el tope es por persona, no por IP. */
+    async getCoverage(accessToken: string, needId: string, subject: string) {
+      const decision = await limiter.consume('coverage:admin', subject, COVERAGE_LIMIT, COVERAGE_WINDOW_SECONDS);
+      if (!decision.allowed) throw new ApiError('RATE_LIMITED', undefined, { retryAfterSeconds: decision.retryAfterSeconds });
+      return repository.getCoverage(accessToken, needId);
+    },
 
     async requestBatch(accessToken: string, key: string, needId: string) {
       const envelope = { key, hash: fingerprint([['needId', needId]]) };

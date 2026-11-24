@@ -116,17 +116,25 @@ describe('respuesta por token', () => {
 });
 
 describe('cobertura agregada', () => {
-  it('delega en el repositorio con la sesión de la persona y el id de la necesidad, sin preparar tokens ni slots', async () => {
-    const coverage = { site: { latitude: -12.04, longitude: -77.04 }, radiusKm: 10, compatibleCount: 0, nextBatchCount: 0, rings: [], cells: [] };
+  const coverage = { site: { latitude: -12.04, longitude: -77.04 }, radiusKm: 10, compatibleCount: 0, nextBatchCount: 0, rings: [], cells: [] };
+  const build = (allowed: boolean, seen: unknown[], consumed: unknown[][]) => createInvitationsService({
+    repository: { getCoverage: async (...args: unknown[]) => { seen.push(args); return coverage; } } as Partial<InvitationsRepository> as InvitationsRepository,
+    needs: { get: async () => { throw new Error('no debe leer la necesidad'); } },
+    limiter: { consume: async (...args: unknown[]) => { consumed.push(args); return allowed ? { allowed: true } : { allowed: false, retryAfterSeconds: 30 }; } } as never,
+    seal: () => { throw new Error('no debe sellar nada'); },
+  });
+
+  it('consume el tope por administrador (20 por hora) y delega con la sesión de la persona, sin preparar tokens ni slots', async () => {
     const seen: unknown[] = [];
-    const service = createInvitationsService({
-      repository: { getCoverage: async (...args: unknown[]) => { seen.push(args); return coverage; } } as Partial<InvitationsRepository> as InvitationsRepository,
-      needs: { get: async () => { throw new Error('no debe leer la necesidad'); } },
-      limiter: { consume: async () => ({ allowed: true }) } as never,
-      seal: () => { throw new Error('no debe sellar nada'); },
-    });
-    await expect(service.getCoverage('jwt', NEED)).resolves.toBe(coverage);
+    const consumed: unknown[][] = [];
+    await expect(build(true, seen, consumed).getCoverage('jwt', NEED, 'a'.repeat(64))).resolves.toBe(coverage);
+    expect(consumed).toEqual([['coverage:admin', 'a'.repeat(64), 20, 3600]]);
     expect(seen).toEqual([['jwt', NEED]]);
   });
-});
 
+  it('con el tope agotado responde 429 y no llega a la base de datos', async () => {
+    const seen: unknown[] = [];
+    await expect(build(false, seen, []).getCoverage('jwt', NEED, 'a'.repeat(64))).rejects.toMatchObject({ code: 'RATE_LIMITED' });
+    expect(seen).toEqual([]);
+  });
+});

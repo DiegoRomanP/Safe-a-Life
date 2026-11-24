@@ -48,9 +48,9 @@ export function stubHospitalApi(): HospitalApiStub {
     batches: [],
     responses: [],
     coverage: {
-      site: { latitude: -12.046374, longitude: -77.042793 }, radiusKm: 10, compatibleCount: 6, nextBatchCount: 6,
-      rings: [{ fromKm: 0, toKm: 10, count: 6 }],
-      cells: [{ latitude: -12.065, longitude: -77.045, count: 4 }],
+      site: { latitude: -12.046374, longitude: -77.042793 }, radiusKm: 10, compatibleCount: 5, nextBatchCount: 5,
+      rings: [{ fromKm: 0, toKm: 10, count: 5 }],
+      cells: [{ latitude: -12.065, longitude: -77.045, count: 5 }],
     },
     nextBatchSize: 2,
     calls: [],
