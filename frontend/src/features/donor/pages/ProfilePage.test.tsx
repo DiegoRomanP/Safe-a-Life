@@ -62,7 +62,7 @@ describe('DON-02 Mi perfil', () => {
     type(inputByLabel(view, 'Longitud'), '-77.05');
     save(view);
     await settle();
-    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Cambios guardados');
+    expect(view.querySelector('.live-slot')?.textContent).toContain('Cambios guardados');
     // Se guardó en el backend (PATCH con CSRF) y la vista volvió a leerlo.
     // La guarda del área y la página leen el perfil; tras guardar, ambas lo vuelven a leer.
     expect(api.requests).toEqual(['GET /donors/me/profile', 'GET /donors/me/profile', 'PATCH /donors/me/profile', 'GET /donors/me/profile', 'GET /donors/me/profile']);
@@ -76,7 +76,7 @@ describe('DON-02 Mi perfil', () => {
     click(view.querySelector('[role="switch"]'));
     save(view);
     await settle();
-    expect(view.querySelector('[aria-live="polite"]')?.textContent).not.toContain('Cambios guardados');
+    expect(view.querySelector('.live-slot')?.textContent).not.toContain('Cambios guardados');
     expect(view.textContent).toContain('No se guardó');
     expect(api.profile?.isAvailable).toBe(true);
   });
@@ -136,10 +136,26 @@ describe('DON-02 Mi perfil', () => {
     await settle();
     save(view);
     await settle();
-    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Cambios guardados');
+    expect(view.querySelector('.live-slot')?.textContent).toContain('Cambios guardados');
     click(view.querySelector('[role="switch"]'));
     await settle();
-    expect(view.querySelector('[aria-live="polite"]')?.textContent).toBe('');
+    expect(view.querySelector('.live-slot')?.textContent).toBe('');
+  });
+
+  it('el mapa y los campos de coordenadas se sincronizan en las dos direcciones', async () => {
+    const view = renderRoute('/donante/perfil');
+    await settle();
+    save(view);
+    await settle();
+    // En jsdom el contenedor no tiene tamaño: (0, 0) es el centro actual del mapa, el punto guardado.
+    type(inputByLabel(view, 'Latitud'), '-12.2');
+    expect(view.querySelector('.live-slot')?.textContent).toBe('');
+    save(view);
+    await settle();
+    act(() => { view.querySelector('.leaflet-container')?.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 0, clientY: 20 })); });
+    expect(inputByLabel(view, 'Latitud')?.value).toMatch(/^-12\.20\d$/);
+    expect(inputByLabel(view, 'Latitud')?.value).not.toBe('-12.2');
+    expect(view.querySelector('.live-slot')?.textContent).toBe('');
   });
 
   it('los enlaces «Crear solicitud» tienen nombres distintos', async () => {

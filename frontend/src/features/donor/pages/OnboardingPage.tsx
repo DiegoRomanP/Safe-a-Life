@@ -15,6 +15,7 @@ import { useDemoMutation } from '../../../lib/useDemoMutation.js';
 import { useDonorDemo } from '../DonorDemoContext.js';
 import { mapboxEnabled } from '../../../lib/mapbox.js';
 import { AddressSearch } from '../AddressSearch.js';
+import { LocationMap } from '../LocationMap.js';
 import { latitudeError, longitudeError } from '../location.js';
 
 type Errors = { name?: string; bloodType?: string; latitude?: string; longitude?: string };
@@ -64,6 +65,13 @@ export function OnboardingPage() {
     });
   }
 
+  // Elegir un punto (búsqueda o mapa) resuelve el error de ubicación sin esperar al envío.
+  function chooseLocation(lat: string, lon: string) {
+    setLatitude(lat);
+    setLongitude(lon);
+    setErrors((current) => ({ ...current, latitude: undefined, longitude: undefined }));
+  }
+
   // El aviso de conflicto desaparece al revisarlo: el foco vuelve al envío.
   function review() {
     flushSync(save.reset);
@@ -110,7 +118,8 @@ export function OnboardingPage() {
             <fieldset className="flex flex-col gap-3">
               <legend className="text-sm font-semibold text-ink">Ubicación aproximada</legend>
               {!mapboxEnabled && <p className="text-sm text-muted">Máximo tres decimales; no uses tu domicilio real.</p>}
-              <AddressSearch inputRef={addressRef} error={errors.latitude} onSelect={(lat, lon) => { setLatitude(lat); setLongitude(lon); }} />
+              <AddressSearch inputRef={addressRef} error={errors.latitude} onSelect={chooseLocation} />
+              <LocationMap latitude={latitude} longitude={longitude} onChange={chooseLocation} />
               {!mapboxEnabled && (
               <div className="grid gap-6 md:grid-cols-2">
                 <Field label="Latitud" error={errors.latitude} required>

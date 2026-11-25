@@ -7,8 +7,11 @@ export const mapboxEnabled = Boolean(TOKEN);
 
 export type AddressResult = { label: string; latitude: string; longitude: string };
 
-// Mismo rectángulo que el polígono DEMO_ONLY-1 del backend (lon mín, lat mín, lon máx, lat máx).
-const LIMA_BBOX = '-77.2,-12.3,-76.85,-11.8';
+// Rectángulo envolvente del polígono DEMO_ONLY-1: acota el mapa y la búsqueda. La validez de un punto la decide
+// el polígono (features/donor/location.ts).
+export const LIMA_BOUNDS = { minLon: -77.2, minLat: -12.3, maxLon: -76.85, maxLat: -11.8 };
+// Formato de Mapbox: lon mín, lat mín, lon máx, lat máx.
+const LIMA_BBOX = [LIMA_BOUNDS.minLon, LIMA_BOUNDS.minLat, LIMA_BOUNDS.maxLon, LIMA_BOUNDS.maxLat].join(',');
 
 type Feature = { properties: { name?: string; full_address?: string; place_formatted?: string; coordinates: { latitude: number; longitude: number } } };
 

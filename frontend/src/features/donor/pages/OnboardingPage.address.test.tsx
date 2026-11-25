@@ -6,7 +6,8 @@ import { renderRoute } from '../../../test/renderRoute.js';
 import { stubDonorApi, type DonorApiStub } from '../../../test/donorApi.js';
 
 // Con Mapbox activo no hay campos de latitud ni longitud: el usuario solo da su dirección.
-vi.mock('../../../lib/mapbox.js', () => ({
+vi.mock('../../../lib/mapbox.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../lib/mapbox.js')>()),
   mapboxEnabled: true,
   searchAddress: vi.fn().mockResolvedValue([{ label: 'Miraflores, Lima, Perú', latitude: '-12.119', longitude: '-77.037' }]),
 }));
@@ -39,5 +40,17 @@ describe('DON-01 onboarding con dirección (Mapbox)', () => {
     await settle();
     await settle();
     expect(api.profile).toMatchObject({ approximateLocation: { latitude: -12.119, longitude: -77.037 } });
+  });
+
+  it('marcar el punto en el mapa quita el error de dirección', async () => {
+    const view = renderRoute('/donante/bienvenida');
+    await settle();
+    click(view.querySelector('button[type="submit"]'));
+    await settle();
+    expect(view.textContent).toContain('Busca tu dirección y elige una opción.');
+    // En jsdom el contenedor no tiene tamaño: (0, 0) es el centro del mapa, dentro de Lima.
+    click(view.querySelector('.leaflet-container'));
+    expect(view.textContent).not.toContain('Busca tu dirección y elige una opción.');
+    expect(view.textContent).toContain('Ubicación aproximada marcada en el mapa');
   });
 });

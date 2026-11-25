@@ -18,6 +18,7 @@ import { useDemoQuery } from '../../../lib/useDemoQuery.js';
 import { useDonorDemo } from '../DonorDemoContext.js';
 import { mapboxEnabled } from '../../../lib/mapbox.js';
 import { AddressSearch } from '../AddressSearch.js';
+import { LocationMap } from '../LocationMap.js';
 import { latitudeError, longitudeError } from '../location.js';
 import type { DonorProfile } from '../types.js';
 import type { RequestKind } from './NewRequestPage.js';
@@ -90,6 +91,13 @@ function ProfileForm({ profile, save, onReload }: ProfileFormProps) {
   const latitudeRef = useRef<HTMLInputElement>(null);
   const longitudeRef = useRef<HTMLInputElement>(null);
 
+  function chooseLocation(lat: string, lon: string) {
+    setLatitude(lat);
+    setLongitude(lon);
+    setErrors({});
+    setSaved(false);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (save.pending) return;
@@ -130,7 +138,8 @@ function ProfileForm({ profile, save, onReload }: ProfileFormProps) {
             <fieldset className="flex flex-col gap-3">
               <legend className="text-sm font-semibold text-ink">Ubicación sintética</legend>
               {!mapboxEnabled && <p className="text-sm text-muted">Máximo tres decimales; no uses tu domicilio real.</p>}
-              <AddressSearch hasLocation onSelect={(lat, lon) => { setLatitude(lat); setLongitude(lon); setSaved(false); }} />
+              <AddressSearch hasLocation onSelect={chooseLocation} />
+              <LocationMap latitude={latitude} longitude={longitude} onChange={chooseLocation} />
               {!mapboxEnabled && (
               <div className="grid gap-6 md:grid-cols-2">
                 <Field label="Latitud" error={errors.latitude}>
