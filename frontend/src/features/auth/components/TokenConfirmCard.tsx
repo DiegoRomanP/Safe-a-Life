@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Alert } from '../../../components/ui/Alert.js';
 import { Badge } from '../../../components/ui/Badge.js';
 import { Button } from '../../../components/ui/Button.js';
@@ -11,7 +11,7 @@ export type TokenConfirmCardProps = {
   description: string;
   actionLabel: string;
   doneTitle: string;
-  doneDetail: string;
+  doneDetail: ReactNode;
   doneLink: { to: string; label: string };
   /** Acción real (POST). Devuelve `true` si se completó; sin ella la tarjeta es demo y no envía nada. */
   onConfirm?: () => Promise<boolean>;

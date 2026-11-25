@@ -9,6 +9,7 @@ import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { apiRequest } from '../../../lib/api/http.js';
 import { ApiError } from '../../../lib/demoApi.js';
 import { AuthCard, AuthShell } from '../components/AuthShell.js';
+import { DevMailboxLink } from '../components/DevMailboxLink.js';
 import { StepList } from '../components/StepList.js';
 import { registrationSteps } from '../registrationSteps.js';
 import { emailError, newPasswordError, PASSWORD_HINT } from '../validation.js';
@@ -84,6 +85,7 @@ export function RegisterPage() {
             Usa solo correos sintéticos.
             {import.meta.env.DEV && ' En desarrollo los mensajes llegan al buzón local del equipo.'}
           </Alert>
+          <DevMailboxLink />
           <div>
             <LinkButton to="/ingresar">Volver a ingresar</LinkButton>
           </div>

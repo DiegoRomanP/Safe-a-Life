@@ -57,6 +57,7 @@ describe('AUTH-02 Registro', () => {
     expect(heading?.textContent).toBe('Revisa tu correo');
     expect(document.activeElement).toBe(heading);
     expect(view.textContent).toContain('Si el correo puede registrarse');
+    expect(view.textContent).toContain('Abrir buzón de desarrollo');
     expect(view.textContent).not.toContain('persona@example.test');
     expect(view.querySelector('input')).toBeNull();
   });

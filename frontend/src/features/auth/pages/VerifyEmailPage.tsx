@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert } from '../../../components/ui/Alert.js';
 import { AuthShell } from '../components/AuthShell.js';
+import { DevMailboxLink } from '../components/DevMailboxLink.js';
 import { DevStatusPicker } from '../components/DevStatusPicker.js';
 import { StepList } from '../components/StepList.js';
 import { registrationSteps } from '../registrationSteps.js';
@@ -70,7 +71,12 @@ export function VerifyEmailPage() {
               description="Confirma que este correo es tuyo para continuar con el registro."
               actionLabel="Verificar correo"
               doneTitle="Correo verificado"
-              doneDetail="Te enviamos un segundo correo para crear tu contraseña. Después ingresa y completa tu perfil: la cuenta se activa con el perfil obligatorio completo."
+              doneDetail={
+                <>
+                  Te enviamos un segundo correo para crear tu contraseña. Después ingresa y completa tu perfil: la cuenta
+                  se activa con el perfil obligatorio completo. <DevMailboxLink />
+                </>
+              }
               doneLink={{ to: '/ingresar', label: 'Ingresar' }}
               onConfirm={verify}
             />

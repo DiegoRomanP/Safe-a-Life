@@ -32,7 +32,7 @@
     "audit:production": "npm audit --omit=dev",
     "openapi:types": "node scripts/generate-api-contract.mjs --write",
     "openapi:api:check": "node scripts/generate-api-contract.mjs --check",
-    "test:api:generator": "node --test scripts/generate-api-contract.test.mjs",
+    "test:api:generator": "node --test scripts/generate-api-contract.test.mjs scripts/dev-mailbox.test.mjs scripts/check-local-supabase.test.mjs",
     "test": "npm run test --workspaces --if-present",
     "test:api": "npm run test --workspace @save-a-life/mock-api",
     "test:backend:dto": "npm run test --workspace backend",
@@ -49,6 +49,8 @@
     "test:e2e:real": "node_modules/.bin/tsx scripts/test-e2e-real.mjs",
     "check:headers": "node_modules/.bin/tsx scripts/check-security-headers.mjs",
     "dev:worker": "npm run dev:worker --workspace backend",
+    "dev:mailbox": "node scripts/dev-mailbox.mjs",
+    "dev:local": "node scripts/check-local-supabase.mjs && concurrently -k -n api,worker,front,mail \"npm:dev:backend\" \"npm:dev:worker\" \"npm:dev:frontend\" \"npm:dev:mailbox\"",
     "lint:root": "eslint scripts playwright.config.ts eslint.config.mjs"
   },
   "devDependencies": {

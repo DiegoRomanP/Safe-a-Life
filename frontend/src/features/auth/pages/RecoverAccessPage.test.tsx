@@ -38,6 +38,7 @@ describe('AUTH-04 Recuperar acceso', () => {
     expect(heading?.textContent).toBe('Si corresponde, enviaremos instrucciones');
     expect(document.activeElement).toBe(heading);
     expect(view.textContent).toContain('No confirmamos si una cuenta existe.');
+    expect(view.textContent).toContain('Abrir buzón de desarrollo');
     expect(view.textContent).not.toContain('persona@example.test');
   });
 

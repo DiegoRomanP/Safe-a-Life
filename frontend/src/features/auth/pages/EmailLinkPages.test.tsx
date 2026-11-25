@@ -51,6 +51,7 @@ describe('AUTH-02 paso 2: verificar correo', () => {
     expect(heading?.textContent).toBe('Correo verificado');
     expect(document.activeElement).toBe(heading);
     expect(view.textContent).toContain('segundo correo para crear tu contraseña');
+    expect(view.textContent).toContain('Abrir buzón de desarrollo');
     expect(view.textContent).not.toContain('no envía datos');
     expect(view.querySelector('a[href="/ingresar"]')?.textContent).toBe('Ingresar');
   });

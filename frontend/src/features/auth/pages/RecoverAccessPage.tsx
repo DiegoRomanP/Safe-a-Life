@@ -7,6 +7,7 @@ import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
 import { LinkButton } from '../../../components/ui/LinkButton.js';
 import { AuthCard, AuthShell } from '../components/AuthShell.js';
+import { DevMailboxLink } from '../components/DevMailboxLink.js';
 import { requestPasswordRecovery } from '../../../lib/api/auth.js';
 import { emailError } from '../validation.js';
 
@@ -71,6 +72,7 @@ export function RecoverAccessPage() {
           <Alert tone="info" title="Prototipo académico">
             No uses datos reales en este prototipo.
           </Alert>
+          <DevMailboxLink />
           <div>
             <LinkButton to="/ingresar">Volver a ingresar</LinkButton>
           </div>
