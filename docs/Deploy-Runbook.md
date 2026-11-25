@@ -15,6 +15,22 @@ que traiga el secreto de borde.
 | `scripts/check-security-headers.mjs` (`npm run check:headers`) | Arranca el backend compilado en producción sintética y comprueba borde, HTTPS, cabeceras, CORS y `vercel.json`. Está en CI (`headers`). | 27 comprobaciones PASS. |
 | `.github/workflows/ci.yml` | Jobs `headers` y `docker`. | Sintaxis YAML; no se ejecutó en GitHub. |
 
+## Desarrollo local: cómo verificar cuentas
+
+> **Antes de empezar:** `dev:local` solo arranca si `SUPABASE_URL` (variable del proceso o, en su defecto, `backend/.env`)
+> apunta a `127.0.0.1`, `localhost` o `[::1]`; `supabase start` no cambia ese valor. Usa en `backend/.env` la URL, la JWKS y
+> las claves que muestra `supabase status --workdir backend`. La guarda (`scripts/check-local-supabase.mjs`) solo mira la URL
+> y solo cubre `dev:local`: `dev:backend` y `dev:worker` siguen usando el destino que tenga el archivo, también remoto.
+
+Con `supabase start --workdir backend` y `EMAIL_PROVIDER=dev-mailbox` en `backend/.env`: `npm run dev:local` (API, worker,
+frontend en `:5174` y buzón en `:4025`) → registrarse con un correo `*.example.test` → botón *Abrir buzón de desarrollo* →
+*Verificar correo* → *Actualizar* en el buzón → segundo correo → *Crear contraseña*.
+
+El buzón (`npm run dev:mailbox`, `scripts/dev-mailbox.mjs`) muestra los correos que el worker guarda en
+`backend/.dev-mailbox/`. Solo escucha en `127.0.0.1`, rechaza un `Host` distinto de `127.0.0.1` o `localhost` y no arranca
+con `NODE_ENV=production`. El puerto se cambia con `DEV_MAILBOX_PORT` y, en el frontend, con `VITE_DEV_MAILBOX_URL`. Los
+correos contienen enlaces de un solo uso: borra la carpeta al terminar la demo. Con `EMAIL_PROVIDER=resend` deja de usarse.
+
 ## Orden de despliegue
 
 1. **Supabase remoto** (solo con permiso explícito de la persona usuaria; la base remota guarda auditoría que no se borra):
