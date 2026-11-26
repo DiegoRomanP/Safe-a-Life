@@ -1,0 +1,242 @@
+[
+ {
+  "verdict": "needs_validation",
+  "fingerprint": "action-token-in-api-request-path",
+  "title": "Single-use action tokens travel in the API URL path through Vercel and Render, which undoes the fragment-only design",
+  "description": "Email links put the action token in the URL fragment so it never reaches a server or the Referer (frontend/src/features/auth/useFragmentToken.ts:4-5, ADR-005). The SPA then sends that same token to the backend in the request path, for example GET and POST /api/v1/hospital-admin-invitation-actions/<token>, POST /api/v1/auth/password-reset-actions/<token> and the invitation, email-change and assisted-activation paths. The request goes through the Vercel rewrite to Render. The backend logger records only the route template, but platform request logs, the edge, observability tools or proxy logs can store full paths. The admin-invitation preview (GET) does not consume the token, so a token seen in such logs before the invitee claims it could be claimed by someone else, who would then hold a hospital-admin account. The same applies to a password-reset token in a log before or during use. The exposure depends on whether the deployed platforms keep full request paths and who can read them, and that is not visible in source.",
+  "claimed_root_cause": "The bearer secret is placed in the HTTP request-target (path parameter :token) instead of the request body or a header, so every proxy hop between the browser and Express (Vercel rewrite, Render ingress) sees it as part of the URL and may log it, even though the backend's own logger redacts it.",
+  "trace": [
+   {
+    "kind": "entrypoint",
+    "file": "frontend/src/features/auth/useFragmentToken.ts",
+    "line": 17,
+    "scope": "useFragmentToken",
+    "description": "Token read from location.hash (fragment, intentionally not sent to servers)"
+   },
+   {
+    "kind": "propagation",
+    "file": "frontend/src/lib/api/auth.ts",
+    "line": 112,
+    "scope": "previewAdminInvitation",
+    "description": "Token interpolated into the API path: GET /hospital-admin-invitation-actions/${encodeURIComponent(token)}"
+   },
+   {
+    "kind": "propagation",
+    "file": "frontend/vercel.json",
+    "line": 5,
+    "scope": "routes /api/(.*)",
+    "description": "Vercel rewrites the full path, token included, to https://<backend>.onrender.com/api/$1"
+   },
+   {
+    "kind": "sink",
+    "file": "backend/src/modules/identity-institutions/http/action-tokens.router.ts",
+    "line": 41,
+    "scope": "GET /api/v1/hospital-admin-invitation-actions/:token",
+    "description": "Token taken from req.params; preview does not consume it, later claim at :48-53 does"
+   }
+  ],
+  "evidence": [
+   {
+    "file": "frontend/src/features/auth/useFragmentToken.ts",
+    "line": 4,
+    "description": "Comment states the fragment exists so the token does not travel to the server or Referer"
+   },
+   {
+    "file": "frontend/src/lib/api/auth.ts",
+    "line": 123,
+    "description": "Claim also sends the token in the path: POST /hospital-admin-invitation-actions/<token>/claim"
+   },
+   {
+    "file": "frontend/src/features/auth/pages/ResetPasswordPage.tsx",
+    "line": 86,
+    "description": "Password reset sends the token in the path: POST /auth/password-reset-actions/<token>"
+   },
+   {
+    "file": "backend/src/shared/observability/logger.ts",
+    "line": 28,
+    "description": "Backend logs only the route template, so the backend's own logs do not leak it; the gap is in upstream hops"
+   },
+   {
+    "file": "docs/openapi.json",
+    "line": 1615,
+    "description": "Contract defines /api/v1/hospital-admin-invitation-actions/{token} as a path parameter (ratified)"
+   }
+  ],
+  "blockers": [
+   "Whether Vercel (rewrite/runtime/edge logs, log drains) and Render (HTTP request logs) record the full request path for /api/* and how long, and who can read those logs, is a deployment and provider fact that is not visible in source; nothing is deployed (render.yaml header)."
+  ],
+  "validation_plan": {
+   "deployment": "In staging, the owner sends one synthetic request GET /api/v1/hospital-admin-invitation-actions/SYNTHETICMARKER0000000000000000000000000000 through the Vercel domain. They then search the Vercel project logs, any configured log drain, and Render's HTTP request logs for SYNTHETICMARKER. If it shows up, move the token to a request body or header (for example POST .../preview with {token}) or check that log retention and access are acceptable.",
+   "local": "Source-only: confirm that every {token} path operation in docs/openapi.json (9 operations) is called by the frontend with the raw token in the path (grep encodeURIComponent(token) in frontend/src/lib/api and the pages)."
+  }
+ },
+ {
+  "verdict": "needs_validation",
+  "fingerprint": "donor-email-change-keeps-old-address-recovery-tokens",
+  "title": "Changing a donor's email does not invalidate recovery or password-setup tokens already sent to the old address",
+  "description": "When a donor's email is changed through the correction-request flow (issue_email_change, then the donor-email-change-actions token, then verifyEmailChange), only other 'cambio_email' tokens are invalidated. 'recuperacion' tokens (password reset and password setup) issued earlier and delivered to the OLD mailbox stay valid for up to 1 hour. Pending 'recuperacion' outbox emails to the old address are not cancelled either: they are enqueued with recipient_user_id null. consume_password_reset checks only token state, not that the account email still matches the address the token was sent to. Someone who controls the old mailbox, such as the compromised or lost address that motivated the correction, can complete POST /api/v1/auth/password-reset-actions/:token after the change. That sets the password and revokes the legitimate owner's sessions, which is an account takeover of the re-addressed account. Precondition: the recovery token must have been requested while the old address was still current (request_password_recovery resolves the email live), so the window is from issuance until 1 h expiry overlapping the email change.",
+  "claimed_root_cause": "api.consume_email_change and the backend verifyEmailChange do not invalidate the user's outstanding 'recuperacion' action tokens or cancel their pending outbox emails. Recovery tokens are bound to subject_id only, not to the email address they were delivered to.",
+  "trace": [
+   {
+    "kind": "entrypoint",
+    "file": "backend/src/modules/donor-records/http/donor-records.router.ts",
+    "line": 101,
+    "scope": "POST /api/v1/donor-email-change-actions/:token",
+    "description": "Public token route that triggers the email change."
+   },
+   {
+    "kind": "propagation",
+    "file": "backend/src/modules/donor-records/application/donor-records-service.ts",
+    "line": 228,
+    "scope": "verifyEmailChange",
+    "description": "Consumes the cambio_email token, calls admin.updateEmail(userId, newEmail) and revokes sessions. It never invalidates recovery tokens."
+   },
+   {
+    "kind": "propagation",
+    "file": "backend/supabase/migrations/20261013060000_donor_records.sql",
+    "line": 742,
+    "scope": "api.consume_email_change",
+    "description": "Marks only this cambio_email token consumed. No update of 'recuperacion' tokens for subject_id."
+   },
+   {
+    "kind": "propagation",
+    "file": "backend/supabase/migrations/20261013050000_action_tokens.sql",
+    "line": 310,
+    "scope": "api.request_password_recovery",
+    "description": "Earlier recovery token, bound only to subject_id, valid 1 h, emailed to the address in effect at request time."
+   },
+   {
+    "kind": "propagation",
+    "file": "backend/src/modules/identity-institutions/http/action-tokens.router.ts",
+    "line": 68,
+    "scope": "POST /api/v1/auth/password-reset-actions/:token",
+    "description": "Public reset route that accepts the old-address token."
+   },
+   {
+    "kind": "sink",
+    "file": "backend/supabase/migrations/20261022010000_worker_auth_purges.sql",
+    "line": 167,
+    "scope": "api.consume_password_reset (current definition)",
+    "description": "Accepts the recovery token by consumed/invalidated/expired state only, opens the session barrier and returns userId; completePasswordReset then revokes sessions and sets the new password on the re-addressed account."
+   }
+  ],
+  "evidence": [
+   {
+    "file": "backend/supabase/migrations/20261020010000_privacy_execution.sql",
+    "line": 134,
+    "description": "issue_email_change invalidates only kind='cambio_email' tokens. Only the deletion branch (line 71) invalidates all tokens of the donor."
+   },
+   {
+    "file": "backend/supabase/migrations/20261013060000_donor_records.sql",
+    "line": 741,
+    "description": "consume_email_change body: checks the sealed email and consumes only its own token, with no recovery invalidation."
+   },
+   {
+    "file": "backend/supabase/migrations/20261013050000_action_tokens.sql",
+    "line": 307,
+    "description": "Recovery tokens are invalidated only when a new recovery is requested for the same user."
+   },
+   {
+    "file": "backend/supabase/migrations/20261013050000_action_tokens.sql",
+    "line": 311,
+    "description": "Recovery email enqueued with recipient_user_id null, so it is not cancellable by user id when the email changes."
+   },
+   {
+    "file": "backend/src/modules/identity-institutions/application/action-tokens-service.ts",
+    "line": 158,
+    "description": "completePasswordReset trusts consumePasswordReset's userId and sets the new password via AuthAdmin."
+   },
+   {
+    "file": "backend/supabase/migrations/20261020010000_privacy_execution.sql",
+    "line": 146,
+    "description": "finish_email_change only closes the correction request; it does not invalidate 'recuperacion' tokens either."
+   }
+  ],
+  "blockers": [
+   "DB-backed reproduction (pgTAP or backend integration against local Supabase) is prohibited in this audit run, so the end-to-end acceptance of an old-address recovery token after an email change could not be observed locally.",
+   "The intended threat model for correction-driven email changes (whether the old mailbox is treated as untrusted after the change) is not stated in the source visible to this audit."
+  ],
+  "validation_plan": {
+   "local": "With local Supabase reset and seeded (supabase start --workdir backend), using synthetic .example.test users: (1) as api_technical, call api.request_password_recovery for donor D at old@example.test and keep token T. (2) Run the correction flow: issue_email_change to new@example.test, then consume_email_change plus updateEmail via the backend POST /api/v1/donor-email-change-actions/:token. (3) Call api.consume_password_reset(sha256(T)) and expect kind='ok' with userId=D, or POST /api/v1/auth/password-reset-actions/T against the local backend and expect 200. Regression: after step 2, consume_password_reset must return 'gone' and the pending 'recuperacion' outbox row must be cancelled.",
+   "deployment": "The owner confirms whether an email correction is meant to revoke the old mailbox's authority. If yes, apply the fix: in consume_email_change, invalidate kind='recuperacion' tokens for subject_id and cancel pending 'recuperacion' outbox rows for that user."
+  }
+ },
+ {
+  "verdict": "needs_validation",
+  "fingerprint": "need-coverage:zero-vs-null-radius-sweep-distance-oracle",
+  "title": "Coverage 0-vs-null split plus admin-chosen radius and blood type reveals the distance band of the nearest compatible donor",
+  "description": "api.get_need_coverage returns compatibleCount = 0 when no candidate exists and null when there are 1 to 4. A hospital admin (AAL2, active membership) chooses the recipient blood type and the radius (whole km, 1 to 50) on cheap drafts, up to 60 per hour, at any approved site of their own hospital. With recipient O_NEG only O_NEG donors are counted. The smallest radius where the answer changes from 0 to null is the 1 km distance band, from a site whose coordinates are known, of the nearest available O_NEG donor. A binary search over 1 to 50 takes about 6 coverage reads, below the 20 per hour per-admin cap. With two or more approved sites the bands intersect, which narrows where that donor lives. If the admin already knows a person's blood type and availability (for example a donor whose name and declaredBloodType they saw on an earlier confirmation, or an assisted signup), and that person is the only nearby donor of a rare type, this links a known person to an approximate location. RF-VIS-01/02 and ADR-008 line 40 say the hospital never sees individual distances.",
+  "claimed_root_cause": "coverage_bucket keeps an exact 0 apart from the 1 to 4 band, while radius and recipient blood type are fully attacker-chosen per draft. The 0 to non-zero threshold is therefore a per-individual predicate (is there at least one compatible available donor within r km of site S), and the rate limit does not stop it because a binary search needs only about 6 reads.",
+  "trace": [
+   {
+    "kind": "entrypoint",
+    "file": "backend/src/modules/invitation-coordination/http/invitations.router.ts",
+    "line": 65,
+    "scope": "GET /api/v1/hospitals/me/needs/:needId/coverage",
+    "description": "An admin reads coverage for their own draft or active need. The per-admin limiter allows 20 reads per hour."
+   },
+   {
+    "kind": "propagation",
+    "file": "backend/src/modules/invitation-coordination/application/invitations-service.ts",
+    "line": 63,
+    "scope": "getCoverage",
+    "description": "Only the 20 per hour per-admin limiter runs, then the RPC is called."
+   },
+   {
+    "kind": "propagation",
+    "file": "backend/supabase/migrations/20261123000000_need_coverage.sql",
+    "line": 33,
+    "scope": "app.invitation_candidates",
+    "description": "Candidates are filtered by the need's required_blood_type through rbc_compatibility (O_NEG recipient matches only O_NEG donors) and by the need's radius_km, both chosen by the admin."
+   },
+   {
+    "kind": "propagation",
+    "file": "backend/supabase/migrations/20261123000000_need_coverage.sql",
+    "line": 89,
+    "scope": "api.get_need_coverage",
+    "description": "A total from 1 to 4 becomes a null group. A total of 0 falls through to the zero-count group."
+   },
+   {
+    "kind": "sink",
+    "file": "backend/supabase/migrations/20261123000000_need_coverage.sql",
+    "line": 135,
+    "scope": "api.get_need_coverage reply",
+    "description": "compatibleCount is coverage_bucket(v_total): 0 for none and null for 1 to 4, so the admin can tell zero from at least one."
+   }
+  ],
+  "evidence": [
+   {
+    "file": "backend/supabase/migrations/20261123000000_need_coverage.sql",
+    "line": 17,
+    "description": "coverage_bucket: when p_n = 0 then 0 when p_n < 5 then null, so 0 and 1 to 4 can be told apart."
+   },
+   {
+    "file": "backend/supabase/migrations/20261123000000_need_coverage.sql",
+    "line": 39,
+    "description": "The radius filter is <= n.radius_km * 1000, with the radius supplied per draft."
+   },
+   {
+    "file": "backend/supabase/migrations/20261021010000_need_site_race.sql",
+    "line": 57,
+    "description": "Drafts are capped at 60 per hour per admin, which is enough for a radius sweep."
+   },
+   {
+    "file": "backend/src/modules/invitation-coordination/application/invitations-service.ts",
+    "line": 21,
+    "description": "COVERAGE_LIMIT = 20 per hour per admin, more than the roughly 6 reads a binary search over 1 to 50 km needs."
+   },
+   {
+    "file": "docs/decisions/ADR-008-publicar-e-invitar-y-cobertura-agregada.md",
+    "line": 40,
+    "description": "States that individual distances are never revealed and that null means fewer than 5, while 0 is disclosed."
+   }
+  ],
+  "blockers": [
+   "The audit forbids running the Postgres function (supabase start/reset/pgTAP and Docker are prohibited), so the 0-to-null transition cannot be shown on a local dummy dataset.",
+   "Whether ADR-008's accepted residual risk of 'coarse zone narrowing' is meant to cover a 1 km distance band for one individual is an owner policy question."
+  ],
+  "validation_plan": {
+   "local": "On a local Supabase with synthetic data, seed one hospital with an approved site and exactly one available O_NEG donor about 3.4 km away (plus any number of non-O_NEG donors). As the admin, create O_NEG drafts with radius 3 and radius 4 and call GET /coverage for each. Expect compatibleCount 0 at 3 km and null at 4 km. Add a second approved site and repeat to show the intersection of the two bands. Regression: add a pgTAP case that a total of 0 and a total of 1 to 4 return the same value, or that coverage refuses rare-type or small-radius probes."
+  }
+ }
+]

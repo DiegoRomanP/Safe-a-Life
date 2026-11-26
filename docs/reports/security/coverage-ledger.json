@@ -1,0 +1,1649 @@
+[
+ {
+  "coverage_id": ".github%2Fworkflows%23ci.yml%2Fsecurity.yml::package.json%23allowScripts::profile%2Fquick%2Fall-in-scope-subsystems::SUPPLY-CHAIN-AND-RELEASE.md%23Untrusted%20code%20in%20a%20privileged%20workflow",
+  "canonical_refs": {
+   "surface": ".github/workflows#ci.yml/security.yml",
+   "boundary": "package.json#allowScripts",
+   "subsystem": "profile/quick/all-in-scope-subsystems",
+   "attack_class": "SUPPLY-CHAIN-AND-RELEASE.md#Untrusted code in a privileged workflow"
+  },
+  "surface": "CI workflows, npm install policy and contract codegen",
+  "boundary": "workflow permissions, action pinning, install scripts",
+  "subsystem": "All in-scope subsystems (quick profile)",
+  "attack_class": "Supply chain and CI",
+  "starting_paths": [
+   ".github/workflows",
+   "package.json",
+   "scripts/generate-api-contract.mjs",
+   "backend/Dockerfile"
+  ],
+  "ordinary_attack_class_block": null,
+  "selected_companion_blocks": [
+   "SUPPLY-CHAIN-AND-RELEASE.md#Core discipline",
+   "SUPPLY-CHAIN-AND-RELEASE.md#Untrusted code in a privileged workflow",
+   "SUPPLY-CHAIN-AND-RELEASE.md#Mutable and unbound build inputs",
+   "SUPPLY-CHAIN-AND-RELEASE.md#Automation identity overreach",
+   "SUPPLY-CHAIN-AND-RELEASE.md#Generated-source and codegen provenance gaps",
+   "SUPPLY-CHAIN-AND-RELEASE.md#Universal moves",
+   "SUPPLY-CHAIN-AND-RELEASE.md#Validation rules"
+  ],
+  "excluded_blocks": [
+   {
+    "block": "MEMORY-SAFETY-AND-BINARY.md#Core discipline",
+    "reason": "no native/unsafe code in scope"
+   },
+   {
+    "block": "AI-AND-LLM.md#Core discipline",
+    "reason": "no model or agent features in product source"
+   },
+   {
+    "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+    "reason": "no native app or local IPC daemon"
+   },
+   {
+    "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+    "reason": "only render.yaml/vercel.json; deployment facts handled as needs_validation in web units"
+   }
+  ],
+  "prior_status": "none",
+  "attempts": [],
+  "wave": 1,
+  "status": "covered",
+  "agent_id": "h6-client-supply",
+  "reviewed_paths": [
+   ".github/dependabot.yml",
+   ".github/workflows/ci.yml",
+   ".github/workflows/security.yml",
+   "backend/Dockerfile",
+   "package-lock.json",
+   "package.json",
+   "scripts/generate-api-contract.mjs"
+  ],
+  "local_checks": [
+   {
+    "agent_id": "h6-client-supply",
+    "reviewed_paths": [
+     ".github/workflows/ci.yml",
+     ".github/workflows/security.yml"
+    ],
+    "invariant": "Contributor-controlled PR code must not run with secrets, write tokens or deploy authority",
+    "method": "source",
+    "result": "Both workflows trigger only on push to main and pull_request. Neither uses pull_request_target, workflow_run or issue_comment. Top-level permissions are contents: read (security.yml also has pull-requests: read), and no job widens them. ci.yml uses persist-credentials: false and no secrets. The only secret reference is GITHUB_TOKEN passed to gitleaks under the same read-only permissions. No job publishes, deploys or pushes, and the docker job builds without pushing. Fork PRs get no secrets on a pull_request trigger. No privileged action can be reached.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h6-client-supply",
+    "reviewed_paths": [
+     ".github/workflows/ci.yml",
+     ".github/workflows/security.yml",
+     "backend/Dockerfile",
+     ".github/dependabot.yml"
+    ],
+    "invariant": "Build inputs that reach trusted output must be immutable or come from a trusted writer",
+    "method": "source",
+    "result": "ci.yml pins actions/checkout and setup-node by SHA. security.yml uses tags (actions/checkout@v7, actions/setup-node@v7, gitleaks/gitleaks-action@v3), but those jobs only hold a read-only token and produce no release artifact. The Dockerfile pins node:24.19.0-slim by tag, not digest, and npm@12.0.2. The image is built in CI and never pushed, and render.yaml deployment is outside source. No mutable input has a lower-trust writer with a path into a published artifact, so these are hardening notes only.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h6-client-supply",
+    "reviewed_paths": [
+     "package.json",
+     "package-lock.json"
+    ],
+    "invariant": "Dependency install scripts run only for allowlisted packages, and the lockfile resolves only from the registry with integrity",
+    "method": "source",
+    "result": "allowScripts allows only esbuild@0.28.2 and denies @scarf/scarf and protobufjs. The lockfile marks 4 packages with hasInstallScript: @scarf/scarf, esbuild 0.28.2, fsevents, and the nested vitepress/node_modules/esbuild 0.21.5 (not allowlisted, so blocked). Every non-workspace resolved URL points to registry.npmjs.org with an integrity hash. There are no git:, github: or file: sources apart from the four workspaces.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h6-client-supply",
+    "reviewed_paths": [
+     "scripts/generate-api-contract.mjs"
+    ],
+    "invariant": "Generated contract artifacts cannot drift from the reviewed docs/openapi.json without failing CI",
+    "method": "local",
+    "result": "--check rebuilds all six artifacts from docs/openapi.json and fails with GENERATED_DRIFT when content differs. Output paths are restricted to the fixed GENERATED_FILES allowlist, and CI runs openapi:api:check. In the sandbox, node --test on scripts/generate-api-contract.test.mjs and scripts/dev-mailbox.test.mjs passed 40/40 with rc=0.",
+    "artifact": "agents/h6-client-supply/artifacts/check-2.txt"
+   }
+  ],
+  "result_fingerprints": [],
+  "unresolved": [],
+  "x_key": "u-supply",
+  "x_hunter": "h6-client-supply",
+  "x_hardening": [
+   "frontend/vercel.json combines legacy `routes` with `rewrites` and `headers`. Vercel rejects that combination at deploy time, so it fails closed, but an owner should confirm the deployed CSP, XFO and x-edge-secret transform actually apply once it is migrated to rewrites plus headers.",
+   "security.yml pins actions/checkout@v7, actions/setup-node@v7 and gitleaks/gitleaks-action@v3 by tag and leaves checkout persist-credentials at its default. The token is read-only, so the impact is limited to read access. Pin by SHA and set persist-credentials: false, matching ci.yml.",
+   "backend/Dockerfile uses node:24.19.0-slim by tag, not digest. A digest pin would bind the base image if the image is ever pushed or deployed.",
+   "The lockfile's nested vitepress/node_modules/esbuild@0.21.5 has an install script that allowScripts does not allow. It is blocked, which is safe, but could break vitepress builds silently.",
+   "scripts/dev-mailbox.mjs sends no frame-ancestors or X-Frame-Options, so a page the developer visits could frame the loopback mailbox. Adding frame-ancestors 'none' to its CSP closes the clickjacking surface on one-time action links."
+  ]
+ },
+ {
+  "coverage_id": "backend%2Fsrc%2Fcomposition.ts%23app.use%28%27%2Fapi%27%2C%20authenticate%29%20module%20routers::backend%2Fsupabase%2Fmigrations%23app.require%2Fapi.current_actor%2FRLS::profile%2Fquick%2Fall-in-scope-subsystems::ATTACK-CLASSES.md%23Access%20control",
+  "canonical_refs": {
+   "surface": "backend/src/composition.ts#app.use('/api', authenticate) module routers",
+   "boundary": "backend/supabase/migrations#app.require/api.current_actor/RLS",
+   "subsystem": "profile/quick/all-in-scope-subsystems",
+   "attack_class": "ATTACK-CLASSES.md#Access control"
+  },
+  "surface": "authenticated /api routes for donor, hospital admin and superadmin",
+  "boundary": "role, AAL2, membership and hospital scope resolved in SQL (RLS, app.require, admin_hospital_id)",
+  "subsystem": "All in-scope subsystems (quick profile)",
+  "attack_class": "Access control and tenant isolation",
+  "starting_paths": [
+   "backend/src/modules",
+   "backend/supabase/migrations",
+   "backend/src/shared/persistence"
+  ],
+  "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+  "selected_companion_blocks": [
+   "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+   "DATA-ISOLATION-AND-LIFECYCLE.md#Missing tenant or owner enforcement",
+   "DATA-ISOLATION-AND-LIFECYCLE.md#Policy and query disagreement",
+   "DATA-ISOLATION-AND-LIFECYCLE.md#Composite-key and namespace collision",
+   "DATA-ISOLATION-AND-LIFECYCLE.md#Universal moves",
+   "DATA-ISOLATION-AND-LIFECYCLE.md#Validation rules"
+  ],
+  "excluded_blocks": [
+   {
+    "block": "MEMORY-SAFETY-AND-BINARY.md#Core discipline",
+    "reason": "no native/unsafe code in scope"
+   },
+   {
+    "block": "AI-AND-LLM.md#Core discipline",
+    "reason": "no model or agent features in product source"
+   },
+   {
+    "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+    "reason": "no native app or local IPC daemon"
+   },
+   {
+    "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+    "reason": "only render.yaml/vercel.json; deployment facts handled as needs_validation in web units"
+   }
+  ],
+  "prior_status": "none",
+  "attempts": [],
+  "wave": 1,
+  "status": "covered",
+  "agent_id": "h2-authz",
+  "reviewed_paths": [
+   "backend/src/modules/donor-records/application/donor-records-service.ts",
+   "backend/src/modules/donor-records/http/donor-records.router.ts",
+   "backend/src/modules/identity-institutions/http/institutions.router.ts",
+   "backend/src/modules/invitation-coordination/http/invitations.router.ts",
+   "backend/src/modules/need-records/http/needs.router.ts",
+   "backend/src/modules/privacy-requests/application/privacy-requests-service.ts",
+   "backend/src/modules/privacy-requests/http/privacy-requests.router.ts",
+   "backend/src/shared/auth/authenticate.ts",
+   "backend/src/shared/auth/guards.ts",
+   "backend/src/shared/http/route-helpers.ts",
+   "backend/supabase/config.toml",
+   "backend/supabase/migrations/20261013000000_platform_base.sql",
+   "backend/supabase/migrations/20261013020000_identity_hardening.sql",
+   "backend/supabase/migrations/20261013030000_need_records.sql",
+   "backend/supabase/migrations/20261013040000_email_delivery.sql",
+   "backend/supabase/migrations/20261013060000_donor_records.sql",
+   "backend/supabase/migrations/20261020000000_privacy_requests.sql",
+   "backend/supabase/migrations/20261020010000_privacy_execution.sql",
+   "backend/supabase/migrations/20261021010000_need_site_race.sql",
+   "backend/supabase/migrations/20261021020000_assisted_signup_replay_hospital.sql",
+   "backend/supabase/migrations/20261022000000_session_barrier.sql",
+   "backend/supabase/migrations/20261022020000_invitation_coordination.sql",
+   "backend/supabase/migrations/20261022030000_invitation_rpc.sql",
+   "backend/supabase/migrations/20261022040000_invitation_rpc_b.sql",
+   "backend/supabase/migrations/20261022050000_invitation_cascades.sql",
+   "backend/supabase/migrations/20261022060000_invitation_delivery.sql",
+   "backend/supabase/migrations/20261022110000_review_fixes.sql",
+   "backend/supabase/migrations/20261123000000_need_coverage.sql"
+  ],
+  "local_checks": [
+   {
+    "agent_id": "h2-authz",
+    "reviewed_paths": [
+     "backend/src/shared/http/route-helpers.ts",
+     "backend/src/shared/auth/guards.ts",
+     "backend/src/shared/auth/authenticate.ts",
+     "backend/src/modules/identity-institutions/http/institutions.router.ts",
+     "backend/src/modules/donor-records/http/donor-records.router.ts",
+     "backend/src/modules/invitation-coordination/http/invitations.router.ts",
+     "backend/src/modules/need-records/http/needs.router.ts",
+     "backend/src/modules/privacy-requests/http/privacy-requests.router.ts"
+    ],
+    "invariant": "Every authenticated /api/v1/{donors,hospitals,superadmin}/me route applies the role, AAL2, active-membership/authorized-hospital and step-up guard matching its group.",
+    "method": "source",
+    "result": "I listed every app.get/post/put/patch/delete. All donor routes use donorRead or donorWrite. All hospital routes use adminRead or adminWrite (role, aal2, membershipActive and hospitalAuthorized). All superadmin routes use superadminRead, superadminWrite or superadminStepUp. Only the token, auth and webhook routes have no guard spread, and peers own those. The guard set matches the documented matrix: site PATCH and correction decide are AAL2 without step-up, and donor-data is superadminRead.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h2-authz",
+    "reviewed_paths": [
+     "backend/src/shared/auth/guards.ts",
+     "backend/src/shared/auth/authenticate.ts"
+    ],
+    "invariant": "The Express guards and authenticate behave as specified: no principal means AUTHENTICATION_REQUIRED, a wrong role means ACCESS_DENIED, a non-aal2 session means MFA_REQUIRED, and a stale TOTP amr means STEP_UP_REQUIRED.",
+    "method": "local",
+    "result": "The existing unit tests guards.test.ts, request-guards.test.ts and authenticate.test.ts ran in the bwrap sandbox: 29 of 29 passed, exit 0.",
+    "artifact": "agents/h2-authz/artifacts/check-1.txt"
+   },
+   {
+    "agent_id": "h2-authz",
+    "reviewed_paths": [
+     "backend/supabase/config.toml",
+     "backend/supabase/migrations/20261013000000_platform_base.sql",
+     "backend/supabase/migrations/20261013020000_identity_hardening.sql",
+     "backend/supabase/migrations/20261022000000_session_barrier.sql",
+     "backend/supabase/migrations/20261013040000_email_delivery.sql"
+    ],
+    "invariant": "A direct PostgREST call with the user's own JWT, which skips Express, still meets the same role, AAL2, step-up and session-admission checks in SQL. Only the api schema is exposed.",
+    "method": "source",
+    "result": "config.toml exposes only the api schema. Default privileges revoke execute from public, anon and authenticated, and grants are explicit. I parsed the final definition of all 89 api.* functions. Every user-facing RPC calls app.require or app.d_require (both check session_admitted) with role, aal2 and step-up arguments equal to or stricter than the Express guard. Technical RPCs check is_api_technical or is_worker, both resolved from app.user_accounts. The functions with no check are readiness (health), sync_assisted_signup_status (a trigger) and the service_role-only worker_revoke_sessions and worker_delete_inert_user; none is granted to authenticated.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h2-authz",
+    "reviewed_paths": [
+     "backend/supabase/migrations/20261013030000_need_records.sql",
+     "backend/supabase/migrations/20261013060000_donor_records.sql",
+     "backend/supabase/migrations/20261021010000_need_site_race.sql",
+     "backend/supabase/migrations/20261021020000_assisted_signup_replay_hospital.sql",
+     "backend/supabase/migrations/20261022020000_invitation_coordination.sql",
+     "backend/supabase/migrations/20261022030000_invitation_rpc.sql",
+     "backend/supabase/migrations/20261022050000_invitation_cascades.sql",
+     "backend/supabase/migrations/20261022110000_review_fixes.sql",
+     "backend/supabase/migrations/20261123000000_need_coverage.sql"
+    ],
+    "invariant": "Hospital tenant isolation: every admin read and write binds the need, batch, site, signup or invitation to the hospital from app.admin_hospital_id() or app.d_admin_hospital_id() (active membership, authorized hospital, admin role, aal2). The hospital is never taken from a client argument.",
+    "method": "source",
+    "result": "These functions filter by hospital_id = v_hospital before any idempotency peek or state change: create_need_draft (the site must belong to the hospital), transition_own_need, authorize_invitation_batch, list_own_invitation_batches, list_own_need_responses, get_need_coverage, create_assisted_signup and reissue_assisted_link. The invoker functions get_own_need, list_own_needs and the assisted-signups functions run under RLS policies that use admin_hospital_id(). The technical step request_invitation_batch re-checks the grant's need, hospital and admin and the admin's live active membership. issue_assisted_activation binds signup_id to hospital_id, and the router takes that hospital from the SQL-resolved principal. A single live membership per user is enforced by a unique index. Cross-hospital idempotency replay is handled explicitly in create_need_draft and create_assisted_signup, and transition_own_need binds the hospital before peeking.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h2-authz",
+    "reviewed_paths": [
+     "backend/supabase/migrations/20261022040000_invitation_rpc_b.sql",
+     "backend/supabase/migrations/20261022110000_review_fixes.sql",
+     "backend/supabase/migrations/20261022050000_invitation_cascades.sql",
+     "backend/supabase/migrations/20261020000000_privacy_requests.sql"
+    ],
+    "invariant": "Donor owner isolation: donor invitation, response, profile and correction RPCs bind rows to the caller's JWT sub.",
+    "method": "source",
+    "result": "get_own_invitation and change_own_invitation_response filter on donor_id = jwt_sub(); change_own_invitation_response checks the owner again after the row lock. update_own_participation filters on donor_id = jwt_sub(). The correction_requests, donor_profiles and invitation_response_history RLS policies require donor_id = auth.uid() and the donante role. No body field can supply an owner or hospital identifier.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h2-authz",
+    "reviewed_paths": [
+     "backend/supabase/migrations/20261020000000_privacy_requests.sql",
+     "backend/supabase/migrations/20261020010000_privacy_execution.sql",
+     "backend/supabase/migrations/20261022060000_invitation_delivery.sql",
+     "backend/src/modules/privacy-requests/application/privacy-requests-service.ts",
+     "backend/src/modules/donor-records/application/donor-records-service.ts"
+    ],
+    "invariant": "Superadmin PII access requires AAL2, a step-up and a contextual grant bound to the same superadmin, request and action. Technical follow-up steps (execution subject, account deletion, email change) can only follow a SQL-authorized execution.",
+    "method": "source",
+    "result": "create_contextual_access_grant requires a step-up and a live request and limits fields to the requested ones. get_contextual_donor_data and execute_correction_request require grant_id, request_id, superadmin_id = jwt_sub() and the matching action, and reject an expired grant. Technical get_execution_subject, issue_email_change and finish_deletion only act on rows in status en_ejecucion, which only execute_correction_request sets, and the donorId comes from correction_requests.donor_id, which is always a donor. The retry grant binds the invitation and the superadmin role.",
+    "artifact": null
+   }
+  ],
+  "result_fingerprints": [],
+  "unresolved": [],
+  "x_key": "u-authz",
+  "x_hunter": "h2-authz",
+  "x_hardening": [
+   "api.list_own_hospital_sites (20261013010000_identity_institutions.sql) scopes by app.member_hospital_id() instead of app.admin_hospital_id(). An admin of a de-authorized hospital can still list that hospital's public sites through a direct PostgREST call, even though Express adminRead blocks the route. The data is same-tenant and public, so this is not a cross-tenant issue. Fix: use admin_hospital_id().",
+   "The RLS SELECT policies for superadmin on hospitals, sites, memberships, audit_events, correction_requests and invitations check only current_actor_role() = 'superadmin', without AAL2. They are reachable only through api functions that do require AAL2, because the app schema is not exposed. Adding app.current_aal() = 'aal2' would keep the guarantee if the app schema were ever exposed.",
+   "api.current_actor ignores app.session_admitted(), so Express-only routes that make no SQL call after the guard (GET /api/v1/auth/session and /auth/csrf-token) accept a session that is not admitted. Every data RPC rejects it through app.require/d_require. The auth-router peer unit owns the effect on the auth routes."
+  ]
+ },
+ {
+  "coverage_id": "backend%2Fsrc%2Fmodules%2Femail-delivery%2Fapplication%2Fprocess-outbox.ts%23renderEmail%2Fsenders::backend%2Fsrc%2Fmodules%2Femail-delivery%2Ftemplates%2Fcommon.ts%23compose%2FactionLink::profile%2Fquick%2Fall-in-scope-subsystems::ATTACK-CLASSES.md%23Injection",
+  "canonical_refs": {
+   "surface": "backend/src/modules/email-delivery/application/process-outbox.ts#renderEmail/senders",
+   "boundary": "backend/src/modules/email-delivery/templates/common.ts#compose/actionLink",
+   "subsystem": "profile/quick/all-in-scope-subsystems",
+   "attack_class": "ATTACK-CLASSES.md#Injection"
+  },
+  "surface": "outbox worker email rendering and senders",
+  "boundary": "sealed payload validation, HTML escaping, link construction, recipient allowlist",
+  "subsystem": "All in-scope subsystems (quick profile)",
+  "attack_class": "Injection",
+  "starting_paths": [
+   "backend/src/modules/email-delivery",
+   "scripts/dev-mailbox.mjs"
+  ],
+  "ordinary_attack_class_block": "ATTACK-CLASSES.md#Injection",
+  "selected_companion_blocks": [],
+  "excluded_blocks": [
+   {
+    "block": "MEMORY-SAFETY-AND-BINARY.md#Core discipline",
+    "reason": "no native/unsafe code in scope"
+   },
+   {
+    "block": "AI-AND-LLM.md#Core discipline",
+    "reason": "no model or agent features in product source"
+   },
+   {
+    "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+    "reason": "no native app or local IPC daemon"
+   },
+   {
+    "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+    "reason": "only render.yaml/vercel.json; deployment facts handled as needs_validation in web units"
+   }
+  ],
+  "prior_status": "none",
+  "attempts": [],
+  "wave": 1,
+  "status": "covered",
+  "agent_id": "h4-msg",
+  "reviewed_paths": [
+   "backend/src/modules/email-delivery/application/email-payload.ts",
+   "backend/src/modules/email-delivery/application/process-outbox.ts",
+   "backend/src/modules/email-delivery/infrastructure/dev-mailbox-sender.ts",
+   "backend/src/modules/email-delivery/infrastructure/outbox-rpc-gateway.ts",
+   "backend/src/modules/email-delivery/infrastructure/resend-sender.ts",
+   "backend/src/modules/email-delivery/templates/alta_asistida.ts",
+   "backend/src/modules/email-delivery/templates/common.ts",
+   "backend/src/modules/email-delivery/templates/index.ts",
+   "backend/src/modules/email-delivery/templates/invitacion.ts",
+   "backend/src/modules/email-delivery/templates/invitacion_admin.ts",
+   "backend/supabase/migrations/20261013040000_email_delivery.sql",
+   "backend/supabase/migrations/20261022070000_invitation_claim_display.sql"
+  ],
+  "local_checks": [
+   {
+    "agent_id": "h4-msg",
+    "reviewed_paths": [
+     "backend/src/modules/email-delivery/templates/common.ts",
+     "backend/src/modules/email-delivery/templates/index.ts",
+     "backend/src/modules/email-delivery/templates/invitacion.ts",
+     "backend/src/modules/email-delivery/templates/alta_asistida.ts",
+     "backend/src/modules/email-delivery/templates/invitacion_admin.ts",
+     "backend/src/modules/email-delivery/application/email-payload.ts"
+    ],
+    "invariant": "DB-sourced display names (hospital/site public names) and sealed payload fields cannot inject HTML into email bodies; action-link tokens are restricted to a URL-safe charset so they cannot break out of the href or alter the link target; subjects are constant",
+    "method": "local",
+    "result": "compose() escapes every paragraph, label and URL with escapeHtml (& < > \" '). actionLink only accepts the six fixed routes and tokens matching ^[A-Za-z0-9_-]{16,256}$, so a trailing newline, quote/script suffix and short tokens are all rejected as SealedPayloadError. The base URL is APP_PUBLIC_URL from config, which must be https in production. Rendering a hospitalName/sitePublicName of <img src=x onerror=alert(1)>\"'& produced no raw tag, and the subject stayed constant. Existing template, payload and sender tests passed (161 tests across 13 files).",
+    "artifact": "agents/h4-msg/artifacts/check-1.txt"
+   },
+   {
+    "agent_id": "h4-msg",
+    "reviewed_paths": [
+     "backend/src/modules/email-delivery/application/process-outbox.ts",
+     "backend/src/modules/email-delivery/infrastructure/resend-sender.ts",
+     "backend/src/modules/email-delivery/infrastructure/dev-mailbox-sender.ts",
+     "backend/src/modules/email-delivery/infrastructure/outbox-rpc-gateway.ts",
+     "backend/supabase/migrations/20261022070000_invitation_claim_display.sql",
+     "backend/supabase/migrations/20261013040000_email_delivery.sql"
+    ],
+    "invariant": "Recipient, idempotency key and claimed row fields cannot inject into the provider request, the dev-mailbox file path or its HTML. The inbox allowlist is checked before any send, and a poison outbox row is bounded",
+    "method": "local",
+    "result": "The Resend request is built with JSON.stringify (no SMTP header construction) and redirect:'error'. The dev mailbox sanitizes idempotencyKey to [A-Za-z0-9_-] for the filename, opens with flag wx and mode 0600, and escapes to/subject. parseClaimed uses closedRecord plus oneOf(kind, EMAIL_KINDS). The recipient comes from auth.users or the validated sealed recipient regex, and the allowlist check is case-insensitive and fails closed. Sealed-payload errors are permanent. Unexpected throws leave the lease to expire, but attempt_count is incremented on claim and capped at 6, after which worker_claim_due_outbox/worker_expire_outbox finalize the row as fallido, so there is no infinite head-of-line block. The sender and process-outbox unit tests passed.",
+    "artifact": "agents/h4-msg/artifacts/check-2.txt"
+   }
+  ],
+  "result_fingerprints": [],
+  "unresolved": [],
+  "x_key": "u-email-render",
+  "x_hunter": "h4-msg",
+  "x_hardening": [
+   "ADR-004 O1 accepted residual risk: the global authquota:login ceiling (50 per 5 min) can be exhausted by about 15 distinct IPs or IPv6 /64s at 10 logins per 15 min each, which denies new logins to every user, including superadmin, for the window. Consider a per-account bypass for MFA-enrolled roles or alerting on auth_quota_login.",
+   "authquota:refresh (80 per 5 min) is consumed by any anonymous request carrying a shape-valid fake refresh cookie after refresh:ip (30 per 15 min). About 8 IPs can exhaust it continuously, so live sessions stop renewing. ADR-004 says that under a login flood 'las sesiones ya abiertas siguen renovándose', but a refresh flood with fake cookies is a separate path. Consider charging the global refresh bucket only after a successful refresh, or keeping a per-session-hash allowance.",
+   "login:email (10 per 15 min, keyed on the HMAC of the email) lets an anonymous attacker lock a known victim email out of login. This is the usual targeted-lockout trade-off, with no alternative path beyond waiting.",
+   "Hospital and site public names are inserted unescaped into the text/plain email part. HTML is escaped, but a superadmin-set name could carry a phishing-style URL string. This is low risk because only superadmin sets those names.",
+   "The webhook route keeps the express.raw default inflate. The 64kb limit applies to inflated bytes, and HMAC runs before parsing, so the cost is bounded. Disabling inflate would remove the decompression surface if Resend does not compress."
+  ]
+ },
+ {
+  "coverage_id": "backend%2Fsrc%2Fmodules%2Femail-delivery%2Fhttp%2Fresend-webhook.router.ts%23POST%20%2Fapi%2Fv1%2Femail-delivery%2Fwebhooks%2Fresend::backend%2Fsrc%2Fmodules%2Femail-delivery%2Fapplication%2Fwebhook-signature.ts%23verify::profile%2Fquick%2Fall-in-scope-subsystems::PROTOCOLS-RPC-AND-MESSAGING.md%23Untrusted%20producer%20treated%20as%20control%20plane",
+  "canonical_refs": {
+   "surface": "backend/src/modules/email-delivery/http/resend-webhook.router.ts#POST /api/v1/email-delivery/webhooks/resend",
+   "boundary": "backend/src/modules/email-delivery/application/webhook-signature.ts#verify",
+   "subsystem": "profile/quick/all-in-scope-subsystems",
+   "attack_class": "PROTOCOLS-RPC-AND-MESSAGING.md#Untrusted producer treated as control plane"
+  },
+  "surface": "POST /api/v1/email-delivery/webhooks/resend",
+  "boundary": "Svix HMAC signature, timestamp tolerance and svix-id dedup",
+  "subsystem": "All in-scope subsystems (quick profile)",
+  "attack_class": "Webhook and outbox messaging",
+  "starting_paths": [
+   "backend/src/modules/email-delivery",
+   "backend/src/composition-worker.ts",
+   "backend/src/worker.ts",
+   "backend/supabase/migrations"
+  ],
+  "ordinary_attack_class_block": "ATTACK-CLASSES.md#Injection",
+  "selected_companion_blocks": [
+   "PROTOCOLS-RPC-AND-MESSAGING.md#Core discipline",
+   "PROTOCOLS-RPC-AND-MESSAGING.md#Envelope and payload identity mismatch",
+   "PROTOCOLS-RPC-AND-MESSAGING.md#Untrusted producer treated as control plane",
+   "PROTOCOLS-RPC-AND-MESSAGING.md#Duplicate delivery and idempotency gaps",
+   "PROTOCOLS-RPC-AND-MESSAGING.md#Out-of-order and stale message acceptance",
+   "PROTOCOLS-RPC-AND-MESSAGING.md#Universal moves",
+   "PROTOCOLS-RPC-AND-MESSAGING.md#Validation rules"
+  ],
+  "excluded_blocks": [
+   {
+    "block": "MEMORY-SAFETY-AND-BINARY.md#Core discipline",
+    "reason": "no native/unsafe code in scope"
+   },
+   {
+    "block": "AI-AND-LLM.md#Core discipline",
+    "reason": "no model or agent features in product source"
+   },
+   {
+    "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+    "reason": "no native app or local IPC daemon"
+   },
+   {
+    "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+    "reason": "only render.yaml/vercel.json; deployment facts handled as needs_validation in web units"
+   }
+  ],
+  "prior_status": "none",
+  "attempts": [],
+  "wave": 1,
+  "status": "covered",
+  "agent_id": "h4-msg",
+  "reviewed_paths": [
+   "backend/src/app.ts",
+   "backend/src/composition.ts",
+   "backend/src/modules/email-delivery/application/ingest-webhook.ts",
+   "backend/src/modules/email-delivery/application/webhook-signature.ts",
+   "backend/src/modules/email-delivery/http/resend-webhook.router.ts",
+   "backend/supabase/migrations/20261013040000_email_delivery.sql",
+   "backend/supabase/migrations/20261022060000_invitation_delivery.sql"
+  ],
+  "local_checks": [
+   {
+    "agent_id": "h4-msg",
+    "reviewed_paths": [
+     "backend/src/modules/email-delivery/application/webhook-signature.ts",
+     "backend/src/modules/email-delivery/application/ingest-webhook.ts",
+     "backend/src/modules/email-delivery/http/resend-webhook.router.ts"
+    ],
+    "invariant": "Only a producer holding the Svix secret can submit delivery events. The signature binds svix-id, timestamp and raw body, timestamps outside +/-300 s are rejected, and parsing happens only after verification",
+    "method": "local",
+    "result": "verifyWebhook rejects stale (-301 s) and future (+301 s) timestamps, non-integer timestamps (1.8e9), a swapped svix-id, a tampered body and a non-v1 version prefix, and accepts only the exact HMAC (constant-time compare over all candidates). ingest-webhook verifies before JSON.parse, validates the body against the receiveResendWebhook contract, ignores unknown types and rejects ids over 255 characters. The router requires a Buffer body with a 64kb raw limit and no query string. The webhook route is mounted only when a secret is configured, and Resend mode requires that secret.",
+    "artifact": "agents/h4-msg/artifacts/check-1.txt"
+   },
+   {
+    "agent_id": "h4-msg",
+    "reviewed_paths": [
+     "backend/supabase/migrations/20261013040000_email_delivery.sql",
+     "backend/supabase/migrations/20261022060000_invitation_delivery.sql",
+     "backend/src/composition.ts",
+     "backend/src/app.ts"
+    ],
+    "invariant": "Duplicate or out-of-order provider events cannot repeat side effects or regress delivery state, and only the api_technical identity can ingest",
+    "method": "source",
+    "result": "api.ingest_email_event requires app.is_api_technical(), whitelists the 4 event types and deduplicates by inserting the event_id primary key with ON CONFLICT DO NOTHING before any update (dedup happens before the mutation). app.advance_delivery is monotonic: fallida is terminal, a later fallida does not override entregada, and enviada cannot regress entregada. occurred_at is not used for state, so reordered events cannot roll back. The update targets only rows whose provider_message_id is the provider's own id. The producer identity is the signed Resend/Svix sender, and no body field selects a tenant or principal.",
+    "artifact": null
+   }
+  ],
+  "result_fingerprints": [],
+  "unresolved": [],
+  "x_key": "u-webhook",
+  "x_hunter": "h4-msg",
+  "x_hardening": []
+ },
+ {
+  "coverage_id": "backend%2Fsrc%2Fmodules%2Fidentity-institutions%2Fapplication%2Fauth-quota.ts%23rate%20limits::backend%2Fsrc%2Fshared%2Fhttp%2Fclient-ip.ts%23clientIpSubject::profile%2Fquick%2Fall-in-scope-subsystems::RESOURCE-EXHAUSTION-AND-AVAILABILITY.md%23Quota-accounting%20scope%20and%20reset%20gaps",
+  "canonical_refs": {
+   "surface": "backend/src/modules/identity-institutions/application/auth-quota.ts#rate limits",
+   "boundary": "backend/src/shared/http/client-ip.ts#clientIpSubject",
+   "subsystem": "profile/quick/all-in-scope-subsystems",
+   "attack_class": "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Quota-accounting scope and reset gaps"
+  },
+  "surface": "pre-auth endpoints and rate-limit/quota accounting",
+  "boundary": "per-IP/per-email/global quotas and client IP derivation",
+  "subsystem": "All in-scope subsystems (quick profile)",
+  "attack_class": "Resource exhaustion and quota accounting",
+  "starting_paths": [
+   "backend/src/shared/http",
+   "backend/src/modules/identity-institutions/application",
+   "backend/supabase/migrations"
+  ],
+  "ordinary_attack_class_block": null,
+  "selected_companion_blocks": [
+   "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Core discipline",
+   "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Pre-authentication work imbalance",
+   "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Quota-accounting scope and reset gaps",
+   "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Database and downstream query amplification",
+   "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Poison-record and head-of-line blocking",
+   "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Universal moves",
+   "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Validation rules"
+  ],
+  "excluded_blocks": [
+   {
+    "block": "MEMORY-SAFETY-AND-BINARY.md#Core discipline",
+    "reason": "no native/unsafe code in scope"
+   },
+   {
+    "block": "AI-AND-LLM.md#Core discipline",
+    "reason": "no model or agent features in product source"
+   },
+   {
+    "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+    "reason": "no native app or local IPC daemon"
+   },
+   {
+    "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+    "reason": "only render.yaml/vercel.json; deployment facts handled as needs_validation in web units"
+   }
+  ],
+  "prior_status": "none",
+  "attempts": [],
+  "wave": 1,
+  "status": "covered",
+  "agent_id": "h4-msg",
+  "reviewed_paths": [
+   "backend/src/app.ts",
+   "backend/src/composition.ts",
+   "backend/src/config/env.ts",
+   "backend/src/modules/identity-institutions/application/auth-quota.ts",
+   "backend/src/modules/identity-institutions/application/auth-service.ts",
+   "backend/src/shared/http/client-ip.ts",
+   "backend/src/shared/http/edge-guard.ts",
+   "backend/supabase/migrations/20261120124712_rate_limit_technical_only.sql"
+  ],
+  "local_checks": [
+   {
+    "agent_id": "h4-msg",
+    "reviewed_paths": [
+     "backend/src/modules/identity-institutions/application/auth-quota.ts",
+     "backend/src/modules/identity-institutions/application/auth-service.ts",
+     "backend/src/composition.ts",
+     "backend/supabase/migrations/20261120124712_rate_limit_technical_only.sql"
+    ],
+    "invariant": "Rate-limit buckets cannot be filled or reset by outsiders, the global /token ceilings are consumed only after per-IP/per-email limits, and the limiter is race-free",
+    "method": "local",
+    "result": "Login checks login:ip and login:email (10 per 15 min) before the global authquota:login (50 per 5 min). Refresh checks refresh:ip before authquota:refresh (80 per 5 min). api.consume_rate_limit is executable only by api_technical (no anon EXECUTE since 20261120124712), validates the bucket, subject (64 hex) and limit, serializes with pg_advisory_xact_lock per bucket:subject and uses a sliding log where rejected calls do not insert. The auth-quota unit tests passed. The remaining global-ceiling exhaustion by a distributed attacker is an explicitly accepted residual risk in ADR-004 O1, so it is not a finding.",
+    "artifact": "agents/h4-msg/artifacts/check-2.txt"
+   },
+   {
+    "agent_id": "h4-msg",
+    "reviewed_paths": [
+     "backend/src/shared/http/client-ip.ts",
+     "backend/src/shared/http/edge-guard.ts",
+     "backend/src/app.ts",
+     "backend/src/config/env.ts"
+    ],
+    "invariant": "The client IP used for per-IP accounting cannot be chosen by the attacker, and IPv6 rotation inside a /64 is grouped",
+    "method": "source",
+    "result": "clientIpSubject HMACs normalizeClientIp(req.ip). IPv4-mapped addresses collapse to IPv4, and IPv6 collapses to its /64 prefix (client-ip tests passed). req.ip comes from Express trust proxy set from TRUSTED_PROXIES, which production requires to be non-false. edgeGuard runs before any route and requires x-edge-secret, so direct origin hits with a forged X-Forwarded-For are rejected. Whether the configured hop count matches the real Vercel to Render topology is a deployment fact marked 'confirmar en staging' in render.yaml. It belongs to the deployment and edge units, and source shows no attacker-controlled IP selection.",
+    "artifact": null
+   }
+  ],
+  "result_fingerprints": [],
+  "unresolved": [],
+  "x_key": "u-dos",
+  "x_hunter": "h4-msg",
+  "x_hardening": []
+ },
+ {
+  "coverage_id": "backend%2Fsrc%2Fmodules%2Fidentity-institutions%2Fhttp%2Fauth.router.ts%23%2Fapi%2Fv1%2Fauth%2F%2A%20and%20action-token%20routes::backend%2Fsrc%2Fshared%2Fhttp%2Froute-helpers.ts%23guards::profile%2Fquick%2Fall-in-scope-subsystems::WEB-PROTOCOL-AND-AUTH.md%23Password%20reset%20and%20broader%20recovery",
+  "canonical_refs": {
+   "surface": "backend/src/modules/identity-institutions/http/auth.router.ts#/api/v1/auth/* and action-token routes",
+   "boundary": "backend/src/shared/http/route-helpers.ts#guards",
+   "subsystem": "profile/quick/all-in-scope-subsystems",
+   "attack_class": "WEB-PROTOCOL-AND-AUTH.md#Password reset and broader recovery"
+  },
+  "surface": "backend public auth and action-token routes",
+  "boundary": "session, CSRF, MFA/step-up and one-time action tokens",
+  "subsystem": "All in-scope subsystems (quick profile)",
+  "attack_class": "Browser session, identity and recovery",
+  "starting_paths": [
+   "backend/src/shared/auth",
+   "backend/src/shared/http",
+   "backend/src/shared/crypto",
+   "backend/src/modules/identity-institutions",
+   "backend/src/modules/donor-records/http",
+   "backend/src/modules/donor-records/application",
+   "backend/supabase/migrations"
+  ],
+  "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+  "selected_companion_blocks": [
+   "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+   "WEB-PROTOCOL-AND-AUTH.md#Ordinary CSRF",
+   "WEB-PROTOCOL-AND-AUTH.md#Session fixation and invalidation",
+   "WEB-PROTOCOL-AND-AUTH.md#JWT verification and claim binding",
+   "WEB-PROTOCOL-AND-AUTH.md#MFA enrollment and assurance downgrade",
+   "WEB-PROTOCOL-AND-AUTH.md#Step-up binding and bypass",
+   "WEB-PROTOCOL-AND-AUTH.md#Account linking and identity collision",
+   "WEB-PROTOCOL-AND-AUTH.md#Password reset and broader recovery",
+   "WEB-PROTOCOL-AND-AUTH.md#Host and forwarded-header trust",
+   "WEB-PROTOCOL-AND-AUTH.md#Universal moves",
+   "WEB-PROTOCOL-AND-AUTH.md#Validation rules"
+  ],
+  "excluded_blocks": [
+   {
+    "block": "MEMORY-SAFETY-AND-BINARY.md#Core discipline",
+    "reason": "no native/unsafe code in scope"
+   },
+   {
+    "block": "AI-AND-LLM.md#Core discipline",
+    "reason": "no model or agent features in product source"
+   },
+   {
+    "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+    "reason": "no native app or local IPC daemon"
+   },
+   {
+    "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+    "reason": "only render.yaml/vercel.json; deployment facts handled as needs_validation in web units"
+   }
+  ],
+  "prior_status": "none",
+  "attempts": [],
+  "wave": 1,
+  "status": "candidate",
+  "agent_id": "h1-auth",
+  "reviewed_paths": [
+   "backend/src/modules/donor-records/application/donor-records-service.ts",
+   "backend/src/modules/donor-records/http/donor-records.router.ts",
+   "backend/src/modules/identity-institutions/application/action-tokens-service.ts",
+   "backend/src/modules/identity-institutions/application/auth-service.ts",
+   "backend/src/modules/identity-institutions/http/action-tokens.router.ts",
+   "backend/src/modules/identity-institutions/http/auth.router.ts",
+   "backend/src/shared/auth/authenticate.ts",
+   "backend/src/shared/auth/claims.ts",
+   "backend/src/shared/auth/guards.ts",
+   "backend/src/shared/auth/jwks-cache.ts",
+   "backend/src/shared/auth/supabase-session.ts",
+   "backend/src/shared/crypto/csrf.ts",
+   "backend/src/shared/crypto/tokens.ts",
+   "backend/src/shared/http/cookies.ts",
+   "backend/src/shared/http/csrf-guard.ts",
+   "backend/src/shared/http/origin-guard.ts",
+   "backend/src/shared/http/route-helpers.ts",
+   "backend/src/shared/validation/contract-validator.ts",
+   "backend/supabase/config.toml",
+   "backend/supabase/migrations/20261013000000_platform_base.sql",
+   "backend/supabase/migrations/20261013050000_action_tokens.sql",
+   "backend/supabase/migrations/20261013060000_donor_records.sql",
+   "backend/supabase/migrations/20261020010000_privacy_execution.sql",
+   "backend/supabase/migrations/20261022000000_session_barrier.sql",
+   "backend/supabase/migrations/20261022010000_worker_auth_purges.sql"
+  ],
+  "local_checks": [
+   {
+    "agent_id": "h1-auth",
+    "reviewed_paths": [
+     "backend/src/shared/http/route-helpers.ts",
+     "backend/src/shared/http/csrf-guard.ts",
+     "backend/src/shared/http/origin-guard.ts",
+     "backend/src/shared/crypto/csrf.ts",
+     "backend/src/modules/identity-institutions/http/auth.router.ts",
+     "backend/src/modules/identity-institutions/http/action-tokens.router.ts",
+     "backend/src/modules/donor-records/http/donor-records.router.ts",
+     "backend/src/shared/http/cookies.ts"
+    ],
+    "invariant": "Every cookie-authenticated mutation requires an exact allowlisted Origin plus an HMAC CSRF token bound to the JWT session_id. Public token routes that set cookies (login, invitation claim, assisted claim) reject a cross-site Origin.",
+    "method": "source",
+    "result": "sessionWrite, superadminWrite, superadminStepUp, adminWrite and donorWrite all include requireCsrf, which requires Origin to be present and allowlisted and the HMAC to match the verified session_id. The global originGuard rejects any present non-allowlisted Origin on public POSTs, so cross-site login CSRF and claim CSRF are blocked. Cookies are __Host-, HttpOnly, Secure, SameSite=Lax. No cookie mutation route lacks a CSRF check.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h1-auth",
+    "reviewed_paths": [
+     "backend/src/shared/auth/authenticate.ts",
+     "backend/src/shared/auth/claims.ts",
+     "backend/src/shared/auth/supabase-session.ts",
+     "backend/src/shared/auth/jwks-cache.ts"
+    ],
+    "invariant": "An access token is accepted only with a verified signature from a server-pinned key with a matching alg/kid, an unexpired exp, the project issuer, aud=authenticated, role=authenticated, and a UUID sub and session_id.",
+    "method": "source",
+    "result": "The JWKS cache accepts only ES256/RS256 keys. In asymmetric mode a missing or unknown kid, an HS alg, or an alg mismatch is rejected before Auth is called. In the HS-only project mode, verification is delegated to getUser. The installed auth-js 2.118.0 getClaims calls validateExp, then verifies with WebCrypto against the supplied key. parseClaims enforces iss, aud, role and aal. No decode-without-verify path feeds authorization: attemptLogin and claim flows call verifyAccessToken.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h1-auth",
+    "reviewed_paths": [
+     "backend/src/shared/auth/guards.ts",
+     "backend/src/modules/identity-institutions/application/auth-service.ts",
+     "backend/supabase/config.toml",
+     "backend/supabase/migrations/20261013000000_platform_base.sql",
+     "backend/supabase/migrations/20261013050000_action_tokens.sql"
+    ],
+    "invariant": "MFA enrollment cannot replace a verified factor from AAL1. Step-up requires a TOTP amr entry no older than 300 s, in both the Express guard and the SQL d_require/require.",
+    "method": "source",
+    "result": "enrollMfa returns 409 if any verified TOTP factor exists, and it removes only unverified factors. config.toml sets max_enrolled_factors=1 and phone MFA off. verifyStepUp requires aal2 and a verified factor. isStepUpFresh and app.step_up_fresh/d_step_up_fresh check method=totp and timestamp>=now-300. Step-up is session-scoped (amr), not operation-scoped, which is the ADR-004 design.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h1-auth",
+    "reviewed_paths": [
+     "backend/src/shared/validation/contract-validator.ts",
+     "backend/src/shared/crypto/csrf.ts",
+     "backend/src/shared/auth/guards.ts",
+     "backend/src/shared/auth/claims.ts"
+    ],
+    "invariant": "Recovery email input cannot use Unicode case-folding collisions to redirect the reset link. A CSRF token cannot be replayed across sessions. Step-up freshness and claim binding reject out-of-policy values.",
+    "method": "local",
+    "result": "Run in the bwrap sandbox. Contract validation rejected the dotless-i and Kelvin-sign emails and a leading space, and accepted ASCII upper case, which is lowercased before the lookup. A CSRF token from session A was rejected for session B. A TOTP 301 s old was not fresh, a fresh password-only amr was not fresh, and a 299 s TOTP was fresh. parseClaims rejected the wrong aud, the wrong iss, role=service_role and aal3.",
+    "artifact": "agents/h1-auth/artifacts/check-1.txt"
+   },
+   {
+    "agent_id": "h1-auth",
+    "reviewed_paths": [
+     "backend/src/modules/identity-institutions/application/action-tokens-service.ts",
+     "backend/supabase/migrations/20261013050000_action_tokens.sql",
+     "backend/supabase/migrations/20261022000000_session_barrier.sql",
+     "backend/src/shared/crypto/tokens.ts"
+    ],
+    "invariant": "Recovery tokens are 256-bit CSPRNG values stored as SHA-256 hashes, bound to user and kind, expire after 1 h and can be used once. A new request invalidates earlier tokens. A reset revokes all sessions and opens a session barrier so only backend-admitted logins work afterwards.",
+    "method": "source",
+    "result": "The invariant holds for the single-identity case. request_password_recovery invalidates prior recovery tokens, caps issuance at 3 per hour per account and enqueues the email. consume_password_reset uses FOR UPDATE and checks consumed, invalidated and expired. completePasswordReset revokes sessions, updates the password, revokes again and then closes the barrier. RLS on user_accounts and memberships gates current_actor on session_admitted. The gap is in how recovery tokens interact with an email change (see the candidate).",
+    "artifact": null
+   },
+   {
+    "agent_id": "h1-auth",
+    "reviewed_paths": [
+     "backend/src/modules/donor-records/application/donor-records-service.ts",
+     "backend/supabase/migrations/20261022000000_session_barrier.sql",
+     "backend/supabase/migrations/20261013060000_donor_records.sql",
+     "backend/src/modules/identity-institutions/application/action-tokens-service.ts"
+    ],
+    "invariant": "Account pre-hijacking and invite collisions are blocked. A self-registration made by a non-owner cannot keep its password after the mailbox owner verifies. An invitation claim binds the auth email to the invited email.",
+    "method": "source",
+    "result": "verify_donor_email always sets password_setup_required on the first verification, opens the barrier, and the backend revokes sessions and sends a password-setup link to the verified mailbox. link_admin_account requires the auth email to equal the invitation email, no existing user_accounts row, an authorized hospital and an admitted session. An inert-user replacement needs the token and an orphan at least 60 s old. A residual direct-GoTrue squatting race is only a 409 DoS.",
+    "artifact": null
+   },
+   {
+    "agent_id": "parent-verifier",
+    "reviewed_paths": [
+     "backend/supabase/migrations/20261013060000_donor_records.sql",
+     "backend/supabase/migrations/20261020010000_privacy_execution.sql",
+     "backend/supabase/migrations/20261013050000_action_tokens.sql",
+     "backend/supabase/migrations/20261022010000_worker_auth_purges.sql",
+     "backend/src/modules/donor-records/application/donor-records-service.ts",
+     "backend/src/modules/donor-records/http/donor-records.router.ts",
+     "backend/src/modules/identity-institutions/application/action-tokens-service.ts"
+    ],
+    "invariant": "Phase 3+5 verification of donor-email-change-keeps-old-address-recovery-tokens (performed by the parent, not an independent agent, at user request)",
+    "method": "source",
+    "result": "Parent re-read: consume_email_change, issue_email_change and finish_email_change invalidate only cambio_email tokens; the current consume_password_reset (worker_auth_purges.sql:167) checks token state only; two trace lines corrected (router :68, sink in later migration). DB execution blocked.",
+    "artifact": null
+   }
+  ],
+  "result_fingerprints": [
+   "donor-email-change-keeps-old-address-recovery-tokens"
+  ],
+  "unresolved": [],
+  "x_key": "u-auth",
+  "x_hunter": "h1-auth",
+  "x_hardening": [
+   "verifyMfa (backend/src/modules/identity-institutions/application/auth-service.ts:184) uses listTotpFactors()[0] rather than the factor that issued challengeId or the verified factor. With max_enrolled_factors=1 this has no current impact, but select by verified status or challenge if that limit is raised.",
+   "parseClaims does not check exp itself. It relies on auth-js getClaims validateExp (2.118.0) and, in HS-only mode, on getUser. A local exp/nbf check would remove the dependency on that library behaviour.",
+   "backend/supabase/config.toml sets secure_password_change=false, and Auth is reachable directly with the public anon key. Any holder of an AAL1 access token can change the password through GoTrue without reauthentication, bypassing the backend's recovery accounting. This depends on the deployment configuration of hosted Auth.",
+   "Step-up is bound to the session's amr TOTP timestamp (300 s), not to a specific operation or resource. This is acceptable per ADR-004, but every superadminStepUp action within the window shares one challenge."
+  ],
+  "x_decision": "needs_validation"
+ },
+ {
+  "coverage_id": "backend%2Fsrc%2Fmodules%2Finvitation-coordination%2Fhttp%2Finvitations.router.ts%23needs%2Finvitations%2Fprivacy%20workflows::backend%2Fsupabase%2Fmigrations%23workflow%20RPCs::profile%2Fquick%2Fall-in-scope-subsystems::ATTACK-CLASSES.md%23Business%20logic",
+  "canonical_refs": {
+   "surface": "backend/src/modules/invitation-coordination/http/invitations.router.ts#needs/invitations/privacy workflows",
+   "boundary": "backend/supabase/migrations#workflow RPCs",
+   "subsystem": "profile/quick/all-in-scope-subsystems",
+   "attack_class": "ATTACK-CLASSES.md#Business logic"
+  },
+  "surface": "needs, invitation batches, coverage, responses and privacy-request workflows",
+  "boundary": "state machines and aggregate disclosure limits (k=5 coverage, confirmed-only names, grants)",
+  "subsystem": "All in-scope subsystems (quick profile)",
+  "attack_class": "Business logic and data lifecycle",
+  "starting_paths": [
+   "backend/src/modules/need-records",
+   "backend/src/modules/invitation-coordination",
+   "backend/src/modules/privacy-requests",
+   "backend/supabase/migrations"
+  ],
+  "ordinary_attack_class_block": "ATTACK-CLASSES.md#Business logic",
+  "selected_companion_blocks": [
+   "DATA-ISOLATION-AND-LIFECYCLE.md#Core discipline",
+   "DATA-ISOLATION-AND-LIFECYCLE.md#Enumeration and aggregate oracles",
+   "DATA-ISOLATION-AND-LIFECYCLE.md#Soft-delete and tombstone bypass",
+   "DATA-ISOLATION-AND-LIFECYCLE.md#Stale authorization and derived copy use",
+   "DATA-ISOLATION-AND-LIFECYCLE.md#Retention and queued-work overrun",
+   "DATA-ISOLATION-AND-LIFECYCLE.md#Export and backup scope expansion",
+   "DATA-ISOLATION-AND-LIFECYCLE.md#Universal moves",
+   "DATA-ISOLATION-AND-LIFECYCLE.md#Validation rules"
+  ],
+  "excluded_blocks": [
+   {
+    "block": "MEMORY-SAFETY-AND-BINARY.md#Core discipline",
+    "reason": "no native/unsafe code in scope"
+   },
+   {
+    "block": "AI-AND-LLM.md#Core discipline",
+    "reason": "no model or agent features in product source"
+   },
+   {
+    "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+    "reason": "no native app or local IPC daemon"
+   },
+   {
+    "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+    "reason": "only render.yaml/vercel.json; deployment facts handled as needs_validation in web units"
+   }
+  ],
+  "prior_status": "none",
+  "attempts": [],
+  "wave": 1,
+  "status": "candidate",
+  "agent_id": "h3-logic",
+  "reviewed_paths": [
+   "backend/src/modules/invitation-coordination/application/invitations-service.ts",
+   "backend/src/modules/invitation-coordination/http/invitations.router.ts",
+   "backend/src/modules/need-records/http/needs.router.ts",
+   "backend/src/modules/privacy-requests/application/privacy-requests-service.ts",
+   "backend/src/modules/privacy-requests/application/purge-job.ts",
+   "backend/supabase/migrations/20261013030000_need_records.sql",
+   "backend/supabase/migrations/20261020000000_privacy_requests.sql",
+   "backend/supabase/migrations/20261020010000_privacy_execution.sql",
+   "backend/supabase/migrations/20261021010000_need_site_race.sql",
+   "backend/supabase/migrations/20261022010000_worker_auth_purges.sql",
+   "backend/supabase/migrations/20261022030000_invitation_rpc.sql",
+   "backend/supabase/migrations/20261022040000_invitation_rpc_b.sql",
+   "backend/supabase/migrations/20261022050000_invitation_cascades.sql",
+   "backend/supabase/migrations/20261022060000_invitation_delivery.sql",
+   "backend/supabase/migrations/20261022070000_invitation_claim_display.sql",
+   "backend/supabase/migrations/20261022100000_active_profile_responds.sql",
+   "backend/supabase/migrations/20261022110000_review_fixes.sql",
+   "backend/supabase/migrations/20261123000000_need_coverage.sql",
+   "docs/2_Especificaciones_De_Software.md",
+   "docs/decisions/ADR-008-publicar-e-invitar-y-cobertura-agregada.md",
+   "docs/openapi.json"
+  ],
+  "local_checks": [
+   {
+    "agent_id": "h3-logic",
+    "reviewed_paths": [
+     "backend/supabase/migrations/20261123000000_need_coverage.sql",
+     "backend/src/modules/invitation-coordination/application/invitations-service.ts",
+     "backend/src/modules/invitation-coordination/http/invitations.router.ts",
+     "backend/supabase/migrations/20261021010000_need_site_race.sql",
+     "docs/decisions/ADR-008-publicar-e-invitar-y-cobertura-agregada.md"
+    ],
+    "invariant": "Aggregate coverage (k=5, buckets 0/5/10/25, 20 queries/h per admin) never reveals an individual donor's distance or location to a hospital admin (RF-VIS-01/02, ADR-008).",
+    "method": "source",
+    "result": "The bucketing keeps an exact 0 apart from null (1 to 4). The admin picks the recipient blood type (O_NEG matches only O_NEG donors) and the radius (any whole km from 1 to 50) on drafts, up to 60 per hour. Sweeping the radius therefore gives the 1 km distance band of the nearest compatible available donor from an approved site in about 6 coverage reads, well under the 20 per hour cap. Recorded as a needs_validation candidate because the SQL cannot run in this audit.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h3-logic",
+    "reviewed_paths": [
+     "backend/supabase/migrations/20261022110000_review_fixes.sql",
+     "backend/supabase/migrations/20261022100000_active_profile_responds.sql",
+     "backend/supabase/migrations/20261022050000_invitation_cascades.sql",
+     "backend/supabase/migrations/20261013030000_need_records.sql"
+    ],
+    "invariant": "The need/invitation state machine is serialized and cannot skip states: no batch on a non-active need, no confirmation after the goal is met or after terminal/expired, cascade invalidation is atomic, and the per-donor 3/24 h and per-admin 20/h caps hold under concurrency.",
+    "method": "source",
+    "result": "Holds. Every writer takes the need row FOR UPDATE, then invitations, then outbox (D3 order). Batch quotas are rechecked under the global advisory lock. need_status projects vencida at expires_at. Confirmations check meta_alcanzada and the +1 >= target cascade under the need lock. Reopening only flips status, and new batches still require an approved, active site. Transitions allow only borrador->activa/cancelada and activa/meta_alcanzada->cerrada/cancelada.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h3-logic",
+    "reviewed_paths": [
+     "backend/supabase/migrations/20261022030000_invitation_rpc.sql",
+     "docs/2_Especificaciones_De_Software.md"
+    ],
+    "invariant": "A hospital sees name and blood type only for currently confirmed donors of its own need; once a response becomes rechazada, only the per-need code and opaque states remain.",
+    "method": "source",
+    "result": "Holds. list_own_need_responses scopes to need_id AND hospital_id from d_admin_hospital_id. It projects name and blood type only when response='confirmada' and omits confirmations anonymized by deletion. Keeping the per-need code after a withdrawal is explicitly allowed by RF-INV-04 and RF-VIS-02.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h3-logic",
+    "reviewed_paths": [
+     "backend/supabase/migrations/20261020000000_privacy_requests.sql",
+     "backend/supabase/migrations/20261020010000_privacy_execution.sql",
+     "backend/supabase/migrations/20261022060000_invitation_delivery.sql",
+     "backend/supabase/migrations/20261022010000_worker_auth_purges.sql",
+     "backend/src/modules/privacy-requests/application/privacy-requests-service.ts",
+     "backend/src/modules/privacy-requests/application/purge-job.ts"
+    ],
+    "invariant": "Privacy requests follow pendiente->aprobada/rechazada->en_ejecucion->completada/fallida. PII reads and execution require a live, same-superadmin, same-request grant of the right action. Deletion anonymizes invitations, history, idempotency and other requests and is idempotent.",
+    "method": "source",
+    "result": "Holds. decide only updates a pendiente request. Grants are bound to superadmin_id, request_id and action, expire after 10 minutes, and need step-up. Execute needs status aprobada and requested_fields within the grant fields. finish_deletion requires the profile to be gone first, anonymizes invitations and deletes history, and is idempotent on completada. The worker fails stuck executions after 15 minutes. invitations.donor_id has no foreign key, so the anonymization still finds its rows after the Auth user is deleted.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h3-logic",
+    "reviewed_paths": [
+     "backend/supabase/migrations/20261022040000_invitation_rpc_b.sql",
+     "backend/supabase/migrations/20261022070000_invitation_claim_display.sql",
+     "backend/src/modules/need-records/http/needs.router.ts"
+    ],
+    "invariant": "Manual delivery retry and the batch two-step flow cannot be used to re-send to invalidated, withdrawn or deleting donors, or to pick token hashes.",
+    "method": "source",
+    "result": "Holds. Retry requires a superadmin step-up grant bound to the invitation, validity activa, sin_respuesta, delivery fallida, an active profile and no deletion in progress. The service generates the hashes and the technical session executes. worker_record_attempt cancels retries for invitations that are no longer active.",
+    "artifact": null
+   },
+   {
+    "agent_id": "parent-verifier",
+    "reviewed_paths": [
+     "backend/supabase/migrations/20261123000000_need_coverage.sql",
+     "backend/src/modules/invitation-coordination/application/invitations-service.ts",
+     "backend/supabase/migrations/20261021010000_need_site_race.sql",
+     "docs/decisions/ADR-008-publicar-e-invitar-y-cobertura-agregada.md",
+     "docs/openapi.json",
+     "backend/supabase/migrations/20261013030000_need_records.sql"
+    ],
+    "invariant": "Phase 3+5 verification of need-coverage:zero-vs-null-radius-sweep-distance-oracle (performed by the parent, not an independent agent, at user request)",
+    "method": "source",
+    "result": "Parent re-read: coverage_bucket returns 0 for 0 and null for 1-4; radius is an admin-chosen integer 1-50 per draft; per-admin caps 20 coverage/h and 60 drafts/h; service comment itself acknowledges zone narrowing. DB execution blocked.",
+    "artifact": null
+   }
+  ],
+  "result_fingerprints": [
+   "need-coverage:zero-vs-null-radius-sweep-distance-oracle"
+  ],
+  "unresolved": [],
+  "x_key": "u-logic",
+  "x_hunter": "h3-logic",
+  "x_hardening": [
+   "Coverage cells and ring boundaries can also be compared across drafts with different radii and sites to show that a cell holds at least one donor inside an annulus. ADR-008 accepts this as a coarse residual risk. Merging 0 into the null band (report 'fewer than 5' for 0 to 4), or applying the cap per hospital rather than per admin, would close both this and the candidate above.",
+   "change_own_invitation_response lets a donor confirm while their own approved deletion is en_ejecucion, so the hospital sees their name. Initial token responses and retries already reject that state. The window is short (execution until finish_deletion, at most about 15 minutes when the Auth delete result is uncertain), but adding the same check would be consistent.",
+   "execute_correction_request with a declaredBloodType change does not revisit open or confirmed invitations made under the old type. The hospital then shows the new type on an existing confirmation. This is a clinical consistency matter rather than an access boundary.",
+   "app.audit_events keeps the deleted donor's uid as actor_id with resource_id equal to the invitation_id for invitacion.respondida/respuesta_cambiada, so it pseudonymously re-links anonymized invitations after V15 deletion until the final purge.",
+   "The RNF-PRV-02 final purge (final_demo_at + 30 days) has no implementation in migrations or worker. Docs list it as pending (docs/plans/2026-10-20-privacy-requests.md:48)."
+  ],
+  "x_decision": "needs_validation"
+ },
+ {
+  "coverage_id": "backend%2Fsrc%2Fshared%2Fcrypto%23tokens%2Fcsrf%2Fhmac%2Foutbox-cipher::backend%2Fsrc%2Fshared%2Fhttp%2Fedge-guard.ts%23edgeGuard::profile%2Fquick%2Fall-in-scope-subsystems::ATTACK-CLASSES.md%23Cryptography%20and%20secrets",
+  "canonical_refs": {
+   "surface": "backend/src/shared/crypto#tokens/csrf/hmac/outbox-cipher",
+   "boundary": "backend/src/shared/http/edge-guard.ts#edgeGuard",
+   "subsystem": "profile/quick/all-in-scope-subsystems",
+   "attack_class": "ATTACK-CLASSES.md#Cryptography and secrets"
+  },
+  "surface": "config, crypto helpers and edge guard",
+  "boundary": "token randomness, HMAC, AES-GCM keyring, constant-time compares, edge secret",
+  "subsystem": "All in-scope subsystems (quick profile)",
+  "attack_class": "Cryptography and secrets",
+  "starting_paths": [
+   "backend/src/shared/crypto",
+   "backend/src/shared/http/edge-guard.ts",
+   "backend/src/config/env.ts",
+   "backend/src/modules/email-delivery/application/email-payload.ts"
+  ],
+  "ordinary_attack_class_block": "ATTACK-CLASSES.md#Cryptography and secrets",
+  "selected_companion_blocks": [],
+  "excluded_blocks": [
+   {
+    "block": "MEMORY-SAFETY-AND-BINARY.md#Core discipline",
+    "reason": "no native/unsafe code in scope"
+   },
+   {
+    "block": "AI-AND-LLM.md#Core discipline",
+    "reason": "no model or agent features in product source"
+   },
+   {
+    "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+    "reason": "no native app or local IPC daemon"
+   },
+   {
+    "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+    "reason": "only render.yaml/vercel.json; deployment facts handled as needs_validation in web units"
+   }
+  ],
+  "prior_status": "none",
+  "attempts": [],
+  "wave": 1,
+  "status": "candidate",
+  "agent_id": "h5-obvious",
+  "reviewed_paths": [
+   "backend/src/config/env.test.ts",
+   "backend/src/config/env.ts",
+   "backend/src/modules/email-delivery/application/email-payload.ts",
+   "backend/src/modules/identity-institutions/http/action-tokens.router.ts",
+   "backend/src/shared/crypto/csrf.test.ts",
+   "backend/src/shared/crypto/csrf.ts",
+   "backend/src/shared/crypto/hmac.test.ts",
+   "backend/src/shared/crypto/hmac.ts",
+   "backend/src/shared/crypto/outbox-cipher.test.ts",
+   "backend/src/shared/crypto/outbox-cipher.ts",
+   "backend/src/shared/crypto/tokens.test.ts",
+   "backend/src/shared/crypto/tokens.ts",
+   "backend/src/shared/http/edge-guard.test.ts",
+   "backend/src/shared/http/edge-guard.ts",
+   "backend/src/shared/observability/logger.ts",
+   "backend/src/shared/persistence/cursor.ts",
+   "docs/openapi.json",
+   "frontend/src/features/auth/pages/ResetPasswordPage.tsx",
+   "frontend/src/features/auth/useFragmentToken.ts",
+   "frontend/src/lib/api/auth.ts",
+   "frontend/vercel.json"
+  ],
+  "local_checks": [
+   {
+    "agent_id": "h5-obvious",
+    "reviewed_paths": [
+     "backend/src/shared/crypto/tokens.ts",
+     "backend/src/shared/crypto/csrf.ts"
+    ],
+    "invariant": "Action tokens and CSRF nonces come from a CSPRNG with at least 256 bits, and secret comparisons run in constant time",
+    "method": "source",
+    "result": "generateActionToken uses randomBytes(32) base64url (tokens.ts:7-9). CSRF nonce uses randomBytes(32) and HMAC-SHA256 over JSON.stringify([sessionId, nonce]), so there is no separator ambiguity (csrf.ts:8-16). verifyCsrfToken rejects an empty session or a malformed token and compares through safeEqual, which uses timingSafeEqual with a length guard (tokens.ts:17-21). Stored token hash is plain SHA-256 (tokens.ts:12-14), which is adequate for a 256-bit random token. Math.random appears only as outbox retry jitter (process-outbox.ts:31), not as a secret.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h5-obvious",
+    "reviewed_paths": [
+     "backend/src/shared/crypto/outbox-cipher.ts",
+     "backend/src/modules/email-delivery/application/email-payload.ts"
+    ],
+    "invariant": "Outbox payloads use authenticated encryption with a random IV, AAD bound to the row, a kid keyring, and no plaintext fallback on failure",
+    "method": "source",
+    "result": "AES-256-GCM, 12-byte random IV per seal, 16-byte tag, AAD = outbox id (outbox-cipher.ts:35-44). openPayload checks the version, the part count, a known kid, the key length and the IV/tag lengths, and any decipher failure becomes a generic SealedPayloadError (outbox-cipher.ts:46-67). openEmailPayload wraps JSON.parse in the same error, allowlists keys and types (email-payload.ts:36-53), and renderEmail fails closed (email-payload.ts:63-97). No fallback to plaintext exists.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h5-obvious",
+    "reviewed_paths": [
+     "backend/src/shared/crypto/hmac.ts",
+     "backend/src/shared/persistence/cursor.ts",
+     "backend/src/config/env.ts"
+    ],
+    "invariant": "HMAC keys are separated per purpose, cursor MACs are verified in constant time, and secrets have a minimum length and are distinct",
+    "method": "source",
+    "result": "deriveHmacKey and deriveHmacKeyring derive the email, ip, mfa and idempotency keys from one secret with HMAC(secret, 'purpose:<p>') (hmac.ts:19-38). The cursor MAC is bound to scope and verified with safeEqual before JSON.parse, with a 512-byte cap (cursor.ts:14-48). env.ts enforces at least 32 characters for each secret (env.ts:368-375) and rejects CSRF, EMAIL_HMAC, CURSOR or EDGE secrets that reuse each other (env.ts:151-156). Outbox keys must be exactly 32 bytes of canonical base64 with a valid unique kid, and the current kid must exist (env.ts:377-400). The anon key may not be service_role (env.ts:273-289).",
+    "artifact": null
+   },
+   {
+    "agent_id": "h5-obvious",
+    "reviewed_paths": [
+     "backend/src/shared/http/edge-guard.ts",
+     "backend/src/config/env.ts",
+     "frontend/vercel.json"
+    ],
+    "invariant": "The edge secret is compared in constant time, required in production, never committed, and overwritten by the edge rather than taken from the client",
+    "method": "source",
+    "result": "equalSecrets uses timingSafeEqual with a length guard (edge-guard.ts:6-11). An empty secret disables the guard (edge-guard.ts:23), but parseEnv rejects an empty EDGE_SHARED_SECRET when NODE_ENV=production or RENDER is set (env.ts:82-85, 184). The exemption covers only /health/live and /health/ready, case- and trailing-slash-normalized (edge-guard.ts:22-23). vercel.json uses a request.headers 'set' transform from the $EDGE_SHARED_SECRET env var, so the header overwrites any client value and the file holds no literal secret (vercel.json:8,15).",
+    "artifact": null
+   },
+   {
+    "agent_id": "h5-obvious",
+    "reviewed_paths": [
+     "backend/src/shared/crypto/hmac.test.ts",
+     "backend/src/shared/crypto/tokens.test.ts",
+     "backend/src/shared/crypto/csrf.test.ts",
+     "backend/src/shared/crypto/outbox-cipher.test.ts",
+     "backend/src/shared/http/edge-guard.test.ts",
+     "backend/src/config/env.test.ts"
+    ],
+    "invariant": "The existing unit tests for the crypto helpers, the edge guard and env validation pass in the sandbox",
+    "method": "local",
+    "result": "sandbox-run.sh 170s: vitest run src/shared/crypto src/shared/http/edge-guard.test.ts https-only.test.ts cookies.test.ts errors.test.ts src/config -> 9 files, 85 tests passed, exit=0",
+    "artifact": "agents/h5-obvious/artifacts/check-1.txt"
+   },
+   {
+    "agent_id": "h5-obvious",
+    "reviewed_paths": [
+     "backend/src/modules/identity-institutions/http/action-tokens.router.ts",
+     "frontend/src/lib/api/auth.ts",
+     "frontend/src/features/auth/useFragmentToken.ts",
+     "backend/src/shared/observability/logger.ts"
+    ],
+    "invariant": "Bearer action tokens never appear in URLs that infrastructure may log",
+    "method": "source",
+    "result": "The email link keeps the token in the fragment so it never reaches a server (useFragmentToken.ts:4-5). The SPA then sends it in the API request path, for example GET and POST /api/v1/hospital-admin-invitation-actions/<token> (auth.ts:112,123), and the backend reads req.params.token (action-tokens.router.ts:41-53). The backend logger records only the route template (logger.ts:28), but the full path crosses the Vercel rewrite and Render. Whether those platforms keep request paths in logs is a deployment fact, so this is raised as a needs_validation candidate.",
+    "artifact": null
+   },
+   {
+    "agent_id": "parent-verifier",
+    "reviewed_paths": [
+     "frontend/src/features/auth/useFragmentToken.ts",
+     "frontend/src/lib/api/auth.ts",
+     "frontend/vercel.json",
+     "backend/src/modules/identity-institutions/http/action-tokens.router.ts",
+     "backend/src/shared/observability/logger.ts",
+     "frontend/src/features/auth/pages/ResetPasswordPage.tsx",
+     "docs/openapi.json"
+    ],
+    "invariant": "Phase 3+5 verification of action-token-in-api-request-path (performed by the parent, not an independent agent, at user request)",
+    "method": "source",
+    "result": "Parent re-read every cited line: token is sent in the API path for all 9 {token} operations through the Vercel route; backend logs only the route template; whether platform logs keep full paths remains a deployment fact.",
+    "artifact": null
+   }
+  ],
+  "result_fingerprints": [
+   "action-token-in-api-request-path"
+  ],
+  "unresolved": [],
+  "x_key": "u-crypto",
+  "x_hunter": "h5-obvious",
+  "x_hardening": [
+   "frontend/package.json uses caret ranges for leaflet and @types/leaflet while every other dependency is exact. The lockfile pins them, but exact versions would match ADR-002.",
+   ".gitignore covers .env and .env.* but not *.pem, *.key or credentials.json. None is tracked today, but adding them would guard against accidental commits.",
+   "backend/supabase/config.toml keeps [auth] enable_signup = true and email enable_signup = true. With the public anon key, anyone can register directly at Supabase Auth and bypass the backend's limits and admission (the architecture notes this deployment fact; role assignment is owned by the access-control peer). Check the hosted project's Auth signup setting before deployment.",
+   "VITE_MAPBOX_TOKEN ships in the client bundle by design (frontend/src/lib/mapbox.ts:5). It must be a public pk token with URL restrictions, never a secret sk token.",
+   "Production detection depends on NODE_ENV=production or RENDER (env.ts:82-85). A deployment to another host without either variable would allow the fake email provider and an empty edge secret. The Dockerfile sets NODE_ENV=production, which covers the defined image."
+  ],
+  "x_decision": "needs_validation"
+ },
+ {
+  "coverage_id": "backend%2Fsupabase%2Fmigrations%23api.link_assisted_account%20%2F%20api.link_donor_account::backend%2Fsupabase%2Fmigrations%23technical%20linking%20RPCs::profile%2Fquick%2Fall-in-scope-subsystems::WEB-PROTOCOL-AND-AUTH.md%23Account%20linking%20and%20identity%20collision",
+  "canonical_refs": {
+   "surface": "backend/supabase/migrations#api.link_assisted_account / api.link_donor_account",
+   "boundary": "backend/supabase/migrations#technical linking RPCs",
+   "subsystem": "profile/quick/all-in-scope-subsystems",
+   "attack_class": "WEB-PROTOCOL-AND-AUTH.md#Account linking and identity collision"
+  },
+  "surface": "backend/supabase/migrations#api.link_assisted_account / api.link_donor_account",
+  "boundary": "technical-identity RPC linking an Auth user id to an assisted-signup or registration token",
+  "subsystem": "All in-scope subsystems (quick profile)",
+  "attack_class": "Account linking and identity collision",
+  "starting_paths": [
+   "backend/supabase/migrations/20261013060000_donor_records.sql",
+   "backend/supabase/migrations/20261021020000_assisted_signup_replay_hospital.sql"
+  ],
+  "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+  "selected_companion_blocks": [
+   "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+   "WEB-PROTOCOL-AND-AUTH.md#Account linking and identity collision",
+   "WEB-PROTOCOL-AND-AUTH.md#Universal moves",
+   "WEB-PROTOCOL-AND-AUTH.md#Validation rules"
+  ],
+  "excluded_blocks": [
+   {
+    "block": "MEMORY-SAFETY-AND-BINARY.md#Core discipline",
+    "reason": "no native/unsafe code in scope"
+   },
+   {
+    "block": "AI-AND-LLM.md#Core discipline",
+    "reason": "no model or agent features in product source"
+   },
+   {
+    "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+    "reason": "no native app or local IPC daemon"
+   },
+   {
+    "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+    "reason": "only render.yaml/vercel.json; deployment facts handled as needs_validation in web units"
+   }
+  ],
+  "prior_status": "none",
+  "attempts": [],
+  "wave": 1,
+  "status": "deferred",
+  "agent_id": null,
+  "reviewed_paths": [],
+  "local_checks": [],
+  "result_fingerprints": [],
+  "unresolved": [
+   "quick_profile_single_wave: reported as uncovered by h1-auth: The SQL of these technical linking RPCs (whether they bind the auth user's email to the signup email and enforce one-time use) was only partially read within this unit's depth bound. They deserve their own deterministic review.",
+   "quick_profile_final_critic: critic also requested reassignment of this unit; no second wave in quick profile."
+  ],
+  "x_key": "u-linking",
+  "x_hunter": null
+ },
+ {
+  "coverage_id": "frontend%2Fsrc%23SPA::frontend%2Fvercel.json%23headers::profile%2Fquick%2Fall-in-scope-subsystems::CLIENT-SIDE.md%23DOM-based%20XSS",
+  "canonical_refs": {
+   "surface": "frontend/src#SPA",
+   "boundary": "frontend/vercel.json#headers",
+   "subsystem": "profile/quick/all-in-scope-subsystems",
+   "attack_class": "CLIENT-SIDE.md#DOM-based XSS"
+  },
+  "surface": "frontend SPA",
+  "boundary": "DOM rendering, fragment tokens, in-memory session, CSP",
+  "subsystem": "All in-scope subsystems (quick profile)",
+  "attack_class": "Client-side browser security",
+  "starting_paths": [
+   "frontend/src",
+   "frontend/vercel.json",
+   "frontend/index.html",
+   "frontend/vite.config.ts"
+  ],
+  "ordinary_attack_class_block": "ATTACK-CLASSES.md#Injection",
+  "selected_companion_blocks": [
+   "CLIENT-SIDE.md#Core discipline",
+   "CLIENT-SIDE.md#DOM-based XSS",
+   "CLIENT-SIDE.md#Browser-storage disclosure and stale authorization",
+   "CLIENT-SIDE.md#Client-side navigation confusion",
+   "CLIENT-SIDE.md#Clickjacking",
+   "CLIENT-SIDE.md#Credentialed CORS trust",
+   "CLIENT-SIDE.md#Universal moves",
+   "CLIENT-SIDE.md#Validation rules"
+  ],
+  "excluded_blocks": [
+   {
+    "block": "MEMORY-SAFETY-AND-BINARY.md#Core discipline",
+    "reason": "no native/unsafe code in scope"
+   },
+   {
+    "block": "AI-AND-LLM.md#Core discipline",
+    "reason": "no model or agent features in product source"
+   },
+   {
+    "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+    "reason": "no native app or local IPC daemon"
+   },
+   {
+    "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+    "reason": "only render.yaml/vercel.json; deployment facts handled as needs_validation in web units"
+   }
+  ],
+  "prior_status": "none",
+  "attempts": [],
+  "wave": 1,
+  "status": "covered",
+  "agent_id": "h6-client-supply",
+  "reviewed_paths": [
+   "frontend/index.html",
+   "frontend/src/components/layout/useSignOut.ts",
+   "frontend/src/features/auth/pages/LoginPage.tsx",
+   "frontend/src/features/auth/session/destination.ts",
+   "frontend/src/features/auth/useFragmentToken.ts",
+   "frontend/src/features/donor/LocationMap.tsx",
+   "frontend/src/features/hospital/components/CoverageMap.tsx",
+   "frontend/src/lib/mapbox.ts",
+   "frontend/vercel.json",
+   "frontend/vite.config.ts"
+  ],
+  "local_checks": [
+   {
+    "agent_id": "h6-client-supply",
+    "reviewed_paths": [
+     "frontend/src/features/donor/LocationMap.tsx",
+     "frontend/src/features/hospital/components/CoverageMap.tsx",
+     "frontend/src/lib/mapbox.ts"
+    ],
+    "invariant": "No attacker-influenced string reaches an HTML-executing sink",
+    "method": "source",
+    "result": "A grep over non-test frontend/src found no dangerouslySetInnerHTML, innerHTML, outerHTML, document.write, eval, new Function, postMessage, or Leaflet bindPopup/bindTooltip/setContent. The Leaflet HTML sinks are limited to a constant attribution string and an L.divIcon with only a className. The map shapes take numeric coordinates and are interactive: false. Mapbox geocoder labels go into React state and are rendered with framework escaping.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h6-client-supply",
+    "reviewed_paths": [
+     "frontend/src/features/auth/useFragmentToken.ts",
+     "frontend/src/features/auth/pages/LoginPage.tsx",
+     "frontend/src/features/auth/session/destination.ts",
+     "frontend/src/components/layout/useSignOut.ts"
+    ],
+    "invariant": "Navigation destinations are not client-source-controlled, and fragment tokens are not persisted or leaked",
+    "method": "source",
+    "result": "Post-login navigation uses destinationFor(session), which picks from a fixed role-to-path map. There is no next or returnTo parameter. Other navigate() calls use constant or server-ID templated internal paths, and there is no window.location assignment. The fragment token is checked against /^[A-Za-z0-9_-]{43,256}$/, kept only in useState, and stripped from the URL with replace navigation. Referrer-Policy is no-referrer. There is no localStorage, sessionStorage or IndexedDB use. The API client uses same-origin credentials, cache: no-store and no-referrer.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h6-client-supply",
+    "reviewed_paths": [
+     "frontend/vercel.json",
+     "frontend/index.html",
+     "frontend/vite.config.ts"
+    ],
+    "invariant": "CSP, framing and CORS controls block script injection, clickjacking and credentialed cross-origin reads",
+    "method": "source",
+    "result": "The CSP sets script-src 'self' with no unsafe-inline or eval, object-src 'none', base-uri 'self' and frame-ancestors 'none', plus X-Frame-Options DENY, COOP same-origin and CORP same-origin. index.html loads only a module script from self. The frontend calls the API same-origin through a proxy, and no CORS reflection exists in this unit. The vite dev server binds 127.0.0.1. Whether Vercel accepts this file is a deployment fact (see hardening).",
+    "artifact": null
+   }
+  ],
+  "result_fingerprints": [],
+  "unresolved": [],
+  "x_key": "u-client",
+  "x_hunter": "h6-client-supply",
+  "x_hardening": []
+ },
+ {
+  "coverage_id": "repo%23%2F::backend%2Fsrc%2Fconfig%2Fenv.ts%23parseEnv::profile%2Fquick%2Fall-in-scope-subsystems::ATTACK-CLASSES.md%23Obvious%20things",
+  "canonical_refs": {
+   "surface": "repo#/",
+   "boundary": "backend/src/config/env.ts#parseEnv",
+   "subsystem": "profile/quick/all-in-scope-subsystems",
+   "attack_class": "ATTACK-CLASSES.md#Obvious things"
+  },
+  "surface": "whole repository",
+  "boundary": "secret hygiene, debug gating, cookies, CORS, error exposure",
+  "subsystem": "All in-scope subsystems (quick profile)",
+  "attack_class": "Obvious things",
+  "starting_paths": [
+   "backend",
+   "frontend",
+   "apps",
+   "scripts",
+   ".gitignore",
+   "render.yaml",
+   "frontend/vercel.json"
+  ],
+  "ordinary_attack_class_block": "ATTACK-CLASSES.md#Obvious things",
+  "selected_companion_blocks": [],
+  "excluded_blocks": [
+   {
+    "block": "MEMORY-SAFETY-AND-BINARY.md#Core discipline",
+    "reason": "no native/unsafe code in scope"
+   },
+   {
+    "block": "AI-AND-LLM.md#Core discipline",
+    "reason": "no model or agent features in product source"
+   },
+   {
+    "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+    "reason": "no native app or local IPC daemon"
+   },
+   {
+    "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+    "reason": "only render.yaml/vercel.json; deployment facts handled as needs_validation in web units"
+   }
+  ],
+  "prior_status": "none",
+  "attempts": [],
+  "wave": 1,
+  "status": "blocked",
+  "agent_id": "h5-obvious",
+  "reviewed_paths": [
+   ".gitignore",
+   "apps/mock-api/package.json",
+   "apps/mock-api/src",
+   "apps/mock-api/src/app.ts",
+   "apps/web/package.json",
+   "backend/.env.example",
+   "backend/Dockerfile",
+   "backend/package.json",
+   "backend/src",
+   "backend/src/app.ts",
+   "backend/src/config/env.ts",
+   "backend/src/modules/platform/http/health.router.ts",
+   "backend/src/server.ts",
+   "backend/src/shared/auth/session-cookies.ts",
+   "backend/src/shared/http/cookies.ts",
+   "backend/src/shared/http/errors.ts",
+   "backend/src/shared/http/https-only.ts",
+   "backend/src/shared/http/origin-guard.ts",
+   "backend/src/shared/http/security-headers.ts",
+   "backend/src/shared/observability/logger.ts",
+   "backend/supabase/config.toml",
+   "backend/supabase/migrations",
+   "backend/supabase/seed.sql",
+   "frontend/.env.example",
+   "frontend/package.json",
+   "frontend/src",
+   "frontend/src/features/auth/components/DevMailboxLink.tsx",
+   "frontend/vercel.json",
+   "package-lock.json",
+   "package.json",
+   "render.yaml",
+   "scripts"
+  ],
+  "local_checks": [
+   {
+    "agent_id": "h5-obvious",
+    "reviewed_paths": [
+     ".gitignore",
+     "backend/.env.example",
+     "frontend/.env.example",
+     "render.yaml",
+     "frontend/vercel.json",
+     "backend/Dockerfile",
+     "backend/supabase/config.toml",
+     "backend/supabase/seed.sql",
+     "backend/supabase/migrations",
+     "scripts",
+     "apps/mock-api/src/app.ts"
+    ],
+    "invariant": "No secret files or hardcoded live credentials are tracked",
+    "method": "source",
+    "result": "git ls-files shows only backend/.env.example and frontend/.env.example, and every value in them is empty. git check-ignore confirms .env and .env.* are ignored for the root, backend and frontend. No tracked file matches -----BEGIN, sk_live, whsec_<long>, sb_secret_<long>, eyJ..eyJ JWTs, AKIA or ghp_. render.yaml uses sync:false for every secret. The Dockerfile copies only manifests, backend/src and tsconfig files, never a .env. seed.sql and the migrations contain no passwords. The only literal password is the mock demo password 'synthetic-demo-only' in apps/mock-api/src/app.ts:15, which is not deployed. scripts/check-security-headers.mjs generates random secrets. .gitignore does not list *.pem or *.key, but no such file is tracked.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h5-obvious",
+    "reviewed_paths": [
+     "backend/src",
+     "frontend/src",
+     "apps/mock-api/src",
+     "scripts"
+    ],
+    "invariant": "No TODO, FIXME or HACK comments refer to missing security controls",
+    "method": "source",
+    "result": "The only grep hits for TODO|FIXME|HACK|XXX outside tests are false positives inside frontend/src/test/* comments ('MÉTODO'). None is security-related.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h5-obvious",
+    "reviewed_paths": [
+     "backend/src/config/env.ts",
+     "frontend/src/features/auth/components/DevMailboxLink.tsx",
+     "apps/mock-api/src/app.ts",
+     "backend/src/modules/platform/http/health.router.ts",
+     "backend/src/app.ts"
+    ],
+    "invariant": "Debug and dev features cannot be enabled in production, and the health and admin-like endpoints expose nothing sensitive",
+    "method": "source",
+    "result": "In production (NODE_ENV=production or RENDER), the fake and dev-mailbox email providers, missing TRUSTED_PROXIES, non-https origins/URLs, an empty edge secret and short technical passwords are all rejected (env.ts:180-192). The frontend dev helpers are gated by the compile-time import.meta.env.DEV (DevMailboxLink.tsx:3 and the pages that use DevStatusPicker). The mock-api /__mock/reset requires non-production, a loopback socket, a configured MOCK_RESET_TOKEN, an exact Origin and a timing-safe token (mock app.ts:127-134, 309-317). /health/live and /health/ready return only {status} (health.router.ts:53-75). No /debug, /metrics, /env or /config route exists. Express runs with app.set('env','production') and x-powered-by disabled (app.ts:62-65).",
+    "artifact": null
+   },
+   {
+    "agent_id": "h5-obvious",
+    "reviewed_paths": [
+     "backend/src/shared/http/errors.ts",
+     "backend/src/server.ts",
+     "backend/src/shared/observability/logger.ts"
+    ],
+    "invariant": "Error responses never return stacks, paths or SQL errors",
+    "method": "source",
+    "result": "toPublicError maps every error to a fixed code and message (errors.ts:35-95). Unknown errors become INTERNAL_ERROR with a generic message. Errors after headers are sent destroy the socket instead of calling next (errors.ts:128-132). Process-level handlers log no message or stack (server.ts:11-16). The logger is a closed allowlist of fields (logger.ts:9-32).",
+    "artifact": null
+   },
+   {
+    "agent_id": "h5-obvious",
+    "reviewed_paths": [
+     "backend/src/shared/http/cookies.ts",
+     "backend/src/shared/auth/session-cookies.ts",
+     "backend/src/shared/http/origin-guard.ts",
+     "backend/src/shared/http/https-only.ts",
+     "backend/src/shared/http/security-headers.ts",
+     "frontend/src"
+    ],
+    "invariant": "Cookies are HttpOnly, Secure and SameSite, CORS is not permissive, TLS is enforced, and there are no open redirects",
+    "method": "source",
+    "result": "Session cookies are set only through sessionCookie: __Host-, HttpOnly, Secure, SameSite=Lax, Path=/ (cookies.ts:47-50, session-cookies.ts:9-10). serializeCookie refuses __Host- without Secure and Path=/. No CORS middleware or Access-Control-Allow-* header exists anywhere (same-origin topology, ADR-004). originGuard rejects any Origin outside the exact allowlist on unsafe methods. httpsOnly returns 403 on non-secure requests in production (https-only.ts:11-21), and HSTS is set (security-headers.ts:10). The frontend stores no tokens in localStorage or sessionStorage, and every navigate() target is a fixed internal path. No redirect, next or returnTo parameter is used, and there is no res.redirect.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h5-obvious",
+    "reviewed_paths": [
+     "backend/src",
+     "frontend/src",
+     "apps/mock-api/src",
+     "scripts"
+    ],
+    "invariant": "No eval, Function, vm or child_process runs with dynamic input in product code",
+    "method": "source",
+    "result": "Product code (backend/src, frontend/src, apps/*/src) has no eval, new Function, vm or child_process; the only .exec hits are RegExp.exec. child_process appears only in dev/test scripts (check-security-headers.mjs, test-backend-integration.mjs, test-bruno-backend.mjs) with fixed argv.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h5-obvious",
+    "reviewed_paths": [
+     "package.json",
+     "backend/package.json",
+     "frontend/package.json",
+     "apps/web/package.json",
+     "apps/mock-api/package.json",
+     "package-lock.json"
+    ],
+    "invariant": "Dependencies are pinned and the lockfile is committed",
+    "method": "source",
+    "result": "All workspace manifests pin exact versions except frontend leaflet ^1.9.4 and @types/leaflet ^1.9.22. The single root package-lock.json is tracked and resolves leaflet 1.9.4. Key resolved versions: express 5.3.0, body-parser 2.4.0, path-to-regexp 8.4.2, @supabase/supabase-js 2.118.0, vite 8.3.4, react-router 7.18.4, undici 8.12.3. Whether these have known CVEs cannot be settled offline: npm audit is prohibited here and the advisory DB is a network fact. CI runs npm audit --omit=dev (.github/workflows/security.yml:34).",
+    "artifact": null
+   }
+  ],
+  "result_fingerprints": [],
+  "unresolved": [
+   "Known-CVE status of the resolved dependency tree (package-lock.json) needs a live advisory database lookup (npm audit or OSV), which this offline audit prohibits; owner check: run `npm run audit:production` or read the latest security.yml audit job result."
+  ],
+  "x_key": "u-obvious",
+  "x_hunter": "h5-obvious",
+  "x_hardening": []
+ },
+ {
+  "coverage_id": "scripts%2Fdev-mailbox.mjs%23127.0.0.1%3A4025::backend%2Fsrc%2Fconfig%2Fenv.ts%23isProduction::profile%2Fquick%2Fall-in-scope-subsystems::ATTACK-CLASSES.md%23Wildcard",
+  "canonical_refs": {
+   "surface": "scripts/dev-mailbox.mjs#127.0.0.1:4025",
+   "boundary": "backend/src/config/env.ts#isProduction",
+   "subsystem": "profile/quick/all-in-scope-subsystems",
+   "attack_class": "ATTACK-CLASSES.md#Wildcard"
+  },
+  "surface": "dev-only surfaces (dev mailbox, mock reset, DEV-gated UI)",
+  "boundary": "loopback binding, Host allowlist, production gating",
+  "subsystem": "All in-scope subsystems (quick profile)",
+  "attack_class": "Wildcard",
+  "starting_paths": [
+   "scripts/dev-mailbox.mjs",
+   "apps/mock-api/src/app.ts",
+   "backend/src/modules/email-delivery/infrastructure/dev-mailbox-sender.ts",
+   "frontend/src/components/dev"
+  ],
+  "ordinary_attack_class_block": "ATTACK-CLASSES.md#Wildcard",
+  "selected_companion_blocks": [],
+  "excluded_blocks": [
+   {
+    "block": "MEMORY-SAFETY-AND-BINARY.md#Core discipline",
+    "reason": "no native/unsafe code in scope"
+   },
+   {
+    "block": "AI-AND-LLM.md#Core discipline",
+    "reason": "no model or agent features in product source"
+   },
+   {
+    "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+    "reason": "no native app or local IPC daemon"
+   },
+   {
+    "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+    "reason": "only render.yaml/vercel.json; deployment facts handled as needs_validation in web units"
+   }
+  ],
+  "prior_status": "none",
+  "attempts": [],
+  "wave": 1,
+  "status": "covered",
+  "agent_id": "h6-client-supply",
+  "reviewed_paths": [
+   "apps/mock-api/src/app.ts",
+   "apps/mock-api/src/server.ts",
+   "backend/src/composition-worker.ts",
+   "backend/src/config/env.ts",
+   "backend/src/modules/email-delivery/infrastructure/dev-mailbox-sender.ts",
+   "frontend/src/components/dev/DevScenarioPicker.tsx",
+   "frontend/src/features/auth/components/DevMailboxLink.tsx",
+   "frontend/src/features/auth/components/DevStatusPicker.tsx",
+   "scripts/dev-mailbox.mjs"
+  ],
+  "local_checks": [
+   {
+    "agent_id": "h6-client-supply",
+    "reviewed_paths": [
+     "scripts/dev-mailbox.mjs"
+    ],
+    "invariant": "The dev mailbox is readable only from loopback with a loopback Host, cannot traverse out of its directory, and does not execute email HTML",
+    "method": "local",
+    "result": "In a sandbox harness on loopback with a synthetic mailbox, Host 127.0.0.1 and localhost returned 200. Host evil.example:4025 returned 403, which blocks DNS rebinding. /m/..%2F..%2Fetc%2Fpasswd and /m/../abc.html returned 404. A javascript: href in a stored email was not rendered as an action button, while the http action link was. Every response carries CSP default-src 'none' (the stored <script> cannot run) and no X-Frame-Options or frame-ancestors (hardening). The script exits under NODE_ENV=production and listens on 127.0.0.1.",
+    "artifact": "agents/h6-client-supply/artifacts/check-1.txt"
+   },
+   {
+    "agent_id": "h6-client-supply",
+    "reviewed_paths": [
+     "backend/src/config/env.ts",
+     "backend/src/composition-worker.ts",
+     "backend/src/modules/email-delivery/infrastructure/dev-mailbox-sender.ts"
+    ],
+    "invariant": "The dev-mailbox and fake email providers cannot be selected in production",
+    "method": "source",
+    "result": "isProduction is true when NODE_ENV=production or RENDER is set. In production, both env parsers reject EMAIL_PROVIDER fake and dev-mailbox. parseProvider rejects unknown values. The sender HTML-escapes to and subject, sanitizes the filename to [A-Za-z0-9_-], and writes with mode 0600, flag wx, into a 0700 directory.",
+    "artifact": null
+   },
+   {
+    "agent_id": "h6-client-supply",
+    "reviewed_paths": [
+     "apps/mock-api/src/app.ts",
+     "apps/mock-api/src/server.ts",
+     "frontend/src/components/dev/DevScenarioPicker.tsx",
+     "frontend/src/features/auth/components/DevMailboxLink.tsx",
+     "frontend/src/features/auth/components/DevStatusPicker.tsx"
+    ],
+    "invariant": "Dev-only reset and UI are gated away from production and non-loopback callers",
+    "method": "source",
+    "result": "/__mock/reset returns 404 when NODE_ENV=production, when the socket is not loopback, or when MOCK_RESET_TOKEN is unset. It also requires an exact Origin and a timingSafeEqual token check. The mock listens on 127.0.0.1. Frontend dev pickers and DevMailboxLink render only when import.meta.env.DEV is true, which Vite statically drops in production builds.",
+    "artifact": null
+   }
+  ],
+  "result_fingerprints": [],
+  "unresolved": [],
+  "x_key": "u-dev",
+  "x_hunter": "h6-client-supply",
+  "x_hardening": []
+ },
+ {
+  "coverage_id": "supabase-auth%23%2Fauth%2Fv1%2F%7Bsignup%2Cuser%2Crecover%2Cfactors%2Ctoken%7D%20via%20anon%20key::backend%2Fsupabase%2Fconfig.toml%23%5Bauth%5D::profile%2Fquick%2Fall-in-scope-subsystems::WEB-PROTOCOL-AND-AUTH.md%23Account%20linking%20and%20identity%20collision",
+  "canonical_refs": {
+   "surface": "supabase-auth#/auth/v1/{signup,user,recover,factors,token} via anon key",
+   "boundary": "backend/supabase/config.toml#[auth]",
+   "subsystem": "profile/quick/all-in-scope-subsystems",
+   "attack_class": "WEB-PROTOCOL-AND-AUTH.md#Account linking and identity collision"
+  },
+  "surface": "Supabase Auth (GoTrue) endpoints reached directly with the public anon key",
+  "boundary": "config.toml auth settings vs backend-mediated email change, recovery, barrier and MFA flows",
+  "subsystem": "All in-scope subsystems (quick profile)",
+  "attack_class": "Account linking, recovery and session invalidation via direct GoTrue",
+  "starting_paths": [
+   "backend/supabase/config.toml",
+   "backend/src/modules/donor-records/application/email-change.ts",
+   "backend/src/modules/donor-records/application/donor-records-service.ts",
+   "backend/src/modules/identity-institutions/infrastructure/supabase-auth-admin.ts",
+   "backend/supabase/migrations/20261013050000_action_tokens.sql",
+   "backend/supabase/migrations/20261013040000_email_delivery.sql",
+   "backend/supabase/migrations/20261022000000_session_barrier.sql",
+   "backend/supabase/migrations/20261021000000_inert_user_lock.sql"
+  ],
+  "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+  "selected_companion_blocks": [
+   "WEB-PROTOCOL-AND-AUTH.md#Core discipline",
+   "WEB-PROTOCOL-AND-AUTH.md#Account linking and identity collision",
+   "WEB-PROTOCOL-AND-AUTH.md#Password reset and broader recovery",
+   "WEB-PROTOCOL-AND-AUTH.md#Session fixation and invalidation",
+   "WEB-PROTOCOL-AND-AUTH.md#MFA enrollment and assurance downgrade",
+   "WEB-PROTOCOL-AND-AUTH.md#Universal moves",
+   "WEB-PROTOCOL-AND-AUTH.md#Validation rules"
+  ],
+  "excluded_blocks": [
+   {
+    "block": "MEMORY-SAFETY-AND-BINARY.md#Core discipline",
+    "reason": "no native/unsafe code in scope"
+   },
+   {
+    "block": "AI-AND-LLM.md#Core discipline",
+    "reason": "no model or agent features in product source"
+   },
+   {
+    "block": "DESKTOP-MOBILE-AND-LOCAL-IPC.md#Core discipline",
+    "reason": "no native app or local IPC daemon"
+   },
+   {
+    "block": "CLOUD-AND-DEPLOYMENT.md#Core discipline",
+    "reason": "only render.yaml/vercel.json; deployment facts handled as needs_validation in web units"
+   }
+  ],
+  "prior_status": "none",
+  "attempts": [],
+  "wave": 1,
+  "status": "deferred",
+  "agent_id": null,
+  "reviewed_paths": [],
+  "local_checks": [],
+  "result_fingerprints": [],
+  "unresolved": [
+   "quick_profile_final_critic: direct GoTrue signup/user/recover/factors with anon key (enable_signup=true, enable_confirmations=false, secure_password_change=false) is an unchecked parallel path to backend email-change, recovery, admission barrier and MFA; auth.users.email is read live by app.user_id_by_email and outbox recipient lookup."
+  ],
+  "x_key": "u-gotrue",
+  "x_hunter": null
+ }
+]

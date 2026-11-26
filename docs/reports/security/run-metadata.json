@@ -1,0 +1,55 @@
+{
+ "run_id": "safe-a-life-run-1",
+ "repo": "Safe-a-Life",
+ "target": "<repo-root>",
+ "source_ref": {
+  "commit": "156e34c90f586441623bf6aa57aae4b98c291e30",
+  "branch": "feat/mapa-ubicacion-y-buzon-dev",
+  "dirty": true,
+  "dirty_note": "untracked docs/Informe-Tipos-De-Errores.pdf, docs/plans/2026-11-24-informe-tipos-de-errores.md; modified skills-lock.json (skill install). None are code under review."
+ },
+ "profile": "quick",
+ "scope_paths": [
+  "backend",
+  "frontend",
+  "apps/web",
+  "apps/mock-api",
+  "scripts",
+  ".github",
+  "docs/openapi.json",
+  "package.json"
+ ],
+ "budget": 20,
+ "execution_policy": "sandboxed-source-and-local-only",
+ "sandbox": "bwrap --unshare-all --clearenv, ro binds of target and toolchain, tmpfs scratch bind, prlimit CPU/AS/NPROC/FSIZE + timeout",
+ "selected_companions": [
+  "WEB-PROTOCOL-AND-AUTH.md",
+  "DATA-ISOLATION-AND-LIFECYCLE.md",
+  "PROTOCOLS-RPC-AND-MESSAGING.md",
+  "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md",
+  "CLIENT-SIDE.md",
+  "SUPPLY-CHAIN-AND-RELEASE.md"
+ ],
+ "prior_runs": [],
+ "shared_file_owners": {
+  "run-metadata.json": "parent",
+  "architecture.md": "parent",
+  "coverage-ledger.json": "parent",
+  "findings.json": "parent",
+  "REPORT.md": "parent",
+  "FINDINGS-DETAIL.md": "parent",
+  "NEEDS-VALIDATION.md": "parent"
+ },
+ "final_copy_destination": "docs/reports/security/ (user-selected; final artifacts copied after Phase 6)",
+ "run_status": "incomplete",
+ "critic_result": {
+  "missing_units_accepted": 1,
+  "reassign_ids": 1,
+  "stop": false,
+  "disposition": "recorded deferred (quick_profile_final_critic)"
+ },
+ "agents_spent": 11,
+ "incomplete_reason": "independent_verification_unavailable_parent_verified",
+ "incomplete_note": "Phase 3+5 verification performed by the parent coordinator at the user's request because auto mode could not review verifier launches (a hook rewrites subagent prompts). All 3 retained records are needs_validation; no confirmed findings.",
+ "prompt_delivery_note": "Hunter/verifier prompts delivered as parent-generated files containing the verbatim skill blocks; agents were instructed to read them fully."
+}
