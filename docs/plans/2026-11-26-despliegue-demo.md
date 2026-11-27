@@ -220,3 +220,12 @@ plan con evidencias, `mem_save`, push y PR; el usuario aprueba el cierre.
 - **`TRUSTED_PROXIES=5` verificado** (tras redeploy manual en Render; cambiar la variable no reinicia el contenedor): las dos
   peticiones de medición, una de ellas con `X-Forwarded-For: 203.0.113.7`, quedaron con el HMAC de la IP real del cliente. El HMAC
   de la IP falsa no aparece. Logs de Render: `worker.ciclo SIN_TRABAJO`, así que el worker está vivo y autenticado en Supabase.
+- **Superadmin** (aprobado por el usuario, correo institucional suyo): usuario de Auth creado por la Admin API con correo
+  confirmado y contraseña temporal aleatoria en `backend/.env.superadmin` (ignorado por git y Docker), más una fila
+  `app.user_accounts` con rol `superadmin`, igual que la siembra local. Login vía `savealife.dev`: 200, `aal: 1`,
+  `mfaRequired: true`. Cookies `__Host-sal_at` y `__Host-sal_rt` con `Secure`, `HttpOnly`, `SameSite=Lax` y sin `Domain`. El
+  TOTP lo enrola el usuario en `/verificar-identidad`.
+- **Hallazgo en la demo (superadmin)**: «Sedes» no tenía hospitales que elegir (todavía no se había creado ninguno; la pantalla
+  no lo explicaba) y pedía latitud y longitud a mano. El usuario las escribió intercambiadas. Arreglo `4b20dee`: el formulario
+  reutiliza el mapa del donante (`LocationMap`, con textos propios por `labels`) en vez de los campos; si no hay hospitales, lo
+  avisa. Tests del frontend 428/428, typecheck y eslint en verde. Desplegado en Vercel (bundle verificado). El backend no cambia.
