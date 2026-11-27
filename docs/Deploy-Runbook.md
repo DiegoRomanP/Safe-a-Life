@@ -60,6 +60,7 @@ no van al worker (`backend/.env.example`). La configuración falla cerrado: en p
 | `EMAIL_HMAC_SECRET`, `OUTBOX_KEYS`, `OUTBOX_KEY_CURRENT` | API y worker | Mismos valores en ambos. Claves `kid:base64` de 32 bytes. |
 | `API_TECHNICAL_EMAIL`, `API_TECHNICAL_PASSWORD` | API | Usuario técnico distinto del del worker. |
 | `WORKER_EMAIL`, `WORKER_PASSWORD`, `WORKER_POLL_MS` | Worker | Contraseña de 32 caracteres o más. En la demo van en el mismo servicio: `start-demo.sh` se las quita a la API. |
+| `EMAIL_INBOX_ALLOWLIST` | Worker | **RF-EML-04**: con `resend` el worker solo envía a estas bandejas (separadas por comas). Vacía = ningún correo sale (intento `permanente` sin llamar a Resend). |
 | `APP_PUBLIC_URL`, `EMAIL_FROM`, `EMAIL_PROVIDER=resend`, `RESEND_API_KEY` | API y worker | `RESEND_WEBHOOK_SECRET` (`whsec_…`) solo la API. |
 | `PORT` | API | Lo fija la plataforma; por defecto 3000. |
 

@@ -229,3 +229,7 @@ plan con evidencias, `mem_save`, push y PR; el usuario aprueba el cierre.
   no lo explicaba) y pedía latitud y longitud a mano. El usuario las escribió intercambiadas. Arreglo `4b20dee`: el formulario
   reutiliza el mapa del donante (`LocationMap`, con textos propios por `labels`) en vez de los campos; si no hay hospitales, lo
   avisa. Tests del frontend 428/428, typecheck y eslint en verde. Desplegado en Vercel (bundle verificado). El backend no cambia.
+- **Primera invitación de admin no enviada**: el outbox la marcó `fallido`, intento `permanente` sin HTTP. Causa: con
+  `EMAIL_PROVIDER=resend` el worker siempre aplica `EMAIL_INBOX_ALLOWLIST` (`composition-worker.ts:56`, RF-EML-04, ADR-005 §7), y la
+  variable faltaba en el despliegue. Es el comportamiento exigido, no un bug: se añade la variable a `render.yaml` y al runbook, con
+  las bandejas de prueba del usuario. Reinvitar invalida el token anterior y emite uno nuevo.

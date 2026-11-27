@@ -68,3 +68,5 @@ services:
         value: resend
       - key: RESEND_API_KEY
         sync: false
+      - key: EMAIL_INBOX_ALLOWLIST # RF-EML-04: bandejas de prueba separadas por comas; con resend, vacía = no sale ningún correo
+        sync: false
