@@ -1,36 +1,87 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "installCommand": "cd .. && SCARF_ANALYTICS=false npx -y npm@12.0.2 ci",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "routes": [
     {
       "src": "/api/(.*)",
       "dest": "https://REEMPLAZAR-backend.onrender.com/api/$1",
       "transforms": [
-        { "type": "request.headers", "op": "set", "target": { "key": "x-edge-secret" }, "args": "$EDGE_SHARED_SECRET", "env": ["EDGE_SHARED_SECRET"] }
+        {
+          "type": "request.headers",
+          "op": "set",
+          "target": {
+            "key": "x-edge-secret"
+          },
+          "args": "$EDGE_SHARED_SECRET",
+          "env": [
+            "EDGE_SHARED_SECRET"
+          ]
+        }
       ]
     },
     {
       "src": "/health/(.*)",
       "dest": "https://REEMPLAZAR-backend.onrender.com/health/$1",
       "transforms": [
-        { "type": "request.headers", "op": "set", "target": { "key": "x-edge-secret" }, "args": "$EDGE_SHARED_SECRET", "env": ["EDGE_SHARED_SECRET"] }
+        {
+          "type": "request.headers",
+          "op": "set",
+          "target": {
+            "key": "x-edge-secret"
+          },
+          "args": "$EDGE_SHARED_SECRET",
+          "env": [
+            "EDGE_SHARED_SECRET"
+          ]
+        }
       ]
     }
   ],
   "rewrites": [
-    { "source": "/((?!api/|health).*)", "destination": "/index.html" }
+    {
+      "source": "/((?!api/|health).*)",
+      "destination": "/index.html"
+    }
   ],
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; font-src 'self'; connect-src 'self' https://api.mapbox.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests" },
-        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains" },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()" },
-        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
-        { "key": "Cross-Origin-Resource-Policy", "value": "same-origin" },
-        { "key": "Referrer-Policy", "value": "no-referrer" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "X-Frame-Options", "value": "DENY" }
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'; img-src 'self' data: https://tile.openstreetmap.org; font-src 'self'; connect-src 'self' https://api.mapbox.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Cross-Origin-Resource-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        }
       ]
     }
   ]
