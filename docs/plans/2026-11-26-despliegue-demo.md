@@ -233,3 +233,9 @@ plan con evidencias, `mem_save`, push y PR; el usuario aprueba el cierre.
   `EMAIL_PROVIDER=resend` el worker siempre aplica `EMAIL_INBOX_ALLOWLIST` (`composition-worker.ts:56`, RF-EML-04, ADR-005 §7), y la
   variable faltaba en el despliegue. Es el comportamiento exigido, no un bug: se añade la variable a `render.yaml` y al runbook, con
   las bandejas de prueba del usuario. Reinvitar invalida el token anterior y emite uno nuevo.
+- **F7 en vivo, hallazgo**: el donante pulsó «Confirmar intención de asistir» en el detalle de la invitación dentro de su cuenta y
+  recibió 409. Causa: `changeOwnInvitationResponse` solo cambia una respuesta existente (línea 204 de `invitation_rpc_b`:
+  conflicto si la respuesta sigue en `sin_respuesta`). La primera respuesta va por el token del correo
+  (`recordInitialInvitationResponse`, RF-INV-04). El frontend lo sabía en el stub de pruebas (`allowFirstResponse: true`) pero no en
+  la interfaz. Arreglo en el frontend: sin respuesta → aviso que remite al correo y sin botones; el stub refleja el backend.
+  Tests 429/429. Backend y contrato sin cambios.
