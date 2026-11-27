@@ -7,7 +7,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "https://REEMPLAZAR-backend.onrender.com/api/$1",
+      "dest": "https://save-a-life-api-3j6d.onrender.com/api/$1",
       "transforms": [
         {
           "type": "request.headers",
@@ -24,7 +24,7 @@
     },
     {
       "src": "/health/(.*)",
-      "dest": "https://REEMPLAZAR-backend.onrender.com/health/$1",
+      "dest": "https://save-a-life-api-3j6d.onrender.com/health/$1",
       "transforms": [
         {
           "type": "request.headers",

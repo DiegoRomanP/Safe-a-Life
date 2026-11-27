@@ -40,7 +40,7 @@ correos contienen enlaces de un solo uso: borra la carpeta al terminar la demo. 
 2. **Render**: crear el Blueprint desde `render.yaml` y rellenar las variables (tabla siguiente). Un solo servicio con API y worker.
    Las contraseñas técnicas remotas deben tener 32 caracteres o más: si las actuales no, cambiarlas antes en Supabase Auth.
 3. **Vercel**: proyecto con raíz `frontend/`. Variables: `EDGE_SHARED_SECRET` (el mismo valor que en la API) y `VITE_MAPBOX_TOKEN` (público,
-   restringido por URL). **Sustituir `REEMPLAZAR-backend.onrender.com` en `frontend/vercel.json`** por el host real del servicio web.
+   restringido por URL). Host del servicio web en `frontend/vercel.json`: `save-a-life-api-3j6d.onrender.com`.
 4. Verificar con la lista de abajo antes de abrir a nadie.
 
 ## Variables
