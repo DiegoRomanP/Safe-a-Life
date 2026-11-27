@@ -31,7 +31,7 @@ services:
       # --- Topología (ADR-004): navegador y API comparten origen por el rewrite de Vercel; no hay CORS ---
       - key: ALLOWED_ORIGINS # https://<dominio del frontend>, sin barra final
         sync: false
-      - key: TRUSTED_PROXIES # saltos entre el cliente y Express: confirmar en staging
+      - key: TRUSTED_PROXIES # 5 (medido 2026-11-27): Express toma la IP más a la izquierda de X-Forwarded-For, que Vercel sobrescribe
         sync: false
       - key: EDGE_SHARED_SECRET # el mismo valor que EDGE_SHARED_SECRET en el proyecto de Vercel
         sync: false

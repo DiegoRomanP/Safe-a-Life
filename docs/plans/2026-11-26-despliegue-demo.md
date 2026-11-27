@@ -198,3 +198,25 @@ plan con evidencias, `mem_save`, push y PR; el usuario aprueba el cierre.
   tests en verde). Build del frontend en copia limpia correcto; el del backend lo hace `check:headers`.
 - **F1-gate: NO realizada.** El subagente revisor (security-privacy-auditor) se rechazó dos veces: un hook modifica la entrada
   de la llamada y el modo automático no puede revisarla. No hay PASS. Sin commits hasta que exista la revisión.
+
+### 2026-11-27 — F2 a F6 (en curso)
+
+- **F2**: el usuario aplicó `supabase db push --remote` (27/27 migraciones). Contraseñas técnicas nuevas (≥ 32) puestas por la
+  Admin API: cambio y login de prueba 200 para `api_technical` y `worker`. «Confirm email» de Supabase Auth: desactivado (correcto).
+- **F3**: Blueprint de Render desde la rama → `save-a-life-api-3j6d.onrender.com` (free, Live). `/health/ready` 200; `/api` directo 403.
+- **F4**: Vercel `safe-a-life-frontend` (Hobby), Root Directory `frontend`, preset Vite, rama de producción
+  `deploy/demo-bajo-costo`, `EDGE_SHARED_SECRET` solo en Production. El primer build desde `main` falló (127, sin `tsc`):
+  esperado. Desde la rama (`54cff52`): Ready.
+- **F5**: `savealife.dev` (Production) y `www` → 307 a `savealife.dev`; CNAME en Cloudflare en «DNS only». Certificado emitido.
+- **F6 (parcial)**: en `https://savealife.dev`: web 200 con CSP, HSTS, COOP, CORP, XFO, Referrer-Policy, Permissions-Policy y
+  nosniff; `/health/ready` 200; `/api/v1/auth/csrf-token` sin sesión **401** (pasa el guard de borde: el transform
+  `request.headers` de `routes` sí inyecta `X-Edge-Secret` hacia el destino externo; el plan B no hace falta), sin
+  `Access-Control-*`. Directo a Render: 403. `http://` → 308 a `https://`.
+- **`TRUSTED_PROXIES`**: medido con un login fallido sintético y comparando el HMAC del sujeto `login:ip` en
+  `app.rate_limit_events` con el HMAC de la IP pública del cliente (nunca la IP en claro). Con `2` **no coincide**: Express ve
+  un salto intermedio. Se cambia a `5`: Express toma la IP más a la izquierda de `X-Forwarded-For`, que Vercel sobrescribe con
+  la del cliente. El acceso directo a Render queda cortado por el guard de borde. Pendiente de verificar (coincidencia y prueba
+  de suplantación).
+- **`TRUSTED_PROXIES=5` verificado** (tras redeploy manual en Render; cambiar la variable no reinicia el contenedor): las dos
+  peticiones de medición, una de ellas con `X-Forwarded-For: 203.0.113.7`, quedaron con el HMAC de la IP real del cliente. El HMAC
+  de la IP falsa no aparece. Logs de Render: `worker.ciclo SIN_TRABAJO`, así que el worker está vivo y autenticado en Supabase.

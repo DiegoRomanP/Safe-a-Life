@@ -75,7 +75,7 @@ se ha implementado.
 ## Lista de verificación en staging
 
 - [ ] `GET <backend>/health/ready` devuelve 200 tras `supabase db push` (y 503 antes).
-- [ ] **Saltos de `TRUSTED_PROXIES`**: desde un cliente conocido, comprobar qué IP ve el backend (log `seguridad.rechazo`/rate limit) y fijar el número exacto. Con uno incorrecto, todos los usuarios de una región compartirían el cupo de login.
+- [x] **Saltos de `TRUSTED_PROXIES`** (2026-11-27): con `2` Express veía un salto intermedio. Con `5` toma la IP más a la izquierda de `X-Forwarded-For`, que Vercel sobrescribe con la del cliente: el HMAC del sujeto `login:ip` coincide con la IP pública del cliente y un `X-Forwarded-For` falso no lo cambia. El acceso directo a Render lo corta el guard de borde.
 - [ ] **Inyección de `X-Edge-Secret`**: una petición a `https://<frontend>/api/v1/auth/csrf-token` llega al backend (200) y la misma al host `*.onrender.com` directo responde 403.
 - [ ] Una petición con `X-Forwarded-Proto: http` al backend responde 403 (solo HTTPS).
 - [ ] Cabeceras en `https://<frontend>/` y en `/api/...`: HSTS, CSP, COOP, CORP, Permissions-Policy, Referrer-Policy, `nosniff`.
