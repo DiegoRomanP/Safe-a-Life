@@ -7,10 +7,20 @@ import { insideLima } from './location.js';
 const { minLat, minLon, maxLat, maxLon } = LIMA_BOUNDS;
 const LIMA_CENTER: L.LatLngTuple = [-12.05, -77.04];
 
+// Textos por defecto del donante; la sede del hospital usa los suyos.
+const DONOR_LABELS = {
+  group: 'Mapa de tu ubicación aproximada',
+  map: 'Mapa para marcar tu zona',
+  marked: 'Ubicación aproximada marcada en el mapa',
+  prompt: 'Haz clic en el mapa para marcar tu zona aproximada',
+  source: 'El mapa se carga desde OpenStreetMap; guardamos solo una zona aproximada (~110 m)',
+};
+
 type Props = {
   latitude: string;
   longitude: string;
   onChange: (latitude: string, longitude: string) => void;
+  labels?: typeof DONOR_LABELS;
 };
 
 // Zona aproximada del contrato: tres decimales (~110 m) y solo dentro de Lima; fuera (o sin número), null.
@@ -22,7 +32,7 @@ export function toApproximate(latitude: number, longitude: number) {
 
 // Con Mapbox no hay campos de coordenadas: el mapa se ajusta también con teclado (flechas, zoom y Enter).
 // El marcador no recibe foco porque no añade ninguna acción.
-export function LocationMap({ latitude, longitude, onChange }: Props) {
+export function LocationMap({ latitude, longitude, onChange, labels = DONOR_LABELS }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const pickRef = useRef<(at: L.LatLng) => L.LatLngExpression | null>(() => null);
@@ -109,12 +119,12 @@ export function LocationMap({ latitude, longitude, onChange }: Props) {
   }, [lat, lon]);
 
   return (
-    <div role="group" aria-label="Mapa de tu ubicación aproximada" className="flex flex-col gap-2">
+    <div role="group" aria-label={labels.group} className="flex flex-col gap-2">
       <div className="relative">
         <div
           ref={container}
           role="application"
-          aria-label="Mapa para marcar tu zona"
+          aria-label={labels.map}
           aria-describedby={helpId}
           className="isolate h-72 w-full overflow-hidden rounded-lg border border-line"
         />
@@ -133,9 +143,9 @@ export function LocationMap({ latitude, longitude, onChange }: Props) {
       <p aria-live="polite" className="text-sm font-semibold text-ink">
         {rejectedAt === current
           ? 'Elige un punto dentro de Lima'
-          : point ? 'Ubicación aproximada marcada en el mapa' : 'Haz clic en el mapa para marcar tu zona aproximada'}
+          : point ? labels.marked : labels.prompt}
       </p>
-      <p className="text-sm text-muted">El mapa se carga desde OpenStreetMap; guardamos solo una zona aproximada (~110 m)</p>
+      <p className="text-sm text-muted">{labels.source}</p>
     </div>
   );
 }

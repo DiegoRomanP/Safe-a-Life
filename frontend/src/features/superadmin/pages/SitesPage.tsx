@@ -10,7 +10,7 @@ import { Field } from '../../../components/ui/Field.js';
 import { Input } from '../../../components/ui/Input.js';
 import { Select } from '../../../components/ui/Select.js';
 import type { Tone } from '../../../components/ui/tones.js';
-import { latitudeError, longitudeError } from '../../donor/location.js';
+import { LocationMap } from '../../donor/LocationMap.js';
 import { ActionError } from '../components/ActionError.js';
 import { ResultNotice, type Notice } from '../components/ResultNotice.js';
 import { useSuperadmin } from '../SuperadminContext.js';
@@ -30,7 +30,15 @@ const stateLabel: Record<SiteState, { label: string; tone: Tone }> = {
   inactiva: { label: 'Inactiva', tone: 'neutral' },
 };
 
-type Errors = Partial<Record<'hospital' | 'name' | 'address' | 'latitude' | 'longitude', string>>;
+type Errors = Partial<Record<'hospital' | 'name' | 'address' | 'location', string>>;
+
+const SITE_MAP_LABELS = {
+  group: 'Mapa de la ubicación de la sede',
+  map: 'Mapa para marcar la sede',
+  marked: 'Ubicación de la sede marcada en el mapa',
+  prompt: 'Haz clic en el mapa para marcar la sede',
+  source: 'El mapa se carga desde OpenStreetMap; la sede se guarda con tres decimales (~110 m).',
+};
 
 // SA-03 Sedes autorizadas (contenido de Penpot «SaL» con estilo «+»). Datos de
 // listHospitalSites; los filtros se aplican sobre las sedes cargadas. Crear usa
@@ -48,9 +56,8 @@ export function SitesPage() {
     hospital: useRef<HTMLSelectElement>(null),
     name: useRef<HTMLInputElement>(null),
     address: useRef<HTMLInputElement>(null),
-    latitude: useRef<HTMLInputElement>(null),
-    longitude: useRef<HTMLInputElement>(null),
   };
+  const locationRef = useRef<HTMLDivElement>(null);
   const hospitalName = (hospitalId: string) => hospitals.find((h) => h.hospitalId === hospitalId)?.publicName ?? '—';
   const hospitalOptions = hospitals.map((h) => ({ value: h.hospitalId, label: h.publicName }));
 
@@ -73,12 +80,12 @@ export function SitesPage() {
       hospital: form.hospital ? undefined : 'Selecciona el hospital.',
       name: text(form.name, 160, 'el nombre de la sede'),
       address: text(form.address, 240, 'la dirección pública'),
-      latitude: latitudeError(form.latitude),
-      longitude: longitudeError(form.longitude),
+      location: form.latitude && form.longitude ? undefined : 'Marca la ubicación de la sede en el mapa.',
     };
     flushSync(() => setErrors(found));
-    const first = (Object.keys(refs) as Array<keyof Errors>).find((key) => found[key]);
-    if (first) return refs[first].current?.focus();
+    const first = (Object.keys(found) as Array<keyof Errors>).find((key) => found[key]);
+    // El mapa no es un campo: el foco va a su contenedor de Leaflet, que se maneja con teclado.
+    if (first) return (first === 'location' ? locationRef.current?.querySelector<HTMLElement>('.leaflet-container') : refs[first].current)?.focus();
     const created = await createSite({
       hospitalId: form.hospital,
       publicName: form.name.trim(),
@@ -187,7 +194,12 @@ export function SitesPage() {
       <Card title="Nueva sede">
         <form noValidate onSubmit={(event) => void handleCreate(event)} className="flex flex-col gap-6">
           <div className="grid gap-6 md:grid-cols-2">
-            <Field label="Hospital" error={errors.hospital} required>
+            <Field
+              label="Hospital"
+              hint={hospitals.length ? undefined : 'Aún no hay hospitales: créalo primero en «Hospitales».'}
+              error={errors.hospital}
+              required
+            >
               {(control) => (
                 <Select
                   {...control}
@@ -214,31 +226,24 @@ export function SitesPage() {
                 />
               )}
             </Field>
-            <div className="grid gap-6 sm:grid-cols-2">
-              <Field label="Latitud" error={errors.latitude} required>
-                {(control) => (
-                  <Input
-                    {...control}
-                    ref={refs.latitude}
-                    inputMode="decimal"
-                    value={form.latitude}
-                    onChange={(event) => update('latitude', event.target.value)}
-                  />
-                )}
-              </Field>
-              <Field label="Longitud" error={errors.longitude} required>
-                {(control) => (
-                  <Input
-                    {...control}
-                    ref={refs.longitude}
-                    inputMode="decimal"
-                    value={form.longitude}
-                    onChange={(event) => update('longitude', event.target.value)}
-                  />
-                )}
-              </Field>
-            </div>
           </div>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-sm font-semibold text-ink">
+              Ubicación de la sede<span className="font-normal text-muted"> (obligatorio)</span>
+            </legend>
+            <div ref={locationRef}>
+              <LocationMap
+                latitude={form.latitude}
+                longitude={form.longitude}
+                labels={SITE_MAP_LABELS}
+                onChange={(latitude, longitude) => {
+                  setForm((current) => ({ ...current, latitude, longitude }));
+                  setErrors((current) => ({ ...current, location: undefined }));
+                }}
+              />
+            </div>
+            {errors.location && <p className="text-sm text-danger">{errors.location}</p>}
+          </fieldset>
           <div>
             <Button type="submit">Crear sede</Button>
           </div>

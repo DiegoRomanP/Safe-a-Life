@@ -58,12 +58,15 @@ describe('SA-03 Sedes autorizadas', () => {
     await settle();
     await press(button(view, 'Crear sede'));
     expect(view.textContent).toContain('Selecciona el hospital.');
+    expect(view.textContent).toContain('Marca la ubicación de la sede en el mapa.');
     const form = 'form';
     choose(control(view, 'Hospital', form), 'a3c1d2e3-0003-4f5a-8b6c-7d8e9f0a1b33');
     type(control(view, 'Nombre de la sede', form), 'Sede Breña');
     type(control(view, 'Dirección pública', form), 'Av. Demo 9');
-    type(control(view, 'Latitud', form), '-12.06');
-    type(control(view, 'Longitud', form), '-77.05');
+    // jsdom no tiene tamaño: un clic en (0, 0) marca el centro del mapa, dentro de Lima.
+    act(() => { view.querySelector('.leaflet-container')?.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: 0, clientY: 0 })); });
+    expect(view.textContent).toContain('Ubicación de la sede marcada en el mapa');
+    expect([...view.querySelectorAll('form label')].some((label) => label.textContent?.startsWith('Latitud'))).toBe(false);
     await press(button(view, 'Crear sede'));
     expect(view.querySelector('div[aria-live="polite"]')?.textContent).toContain('Sede Breña creada');
     expect(rows(view)).toContain('Sede Breña');
