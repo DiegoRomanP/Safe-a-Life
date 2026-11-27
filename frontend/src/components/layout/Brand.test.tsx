@@ -10,8 +10,8 @@ describe('Brand', () => {
   it('enlaza al inicio con el nombre como texto accesible', () => {
     const link = render(<MemoryRouter><Brand /></MemoryRouter>).querySelector('a');
     expect(link?.getAttribute('href')).toBe('/');
-    expect(link?.textContent).toBe('+Save a Life');
-    expect(link?.querySelector('[aria-hidden="true"]')?.textContent).toBe('+');
+    expect(link?.textContent).toBe('Save a Life');
+    expect(link?.querySelector('img[aria-hidden="true"]')?.getAttribute('src')).toBe('/favicon.svg');
   });
 
   it('sobre fondo oscuro usa nombre y foco blancos', () => {

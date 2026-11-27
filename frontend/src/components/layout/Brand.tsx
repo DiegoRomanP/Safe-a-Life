@@ -3,7 +3,7 @@ import { cx } from '../ui/cx.js';
 
 export type BrandProps = { tone?: 'light' | 'dark'; className?: string };
 
-// Marca de Penpot: cuadro granate de radio 10 con «+» y el nombre. Enlaza al
+// Marca: logo (gota con cruz sobre cuadro granate) y el nombre. Enlaza al
 // inicio. En fondos petróleo (tone="dark") el nombre y el foco van en blanco,
 // porque el azul de foco no contrasta con el petróleo (Frontend-Design.md).
 export function Brand({ tone = 'light', className }: BrandProps) {
@@ -16,12 +16,8 @@ export function Brand({ tone = 'light', className }: BrandProps) {
         className,
       )}
     >
-      <span
-        aria-hidden="true"
-        className="flex size-10 items-center justify-center rounded-[10px] bg-brand text-2xl leading-none font-bold text-white"
-      >
-        +
-      </span>
+      {/* Mismo archivo que el favicon: gota con la cruz sobre el granate de la marca. */}
+      <img src="/favicon.svg" alt="" aria-hidden="true" width={40} height={40} className="size-10 shrink-0" />
       <span className={cx('text-2xl font-bold', tone === 'dark' ? 'text-white' : 'text-ink')}>Save a Life</span>
     </Link>
   );
