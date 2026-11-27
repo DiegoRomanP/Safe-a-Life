@@ -1,7 +1,8 @@
-# Render Blueprint del backend (ADR-001, ADR-004, ADR-005). NO se ha desplegado: es la definición reproducible para cuando se despliegue.
+# Render Blueprint del backend para la DEMO de bajo costo (ADR-001, ADR-004, ADR-005, ADR-009).
 # Reglas:
 #  - Ningún valor real en este archivo: todas las variables llevan `sync: false` (Render las pide al crear el Blueprint) salvo las no secretas.
-#  - La API y el worker NO comparten secretos: cada proceso lee solo lo suyo (ver backend/.env.example). No copies los de la API al worker.
+#  - Un solo servicio web gratis con API y worker en el mismo contenedor (`sh start-demo.sh`, ADR-009). Cada proceso arranca sin
+#    los secretos del otro. Cuando haya presupuesto se vuelve a dos servicios (web + worker, ADR-005): ver docs/Deploy-Runbook.md.
 #  - Genera cada secreto con: node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"  (distintos entre sí).
 #  - Primero se aplican las migraciones en Supabase (`supabase db push`): hasta entonces `/health/ready` responde 503.
 # Detalle y lista de verificación en staging: docs/Deploy-Runbook.md.
@@ -11,13 +12,14 @@ services:
     runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: .
+    dockerCommand: sh start-demo.sh
     healthCheckPath: /health/ready
     autoDeployTrigger: off
-    plan: starter
+    plan: free # el día de la demo se puede subir a starter (sin dormir) desde el panel
     envVars:
       - key: NODE_ENV
         value: production
-      # --- Supabase (la service_role solo la usa el adaptador de Auth Admin, ADR-006) ---
+      # --- Supabase (la service_role solo la usa el adaptador de Auth Admin de la API, ADR-006; el worker no la ve) ---
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_JWKS_URL
@@ -33,57 +35,30 @@ services:
         sync: false
       - key: EDGE_SHARED_SECRET # el mismo valor que EDGE_SHARED_SECRET en el proyecto de Vercel
         sync: false
-      # --- Secretos propios de la API ---
+      # --- Secretos solo de la API ---
       - key: CSRF_SECRET
         sync: false
-      - key: EMAIL_HMAC_SECRET # el mismo valor que en el worker
-        sync: false
       - key: CURSOR_SECRET
-        sync: false
-      - key: OUTBOX_KEYS # el mismo keyring que en el worker (kid:base64 de 32 bytes)
-        sync: false
-      - key: OUTBOX_KEY_CURRENT
         sync: false
       - key: API_TECHNICAL_EMAIL
         sync: false
       - key: API_TECHNICAL_PASSWORD
         sync: false
-      # --- Correo ---
-      - key: APP_PUBLIC_URL
-        sync: false
-      - key: EMAIL_FROM
-        sync: false
-      - key: EMAIL_PROVIDER # resend en producción
-        value: resend
-      - key: RESEND_API_KEY
-        sync: false
       - key: RESEND_WEBHOOK_SECRET
         sync: false
-
-  - type: worker
-    name: save-a-life-worker
-    runtime: docker
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: .
-    dockerCommand: node dist/worker.js
-    autoDeployTrigger: off
-    plan: starter
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: SUPABASE_URL
-        sync: false
-      - key: SUPABASE_ANON_KEY
-        sync: false
-      - key: EMAIL_HMAC_SECRET # el mismo valor que en la API
-        sync: false
-      - key: OUTBOX_KEYS # el mismo keyring que en la API
-        sync: false
-      - key: OUTBOX_KEY_CURRENT
-        sync: false
-      - key: WORKER_EMAIL # usuario técnico distinto del de la API
+      # --- Secretos solo del worker (usuario técnico distinto del de la API) ---
+      - key: WORKER_EMAIL
         sync: false
       - key: WORKER_PASSWORD
+        sync: false
+      - key: WORKER_POLL_MS
+        value: "10000"
+      # --- Compartidos por API y worker ---
+      - key: EMAIL_HMAC_SECRET
+        sync: false
+      - key: OUTBOX_KEYS # keyring kid:base64 de 32 bytes
+        sync: false
+      - key: OUTBOX_KEY_CURRENT
         sync: false
       - key: APP_PUBLIC_URL
         sync: false

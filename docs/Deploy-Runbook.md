@@ -1,4 +1,4 @@
-# Runbook de despliegue (preparado, sin desplegar)
+# Runbook de despliegue (demo de bajo costo, ADR-009; preparado, sin desplegar)
 
 Estado: **nada de esto se ha desplegado ni verificado en un entorno real.** Lo que sí está probado en local se indica en cada
 punto. Topología aceptada en [ADR-004](decisions/ADR-004-sesion-csrf-cors-topologia.md): el navegador habla solo con Vercel; Vercel
@@ -9,9 +9,9 @@ que traiga el secreto de borde.
 
 | Archivo | Para qué | Probado en local |
 | --- | --- | --- |
-| `backend/Dockerfile`, `.dockerignore` | Imagen de la API y del worker (mismo artefacto, otro comando). Node 24.19.0 y npm 12.0.2, usuario `node`, `HEALTHCHECK` a `/health/live`. | `docker build` y arranque con variables de producción sintéticas: `/health/live` 200, `/api/*` sin secreto 403, contenedor `healthy`, usuario `node`. |
-| `render.yaml` | Blueprint de Render: servicio web (`/health/ready`) y worker (`node dist/worker.js`), sin ningún valor real. | Sintaxis YAML y que el conjunto de variables del worker pasa `parseWorkerEnv`. No se aplicó a Render. |
-| `frontend/vercel.json` | Rewrites hacia el backend, inyección de `X-Edge-Secret`, CSP y cabeceras. | Estructura comprobada por `npm run check:headers`. **No se desplegó en Vercel.** |
+| `backend/Dockerfile`, `.dockerignore`, `backend/start-demo.sh` | Imagen de la API y del worker (mismo artefacto, otro comando). `sh start-demo.sh` arranca los dos en un contenedor (ADR-009); el 2026-11-26 se probó con variables sintéticas: dos procesos, el worker sin los secretos de la API y la API sin los del worker, y al matar el worker el contenedor se detiene. Node 24.19.0 y npm 12.0.2, usuario `node`, `HEALTHCHECK` a `/health/live`. | `docker build` y arranque con variables de producción sintéticas: `/health/live` 200, `/api/*` sin secreto 403, contenedor `healthy`, usuario `node`. |
+| `render.yaml` | Blueprint de Render para la demo: **un** servicio web `plan: free` con API y worker (`sh start-demo.sh`, ADR-009), sin ningún valor real. | Sintaxis YAML. No se aplicó a Render. |
+| `frontend/vercel.json` | Instalación desde la raíz del monorepo (`cd .. && npx -y npm@12.0.2 ci`; la instalación filtrada deja fuera `tsc` y `vite`, que viven en la raíz), build de Vite, rewrites hacia el backend, inyección de `X-Edge-Secret`, CSP y cabeceras. | Estructura comprobada por `npm run check:headers`. **No se desplegó en Vercel.** |
 | `scripts/check-security-headers.mjs` (`npm run check:headers`) | Arranca el backend compilado en producción sintética y comprueba borde, HTTPS, cabeceras, CORS y `vercel.json`. Está en CI (`headers`). | 27 comprobaciones PASS. |
 | `.github/workflows/ci.yml` | Jobs `headers` y `docker`. | Sintaxis YAML; no se ejecutó en GitHub. |
 
@@ -37,7 +37,8 @@ correos contienen enlaces de un solo uso: borra la carpeta al terminar la demo. 
    `supabase db push --workdir backend`. Incluye `20261123000000_need_coverage.sql`. Hasta aplicarla, `/health/ready` responde 503
    porque `EXPECTED_SCHEMA_VERSION` (`backend/src/shared/persistence/schema-version.ts`) la exige. Crear los usuarios técnicos
    `api_technical` y `worker` (roles distintos).
-2. **Render**: crear el Blueprint desde `render.yaml` y rellenar las variables (tabla siguiente). Servicio web y worker.
+2. **Render**: crear el Blueprint desde `render.yaml` y rellenar las variables (tabla siguiente). Un solo servicio con API y worker.
+   Las contraseñas técnicas remotas deben tener 32 caracteres o más: si las actuales no, cambiarlas antes en Supabase Auth.
 3. **Vercel**: proyecto con raíz `frontend/`. Variables: `EDGE_SHARED_SECRET` (el mismo valor que en la API) y `VITE_MAPBOX_TOKEN` (público,
    restringido por URL). **Sustituir `REEMPLAZAR-backend.onrender.com` en `frontend/vercel.json`** por el host real del servicio web.
 4. Verificar con la lista de abajo antes de abrir a nadie.
@@ -58,7 +59,7 @@ no van al worker (`backend/.env.example`). La configuración falla cerrado: en p
 | `CSRF_SECRET`, `CURSOR_SECRET` | API | Distintos entre sí y de `EMAIL_HMAC_SECRET`. |
 | `EMAIL_HMAC_SECRET`, `OUTBOX_KEYS`, `OUTBOX_KEY_CURRENT` | API y worker | Mismos valores en ambos. Claves `kid:base64` de 32 bytes. |
 | `API_TECHNICAL_EMAIL`, `API_TECHNICAL_PASSWORD` | API | Usuario técnico distinto del del worker. |
-| `WORKER_EMAIL`, `WORKER_PASSWORD`, `WORKER_POLL_MS` | Worker | Contraseña de 32 caracteres o más. |
+| `WORKER_EMAIL`, `WORKER_PASSWORD`, `WORKER_POLL_MS` | Worker | Contraseña de 32 caracteres o más. En la demo van en el mismo servicio: `start-demo.sh` se las quita a la API. |
 | `APP_PUBLIC_URL`, `EMAIL_FROM`, `EMAIL_PROVIDER=resend`, `RESEND_API_KEY` | API y worker | `RESEND_WEBHOOK_SECRET` (`whsec_…`) solo la API. |
 | `PORT` | API | Lo fija la plataforma; por defecto 3000. |
 
@@ -88,5 +89,13 @@ se ha implementado.
 
 - **HSTS `preload`**: no se activa hasta tener el dominio definitivo (alta difícil de revertir). Las cabeceras actuales llevan `max-age=63072000; includeSubDomains`.
 - **Teselas de OpenStreetMap**: su política de uso es para tráfico moderado y con atribución; para tráfico real, un proveedor de teselas con contrato.
-- **Worker en Docker**: la imagen declara un `HEALTHCHECK` HTTP que el worker (sin servidor HTTP) no cumple; Render no lo usa, pero un `docker run` local del worker aparecerá `unhealthy` (usar `--no-healthcheck`).
+- **Worker en Docker**: la imagen declara un `HEALTHCHECK` HTTP que el worker solo (sin servidor HTTP) no cumple; con `start-demo.sh` lo atiende la API. Un `docker run` local del worker solo aparecerá `unhealthy` (usar `--no-healthcheck`).
+- **Salida del contenedor con código 0**: si el worker termina, la API se apaga de forma ordenada y el contenedor sale con 0. Comprobar en staging que Render lo reinicia igualmente.
 - No hay despliegue continuo (`autoDeployTrigger: off`): cada despliegue es una acción deliberada.
+
+## Día de la demo
+
+1. La víspera: `https://<frontend>/health/ready` devuelve 200 y el monitor externo está en verde. Si el servicio se ha
+   reiniciado mucho, subirlo a `starter` desde el panel de Render (prorrateado) y bajarlo después.
+2. Una hora antes: entrar con cada rol (superadmin, admin, donante) y enviar un correo de prueba.
+3. Después: borrar las cuentas de prueba que no se vayan a reutilizar y volver a `free` si se subió.

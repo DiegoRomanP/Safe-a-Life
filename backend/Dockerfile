@@ -34,6 +34,8 @@ COPY --from=prod-deps /app/package.json ./package.json
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=prod-deps /app/backend/package.json ./backend/package.json
 COPY --from=build /app/backend/dist ./backend/dist
+# Arranque de la demo gratis (ADR-009): `sh start-demo.sh` lanza API y worker en el mismo contenedor.
+COPY backend/start-demo.sh ./backend/start-demo.sh
 WORKDIR /app/backend
 # La imagen oficial trae el usuario `node` (uid 1000): el proceso no corre como root.
 USER node
