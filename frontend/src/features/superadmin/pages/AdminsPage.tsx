@@ -189,7 +189,12 @@ export function AdminsPage() {
                 />
               )}
             </Field>
-            <Field label="Hospital" hint="Solo hospitales autorizados." error={inviteErrors.hospital} required>
+            <Field
+              label="Hospital"
+              hint={authorized.length ? 'Solo hospitales autorizados.' : 'Ningún hospital está autorizado: pulsa «Autorizar» en «Hospitales» primero.'}
+              error={inviteErrors.hospital}
+              required
+            >
               {(control) => (
                 <Select
                   {...control}
