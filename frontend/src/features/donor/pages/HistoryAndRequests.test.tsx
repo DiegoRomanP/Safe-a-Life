@@ -22,7 +22,8 @@ describe('DON-04 Historial de respuestas', () => {
   });
 
   it('una respuesta nueva aparece primero en el historial', async () => {
-    const view = renderRoute('/donante/invitaciones/18d4e5c2-3d4e-4f60-8b12-2c3d4e5f6a73');
+    // Desde la cuenta solo se cambia una respuesta ya registrada (la primera va por el correo).
+    const view = renderRoute('/donante/invitaciones/2a09d4b1-2c3d-4e5f-9a01-1b2c3d4e5f62');
     await settle();
     click([...view.querySelectorAll('button')].find((b) => b.textContent === 'No podré asistir') ?? null);
     await settle();
@@ -30,7 +31,7 @@ describe('DON-04 Historial de respuestas', () => {
     await settle();
     const first = view.querySelector('ol > li');
     expect(first?.textContent).toContain('Indicaste que no podrás asistir');
-    expect(first?.textContent).toContain('Instituto Regional Lima');
+    expect(first?.textContent).toContain('Hospital Metropolitano Sur');
   });
 });
 

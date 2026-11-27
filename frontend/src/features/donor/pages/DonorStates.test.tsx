@@ -10,7 +10,8 @@ setupRender();
 let api: DonorApiStub;
 beforeEach(() => { api = stubDonorApi(); });
 
-const INVITATION = '/donante/invitaciones/7f21c3a0-1b2c-4d5e-8f90-0a1b2c3d4e51';
+// Invitación ya confirmada: desde la cuenta solo se cambia una respuesta existente (la primera va por el enlace del correo).
+const INVITATION = '/donante/invitaciones/2a09d4b1-2c3d-4e5f-9a01-1b2c3d4e5f62';
 
 // Una sola vuelta: termina la escritura pero la revalidación sigue en curso.
 async function tick() {
@@ -71,13 +72,13 @@ describe('Estados de carga del área del donante', () => {
     const view = renderRoute(INVITATION);
     await settle();
     api.writeStatus = 409; // el backend real responde el conflicto
-    click(button(view, 'Confirmar intención de asistir'));
+    click(button(view, 'No podré asistir'));
     await settle();
     const alert = view.querySelector('main [role="alert"]');
     expect(alert?.textContent).toContain('El estado cambió');
     expect(alert?.textContent).toContain('el tuyo no se guardó');
-    expect(view.textContent).toContain('Tu respuesta: Sin respuesta');
-    expect(view.querySelector('[aria-live="polite"]')?.textContent).not.toContain('Confirmaste');
+    expect(view.textContent).toContain('Tu respuesta: Intención confirmada');
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).not.toContain('Indicaste');
     // «Revisar cambios» recarga la invitación y quita el aviso sin perder el foco.
     const review = button(view, 'Revisar cambios');
     review?.focus();
@@ -95,13 +96,13 @@ describe('Estados de carga del área del donante', () => {
   it('mientras se guarda no admite un segundo envío', async () => {
     const view = renderRoute(INVITATION);
     await settle();
-    const confirm = button(view, 'Confirmar intención de asistir');
-    click(confirm);
-    expect(confirm?.getAttribute('aria-disabled')).toBe('true');
+    const reject = button(view, 'No podré asistir');
+    click(reject);
+    expect(reject?.getAttribute('aria-disabled')).toBe('true');
     expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Guardando tu respuesta…');
-    click(button(view, 'No podré asistir'));
+    click(button(view, 'Confirmar intención de asistir'));
     await settle();
-    expect(view.textContent).toContain('Tu respuesta: Intención confirmada');
+    expect(view.textContent).toContain('Tu respuesta: No asistiré');
     click(view.querySelector('main a[href="/donante/historial"]'));
     await settle();
     expect(view.querySelectorAll('ol > li')).toHaveLength(2);
@@ -111,17 +112,17 @@ describe('Estados de carga del área del donante', () => {
     const view = renderRoute(INVITATION);
     await settle();
     api.readDelayMs = 60; // la revalidación tarda: así se ve el estado intermedio
-    click(button(view, 'Confirmar intención de asistir'));
+    click(button(view, 'No podré asistir'));
     await tick();
     // La escritura terminó y la invitación se está revalidando.
-    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Confirmaste tu intención de asistir.');
-    expect(button(view, 'No podré asistir')?.getAttribute('aria-disabled')).toBe('true');
-    click(button(view, 'No podré asistir'));
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Indicaste que no podrás asistir.');
+    expect(button(view, 'Confirmar intención de asistir')?.getAttribute('aria-disabled')).toBe('true');
+    click(button(view, 'Confirmar intención de asistir'));
     api.readDelayMs = 0;
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 120)); });
     await settle();
-    expect(view.textContent).toContain('Tu respuesta: Intención confirmada');
-    expect(button(view, 'No podré asistir')?.getAttribute('aria-disabled')).toBe('false');
+    expect(view.textContent).toContain('Tu respuesta: No asistiré');
+    expect(button(view, 'Confirmar intención de asistir')?.getAttribute('aria-disabled')).toBe('false');
     click(view.querySelector('main a[href="/donante/historial"]'));
     await settle();
     expect(view.querySelectorAll('ol > li')).toHaveLength(2);

@@ -27,7 +27,7 @@ const reply = (status: number, body: unknown) => ({ ok: status >= 200 && status 
 
 /** Sustituye `fetch` por un backend en memoria de las tres operaciones reales del perfil del donante. */
 export function stubDonorApi(profile: DonorProfile | null = demoProfile): DonorApiStub {
-  const stub: DonorApiStub = { profile: profile && structuredClone(profile), requests: [], writeStatus: 200, readStatus: 200, allowFirstResponse: true, readDelayMs: 0, correctionRequests: structuredClone(demoRequests), invitations: structuredClone(demoInvitations), history: structuredClone(demoHistory) };
+  const stub: DonorApiStub = { profile: profile && structuredClone(profile), requests: [], writeStatus: 200, readStatus: 200, allowFirstResponse: false, readDelayMs: 0, correctionRequests: structuredClone(demoRequests), invitations: structuredClone(demoInvitations), history: structuredClone(demoHistory) };
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
     const method = init?.method ?? 'GET';
     const url = String(input).replace('/api/v1', '');

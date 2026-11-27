@@ -22,8 +22,10 @@ const backLink = (
 
 // Detalle de una invitación dentro de la cuenta, con el diseño de LINK-01
 // (Penpot «+»). Datos de getOwnInvitation; responder usa
-// changeOwnInvitationResponse, que permite confirmar o rechazar y cambiar la
-// respuesta mientras la invitación siga activa.
+// changeOwnInvitationResponse, que solo CAMBIA una respuesta ya registrada mientras
+// la invitación siga activa: la primera se da con el enlace de un solo uso del
+// correo (recordInitialInvitationResponse, RF-INV-04), y el backend responde 409 si
+// se intenta aquí.
 export function InvitationDetailPage() {
   const { invitationId = '' } = useParams();
   const { scenario, getInvitation } = useDonorDemo();
@@ -51,6 +53,7 @@ function InvitationDetail({ invitation, refreshing, onReload }: InvitationDetail
   const urgency = urgencyLabel[invitation.urgency];
   const current = responseLabel[invitation.response];
   const canRespond = invitation.validity === 'activa';
+  const firstResponsePending = invitation.response === 'sin_respuesta';
   // Tras guardar, la invitación se revalida: hasta que llega no se actúa sobre
   // la respuesta anterior, para no repetir el envío.
   const busy = save.pending || refreshing;
@@ -114,21 +117,27 @@ function InvitationDetail({ invitation, refreshing, onReload }: InvitationDetail
             <Alert tone="info" title="Antes de responder">
               Abrir esta invitación no registra una respuesta. Confirmar expresa únicamente intención de asistir. El hospital verificará tu identidad, grupo y elegibilidad antes de cualquier donación.
             </Alert>
-            <div className="flex flex-wrap gap-4">
-              <Button
-                onClick={() => answer('confirmada')}
-                aria-disabled={busy || invitation.response === 'confirmada'}
-              >
-                Confirmar intención de asistir
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => answer('rechazada')}
-                aria-disabled={busy || invitation.response === 'rechazada'}
-              >
-                No podré asistir
-              </Button>
-            </div>
+            {firstResponsePending ? (
+              <p className="text-ink">
+                Para responder por primera vez usa los botones «Confirmar» o «No podré asistir» del correo de invitación que te enviamos. Después podrás cambiar tu respuesta aquí mientras la invitación siga activa.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-4">
+                <Button
+                  onClick={() => answer('confirmada')}
+                  aria-disabled={busy || invitation.response === 'confirmada'}
+                >
+                  Confirmar intención de asistir
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => answer('rechazada')}
+                  aria-disabled={busy || invitation.response === 'rechazada'}
+                >
+                  No podré asistir
+                </Button>
+              </div>
+            )}
           </>
         ) : (
           <Alert tone="warning" title="Invitación no disponible">

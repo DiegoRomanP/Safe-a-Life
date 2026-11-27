@@ -52,23 +52,31 @@ describe('Detalle de invitación', () => {
     expect(view.textContent).toContain('Abrir esta invitación no registra una respuesta.');
   });
 
-  it('confirmar registra la intención, lo anuncia y la refleja en la lista', async () => {
+  it('una invitación sin respuesta se responde desde el correo, no desde la cuenta', async () => {
     const view = renderRoute('/donante/invitaciones/7f21c3a0-1b2c-4d5e-8f90-0a1b2c3d4e51');
     await settle();
-    const confirm = buttonByText(view, 'Confirmar intención de asistir');
-    confirm?.focus();
-    click(confirm);
+    expect(view.textContent).toContain('usa los botones «Confirmar» o «No podré asistir» del correo');
+    expect(buttonByText(view, 'Confirmar intención de asistir')).toBeFalsy();
+    expect(buttonByText(view, 'No podré asistir')).toBeFalsy();
+  });
+
+  it('cambiar una respuesta ya registrada lo anuncia y la refleja en la lista', async () => {
+    const view = renderRoute('/donante/invitaciones/2a09d4b1-2c3d-4e5f-9a01-1b2c3d4e5f62');
     await settle();
-    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Confirmaste tu intención de asistir.');
+    const reject = buttonByText(view, 'No podré asistir');
+    reject?.focus();
+    click(reject);
+    await settle();
+    expect(view.querySelector('[aria-live="polite"]')?.textContent).toContain('Indicaste que no podrás asistir.');
     expect(view.querySelector('[aria-live="polite"] [role]')).toBeNull();
-    expect(view.textContent).toContain('Tu respuesta: Intención confirmada');
+    expect(view.textContent).toContain('Tu respuesta: No asistiré');
     // El botón de la respuesta vigente sigue enfocable: no se pierde el foco.
-    expect(confirm?.getAttribute('aria-disabled')).toBe('true');
-    expect(confirm?.disabled).toBe(false);
-    expect(document.activeElement).toBe(confirm);
+    expect(reject?.getAttribute('aria-disabled')).toBe('true');
+    expect(reject?.disabled).toBe(false);
+    expect(document.activeElement).toBe(reject);
     click(view.querySelector('a[href="/donante/invitaciones"]'));
     await settle();
-    expect(view.textContent).toContain('2 respondidas');
+    expect(view.textContent).toContain('No asistiré');
   });
 
   it('una invitación inexistente muestra un mensaje neutral', async () => {
