@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Save a Life · Versión B con más evidencia</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:wght@400..700&family=Manrope:wght@400..800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: #0b1a22; overflow: hidden; }
+#escenario { position: absolute; top: 50%; left: 50%; width: 1920px; height: 1080px; transform-origin: center; }
+#escenario > section { position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden; visibility: hidden; }
+#escenario > section.activa { visibility: visible; }
+#escenario > section aside { display: none; }
+body.notas #escenario > section aside { display: block; position: absolute; left: 0; right: 0; bottom: 0; padding: 24px 128px;
+  background: rgba(16,59,75,.95); color: #F1F5F7; font-size: 24px; line-height: 1.4; z-index: 5; }
+#ayuda { position: fixed; right: 12px; bottom: 8px; color: #BFD3DB; font: 12px Manrope, sans-serif; opacity: .7; }
+@media print {
+  html, body { overflow: visible; background: none; height: auto; }
+  #escenario { position: static; transform: none !important; }
+  #escenario > section { visibility: visible !important; position: relative; page-break-after: always; }
+  #ayuda { display: none; }
+}
+@page { size: 1920px 1080px; margin: 0; }
+/* Paleta y tipografía del propio proyecto (docs/Frontend-Design.md). */
+:root {
+  --ink: #172B3A;
+  --petrol: #164E63;
+  --petrol-deep: #103B4B;
+  --brand: #B4233C;
+  --canvas: #F6F8FA;
+  --surface: #FDFDFC;
+  --muted: #4A5866;
+  --line: #D9E0E5;
+  --soft-blue: #EAF3F6;
+  --on-dark: #F1F5F7;
+  --on-dark-soft: #BFD3DB;
+  --ok: #166534;
+  --warn: #854D0E;
+}
+
+body {
+  font-family: 'Manrope', Arial, sans-serif;
+  color: var(--ink);
+}
+
+section {
+  counter-increment: page;
+  padding: 128px 128px 160px;
+  background: var(--canvas);
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+section.dark { background: var(--petrol-deep); color: var(--on-dark); }
+section.accent { background: var(--brand); color: var(--on-dark); }
+
+h1, h2 {
+  font-family: 'Newsreader', Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -1px;
+  color: var(--ink);
+}
+h1 { font-size: 120px; line-height: 1.02; }
+h2 { font-size: 64px; line-height: 1.1; }
+h3 { font-size: 36px; font-weight: 700; line-height: 1.2; color: var(--ink); }
+section.dark h1, section.dark h2, section.dark h3,
+section.accent h1, section.accent h2, section.accent h3 { color: var(--on-dark); }
+
+.eyebrow {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+section.dark .eyebrow { color: #F2A7B4; }
+section.accent .eyebrow { color: #FBE3E7; }
+
+.lead { font-size: 32px; line-height: 1.45; color: var(--muted); max-width: 1500px; }
+section.dark .lead { color: var(--on-dark-soft); }
+section.accent .lead { color: #FBE3E7; }
+
+.body { font-size: 30px; line-height: 1.45; color: var(--ink); }
+.small { font-size: 24px; line-height: 1.4; color: var(--muted); }
+
+.head { display: flex; flex-direction: column; gap: 16px; }
+
+/* Pie de página: número de diapositiva. */
+.footer {
+  position: absolute;
+  left: 128px;
+  bottom: 64px;
+  width: 1664px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 24px;
+  color: var(--muted);
+}
+section.dark .footer, section.accent .footer { color: var(--on-dark-soft); }
+.footer .pagenum::before { content: counter(page); }
+
+/* Tarjetas. */
+.cards { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 32px; }
+.cards.two { grid-template-columns: 1fr 1fr; }
+.card {
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.card.featured { border-top: 8px solid var(--petrol); }
+.card.pending { border-top: 8px solid var(--brand); }
+.card .body { font-size: 28px; }
+/* Las tarjetas son claras también sobre fondos oscuros o de acento. */
+section.dark .card h3, section.accent .card h3 { color: var(--ink); }
+
+.tag {
+  align-self: flex-start;
+  font-size: 24px;
+  font-weight: 700;
+  padding: 6px 18px;
+  border-radius: 999px;
+  background: var(--soft-blue);
+  color: var(--petrol);
+}
+.tag.pend { background: #FBECEF; color: #8F1930; }
+.tag.ok { background: #E8F5EC; color: var(--ok); }
+.tag.warn { background: #FFF5E0; color: var(--warn); }
+.tag.no { background: #EEF2F4; color: var(--muted); }
+
+/* Código. */
+.code {
+  background: #0F2430;
+  border-radius: 16px;
+  padding: 36px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.code p {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 24px;
+  line-height: 1.5;
+  color: #DCE7EC;
+  white-space: nowrap;
+}
+.code .c { color: #8FB3C2; }
+.code .k { color: #F2A7B4; }
+.code .s { color: #A7E0B5; }
+.path {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 24px;
+  color: var(--petrol);
+}
+
+/* Cifras grandes. */
+.stats { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 32px; }
+.stat { display: flex; flex-direction: column; gap: 8px; border-top: 4px solid var(--on-dark-soft); padding-top: 24px; }
+.stat .num { font-family: 'Newsreader', Georgia, serif; font-size: 120px; font-weight: 600; line-height: 1; color: var(--on-dark); }
+.stat .lbl { font-size: 28px; line-height: 1.35; color: var(--on-dark-soft); }
+
+/* Tablas. */
+table { font-size: 26px; color: var(--ink); width: 100%; }
+tr.headrow { background: var(--soft-blue); }
+
+/* Flujo (diagrama de cajas). */
+.flow { display: flex; align-items: stretch; gap: 0; }
+.node {
+  background: var(--surface);
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  padding: 28px;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.node.key { border: 3px solid var(--petrol); background: var(--soft-blue); }
+.node h3 { font-size: 30px; }
+.node .small { font-size: 24px; }
+.arrow { width: 72px; align-self: center; }
+
+/* Tarjetas de tipos de error: texto un poco más compacto. */
+.card.err { gap: 12px; padding: 32px; }
+.card.err .body { font-size: 24px; line-height: 1.35; }
+
+/* Gráficos de barras horizontales (estadísticas y estrés). */
+.bars { display: flex; flex-direction: column; gap: 14px; }
+.bar-row { display: flex; align-items: center; gap: 16px; }
+.bar-lbl { width: 220px; font-size: 24px; color: var(--ink); }
+.bar-track { flex: 1; height: 28px; background: #EEF2F4; border-radius: 6px; overflow: hidden; }
+.bar-fill { height: 28px; background: var(--petrol); border-radius: 6px; }
+.bar-fill.weak { background: #B45309; }
+.bar-fill.none { background: #9AA5AE; }
+.bar-val { width: 200px; font-size: 24px; font-weight: 700; color: var(--ink); }
+
+/* Indicadores grandes sobre fondo claro. */
+.kpi { border-left: 6px solid var(--petrol); padding-left: 24px; display: flex; flex-direction: column; gap: 4px; }
+.kpi-num { font-family: 'Newsreader', Georgia, serif; font-size: 72px; font-weight: 600; line-height: 1; color: var(--ink); }
+.kpi-lbl { font-size: 26px; line-height: 1.35; color: var(--muted); }
+
+/* Movimiento: aparición escalonada al llegar a la diapositiva. */
+@keyframes rise { from { opacity: 0; transform: translateY(24px); } }
+.rise { animation: rise 600ms ease-out both; animation-delay: calc(var(--i, 0) * 120ms); }
+
+</style>
+</head>
+<body>
+<div id="escenario">
+<section id="cover-agenda" class="dark" style="justify-content:space-between;">
+<p class="eyebrow">Save a Life · Avance del proyecto</p>
+<div class="head" style="gap:28px;">
+<h1 class="rise" style="--i:0; max-width:1500px;">Testing, patrones, API REST y frontend</h1>
+<p class="lead rise" style="--i:1;">Lo que implementamos, dónde está en el código y una demo en vivo.</p>
+</div>
+<div class="cards rise" style="--i:2; grid-template-columns:1fr 1fr 1fr 1fr 1fr; gap:20px;">
+<div class="card" style="padding:24px;"><p class="tag">1</p><h3 style="font-size:28px;">Testing y errores</h3></div>
+<div class="card" style="padding:24px;"><p class="tag">2</p><h3 style="font-size:28px;">Patrones</h3></div>
+<div class="card" style="padding:24px;"><p class="tag">3</p><h3 style="font-size:28px;">API REST</h3></div>
+<div class="card" style="padding:24px;"><p class="tag">4</p><h3 style="font-size:28px;">HTML, CSS y JS</h3></div>
+<div class="card" style="padding:24px;"><p class="tag ok">5</p><h3 style="font-size:28px;">Demo</h3></div>
+</div>
+<aside>Cuatro temas de la clase y una demo del sistema completo. Todo con referencias al código real del repositorio.</aside>
+</section>
+<section id="testing-stats">
+<div class="head">
+<p class="eyebrow">Testing · Estadísticas</p>
+<h2>Cuánto está probada cada parte</h2>
+</div>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:64px;">
+<div class="bars">
+<h3>Backend · 862 pruebas</h3>
+<div class="bar-row"><p class="bar-lbl">Necesidades</p><div class="bar-track"><div class="bar-fill" style="width:100%;"></div></div><p class="bar-val">224</p></div>
+<div class="bar-row"><p class="bar-lbl">Seguridad y base</p><div class="bar-track"><div class="bar-fill" style="width:75%;"></div></div><p class="bar-val">167</p></div>
+<div class="bar-row"><p class="bar-lbl">Correos</p><div class="bar-track"><div class="bar-fill" style="width:68%;"></div></div><p class="bar-val">153</p></div>
+<div class="bar-row"><p class="bar-lbl">Sesión y hospitales</p><div class="bar-track"><div class="bar-fill" style="width:42%;"></div></div><p class="bar-val">93</p></div>
+<div class="bar-row"><p class="bar-lbl">Donantes</p><div class="bar-track"><div class="bar-fill" style="width:34%;"></div></div><p class="bar-val">77</p></div>
+<div class="bar-row"><p class="bar-lbl">Invitaciones</p><div class="bar-track"><div class="bar-fill weak" style="width:21%;"></div></div><p class="bar-val">48 · débil</p></div>
+<div class="bar-row"><p class="bar-lbl">Privacidad</p><div class="bar-track"><div class="bar-fill" style="width:17%;"></div></div><p class="bar-val">37</p></div>
+<p class="small">54 % de los archivos de código tienen su propia prueba.</p>
+</div>
+<div class="bars">
+<h3>Frontend · 428 pruebas</h3>
+<div class="bar-row"><p class="bar-lbl">Acceso y login</p><div class="bar-track"><div class="bar-fill" style="width:100%;"></div></div><p class="bar-val">128</p></div>
+<div class="bar-row"><p class="bar-lbl">Donante</p><div class="bar-track"><div class="bar-fill" style="width:67%;"></div></div><p class="bar-val">86</p></div>
+<div class="bar-row"><p class="bar-lbl">Componentes</p><div class="bar-track"><div class="bar-fill" style="width:52%;"></div></div><p class="bar-val">67</p></div>
+<div class="bar-row"><p class="bar-lbl">Hospital</p><div class="bar-track"><div class="bar-fill weak" style="width:46%;"></div></div><p class="bar-val">59 · débil</p></div>
+<div class="bar-row"><p class="bar-lbl">Superadmin</p><div class="bar-track"><div class="bar-fill" style="width:32%;"></div></div><p class="bar-val">41</p></div>
+<div class="bar-row"><p class="bar-lbl">Utilidades y app</p><div class="bar-track"><div class="bar-fill" style="width:34%;"></div></div><p class="bar-val">43</p></div>
+<div class="bar-row"><p class="bar-lbl">Página de sistema</p><div class="bar-track"><div class="bar-fill none" style="width:2%;"></div></div><p class="bar-val">0 · sin pruebas</p></div>
+<p class="small">36 % de los archivos de código tienen su propia prueba.</p>
+</div>
+</div>
+<p class="small">Resultado: 1.288 de 1.290 pasan. «Débil» = pocos archivos con prueba propia. La cobertura de líneas está pendiente de medir.</p>
+<div class="footer"><p>Testing · Estadísticas</p><p class="pagenum"></p></div>
+<aside>Las barras son el número de pruebas por área, medido con Vitest el 26-nov. El porcentaje cuenta los archivos de código que tienen un archivo de prueba con su mismo nombre; no es cobertura de líneas, que es mayor porque varias páginas se prueban desde otro archivo. Las áreas débiles son las invitaciones en el backend (20 %) y el hospital en el frontend (12 %); la página de sistema no tiene pruebas.</aside>
+</section>
+<section id="test-ejemplo-back">
+<div class="head">
+<p class="eyebrow">Testing · Una prueba real del backend</p>
+<h2>¿La ubicación del donante es válida?</h2>
+</div>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:48px;">
+<div style="display:flex; flex-direction:column; gap:16px;">
+<div class="code rise" style="--i:0;">
+<p><span class="c">// El código (location.ts:37, simplificado)</span></p>
+<p><span class="k">if</span> (fueraDeRango)   <span class="k">return</span> <span class="s">'range'</span></p>
+<p><span class="k">if</span> (!tresDecimales) <span class="k">return</span> <span class="s">'precision'</span></p>
+<p><span class="k">if</span> (!dentroDeLima)  <span class="k">return</span> <span class="s">'outside'</span></p>
+<p><span class="k">return</span> { ok: <span class="k">true</span> }</p>
+</div>
+</div>
+<div style="display:flex; flex-direction:column; gap:16px;">
+<div class="code rise" style="--i:1;">
+<p><span class="c">// La prueba (location.test.ts:58)</span></p>
+<p>validar({ lat: <span class="s">-12.0461</span> })</p>
+<p>&#160;&#160;→ <span class="s">'precision'</span>  <span class="c">// 4 decimales</span></p>
+<p>validar({ lat: <span class="s">-91</span> })</p>
+<p>&#160;&#160;→ <span class="s">'range'</span>      <span class="c">// no existe</span></p>
+<p>validar({ lng: <span class="s">-75.0</span> })</p>
+<p>&#160;&#160;→ <span class="s">'outside'</span>    <span class="c">// fuera de Lima</span></p>
+</div>
+</div>
+</div>
+<div class="cards">
+<div class="card"><p class="tag">Dónde</p><p class="body" style="font-size:24px;">backend/src/modules/<br>donor-records/domain/<br>location.test.ts</p></div>
+<div class="card"><p class="tag">Qué comprueba</p><p class="body" style="font-size:24px;">Los límites: es la regla detrás del error 422 de la API.</p></div>
+<div class="card"><p class="tag ok">Resultado</p><p class="body" style="font-size:24px;">16 de 16 pasan en 226 ms.</p></div>
+</div>
+<div class="footer"><p>Testing · Ejemplo backend</p><p class="pagenum"></p></div>
+<aside>Es una prueba de unidad de errores de límites (boundary errors): se prueban justo los valores en el borde de lo permitido. Si alguien cambia la regla, la prueba falla antes de que el cambio llegue al usuario. El código se muestra simplificado; en el archivo los nombres son validateApproximateLocation, hasAtMostThreeDecimals e isInsideOrOnBoundary.</aside>
+</section>
+<section id="test-ejemplo-front">
+<div class="head">
+<p class="eyebrow">Testing · Una prueba real del frontend</p>
+<h2>Un botón deshabilitado no debe hacer nada</h2>
+</div>
+<div style="display:grid; grid-template-columns:1fr 520px; gap:48px; align-items:start;">
+<div class="code rise" style="--i:0;">
+<p><span class="c">// frontend/src/components/ui/Button.test.tsx</span></p>
+<p>it(<span class="s">'no llama a onClick cuando está deshabilitado'</span>, () =&gt; {</p>
+<p>&#160;&#160;<span class="c">// 1. Preparar: una función espía en lugar de la real</span></p>
+<p>&#160;&#160;<span class="k">const</span> onClick = vi.fn();</p>
+<p>&#160;&#160;<span class="c">// 2. Actuar: dibujar el botón y hacer clic</span></p>
+<p>&#160;&#160;click(render(&lt;Button disabled onClick={onClick}&gt;…&lt;/Button&gt;));</p>
+<p>&#160;&#160;<span class="c">// 3. Comprobar: nunca se llamó</span></p>
+<p>&#160;&#160;expect(onClick).not.toHaveBeenCalled();</p>
+<p>});</p>
+</div>
+<div style="display:flex; flex-direction:column; gap:24px;">
+<div class="kpi"><p class="kpi-num">3 pasos</p><p class="kpi-lbl">Preparar, actuar y comprobar: así se lee cualquier prueba.</p></div>
+<div class="kpi"><p class="kpi-num">9 de 9</p><p class="kpi-lbl">pruebas de Button pasan en 2 s</p></div>
+<div class="kpi"><p class="kpi-num">vi.fn()</p><p class="kpi-lbl">un stub: reemplaza la acción real para poder observarla</p></div>
+</div>
+</div>
+<p class="small">El mismo archivo también comprueba que el botón es type="button" por defecto y que aplica cada variante de color.</p>
+<div class="footer"><p>Testing · Ejemplo frontend</p><p class="pagenum"></p></div>
+<aside>Es el componente Button de la sección de HTML y JS. La prueba lo dibuja en un navegador simulado (jsdom), le hace clic y verifica el resultado. vi.fn() es un espía: registra si alguien la llamó, como el stub de la clase. Si un cambio hiciera que un botón deshabilitado siguiera funcionando, esta prueba fallaría en el CI.</aside>
+</section>
+<section id="errores-tipos-1">
+<div class="head">
+<p class="eyebrow">Testing · Errores de software (1 de 2)</p>
+<h2>Errores de límites y de carrera</h2>
+</div>
+<div class="cards two">
+<div class="card featured err rise" style="--i:0;">
+<p class="tag">Boundary errors</p>
+<h3>Errores de límites</h3>
+<p class="body"><b>Qué es:</b> el código falla justo en el borde de lo permitido.</p>
+<p class="body"><b>Ejemplo simple:</b> un formulario que acepta una edad de −1 o de 200.</p>
+<p class="body"><b>En el proyecto:</b> la ubicación debe tener máximo 3 decimales y estar dentro de Lima. Sin control, una latitud −12.0461 o un punto en otra región llegarían a guardarse.</p>
+<p class="body"><b>Solución:</b> la regla vive en el dominio (location.ts) y la API responde 422; el mapa rechaza puntos fuera de Lima; 16 pruebas cubren los bordes.</p>
+</div>
+<div class="card featured err rise" style="--i:1;">
+<p class="tag">Race conditions</p>
+<h3>Condiciones de carrera</h3>
+<p class="body"><b>Qué es:</b> el resultado depende del orden en que llegan dos acciones al mismo tiempo.</p>
+<p class="body"><b>Ejemplo simple:</b> un doble clic en «Pagar» que cobra dos veces.</p>
+<p class="body"><b>En el proyecto:</b> al cerrar sesión, una respuesta lenta llegaba después y volvía a abrirla; y dos lotes pedidos a la vez podían pasar el tope por administrador.</p>
+<p class="body"><b>Solución:</b> un contador de «época» descarta respuestas viejas (session.ts:15); el tope se recomprueba con un bloqueo en la base y cada acción lleva Idempotency-Key.</p>
+</div>
+</div>
+<div class="footer"><p>Testing · Errores de software</p><p class="pagenum"></p></div>
+<aside>Ambos tipos están en la lista «Software Errors» de la clase. Límites: es la regla que muestra la prueba de location.test.ts. Carrera: el arreglo de la sesión está en el commit 725ce19 (restoreSession con época) y el del tope de lotes en 6164c2b (se vuelve a comprobar bajo el bloqueo de la cuota). La Idempotency-Key hace que un reintento o un doble envío no repita la acción.</aside>
+</section>
+<section id="errores-tipos-2">
+<div class="head">
+<p class="eyebrow">Testing · Errores de software (2 de 2)</p>
+<h2>Errores de interfaz y de configuración</h2>
+</div>
+<div class="cards two">
+<div class="card featured err rise" style="--i:0;">
+<p class="tag">User interface errors</p>
+<h3>Errores de interfaz</h3>
+<p class="body"><b>Qué es:</b> la pantalla se ve o se comporta mal aunque los datos sean correctos.</p>
+<p class="body"><b>Ejemplo simple:</b> un botón que queda tapado por otro elemento.</p>
+<p class="body"><b>En el proyecto:</b> al cambiar de sección en Edge, la página «saltaba» 7 px porque la barra de scroll aparecía y desaparecía según el largo de la vista.</p>
+<p class="body"><b>Solución:</b> una línea de CSS, scrollbar-gutter: stable, reserva siempre el espacio de la barra (PR #37).</p>
+</div>
+<div class="card featured err rise" style="--i:1;">
+<p class="tag">Versioning and configuration errors</p>
+<h3>Errores de versión y configuración</h3>
+<p class="body"><b>Qué es:</b> el código es correcto, pero falla por el entorno o la configuración.</p>
+<p class="body"><b>Ejemplo simple:</b> «en mi PC funciona, en el servidor no».</p>
+<p class="body"><b>En el proyecto:</b> 2 pruebas pasan en Linux y fallan en Windows por los permisos de archivo; y en local nadie podía entrar porque el límite de 10 logins por IP lo compartían todos.</p>
+<p class="body"><b>Solución:</b> el CI corre en Linux, igual que el servidor; en local se vacían los contadores y el límite quedó documentado.</p>
+</div>
+</div>
+<div class="footer"><p>Testing · Errores de software</p><p class="pagenum"></p></div>
+<aside>El error de interfaz lo encontró un usuario probando en Edge y se midió con el navegador: el título se movía de 289 a 296 px. Las pruebas de Windows esperan permisos 0700 de Linux y reciben 0666. El límite de logins protege la API en producción, donde cada persona tiene su propia IP; en local todos salen desde 127.0.0.1.</aside>
+</section>
+<section id="testing-estres">
+<div class="head">
+<p class="eyebrow">Testing · Prueba de estrés automatizada</p>
+<h2>Con 400 usuarios a la vez, la API se pone lenta pero no se cae</h2>
+</div>
+<div style="display:grid; grid-template-columns:1fr 440px; gap:56px; align-items:start;">
+<div class="bars" style="position:relative;">
+<div style="position:absolute; left:516px; top:44px; width:4px; height:392px; border-left:4px dashed #854D0E;"></div>
+<p class="small">Tiempo de respuesta p95. La línea punteada es el objetivo de 500 ms.</p>
+<div class="bar-row"><p class="bar-lbl">1 usuario</p><div class="bar-track"><div class="bar-fill" style="width:4%;"></div></div><p class="bar-val">51 ms</p></div>
+<div class="bar-row"><p class="bar-lbl">10 usuarios</p><div class="bar-track"><div class="bar-fill" style="width:2%;"></div></div><p class="bar-val">30 ms</p></div>
+<div class="bar-row"><p class="bar-lbl">25 usuarios</p><div class="bar-track"><div class="bar-fill" style="width:9%;"></div></div><p class="bar-val">113 ms</p></div>
+<div class="bar-row"><p class="bar-lbl">50 usuarios</p><div class="bar-track"><div class="bar-fill" style="width:16%;"></div></div><p class="bar-val">204 ms</p></div>
+<div class="bar-row"><p class="bar-lbl">100 usuarios</p><div class="bar-track"><div class="bar-fill" style="width:27%;"></div></div><p class="bar-val">347 ms</p></div>
+<div class="bar-row"><p class="bar-lbl">200 usuarios</p><div class="bar-track"><div class="bar-fill weak" style="width:68%;"></div></div><p class="bar-val">865 ms</p></div>
+<div class="bar-row"><p class="bar-lbl">400 usuarios</p><div class="bar-track"><div class="bar-fill weak" style="width:100%;"></div></div><p class="bar-val">1.280 ms</p></div>
+</div>
+<div style="display:flex; flex-direction:column; gap:28px;">
+<div class="kpi"><p class="kpi-num">24.163</p><p class="kpi-lbl">peticiones en 70 segundos</p></div>
+<div class="kpi"><p class="kpi-num">0</p><p class="kpi-lbl">errores: todas respondieron 200</p></div>
+<div class="kpi"><p class="kpi-num">~450/s</p><p class="kpi-lbl">techo de peticiones por segundo</p></div>
+</div>
+</div>
+<p class="body">Con 10 usuarios cumple con holgura RNF-PER-03 (p95 30 ms). Pasado el techo, las peticiones esperan en cola: suben los tiempos, no los errores, y al terminar la API vuelve a responder normal.</p>
+<div class="footer"><p>Testing · Estrés</p><p class="pagenum"></p></div>
+<aside>Script backend/.local/prueba-estres.mts: inicia sesión una vez con un donante de prueba y lanza usuarios simultáneos que piden «mi perfil» y «mis invitaciones» durante 10 s por nivel, contra el backend local. Números de la laptop del equipo con Docker; sirven para ver la tendencia, no como medición de producción. El p95 de 1 usuario es mayor que el de 10 por el calentamiento inicial.</aside>
+</section>
+<section id="facade">
+<div class="head">
+<p class="eyebrow">Patrón estructural · Implementado</p>
+<h2>Facade: una sola puerta hacia el backend</h2>
+</div>
+<div style="display:grid; grid-template-columns:640px 1fr; gap:56px;">
+<div style="display:flex; flex-direction:column; gap:24px;">
+<p class="body"><b>Problema:</b> cada llamada al backend debe armar cabeceras, Idempotency-Key, CSRF, cookies y traducir errores.</p>
+<p class="body"><b>Solución:</b> <span style="color:#164E63;"><b>apiRequest</b></span> esconde todo eso. Las pantallas usan una sola función.</p>
+<p class="path">frontend/src/lib/api/http.ts:34</p>
+</div>
+<div class="code rise" style="--i:1;">
+<p><span class="c">// Lo que oculta la fachada</span></p>
+<p><span class="k">export async function</span> apiRequest(method, path, options) {</p>
+<p>&#160;&#160;headers[<span class="s">'Idempotency-Key'</span>] = …   <span class="c">// sin duplicados</span></p>
+<p>&#160;&#160;headers[<span class="s">'X-CSRF-Token'</span>] = csrfToken  <span class="c">// sesión</span></p>
+<p>&#160;&#160;fetch(<span class="s">`/api/v1${path}`</span>, { credentials, no-store })</p>
+<p>&#160;&#160;<span class="k">if</span> (!ok) <span class="k">throw new</span> ApiError(tipo, status, code)</p>
+<p>}</p>
+<p>&#160;</p>
+<p><span class="c">// Lo que ve una pantalla</span></p>
+<p>apiRequest(<span class="s">'PUT'</span>, <span class="s">'/donors/me/onboarding-profile'</span>, { body })</p>
+</div>
+</div>
+<div class="footer"><p>Patrones · Facade</p><p class="pagenum"></p></div>
+<aside>Facade da una interfaz simple a un subsistema complejo. apiRequest concentra seis responsabilidades: Content-Type, Idempotency-Key reutilizable en reintentos, token CSRF, cookies sin caché ni referrer, errores de red y traducción del error HTTP a ApiError. Si cambia cómo se manda el CSRF, se cambia en un solo lugar.</aside>
+</section>
+<section id="proximos">
+<div class="head">
+<p class="eyebrow">Patrones · Por implementar</p>
+<h2>Dos patrones creacionales que resuelven problemas reales</h2>
+</div>
+<div class="cards two">
+<div class="card pending rise" style="--i:0;">
+<p class="tag pend">Pendiente · Builder</p>
+<h3>Armar los correos paso a paso</h3>
+<p class="body"><span style="color:#164E63;"><b>unCorreo('Asunto').parrafo('…').enlace(link).build()</b></span> reemplaza a compose() con parámetros por posición.</p>
+<p class="small">Un proceso, dos versiones: texto plano y HTML. templates/common.ts:31</p>
+</div>
+<div class="card pending rise" style="--i:1;">
+<p class="tag pend">Pendiente · Abstract Factory</p>
+<h3>Un kit por proveedor de correo</h3>
+<p class="body">Cada kit entrega juntos el enviador y la lista de destinatarios permitidos, para que no se desalineen.</p>
+<p class="small">Hoy se eligen por separado. composition-worker.ts:50-56</p>
+</div>
+</div>
+<p class="small">[Completar: implementación y resultado de las pruebas.]</p>
+<div class="footer"><p>Patrones · Próximos</p><p class="pagenum"></p></div>
+<aside>Builder: los seis correos usan compose(asunto, párrafos, enlace, extras), donde hay que recordar el orden y pasar null. Abstract Factory: hoy el enviador y la lista de destinatarios se eligen con dos condiciones distintas; si se agrega un proveedor y se olvida la segunda, se enviaría sin la lista de seguridad. Prototype se evalúa aparte.</aside>
+</section>
+<section id="rest-reglas">
+<div class="head">
+<p class="eyebrow">API REST · Una petición completa</p>
+<h2>Publicar una necesidad, de punta a punta</h2>
+</div>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:start;">
+<div style="display:flex; flex-direction:column; gap:16px;">
+<p class="tag">Lo que envía el frontend</p>
+<div class="code rise" style="--i:0;">
+<p><span class="k">PATCH</span> /api/v1/hospitals/me/needs/4c11…  <span class="c">①②</span></p>
+<p>Cookie: __Host-sal_at=…        <span class="c">③ sesión</span></p>
+<p>X-CSRF-Token: …                <span class="c">③ seguridad</span></p>
+<p>Idempotency-Key: 9f1c…         <span class="c">④ reintento</span></p>
+<p>Content-Type: application/json</p>
+<p>&#160;</p>
+<p>{ <span class="s">"status"</span>: <span class="s">"activa"</span> }            <span class="c">⑤</span></p>
+</div>
+<p class="small">① URL = recurso con sustantivos («me» = mi hospital) · ② PATCH = cambiar una parte · ③ sesión en cookie + CSRF · ④ si se repite, no se duplica · ⑤ solo lo que cambia</p>
+</div>
+<div style="display:flex; flex-direction:column; gap:16px;">
+<p class="tag ok">Lo que responde el backend</p>
+<div class="code rise" style="--i:1;">
+<p><span class="k">200 OK</span>   Cache-Control: no-store</p>
+<p>{ <span class="s">"data"</span>: {</p>
+<p>&#160;&#160;<span class="s">"needId"</span>: <span class="s">"4c117ef2-…"</span>,</p>
+<p>&#160;&#160;<span class="s">"requiredBloodType"</span>: <span class="s">"O_POS"</span>,</p>
+<p>&#160;&#160;<span class="s">"status"</span>: <span class="s">"activa"</span>, … } }</p>
+</div>
+<p class="tag pend">Si el estado no lo permite</p>
+<div class="code rise" style="--i:2;">
+<p><span class="k">409 Conflict</span></p>
+<p>{ <span class="s">"error"</span>: { <span class="s">"code"</span>: <span class="s">"STATE_CONFLICT"</span>,</p>
+<p>&#160;&#160;<span class="s">"message"</span>: <span class="s">"…"</span>, <span class="s">"correlationId"</span>: <span class="s">"…"</span> } }</p>
+</div>
+</div>
+</div>
+<div class="footer"><p>API REST · Petición completa</p><p class="pagenum"></p></div>
+<aside>Ejemplo real del contrato (operación transitionOwnHospitalNeed, con los ejemplos de docs/openapi.json). Publicar una necesidad es cambiar su estado a activa: no existe una ruta /publicar. Éxito y error usan siempre la misma envoltura: data o error. En todo el contrato hay GET 37, POST 24, PATCH 9, PUT 2 y DELETE 2. El 409 aparece, por ejemplo, si se intenta activar una necesidad ya cerrada.</aside>
+</section>
+<section id="rest-openapi">
+<div class="head">
+<p class="eyebrow">API REST · docs/openapi.json (resumido y comentado)</p>
+<h2>Así define el contrato esa misma petición</h2>
+</div>
+<div style="display:grid; grid-template-columns:1fr 700px; gap:48px; align-items:start;">
+<div class="code rise" style="--i:0;">
+<p><span class="s">"/api/v1/hospitals/me/needs/{needId}"</span>: {  <span class="c">// ruta</span></p>
+<p>&#160;&#160;<span class="s">"patch"</span>: {                          <span class="c">// método</span></p>
+<p>&#160;&#160;&#160;&#160;<span class="s">"operationId"</span>: <span class="s">"transitionOwnHospitalNeed"</span>,</p>
+<p>&#160;&#160;&#160;&#160;<span class="s">"security"</span>: [{ <span class="s">"sessionCookie"</span>: [],  <span class="c">// sesión</span></p>
+<p>&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;&#160;<span class="s">"csrfToken"</span>: [] }],  <span class="c">// y CSRF</span></p>
+<p>&#160;&#160;&#160;&#160;<span class="s">"parameters"</span>: [ <span class="s">"IdempotencyKey"</span> ],  <span class="c">// cabecera</span></p>
+<p>&#160;&#160;&#160;&#160;<span class="s">"requestBody"</span>: {                <span class="c">// qué se envía</span></p>
+<p>&#160;&#160;&#160;&#160;&#160;&#160;<span class="s">"schema"</span>: <span class="s">"NeedTransitionRequest"</span>,</p>
+<p>&#160;&#160;&#160;&#160;&#160;&#160;<span class="s">"example"</span>: { <span class="s">"status"</span>: <span class="s">"activa"</span> } },</p>
+<p>&#160;&#160;&#160;&#160;<span class="s">"responses"</span>: {                  <span class="c">// qué vuelve</span></p>
+<p>&#160;&#160;&#160;&#160;&#160;&#160;<span class="s">"200"</span>: <span class="s">"NeedEnvelope"</span>,          <span class="c">// éxito</span></p>
+<p>&#160;&#160;&#160;&#160;&#160;&#160;<span class="s">"409"</span>: <span class="s">"Conflict"</span>, …  } } }     <span class="c">// errores</span></p>
+</div>
+<div style="display:flex; flex-direction:column; gap:20px;">
+<div class="code rise" style="--i:1;">
+<p><span class="c">// el cuerpo permitido</span></p>
+<p><span class="s">"NeedTransitionRequest"</span>: {</p>
+<p>&#160;&#160;<span class="s">"required"</span>: [<span class="s">"status"</span>],</p>
+<p>&#160;&#160;<span class="s">"status"</span>: { <span class="s">"enum"</span>: [<span class="s">"activa"</span>,</p>
+<p>&#160;&#160;&#160;&#160;<span class="s">"cerrada"</span>, <span class="s">"cancelada"</span>] },</p>
+<p>&#160;&#160;<span class="s">"additionalProperties"</span>: <span class="k">false</span></p>
+<p>}</p>
+</div>
+<p class="body" style="font-size:26px;">Un estado que no está en la lista, o un campo de más, se rechaza antes de llegar a la lógica.</p>
+</div>
+</div>
+<p class="small">De este archivo salen los tipos de TypeScript, la validación del backend, el mock Prism y la colección Bruno. El CI falla si el código se desalinea.</p>
+<div class="footer"><p>API REST · OpenAPI</p><p class="pagenum"></p></div>
+<aside>Es la misma petición de la diapositiva anterior, vista desde el contrato. En el archivo real, las referencias son $ref a #/components/... y el cuerpo va dentro de content › application/json; aquí se resumió para leerlo en voz alta. El backend usa este esquema para validar cada petición (compileOperation con Ajv) y el contrato se puede abrir en Swagger Editor.</aside>
+</section>
+<section id="rest-ejemplo">
+<div class="head">
+<p class="eyebrow">API REST · Ejemplo real</p>
+<h2>El recurso «necesidades» del hospital</h2>
+</div>
+<div style="display:grid; grid-template-columns:600px 1fr; gap:48px;">
+<table>
+<tr class="headrow"><th style="width:30%;">Método</th><th style="width:40%;">Ruta</th><th style="width:30%;">Éxito</th></tr>
+<tr><td>POST</td><td>/needs</td><td>201 creado</td></tr>
+<tr><td>GET</td><td>/needs</td><td>200 lista</td></tr>
+<tr><td>GET</td><td>/needs/{id}</td><td>200 detalle</td></tr>
+<tr><td>PATCH</td><td>/needs/{id}</td><td>200 estado</td></tr>
+</table>
+<div class="code rise" style="--i:1;">
+<p><span class="c">// backend/src/modules/need-records/http/needs.router.ts</span></p>
+<p>app.post(<span class="s">'…/hospitals/me/needs'</span>, guards, <span class="k">async</span> (req, res) =&gt; {</p>
+<p>&#160;&#160;…</p>
+<p>&#160;&#160;sendData(res, <span class="k">201</span>, ok(createNeed, result.need));</p>
+<p>});</p>
+<p>app.patch(<span class="s">'…/needs/:needId'</span>, guards, <span class="k">async</span> (req, res) =&gt; {</p>
+<p>&#160;&#160;<span class="k">const</span> key = requireIdempotencyKey(req);</p>
+<p>&#160;&#160;sendData(res, <span class="k">200</span>, …needs.transition(…));</p>
+<p>});</p>
+</div>
+</div>
+<p class="small">«me» significa «mi hospital»: el servidor lo deduce de la sesión; el cliente nunca envía el id del hospital.</p>
+<div class="footer"><p>API REST · Ejemplo</p><p class="pagenum"></p></div>
+<aside>Un mismo recurso, cuatro operaciones y cada una con su método y su código de éxito. Publicar una necesidad es un PATCH que cambia su estado a activa; no hay una ruta /publicar.</aside>
+</section>
+<section id="rest-veredicto">
+<div class="head">
+<p class="eyebrow">API REST · Veredicto</p>
+<h2>¿Qué tan RESTful es? Nivel 2 de 3</h2>
+</div>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:start;">
+<div style="display:flex; flex-direction:column; gap:14px;">
+<h3>Restricciones de Fielding</h3>
+<p class="body" style="font-size:26px;"><span style="color:#166534;"><b>Sí</b></span> · Cliente-servidor: frontend/ y backend/ separados</p>
+<p class="body" style="font-size:26px;"><span style="color:#166534;"><b>Sí</b></span> · Sin estado: cada petición trae su sesión en cookie</p>
+<p class="body" style="font-size:26px;"><span style="color:#166534;"><b>Sí</b></span> · Interfaz uniforme: recursos, métodos y códigos</p>
+<p class="body" style="font-size:26px;"><span style="color:#166534;"><b>Sí</b></span> · Sistema en capas: borde → Express → Supabase</p>
+<p class="body" style="font-size:26px;"><span style="color:#854D0E;"><b>A propósito no</b></span> · Caché: no-store, por datos personales</p>
+</div>
+<div style="display:flex; flex-direction:column; gap:14px;">
+<h3>Modelo de Richardson</h3>
+<div class="bar-row"><p class="bar-lbl">Nivel 1 · Recursos</p><div class="bar-track"><div class="bar-fill" style="width:100%;"></div></div><p class="bar-val">Cumple</p></div>
+<div class="bar-row"><p class="bar-lbl">Nivel 2 · Verbos</p><div class="bar-track"><div class="bar-fill" style="width:100%;"></div></div><p class="bar-val">Cumple</p></div>
+<div class="bar-row"><p class="bar-lbl">Nivel 3 · Hipermedia</p><div class="bar-track"><div class="bar-fill none" style="width:2%;"></div></div><p class="bar-val">No</p></div>
+<p class="small">A mejorar: cabecera Location en las respuestas 201.</p>
+</div>
+</div>
+<p class="lead">74 operaciones en 59 rutas · GET 37 · POST 24 · PATCH 9 · PUT 2 · DELETE 2</p>
+<div class="footer"><p>API REST · Veredicto</p><p class="pagenum"></p></div>
+<aside>La caché se apaga a propósito: grupo sanguíneo, ubicación y correo no deben quedar en cachés intermedias. El nivel 3 (HATEOAS) es poco común; aquí el contrato OpenAPI documenta las acciones posibles. Cifras de docs/openapi.json en main al 26-nov.</aside>
+</section>
+<section id="web-jsx">
+<div class="head">
+<p class="eyebrow">HTML, CSS y JS · Componentes</p>
+<h2>JavaScript que exporta funciones y genera HTML</h2>
+</div>
+<div style="display:grid; grid-template-columns:600px 1fr; gap:48px;">
+<div style="display:flex; flex-direction:column; gap:24px;">
+<p class="body">Con React, cada parte de la pantalla es una <b>función de JavaScript que se exporta</b> y devuelve HTML (JSX).</p>
+<p class="body">Se escribe una vez y se reutiliza en toda la app: el mismo botón en el login, el perfil y el hospital.</p>
+<p class="path">frontend/src/components/ui/Button.tsx</p>
+</div>
+<div style="display:flex; flex-direction:column; gap:24px;">
+<div class="code rise" style="--i:1;">
+<p><span class="c">// El componente: una función exportada</span></p>
+<p><span class="k">export const</span> Button = forwardRef(<span class="k">function</span> Button(</p>
+<p>&#160;&#160;{ variant = <span class="s">'primary'</span>, type = <span class="s">'button'</span>, …props }, ref) {</p>
+<p>&#160;&#160;<span class="k">return</span> &lt;button className={buttonClass(variant)} … /&gt;;</p>
+<p>});</p>
+</div>
+<div class="code rise" style="--i:2;">
+<p><span class="c">// El HTML que llega al navegador</span></p>
+<p>&lt;button type=<span class="s">"button"</span> class=<span class="s">"inline-flex min-h-11 rounded-lg</span></p>
+<p><span class="s">&#160;&#160;bg-brand text-white …"</span>&gt;Guardar&lt;/button&gt;</p>
+</div>
+</div>
+</div>
+<div class="footer"><p>HTML, CSS y JS · Componentes</p><p class="pagenum"></p></div>
+<aside>JSX parece HTML pero es JavaScript: React lo convierte en etiquetas HTML reales. type="button" por defecto evita que un botón envíe un formulario por accidente.</aside>
+</section>
+<section id="web-estilo">
+<div class="head">
+<p class="eyebrow">HTML, CSS y JS · Estilo y etiquetas</p>
+<h2>Tailwind da el estilo; el HTML dice qué es cada cosa</h2>
+</div>
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:start;">
+<div style="display:flex; flex-direction:column; gap:16px;">
+<h3>Hoja de estilos con tokens</h3>
+<div class="code rise" style="--i:0;">
+<p><span class="c">/* frontend/src/styles.css */</span></p>
+<p><span class="k">@theme</span> {</p>
+<p>&#160;&#160;--color-brand: <span class="s">#b4233c</span>;</p>
+<p>&#160;&#160;--color-petrol: <span class="s">#164e63</span>; }</p>
+<p>&#160;</p>
+<p><span class="c">/* uso: clases en el componente */</span></p>
+<p><span class="s">"bg-brand text-white rounded-lg"</span></p>
+</div>
+<p class="small">Modo oscuro: solo se redefinen los tokens.</p>
+</div>
+<div style="display:flex; flex-direction:column; gap:16px;">
+<h3>Texto etiquetado (HTML semántico)</h3>
+<div class="code rise" style="--i:1;">
+<p>&lt;<span class="k">header</span>&gt; &lt;<span class="k">nav</span> aria-label=<span class="s">"Cuenta"</span>&gt;</p>
+<p>&lt;<span class="k">main</span> id=<span class="s">"contenido"</span>&gt;</p>
+<p>&#160;&#160;&lt;<span class="k">h1</span>&gt;Mi perfil&lt;/<span class="k">h1</span>&gt;</p>
+<p>&#160;&#160;&lt;<span class="k">label</span> for=<span class="s">"correo"</span>&gt;Correo&lt;/<span class="k">label</span>&gt;</p>
+<p>&#160;&#160;&lt;<span class="k">input</span> id=<span class="s">"correo"</span>&gt;</p>
+<p>&lt;/<span class="k">main</span>&gt;</p>
+</div>
+<p class="small">Foco visible de 3 px y 119 avisos con role="status" o "alert".</p>
+</div>
+</div>
+<div class="footer"><p>HTML, CSS y JS · Estilo</p><p class="pagenum"></p></div>
+<aside>Los tokens salen del diseño en Penpot: cambiar un color en @theme lo cambia en toda la app. Las etiquetas semánticas (header, nav, main, label) permiten usar la app con teclado y lector de pantalla, y ayudan a que las pruebas encuentren los elementos por su rol. Componentes reales: AppLayout.tsx y Field.tsx.</aside>
+</section>
+<section id="demo" class="accent">
+<div class="head">
+<p class="eyebrow">Demo en vivo</p>
+<h2>Del hospital al donante, en cuatro pasos</h2>
+</div>
+<div class="cards" style="grid-template-columns:1fr 1fr 1fr 1fr;">
+<div class="card rise" style="--i:0;"><p class="tag">1 · Hospital</p><h3>Publica una necesidad</h3><p class="body">Crea la necesidad y pulsa «Publicar e invitar».</p></div>
+<div class="card rise" style="--i:1;"><p class="tag">2 · Correo</p><h3>Llega la invitación</h3><p class="body">El buzón local muestra el correo al donante compatible.</p></div>
+<div class="card rise" style="--i:2;"><p class="tag">3 · Donante</p><h3>Confirma</h3><p class="body">Inicia sesión y confirma su intención de asistir.</p></div>
+<div class="card rise" style="--i:3;"><p class="tag ok">4 · Hospital</p><h3>Ve la respuesta</h3><p class="body">El hospital ve la confirmación en su panel.</p></div>
+</div>
+<p class="lead">Backend real en local: Supabase, Express, worker de correos y frontend.</p>
+<div class="footer"><p>Demo</p><p class="pagenum"></p></div>
+<aside>Antes de exponer: levantar Supabase y npm run dev:local, vaciar los contadores de intentos, tener un donante activo cerca de la sede, el comando del código MFA a mano y las pestañas abiertas. Llevar capturas de respaldo por si algo falla.</aside>
+</section>
+</div>
+<p id="ayuda">← → para avanzar · N muestra las notas · F pantalla completa</p>
+<script>
+const s = [...document.querySelectorAll('#escenario > section')];
+let i = Math.max(0, Math.min(s.length - 1, (parseInt(location.hash.slice(1), 10) || 1) - 1));
+function escalar() {
+  const k = Math.min(innerWidth / 1920, innerHeight / 1080);
+  document.getElementById('escenario').style.transform = 'translate(-50%, -50%) scale(' + k + ')';
+}
+function mostrar(n) {
+  i = Math.max(0, Math.min(s.length - 1, n));
+  s.forEach((el, j) => el.classList.toggle('activa', j === i));
+  history.replaceState(null, '', '#' + (i + 1));
+}
+addEventListener('keydown', (e) => {
+  if (['ArrowRight', 'PageDown', ' '].includes(e.key)) mostrar(i + 1);
+  else if (['ArrowLeft', 'PageUp'].includes(e.key)) mostrar(i - 1);
+  else if (e.key === 'Home') mostrar(0);
+  else if (e.key === 'End') mostrar(s.length - 1);
+  else if (e.key.toLowerCase() === 'n') document.body.classList.toggle('notas');
+  else if (e.key.toLowerCase() === 'f') document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+});
+addEventListener('click', (e) => { if (!e.target.closest('a')) mostrar(e.clientX > innerWidth / 3 ? i + 1 : i - 1); });
+addEventListener('resize', escalar);
+escalar(); mostrar(i);
+</script>
+</body>
+</html>
